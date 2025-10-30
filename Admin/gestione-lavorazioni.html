@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST Admin - Gestione Lavorazioni</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-hidden { transform: translateX(-100%); }
+        .sidebar-visible { transform: translateX(0); }
+        .modal-hidden { opacity: 0; pointer-events: none; }
+        .modal-visible { opacity: 1; pointer-events: auto; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .kanban-column { min-height: 400px; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 sidebar-hidden lg:sidebar-visible">
+            <!-- Header -->
+            <div class="flex h-16 items-center justify-between px-6 border-b">
+                <h1 class="text-xl font-bold text-gray-900">AST Admin</h1>
+                <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="admin-functional.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📊</span>
+                    Dashboard
+                </a>
+                <a href="gestione-utenti.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">👥</span>
+                    Gestione Utenti
+                </a>
+                <a href="#" class="bg-red-50 text-red-700 border-red-200 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📋</span>
+                    Lavorazioni
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">💬</span>
+                    Richieste
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📅</span>
+                    Calendario
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">⚙️</span>
+                    Impostazioni
+                </a>
+            </nav>
+
+            <!-- User Profile -->
+            <div class="border-t p-4">
+                <div class="flex items-center">
+                    <div class="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
+                        <span class="text-sm font-medium text-white">AD</span>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-700">Admin</p>
+                        <p class="text-xs text-gray-500">Amministratore</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm border-b">
+                <div class="flex h-16 items-center justify-between px-6">
+                    <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
+                        ☰
+                    </button>
+                    <h2 class="text-lg font-semibold text-gray-900">Gestione Lavorazioni</h2>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="switchView('kanban')" id="kanbanBtn" class="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium">
+                            📋 Kanban
+                        </button>
+                        <button onclick="switchView('list')" id="listBtn" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium">
+                            📊 Lista
+                        </button>
+                        <button onclick="openAddTaskModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            ➕ Nuova Lavorazione
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <main class="flex-1 overflow-auto p-6">
+                <!-- Statistics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-blue-100 rounded-lg">
+                                <span class="text-blue-600 text-xl">📋</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Totale Lavorazioni</p>
+                                <p id="totalTasks" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-yellow-100 rounded-lg">
+                                <span class="text-yellow-600 text-xl">⏳</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">In Corso</p>
+                                <p id="inProgressTasks" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-green-100 rounded-lg">
+                                <span class="text-green-600 text-xl">✅</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Completate</p>
+                                <p id="completedTasks" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-red-100 rounded-lg">
+                                <span class="text-red-600 text-xl">🚨</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">In Ritardo</p>
+                                <p id="overdueTasks" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban View -->
+                <div id="kanbanView" class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <!-- Da Eseguire -->
+                    <div class="bg-white rounded-lg border">
+                        <div class="px-4 py-3 border-b bg-blue-50">
+                            <h3 class="font-semibold text-gray-900 flex items-center">
+                                <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                                Da Eseguire
+                                <span id="pendingCount" class="ml-auto bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">0</span>
+                            </h3>
+                        </div>
+                        <div id="pendingTasks" class="p-4 space-y-3 kanban-column">
+                            <!-- Tasks will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- In Corso -->
+                    <div class="bg-white rounded-lg border">
+                        <div class="px-4 py-3 border-b bg-yellow-50">
+                            <h3 class="font-semibold text-gray-900 flex items-center">
+                                <span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                                In Corso
+                                <span id="inProgressCount" class="ml-auto bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">0</span>
+                            </h3>
+                        </div>
+                        <div id="inProgressTasksCol" class="p-4 space-y-3 kanban-column">
+                            <!-- Tasks will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Completate -->
+                    <div class="bg-white rounded-lg border">
+                        <div class="px-4 py-3 border-b bg-green-50">
+                            <h3 class="font-semibold text-gray-900 flex items-center">
+                                <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                                Completate
+                                <span id="completedCount" class="ml-auto bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">0</span>
+                            </h3>
+                        </div>
+                        <div id="completedTasksCol" class="p-4 space-y-3 kanban-column">
+                            <!-- Tasks will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Sospese -->
+                    <div class="bg-white rounded-lg border">
+                        <div class="px-4 py-3 border-b bg-red-50">
+                            <h3 class="font-semibold text-gray-900 flex items-center">
+                                <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                                Sospese
+                                <span id="suspendedCount" class="ml-auto bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">0</span>
+                            </h3>
+                        </div>
+                        <div id="suspendedTasksCol" class="p-4 space-y-3 kanban-column">
+                            <!-- Tasks will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List View (Hidden by default) -->
+                <div id="listView" class="hidden">
+                    <div class="bg-white rounded-lg border shadow-sm">
+                        <div class="px-6 py-4 border-b flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-gray-900">Elenco Lavorazioni</h3>
+                            <div class="flex space-x-2">
+                                <select id="statusFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Tutti gli stati</option>
+                                    <option value="pending">Da Eseguire</option>
+                                    <option value="in_progress">In Corso</option>
+                                    <option value="completed">Completate</option>
+                                    <option value="suspended">Sospese</option>
+                                </select>
+                                <select id="assignedFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Tutti gli utenti</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lavorazione</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assegnato a</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priorità</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scadenza</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasksTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Tasks will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit Task Modal -->
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-hidden transition-all duration-300">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4 max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b">
+                <h3 id="taskModalTitle" class="text-lg font-semibold text-gray-900">Nuova Lavorazione</h3>
+            </div>
+            <form id="taskForm" class="px-6 py-4 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Titolo Lavorazione</label>
+                        <input type="text" id="taskTitle" name="title" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+                        <textarea id="taskDescription" name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Assegna a</label>
+                        <select id="taskAssignedTo" name="assignedTo" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                            <option value="">Seleziona dipendente</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
+                        <select id="taskPriority" name="priority" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                            <option value="low">Bassa</option>
+                            <option value="medium" selected>Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data Scadenza</label>
+                        <input type="date" id="taskDueDate" name="dueDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <select id="taskCategory" name="category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                            <option value="maintenance">Manutenzione</option>
+                            <option value="production">Produzione</option>
+                            <option value="quality">Controllo Qualità</option>
+                            <option value="cleaning">Pulizia</option>
+                            <option value="logistics">Logistica</option>
+                            <option value="other">Altro</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+            <div class="px-6 py-4 border-t flex justify-end space-x-3">
+                <button onclick="closeTaskModal()" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                    Annulla
+                </button>
+                <button onclick="saveTask()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+                    Salva Lavorazione
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-white border rounded-lg shadow-lg p-4 max-w-sm">
+            <div class="flex items-center">
+                <div id="notificationIcon" class="mr-3"></div>
+                <div>
+                    <p id="notificationTitle" class="font-medium text-gray-900"></p>
+                    <p id="notificationMessage" class="text-sm text-gray-600"></p>
+                </div>
+                <button onclick="hideNotification()" class="ml-4 text-gray-400 hover:text-gray-600">
+                    ✕
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data
+        const users = [
+            { id: 1, fullName: 'Mario Rossi', role: 'employee' },
+            { id: 2, fullName: 'Luca Bianchi', role: 'manager' },
+            { id: 3, fullName: 'Anna Verdi', role: 'employee' },
+            { id: 4, fullName: 'Giuseppe Neri', role: 'employee' }
+        ];
+
+        let tasks = [
+            {
+                id: 1,
+                title: 'Manutenzione Impianto A',
+                description: 'Controllo e manutenzione ordinaria dell\'impianto di produzione A',
+                assignedTo: 1,
+                assignedToName: 'Mario Rossi',
+                status: 'in_progress',
+                priority: 'high',
+                category: 'maintenance',
+                dueDate: '2025-11-05',
+                createdAt: '2025-10-28T09:00:00Z',
+                updatedAt: '2025-10-30T14:30:00Z'
+            },
+            {
+                id: 2,
+                title: 'Controllo Qualità Lotto B',
+                description: 'Verificare la qualità del lotto B secondo standard ISO 9001',
+                assignedTo: 2,
+                assignedToName: 'Luca Bianchi',
+                status: 'completed',
+                priority: 'medium',
+                category: 'quality',
+                dueDate: '2025-10-30',
+                createdAt: '2025-10-25T10:00:00Z',
+                updatedAt: '2025-10-29T16:45:00Z'
+            },
+            {
+                id: 3,
+                title: 'Pulizia Area Produzione',
+                description: 'Pulizia completa e sanificazione dell\'area produttiva',
+                assignedTo: 3,
+                assignedToName: 'Anna Verdi',
+                status: 'pending',
+                priority: 'low',
+                category: 'cleaning',
+                dueDate: '2025-11-02',
+                createdAt: '2025-10-30T08:00:00Z',
+                updatedAt: '2025-10-30T08:00:00Z'
+            },
+            {
+                id: 4,
+                title: 'Inventario Magazzino',
+                description: 'Conteggio e verifica inventario magazzino materiali',
+                assignedTo: 4,
+                assignedToName: 'Giuseppe Neri',
+                status: 'suspended',
+                priority: 'medium',
+                category: 'logistics',
+                dueDate: '2025-11-10',
+                createdAt: '2025-10-26T11:00:00Z',
+                updatedAt: '2025-10-28T12:00:00Z'
+            }
+        ];
+
+        let editingTaskId = null;
+        let currentView = 'kanban';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            populateUserSelectors();
+            loadTasks();
+            updateStatistics();
+            setupFilters();
+        });
+
+        function populateUserSelectors() {
+            const taskAssignedTo = document.getElementById('taskAssignedTo');
+            const assignedFilter = document.getElementById('assignedFilter');
+            
+            const activeUsers = users.filter(u => u.role !== 'admin');
+            
+            activeUsers.forEach(user => {
+                const option1 = new Option(user.fullName, user.id);
+                const option2 = new Option(user.fullName, user.id);
+                taskAssignedTo.appendChild(option1);
+                assignedFilter.appendChild(option2);
+            });
+        }
+
+        function loadTasks() {
+            if (currentView === 'kanban') {
+                loadKanbanView();
+            } else {
+                loadListView();
+            }
+        }
+
+        function loadKanbanView() {
+            const columns = {
+                pending: document.getElementById('pendingTasks'),
+                in_progress: document.getElementById('inProgressTasksCol'),
+                completed: document.getElementById('completedTasksCol'),
+                suspended: document.getElementById('suspendedTasksCol')
+            };
+
+            // Clear columns
+            Object.values(columns).forEach(col => col.innerHTML = '');
+
+            // Populate columns
+            tasks.forEach(task => {
+                const taskCard = createTaskCard(task);
+                if (columns[task.status]) {
+                    columns[task.status].appendChild(taskCard);
+                }
+            });
+
+            // Update counts
+            document.getElementById('pendingCount').textContent = tasks.filter(t => t.status === 'pending').length;
+            document.getElementById('inProgressCount').textContent = tasks.filter(t => t.status === 'in_progress').length;
+            document.getElementById('completedCount').textContent = tasks.filter(t => t.status === 'completed').length;
+            document.getElementById('suspendedCount').textContent = tasks.filter(t => t.status === 'suspended').length;
+        }
+
+        function createTaskCard(task) {
+            const div = document.createElement('div');
+            div.className = 'bg-gray-50 border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer';
+            div.id = `task-${task.id}`;
+            
+            const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'completed';
+            
+            div.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-medium text-gray-900 text-sm">${task.title}</h4>
+                    <span class="px-2 py-1 text-xs rounded-full ${getPriorityBadgeClass(task.priority)}">
+                        ${getPriorityLabel(task.priority)}
+                    </span>
+                </div>
+                <p class="text-xs text-gray-600 mb-3 line-clamp-2">${task.description}</p>
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span>👤 ${task.assignedToName}</span>
+                    <span class="${isOverdue ? 'text-red-600 font-medium' : ''}">${formatDate(task.dueDate)}</span>
+                </div>
+                <div class="mt-2 flex justify-between items-center">
+                    <span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">${getCategoryLabel(task.category)}</span>
+                    <div class="flex space-x-1">
+                        <button onclick="editTask(${task.id})" class="text-blue-600 hover:text-blue-800 text-xs">✏️</button>
+                        <button onclick="changeTaskStatus(${task.id})" class="text-green-600 hover:text-green-800 text-xs">🔄</button>
+                        <button onclick="deleteTask(${task.id})" class="text-red-600 hover:text-red-800 text-xs">🗑️</button>
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        function loadListView() {
+            const tbody = document.getElementById('tasksTableBody');
+            
+            tbody.innerHTML = tasks.map(task => {
+                const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'completed';
+                
+                return `
+                    <tr id="task-row-${task.id}" class="hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">${task.title}</div>
+                                <div class="text-sm text-gray-500">${task.description.substring(0, 50)}...</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${task.assignedToName}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(task.status)}">
+                                ${getStatusLabel(task.status)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${getPriorityBadgeClass(task.priority)}">
+                                ${getPriorityLabel(task.priority)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-900'}">
+                            ${formatDate(task.dueDate)}
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <button onclick="editTask(${task.id})" class="text-blue-600 hover:text-blue-900">✏️ Modifica</button>
+                                <button onclick="changeTaskStatus(${task.id})" class="text-green-600 hover:text-green-900">🔄 Stato</button>
+                                <button onclick="deleteTask(${task.id})" class="text-red-600 hover:text-red-900">🗑️ Elimina</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateStatistics() {
+            const total = tasks.length;
+            const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+            const completed = tasks.filter(t => t.status === 'completed').length;
+            const overdue = tasks.filter(t => new Date(t.dueDate) < new Date() && t.status !== 'completed').length;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('inProgressTasks').textContent = inProgress;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('overdueTasks').textContent = overdue;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            
+            const kanbanView = document.getElementById('kanbanView');
+            const listView = document.getElementById('listView');
+            const kanbanBtn = document.getElementById('kanbanBtn');
+            const listBtn = document.getElementById('listBtn');
+            
+            if (view === 'kanban') {
+                kanbanView.classList.remove('hidden');
+                listView.classList.add('hidden');
+                kanbanBtn.className = 'bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium';
+                listBtn.className = 'bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium';
+                loadKanbanView();
+            } else {
+                kanbanView.classList.add('hidden');
+                listView.classList.remove('hidden');
+                kanbanBtn.className = 'bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium';
+                listBtn.className = 'bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium';
+                loadListView();
+            }
+        }
+
+        function setupFilters() {
+            const statusFilter = document.getElementById('statusFilter');
+            const assignedFilter = document.getElementById('assignedFilter');
+
+            function applyFilters() {
+                // This would filter the list view
+                loadListView();
+            }
+
+            statusFilter.addEventListener('change', applyFilters);
+            assignedFilter.addEventListener('change', applyFilters);
+        }
+
+        function openAddTaskModal() {
+            editingTaskId = null;
+            document.getElementById('taskModalTitle').textContent = 'Nuova Lavorazione';
+            document.getElementById('taskForm').reset();
+            showTaskModal();
+        }
+
+        function editTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            editingTaskId = taskId;
+            document.getElementById('taskModalTitle').textContent = 'Modifica Lavorazione';
+            
+            document.getElementById('taskTitle').value = task.title;
+            document.getElementById('taskDescription').value = task.description;
+            document.getElementById('taskAssignedTo').value = task.assignedTo;
+            document.getElementById('taskPriority').value = task.priority;
+            document.getElementById('taskDueDate').value = task.dueDate;
+            document.getElementById('taskCategory').value = task.category;
+
+            showTaskModal();
+        }
+
+        function saveTask() {
+            const form = document.getElementById('taskForm');
+            const formData = new FormData(form);
+            
+            const taskData = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                assignedTo: parseInt(formData.get('assignedTo')),
+                priority: formData.get('priority'),
+                dueDate: formData.get('dueDate'),
+                category: formData.get('category')
+            };
+
+            if (!taskData.title || !taskData.assignedTo) {
+                showNotification('Errore', 'Compila tutti i campi obbligatori', 'error');
+                return;
+            }
+
+            const assignedUser = users.find(u => u.id === taskData.assignedTo);
+            taskData.assignedToName = assignedUser ? assignedUser.fullName : 'Sconosciuto';
+
+            if (editingTaskId) {
+                const taskIndex = tasks.findIndex(t => t.id === editingTaskId);
+                if (taskIndex !== -1) {
+                    tasks[taskIndex] = { 
+                        ...tasks[taskIndex], 
+                        ...taskData,
+                        updatedAt: new Date().toISOString()
+                    };
+                    showNotification('Successo', 'Lavorazione aggiornata con successo', 'success');
+                }
+            } else {
+                const newTask = {
+                    id: Math.max(...tasks.map(t => t.id)) + 1,
+                    ...taskData,
+                    status: 'pending',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                tasks.push(newTask);
+                showNotification('Successo', 'Nuova lavorazione creata con successo', 'success');
+            }
+
+            closeTaskModal();
+            loadTasks();
+            updateStatistics();
+        }
+
+        function changeTaskStatus(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            const statusOrder = ['pending', 'in_progress', 'completed'];
+            const currentIndex = statusOrder.indexOf(task.status);
+            const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length];
+
+            task.status = nextStatus;
+            task.updatedAt = new Date().toISOString();
+
+            loadTasks();
+            updateStatistics();
+            showNotification('Successo', `Stato cambiato in: ${getStatusLabel(nextStatus)}`, 'info');
+        }
+
+        function deleteTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            if (confirm(`Sei sicuro di voler eliminare la lavorazione "${task.title}"?`)) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                loadTasks();
+                updateStatistics();
+                showNotification('Successo', 'Lavorazione eliminata con successo', 'info');
+            }
+        }
+
+        function showTaskModal() {
+            document.getElementById('taskModal').classList.remove('modal-hidden');
+            document.getElementById('taskModal').classList.add('modal-visible');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.add('modal-hidden');
+            document.getElementById('taskModal').classList.remove('modal-visible');
+        }
+
+        // Utility functions
+        function getStatusLabel(status) {
+            const labels = {
+                'pending': 'Da Eseguire',
+                'in_progress': 'In Corso',
+                'completed': 'Completata',
+                'suspended': 'Sospesa'
+            };
+            return labels[status] || status;
+        }
+
+        function getStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-blue-100 text-blue-800',
+                'in_progress': 'bg-yellow-100 text-yellow-800',
+                'completed': 'bg-green-100 text-green-800',
+                'suspended': 'bg-red-100 text-red-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getPriorityLabel(priority) {
+            const labels = {
+                'low': 'Bassa',
+                'medium': 'Media',
+                'high': 'Alta',
+                'urgent': 'Urgente'
+            };
+            return labels[priority] || priority;
+        }
+
+        function getPriorityBadgeClass(priority) {
+            const classes = {
+                'low': 'bg-gray-100 text-gray-800',
+                'medium': 'bg-blue-100 text-blue-800',
+                'high': 'bg-orange-100 text-orange-800',
+                'urgent': 'bg-red-100 text-red-800'
+            };
+            return classes[priority] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getCategoryLabel(category) {
+            const labels = {
+                'maintenance': 'Manutenzione',
+                'production': 'Produzione',
+                'quality': 'Qualità',
+                'cleaning': 'Pulizia',
+                'logistics': 'Logistica',
+                'other': 'Altro'
+            };
+            return labels[category] || category;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function showNotification(title, message, type) {
+            const notification = document.getElementById('notification');
+            const icon = document.getElementById('notificationIcon');
+            const titleEl = document.getElementById('notificationTitle');
+            const messageEl = document.getElementById('notificationMessage');
+
+            const icons = {
+                'success': '✅',
+                'error': '❌',
+                'info': 'ℹ️',
+                'warning': '⚠️'
+            };
+
+            icon.textContent = icons[type] || 'ℹ️';
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+
+            notification.classList.remove('hidden');
+
+            setTimeout(() => {
+                hideNotification();
+            }, 5000);
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.add('hidden');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            
+            if (sidebar.classList.contains('sidebar-hidden')) {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-visible');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('sidebar-hidden');
+                sidebar.classList.remove('sidebar-visible');
+                overlay.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

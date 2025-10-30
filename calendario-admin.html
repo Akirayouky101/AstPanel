@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario Lavorazioni - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="shared-data.js"></script>
+    <!-- FullCalendar -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        
+        /* FullCalendar custom styling */
+        .fc {
+            font-family: inherit;
+        }
+        .fc .fc-button-primary {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .fc .fc-button-primary:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+        .fc .fc-button-primary:disabled {
+            background-color: #93c5fd;
+            border-color: #93c5fd;
+        }
+        .fc-event {
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .fc-daygrid-event {
+            white-space: normal;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+        <div class="flex items-center justify-center h-16 gradient-bg">
+            <h1 class="text-white text-xl font-bold">AST Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
+                Gestione Utenti
+            </a>
+            <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>
+                Gestione Clienti
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="calendario-admin.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
+                Calendario
+            </a>
+            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Gestione Richieste
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <div class="mt-8 border-t pt-4">
+                <a href="pannello-utente.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                    <i data-lucide="user" class="w-5 h-5 mr-3"></i>
+                    Pannello Utente
+                </a>
+                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                    Logout
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i data-lucide="calendar" class="w-8 h-8 inline mr-2"></i>
+                    Calendario Lavorazioni
+                </h2>
+                <p class="text-gray-600">Visualizza e gestisci tutte le lavorazioni programmate</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label for="filterAssignee" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Dipendente</label>
+                    <select id="filterAssignee" onchange="filterCalendar()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti i dipendenti</option>
+                        <option value="mario">Mario Rossi</option>
+                        <option value="anna">Anna Verdi</option>
+                        <option value="giuseppe">Giuseppe Neri</option>
+                        <option value="laura">Laura Blu</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filterPriority" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Priorità</label>
+                    <select id="filterPriority" onchange="filterCalendar()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutte le priorità</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Media</option>
+                        <option value="bassa">Bassa</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Stato</label>
+                    <select id="filterStatus" onchange="filterCalendar()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti gli stati</option>
+                        <option value="da_fare">Da Fare</option>
+                        <option value="in_corso">In Corso</option>
+                        <option value="revisione">In Revisione</option>
+                        <option value="completato">Completato</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="resetFilters()" class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i data-lucide="x" class="w-4 h-4 inline mr-1"></i>
+                        Reset Filtri
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div id="calendar"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Legenda</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded" style="background-color: #ef4444;"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Alta</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded" style="background-color: #f59e0b;"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Media</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded" style="background-color: #10b981;"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Bassa</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded" style="background-color: #3b82f6;"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Default</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let calendar;
+        let allEvents = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            lucide.createIcons();
+            await initCalendar();
+        });
+
+        async function initCalendar() {
+            try {
+                const calendarEl = document.getElementById('calendar');
+                
+                // Get all events from Supabase
+                allEvents = await window.dataManager.syncCalendarFromTasks();
+                
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+                    },
+                    locale: 'it',
+                    buttonText: {
+                        today: 'Oggi',
+                        month: 'Mese',
+                        week: 'Settimana',
+                        day: 'Giorno',
+                        list: 'Lista'
+                    },
+                    events: allEvents,
+                    eventClick: function(info) {
+                        showEventDetails(info.event);
+                    },
+                    eventDidMount: function(info) {
+                        // Add tooltip
+                        info.el.title = `${info.event.title}\n${info.event.extendedProps.assigneeName}\nPriorità: ${info.event.extendedProps.priority}`;
+                    },
+                    height: 'auto',
+                    contentHeight: 600,
+                    aspectRatio: 2
+                });
+            } catch (error) {
+                console.error('Errore inizializzazione calendario:', error);
+            }
+            
+            calendar.render();
+            
+            // Listen for calendar sync events
+            window.addEventListener('calendarSynced', function() {
+                filterCalendar();
+            });
+        }
+
+        function filterCalendar() {
+            const assignee = document.getElementById('filterAssignee').value;
+            const priority = document.getElementById('filterPriority').value;
+            const status = document.getElementById('filterStatus').value;
+            
+            // Get fresh events
+            allEvents = window.syncData.getAllCalendarEvents();
+            
+            let filtered = allEvents;
+            
+            if (assignee) {
+                filtered = filtered.filter(e => e.assignee === assignee);
+            }
+            
+            if (priority) {
+                filtered = filtered.filter(e => e.priority === priority);
+            }
+            
+            if (status) {
+                filtered = filtered.filter(e => e.status === status);
+            }
+            
+            // Update calendar
+            calendar.removeAllEvents();
+            calendar.addEventSource(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('filterAssignee').value = '';
+            document.getElementById('filterPriority').value = '';
+            document.getElementById('filterStatus').value = '';
+            filterCalendar();
+        }
+
+        function showEventDetails(event) {
+            const taskId = event.extendedProps.taskId;
+            const task = window.sharedData.tasks.find(t => t.id === taskId);
+            
+            if (!task) return;
+            
+            const statusText = {
+                'da_fare': 'Da Fare',
+                'in_corso': 'In Corso',
+                'revisione': 'In Revisione',
+                'completato': 'Completato'
+            };
+            
+            alert(`
+📋 ${task.titolo}
+
+👤 Assegnato a: ${task.nomeAssegnatario}
+👥 Cliente: ${task.cliente}
+📅 Scadenza: ${new Date(task.scadenza).toLocaleDateString('it-IT')}
+⚡ Priorità: ${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}
+📊 Stato: ${statusText[task.stato]}
+${task.progresso !== undefined ? `\n📈 Progresso: ${task.progresso}%` : ''}
+
+📝 ${task.descrizione}
+            `.trim());
+            
+            // Ask if user wants to open task details
+            if (confirm('Vuoi aprire la gestione lavorazioni per modificare questa attività?')) {
+                window.location.href = 'gestione-lavorazioni.html';
+            }
+        }
+
+        function logout() {
+            if (confirm('Sei sicuro di voler uscire?')) {
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Il Mio Calendario - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="shared-data.js"></script>
+    <!-- FullCalendar -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .user-gradient { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        
+        /* FullCalendar custom styling */
+        .fc {
+            font-family: inherit;
+        }
+        .fc .fc-button-primary {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .fc .fc-button-primary:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+        .fc .fc-button-primary:disabled {
+            background-color: #93c5fd;
+            border-color: #93c5fd;
+        }
+        .fc-event {
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .fc-daygrid-event {
+            white-space: normal;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+        <div class="flex items-center justify-center h-16 user-gradient">
+            <h1 class="text-white text-xl font-bold">Pannello Utente</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="pannello-utente.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="pannello-utente.html#my-tasks" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Le Mie Lavorazioni
+            </a>
+            <a href="calendario-dipendente.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
+                Il Mio Calendario
+            </a>
+            <a href="pannello-utente.html#requests" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Le Mie Richieste
+            </a>
+            <a href="pannello-utente.html#communications" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <div class="mt-8 border-t pt-4">
+                <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                    <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
+                    Admin Panel
+                </a>
+                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                    Logout
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i data-lucide="calendar" class="w-8 h-8 inline mr-2"></i>
+                    Il Mio Calendario
+                </h2>
+                <p class="text-gray-600">Le tue lavorazioni programmate</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Modalità Sola Lettura</strong>
+                </p>
+                <p class="text-xs text-blue-600 mt-1">
+                    Le lavorazioni vengono assegnate dall'amministratore
+                </p>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Totale Lavorazioni</p>
+                        <p class="text-2xl font-bold text-blue-600" id="totalMyTasks">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Priorità Alta</p>
+                        <p class="text-2xl font-bold text-red-600" id="highPriorityCount">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="alert-circle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">In Scadenza</p>
+                        <p class="text-2xl font-bold text-orange-600" id="upcomingCount">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Completate</p>
+                        <p class="text-2xl font-bold text-green-600" id="completedCount">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div id="calendar"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Legenda Priorità</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded bg-red-500"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Alta</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded bg-orange-500"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Media</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded bg-green-500"></div>
+                    <span class="ml-2 text-sm text-gray-700">Priorità Bassa</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 rounded bg-blue-500"></div>
+                    <span class="ml-2 text-sm text-gray-700">Default</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Current user (should be loaded from session)
+        const currentUser = {
+            id: 'mario',
+            nome: 'Mario Rossi'
+        };
+
+        let calendar;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            lucide.createIcons();
+            await initCalendar();
+            await updateStats();
+        });
+
+        async function initCalendar() {
+            try {
+                const calendarEl = document.getElementById('calendar');
+                const user = window.AuthHelper.getCurrentUser();
+                
+                // Get all events and filter for current user
+                const allEvents = await window.dataManager.syncCalendarFromTasks();
+                const myEvents = allEvents.filter(event => 
+                    event.extendedProps && event.extendedProps.userId === user.id
+                );
+                
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,listWeek'
+                    },
+                    locale: 'it',
+                    buttonText: {
+                        today: 'Oggi',
+                        month: 'Mese',
+                        week: 'Settimana',
+                        list: 'Lista'
+                    },
+                    events: myEvents,
+                    eventClick: function(info) {
+                        showEventDetails(info.event);
+                    },
+                    eventDidMount: function(info) {
+                        // Add tooltip
+                        info.el.title = `${info.event.title}\nCliente: ${info.event.extendedProps.client || 'N/A'}\nPriorità: ${info.event.extendedProps.priority}`;
+                    },
+                    editable: false, // Read-only for employees
+                    height: 'auto',
+                    contentHeight: 600,
+                    aspectRatio: 2
+                });
+                
+                calendar.render();
+            } catch (error) {
+                console.error('Errore inizializzazione calendario:', error);
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const user = window.AuthHelper.getCurrentUser();
+                const tasks = await window.dataManager.getLavorazioni();
+                const myTasks = tasks.filter(t => t.assigned_user_id === user.id);
+                
+                const total = myTasks.length;
+                const completed = myTasks.filter(t => t.stato === 'completato').length;
+                const inProgress = myTasks.filter(t => t.stato === 'in_corso').length;
+                
+                document.getElementById('totalTasks').textContent = total;
+                document.getElementById('completedTasks').textContent = completed;
+                document.getElementById('inProgressTasks').textContent = inProgress;
+            } catch (error) {
+                console.error('Errore aggiornamento statistiche:', error);
+            }
+            
+            // Listen for calendar updates from admin
+            window.addEventListener('calendarSynced', function() {
+                refreshCalendar();
+            });
+        }
+
+        function refreshCalendar() {
+            const myEvents = window.syncData.getCalendarEventsForUser(currentUser.id);
+            calendar.removeAllEvents();
+            calendar.addEventSource(myEvents);
+            updateStats();
+        }
+
+        function updateStats() {
+            const myTasks = window.sharedData.tasks.filter(t => t.assegnatario === currentUser.id);
+            
+            document.getElementById('totalMyTasks').textContent = myTasks.length;
+            document.getElementById('highPriorityCount').textContent = myTasks.filter(t => t.priorita === 'alta').length;
+            
+            // Tasks due in next 7 days
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            const upcoming = myTasks.filter(t => {
+                const dueDate = new Date(t.scadenza);
+                return dueDate <= nextWeek && dueDate >= new Date() && t.stato !== 'completato';
+            });
+            document.getElementById('upcomingCount').textContent = upcoming.length;
+            
+            document.getElementById('completedCount').textContent = myTasks.filter(t => t.stato === 'completato').length;
+        }
+
+        function showEventDetails(event) {
+            const taskId = event.extendedProps.taskId;
+            const task = window.sharedData.tasks.find(t => t.id === taskId);
+            
+            if (!task) return;
+            
+            const statusText = {
+                'da_fare': 'Da Fare',
+                'in_corso': 'In Corso',
+                'revisione': 'In Revisione',
+                'completato': 'Completato'
+            };
+            
+            alert(`
+📋 ${task.titolo}
+
+👥 Cliente: ${task.cliente}
+📅 Scadenza: ${new Date(task.scadenza).toLocaleDateString('it-IT')}
+⚡ Priorità: ${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}
+📊 Stato: ${statusText[task.stato]}
+${task.progresso !== undefined ? `\n📈 Progresso: ${task.progresso}%` : ''}
+
+📝 ${task.descrizione}
+            `.trim());
+            
+            // Ask if user wants to view details
+            if (confirm('Vuoi visualizzare i dettagli completi di questa lavorazione?')) {
+                window.location.href = 'pannello-utente.html#my-tasks';
+            }
+        }
+
+        function logout() {
+            if (confirm('Sei sicuro di voler uscire?')) {
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>

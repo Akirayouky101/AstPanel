@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Comunicazioni - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .priority-alta { border-left: 4px solid #ef4444; }
+        .priority-media { border-left: 4px solid #f59e0b; }
+        .priority-bassa { border-left: 4px solid #10b981; }
+        .status-draft { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); }
+        .status-sent { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); }
+        .status-scheduled { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .wysiwyg-editor {
+            min-height: 200px;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background: white;
+        }
+        .wysiwyg-toolbar {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        .toolbar-btn {
+            padding: 0.25rem 0.5rem;
+            margin: 0 0.125rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toolbar-btn:hover {
+            background: #f3f4f6;
+        }
+        .toolbar-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
+        <div class="flex items-center justify-center h-16 gradient-bg">
+            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
+                Gestione Utenti
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Gestione Richieste
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Sistema Comunicazioni</h2>
+                <p class="text-gray-600">Gestisci annunci e comunicazioni aziendali</p>
+            </div>
+            <button onclick="openNewCommunicationModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                Nuova Comunicazione
+            </button>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Comunicazioni Totali</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCommunications">18</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="message-circle" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Inviate Oggi</p>
+                        <p class="text-2xl font-bold text-green-600" id="sentToday">3</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="send" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Programmate</p>
+                        <p class="text-2xl font-bold text-orange-600" id="scheduled">5</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Bozze</p>
+                        <p class="text-2xl font-bold text-gray-600" id="drafts">2</p>
+                    </div>
+                    <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="file-edit" class="w-6 h-6 text-gray-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="createQuickAnnouncement()">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Annuncio Urgente</h3>
+                        <p class="text-blue-100">Comunicazione immediata a tutti</p>
+                    </div>
+                    <i data-lucide="megaphone" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="createNewsletter()">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Newsletter</h3>
+                        <p class="text-green-100">Aggiornamenti aziendali mensili</p>
+                    </div>
+                    <i data-lucide="newspaper" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="createEventInvite()">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Invito Evento</h3>
+                        <p class="text-purple-100">Meeting, formazioni, eventi</p>
+                    </div>
+                    <i data-lucide="calendar" class="w-8 h-8"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-64">
+                    <input type="text" id="searchCommunications" placeholder="Cerca comunicazioni..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <select id="typeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tutti i tipi</option>
+                    <option value="annuncio">Annuncio</option>
+                    <option value="newsletter">Newsletter</option>
+                    <option value="evento">Evento</option>
+                    <option value="formazione">Formazione</option>
+                    <option value="procedura">Procedura</option>
+                </select>
+                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tutti gli stati</option>
+                    <option value="bozza">Bozza</option>
+                    <option value="programmata">Programmata</option>
+                    <option value="inviata">Inviata</option>
+                </select>
+                <select id="priorityFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tutte le priorità</option>
+                    <option value="alta">Alta</option>
+                    <option value="media">Media</option>
+                    <option value="bassa">Bassa</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Communications List -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Elenco Comunicazioni</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <div id="communicationsList" class="divide-y divide-gray-200">
+                    <!-- Communications will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Communication Modal -->
+    <div id="communicationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Nuova Comunicazione</h3>
+                    <button onclick="closeCommunicationModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form id="communicationForm" class="p-6">
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label for="commTitle" class="block text-sm font-medium text-gray-700 mb-2">Titolo</label>
+                            <input type="text" id="commTitle" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="commType" class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                            <select id="commType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Seleziona tipo</option>
+                                <option value="annuncio">Annuncio</option>
+                                <option value="newsletter">Newsletter</option>
+                                <option value="evento">Evento</option>
+                                <option value="formazione">Formazione</option>
+                                <option value="procedura">Procedura</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="commPriority" class="block text-sm font-medium text-gray-700 mb-2">Priorità</label>
+                            <select id="commPriority" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="bassa">Bassa</option>
+                                <option value="media" selected>Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="commSchedule" class="block text-sm font-medium text-gray-700 mb-2">Programmazione</label>
+                            <input type="datetime-local" id="commSchedule" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label for="commRecipients" class="block text-sm font-medium text-gray-700 mb-2">Destinatari</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="allEmployees" checked class="mr-2">
+                                <span>Tutti i Dipendenti</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="managers" class="mr-2">
+                                <span>Solo Manager</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="specific" class="mr-2">
+                                <span>Utenti Specifici</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Contenuto</label>
+                        <div class="wysiwyg-toolbar">
+                            <button type="button" class="toolbar-btn" onclick="formatText('bold')" title="Grassetto">
+                                <i data-lucide="bold" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" class="toolbar-btn" onclick="formatText('italic')" title="Corsivo">
+                                <i data-lucide="italic" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" class="toolbar-btn" onclick="formatText('underline')" title="Sottolineato">
+                                <i data-lucide="underline" class="w-4 h-4"></i>
+                            </button>
+                            <span class="border-l border-gray-300 mx-2"></span>
+                            <button type="button" class="toolbar-btn" onclick="formatText('insertUnorderedList')" title="Lista">
+                                <i data-lucide="list" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" class="toolbar-btn" onclick="formatText('insertOrderedList')" title="Lista Numerata">
+                                <i data-lucide="list-ordered" class="w-4 h-4"></i>
+                            </button>
+                            <span class="border-l border-gray-300 mx-2"></span>
+                            <button type="button" class="toolbar-btn" onclick="insertLink()" title="Link">
+                                <i data-lucide="link" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div id="commContent" contenteditable="true" class="wysiwyg-editor" placeholder="Scrivi qui il contenuto della comunicazione..."></div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Allegati</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <input type="file" id="attachments" multiple class="hidden" onchange="handleFileUpload(event)">
+                            <div onclick="document.getElementById('attachments').click()" class="cursor-pointer">
+                                <i data-lucide="upload" class="w-8 h-8 mx-auto text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-600">Clicca per caricare file o trascina qui</p>
+                            </div>
+                            <div id="fileList" class="mt-4 space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="saveDraft()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                            Salva Bozza
+                        </button>
+                        <button type="button" onclick="previewCommunication()" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                            <i data-lucide="eye" class="w-4 h-4 inline mr-2"></i>
+                            Anteprima
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i data-lucide="send" class="w-4 h-4 inline mr-2"></i>
+                            Invia Ora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-screen overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Anteprima Comunicazione</h3>
+                    <button onclick="closePreviewModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div id="previewContent" class="p-6">
+                    <!-- Preview content will be loaded here -->
+                </div>
+                <div class="flex justify-end space-x-3 p-6 border-t border-gray-200">
+                    <button onclick="closePreviewModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Chiudi
+                    </button>
+                    <button onclick="sendFromPreview()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i data-lucide="send" class="w-4 h-4 inline mr-2"></i>
+                        Invia Comunicazione
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data
+        let mockCommunications = [
+            {
+                id: 1,
+                titolo: 'Nuove Procedure di Sicurezza',
+                tipo: 'procedura',
+                contenuto: 'È obbligatorio l\'uso delle mascherine in tutti gli spazi comuni aziendali...',
+                priorita: 'alta',
+                stato: 'inviata',
+                dataCreazione: '2024-01-20',
+                dataInvio: '2024-01-20',
+                destinatari: ['Tutti i Dipendenti'],
+                autore: 'Admin',
+                visualizzazioni: 45,
+                allegati: ['sicurezza_covid.pdf']
+            },
+            {
+                id: 2,
+                titolo: 'Meeting Trimestrale Q1 2024',
+                tipo: 'evento',
+                contenuto: 'Vi invitiamo al meeting trimestrale che si terrà venerdì 26 gennaio...',
+                priorita: 'media',
+                stato: 'programmata',
+                dataCreazione: '2024-01-18',
+                dataProgrammata: '2024-01-25',
+                destinatari: ['Tutti i Dipendenti'],
+                autore: 'Admin',
+                allegati: ['agenda_meeting.pdf']
+            },
+            {
+                id: 3,
+                titolo: 'Aggiornamento Sistema ERP',
+                tipo: 'annuncio',
+                contenuto: 'Il sistema ERP sarà aggiornato domenica 28 gennaio dalle 02:00 alle 06:00...',
+                priorita: 'alta',
+                stato: 'inviata',
+                dataCreazione: '2024-01-19',
+                dataInvio: '2024-01-19',
+                destinatari: ['Tutti i Dipendenti'],
+                autore: 'IT Team',
+                visualizzazioni: 38,
+                urgente: true
+            },
+            {
+                id: 4,
+                titolo: 'Newsletter Gennaio 2024',
+                tipo: 'newsletter',
+                contenuto: 'Benvenuti nel nuovo anno! Ecco gli aggiornamenti principali del mese...',
+                priorita: 'bassa',
+                stato: 'bozza',
+                dataCreazione: '2024-01-15',
+                destinatari: ['Tutti i Dipendenti'],
+                autore: 'HR Team'
+            },
+            {
+                id: 5,
+                titolo: 'Corso di Formazione Cybersecurity',
+                tipo: 'formazione',
+                contenuto: 'Corso obbligatorio sulla cybersecurity per tutti i dipendenti...',
+                priorita: 'media',
+                stato: 'programmata',
+                dataCreazione: '2024-01-17',
+                dataProgrammata: '2024-02-01',
+                destinatari: ['Tutti i Dipendenti'],
+                autore: 'HR Team',
+                allegati: ['programma_corso.pdf']
+            }
+        ];
+
+        let uploadedFiles = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            loadCommunications();
+            updateStats();
+            setupFilters();
+        });
+
+        function loadCommunications() {
+            const communicationsList = document.getElementById('communicationsList');
+            communicationsList.innerHTML = '';
+
+            const filteredCommunications = getFilteredCommunications();
+
+            filteredCommunications.forEach(comm => {
+                const commElement = createCommunicationElement(comm);
+                communicationsList.appendChild(commElement);
+            });
+        }
+
+        function createCommunicationElement(comm) {
+            const commDiv = document.createElement('div');
+            commDiv.className = `p-6 hover:bg-gray-50 transition-colors ${getPriorityClass(comm.priorita)}`;
+            
+            const statusClass = getStatusClass(comm.stato);
+            const typeIcon = getTypeIcon(comm.tipo);
+            const urgentBadge = comm.urgente ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Urgente</span>' : '';
+            
+            commDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <h4 class="text-lg font-medium text-gray-900">${comm.titolo}</h4>
+                                ${urgentBadge}
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">${comm.contenuto.substring(0, 100)}...</p>
+                            <div class="flex items-center mt-2 space-x-4">
+                                <span class="text-sm text-gray-600">${comm.autore}</span>
+                                <span class="text-sm text-gray-500">${formatDate(comm.dataCreazione)}</span>
+                                <span class="text-sm font-medium text-gray-600 capitalize">${comm.tipo}</span>
+                                ${comm.visualizzazioni ? `<span class="text-sm text-gray-500">${comm.visualizzazioni} visualizzazioni</span>` : ''}
+                                ${comm.allegati?.length ? `<span class="text-sm text-gray-500"><i data-lucide="paperclip" class="w-3 h-3 inline mr-1"></i>${comm.allegati.length} allegati</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(comm.stato)}</span>
+                            <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(comm.priorita)}">${comm.priorita.charAt(0).toUpperCase() + comm.priorita.slice(1)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button onclick="viewCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="editCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        </button>
+                        ${comm.stato === 'bozza' ? `
+                            <button onclick="sendCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="deleteCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return commDiv;
+        }
+
+        function getFilteredCommunications() {
+            const searchTerm = document.getElementById('searchCommunications').value.toLowerCase();
+            const typeFilter = document.getElementById('typeFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+
+            return mockCommunications.filter(comm => {
+                const matchesSearch = comm.titolo.toLowerCase().includes(searchTerm) || 
+                                    comm.contenuto.toLowerCase().includes(searchTerm) ||
+                                    comm.autore.toLowerCase().includes(searchTerm);
+                const matchesType = !typeFilter || comm.tipo === typeFilter;
+                const matchesStatus = !statusFilter || comm.stato === statusFilter;
+                const matchesPriority = !priorityFilter || comm.priorita === priorityFilter;
+
+                return matchesSearch && matchesType && matchesStatus && matchesPriority;
+            });
+        }
+
+        function setupFilters() {
+            const searchInput = document.getElementById('searchCommunications');
+            const typeFilter = document.getElementById('typeFilter');
+            const statusFilter = document.getElementById('statusFilter');
+            const priorityFilter = document.getElementById('priorityFilter');
+
+            [searchInput, typeFilter, statusFilter, priorityFilter].forEach(element => {
+                element.addEventListener('input', loadCommunications);
+                element.addEventListener('change', loadCommunications);
+            });
+        }
+
+        function openNewCommunicationModal() {
+            document.getElementById('communicationModal').classList.remove('hidden');
+            document.getElementById('commContent').focus();
+            lucide.createIcons();
+        }
+
+        function closeCommunicationModal() {
+            document.getElementById('communicationModal').classList.add('hidden');
+            document.getElementById('communicationForm').reset();
+            document.getElementById('commContent').innerHTML = '';
+            uploadedFiles = [];
+            document.getElementById('fileList').innerHTML = '';
+        }
+
+        function createQuickAnnouncement() {
+            openNewCommunicationModal();
+            document.getElementById('commType').value = 'annuncio';
+            document.getElementById('commPriority').value = 'alta';
+            document.getElementById('commTitle').value = 'Annuncio Urgente';
+        }
+
+        function createNewsletter() {
+            openNewCommunicationModal();
+            document.getElementById('commType').value = 'newsletter';
+            document.getElementById('commPriority').value = 'media';
+            document.getElementById('commTitle').value = 'Newsletter ' + new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+        }
+
+        function createEventInvite() {
+            openNewCommunicationModal();
+            document.getElementById('commType').value = 'evento';
+            document.getElementById('commPriority').value = 'media';
+            document.getElementById('commTitle').value = 'Invito Evento';
+        }
+
+        function formatText(command) {
+            document.execCommand(command, false, null);
+            document.getElementById('commContent').focus();
+        }
+
+        function insertLink() {
+            const url = prompt('Inserisci URL:');
+            if (url) {
+                document.execCommand('createLink', false, url);
+            }
+            document.getElementById('commContent').focus();
+        }
+
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => {
+                uploadedFiles.push(file);
+                const fileElement = document.createElement('div');
+                fileElement.className = 'flex items-center justify-between bg-gray-100 p-2 rounded';
+                fileElement.innerHTML = `
+                    <span class="text-sm">${file.name}</span>
+                    <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+                document.getElementById('fileList').appendChild(fileElement);
+            });
+            lucide.createIcons();
+        }
+
+        function removeFile(fileName) {
+            uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
+            loadFileList();
+        }
+
+        function loadFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            uploadedFiles.forEach(file => {
+                const fileElement = document.createElement('div');
+                fileElement.className = 'flex items-center justify-between bg-gray-100 p-2 rounded';
+                fileElement.innerHTML = `
+                    <span class="text-sm">${file.name}</span>
+                    <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+                fileList.appendChild(fileElement);
+            });
+            lucide.createIcons();
+        }
+
+        function saveDraft() {
+            const formData = getFormData();
+            formData.stato = 'bozza';
+            
+            // Save to mock data
+            const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
+            mockCommunications.unshift({
+                id: newId,
+                ...formData,
+                dataCreazione: new Date().toISOString().split('T')[0],
+                autore: 'Admin'
+            });
+            
+            closeCommunicationModal();
+            loadCommunications();
+            updateStats();
+            showNotification('Bozza salvata con successo!', 'success');
+        }
+
+        function previewCommunication() {
+            const formData = getFormData();
+            const previewContent = document.getElementById('previewContent');
+            
+            previewContent.innerHTML = `
+                <div class="space-y-6">
+                    <div class="border-b pb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">${formData.titolo}</h2>
+                        <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                            <span>Tipo: ${formData.tipo}</span>
+                            <span>Priorità: ${formData.priorita}</span>
+                            <span>Destinatari: ${formData.destinatari.join(', ')}</span>
+                        </div>
+                    </div>
+                    <div class="prose max-w-none">
+                        ${formData.contenuto}
+                    </div>
+                    ${formData.allegati.length ? `
+                        <div class="border-t pt-4">
+                            <h4 class="font-medium mb-2">Allegati:</h4>
+                            <ul class="space-y-1">
+                                ${formData.allegati.map(file => `<li class="text-sm text-gray-600">📎 ${file}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        function sendFromPreview() {
+            sendCommunicationNow();
+            closePreviewModal();
+        }
+
+        function sendCommunicationNow() {
+            const formData = getFormData();
+            formData.stato = 'inviata';
+            formData.dataInvio = new Date().toISOString().split('T')[0];
+            
+            // Save to mock data
+            const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
+            mockCommunications.unshift({
+                id: newId,
+                ...formData,
+                dataCreazione: new Date().toISOString().split('T')[0],
+                autore: 'Admin',
+                visualizzazioni: 0
+            });
+            
+            closeCommunicationModal();
+            loadCommunications();
+            updateStats();
+            showNotification('Comunicazione inviata con successo!', 'success');
+        }
+
+        function getFormData() {
+            const recipients = [];
+            if (document.getElementById('allEmployees').checked) recipients.push('Tutti i Dipendenti');
+            if (document.getElementById('managers').checked) recipients.push('Manager');
+            if (document.getElementById('specific').checked) recipients.push('Utenti Specifici');
+            
+            return {
+                titolo: document.getElementById('commTitle').value,
+                tipo: document.getElementById('commType').value,
+                contenuto: document.getElementById('commContent').innerHTML,
+                priorita: document.getElementById('commPriority').value,
+                destinatari: recipients,
+                allegati: uploadedFiles.map(f => f.name),
+                dataProgrammata: document.getElementById('commSchedule').value || null
+            };
+        }
+
+        function updateStats() {
+            const total = mockCommunications.length;
+            const today = new Date().toISOString().split('T')[0];
+            const sentToday = mockCommunications.filter(c => c.dataInvio === today).length;
+            const scheduled = mockCommunications.filter(c => c.stato === 'programmata').length;
+            const drafts = mockCommunications.filter(c => c.stato === 'bozza').length;
+
+            document.getElementById('totalCommunications').textContent = total;
+            document.getElementById('sentToday').textContent = sentToday;
+            document.getElementById('scheduled').textContent = scheduled;
+            document.getElementById('drafts').textContent = drafts;
+        }
+
+        function viewCommunication(id) {
+            const comm = mockCommunications.find(c => c.id === id);
+            alert(`Visualizzazione comunicazione: ${comm.titolo}\n\n${comm.contenuto}`);
+        }
+
+        function editCommunication(id) {
+            const comm = mockCommunications.find(c => c.id === id);
+            openNewCommunicationModal();
+            
+            document.getElementById('commTitle').value = comm.titolo;
+            document.getElementById('commType').value = comm.tipo;
+            document.getElementById('commPriority').value = comm.priorita;
+            document.getElementById('commContent').innerHTML = comm.contenuto;
+        }
+
+        function sendCommunication(id) {
+            const comm = mockCommunications.find(c => c.id === id);
+            comm.stato = 'inviata';
+            comm.dataInvio = new Date().toISOString().split('T')[0];
+            
+            loadCommunications();
+            updateStats();
+            showNotification('Comunicazione inviata!', 'success');
+        }
+
+        function deleteCommunication(id) {
+            if (confirm('Sei sicuro di voler eliminare questa comunicazione?')) {
+                const index = mockCommunications.findIndex(c => c.id === id);
+                mockCommunications.splice(index, 1);
+                loadCommunications();
+                updateStats();
+                showNotification('Comunicazione eliminata!', 'info');
+            }
+        }
+
+        // Form submission
+        document.getElementById('communicationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const scheduleDate = document.getElementById('commSchedule').value;
+            
+            if (scheduleDate) {
+                // Schedule communication
+                const formData = getFormData();
+                formData.stato = 'programmata';
+                
+                const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
+                mockCommunications.unshift({
+                    id: newId,
+                    ...formData,
+                    dataCreazione: new Date().toISOString().split('T')[0],
+                    autore: 'Admin'
+                });
+                
+                showNotification('Comunicazione programmata!', 'success');
+            } else {
+                // Send immediately
+                sendCommunicationNow();
+            }
+        });
+
+        // Utility functions
+        function getStatusClass(status) {
+            switch(status) {
+                case 'bozza': return 'bg-gray-100 text-gray-800';
+                case 'programmata': return 'bg-orange-100 text-orange-800';
+                case 'inviata': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getStatusText(status) {
+            switch(status) {
+                case 'bozza': return 'Bozza';
+                case 'programmata': return 'Programmata';
+                case 'inviata': return 'Inviata';
+                default: return status;
+            }
+        }
+
+        function getPriorityClass(priority) {
+            switch(priority) {
+                case 'alta': return 'priority-alta';
+                case 'media': return 'priority-media';
+                case 'bassa': return 'priority-bassa';
+                default: return '';
+            }
+        }
+
+        function getPriorityBadgeClass(priority) {
+            switch(priority) {
+                case 'alta': return 'bg-red-100 text-red-800';
+                case 'media': return 'bg-yellow-100 text-yellow-800';
+                case 'bassa': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getTypeIcon(type) {
+            switch(type) {
+                case 'annuncio': return 'megaphone';
+                case 'newsletter': return 'newspaper';
+                case 'evento': return 'calendar';
+                case 'formazione': return 'graduation-cap';
+                case 'procedura': return 'file-text';
+                default: return 'message-circle';
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : 'bg-blue-500'} text-white`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

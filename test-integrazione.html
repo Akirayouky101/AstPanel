@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST:ZG - Test Integrazione Dati</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="shared-data.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">🔧 Test Integrazione Dati AST:ZG</h1>
+            
+            <!-- Navigation Panel -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <a href="admin-functional.html" class="block p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:scale-105 transition-transform">
+                    <div class="text-center">
+                        <i class="fas fa-user-shield text-3xl mb-2"></i>
+                        <h3 class="text-xl font-bold">Pannello Admin</h3>
+                        <p class="text-blue-100">Dashboard amministratore</p>
+                    </div>
+                </a>
+                
+                <a href="pannello-utente.html" class="block p-6 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:scale-105 transition-transform">
+                    <div class="text-center">
+                        <i class="fas fa-user text-3xl mb-2"></i>
+                        <h3 class="text-xl font-bold">Pannello Utente</h3>
+                        <p class="text-green-100">Dashboard dipendente</p>
+                    </div>
+                </a>
+                
+                <a href="gestione-lavorazioni.html" class="block p-6 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:scale-105 transition-transform">
+                    <div class="text-center">
+                        <i class="fas fa-tasks text-3xl mb-2"></i>
+                        <h3 class="text-xl font-bold">Gestione Lavorazioni</h3>
+                        <p class="text-orange-100">Kanban e task</p>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Real-time Data Statistics -->
+            <div class="bg-gray-50 rounded-lg p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Statistiche in Tempo Reale</h2>
+                <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Stats will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Data Integration Test -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Task Management Test -->
+                <div class="bg-white border rounded-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">🎯 Test Gestione Task</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Aggiungi Task di Test</span>
+                            <button onclick="addTestTask()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                Aggiungi
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Aggiorna Task Esistente</span>
+                            <button onclick="updateTestTask()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                                Aggiorna
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Salva Dati</span>
+                            <button onclick="saveData()" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                                Salva
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Carica Dati</span>
+                            <button onclick="loadData()" class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600">
+                                Carica
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Request Management Test -->
+                <div class="bg-white border rounded-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Test Gestione Richieste</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Aggiungi Richiesta di Test</span>
+                            <button onclick="addTestRequest()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                Aggiungi
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Approva Prima Richiesta</span>
+                            <button onclick="approveFirstRequest()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                                Approva
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <span>Test Notifica</span>
+                            <button onclick="testNotification()" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+                                Notifica
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="bg-white border rounded-lg p-6 mt-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📝 Log Attività</h3>
+                <div id="activity-log" class="space-y-2 max-h-64 overflow-y-auto">
+                    <!-- Activity log entries will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activityCounter = 0;
+
+        function updateStats() {
+            const stats = window.syncData.getStats();
+            const container = document.getElementById('stats-container');
+            
+            container.innerHTML = `
+                <div class="bg-blue-100 p-4 rounded text-center">
+                    <div class="text-2xl font-bold text-blue-600">${stats.tasks.total}</div>
+                    <div class="text-sm text-blue-500">Task Totali</div>
+                </div>
+                <div class="bg-green-100 p-4 rounded text-center">
+                    <div class="text-2xl font-bold text-green-600">${stats.users.active}</div>
+                    <div class="text-sm text-green-500">Utenti Attivi</div>
+                </div>
+                <div class="bg-yellow-100 p-4 rounded text-center">
+                    <div class="text-2xl font-bold text-yellow-600">${stats.requests.pending}</div>
+                    <div class="text-sm text-yellow-500">Richieste Pending</div>
+                </div>
+                <div class="bg-red-100 p-4 rounded text-center">
+                    <div class="text-2xl font-bold text-red-600">${stats.tasks.overdue}</div>
+                    <div class="text-sm text-red-500">Task Scaduti</div>
+                </div>
+            `;
+        }
+
+        function addTestTask() {
+            const testTask = {
+                titolo: `Task di Test ${Date.now()}`,
+                descrizione: 'Questo è un task di test per verificare l\'integrazione dei dati',
+                assegnatario: 'mario',
+                nomeAssegnatario: 'Mario Rossi',
+                avatar: 'https://i.pravatar.cc/40?img=1',
+                stato: 'da_fare',
+                priorita: 'media',
+                scadenza: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                cliente: 'Test Client',
+                progresso: 0
+            };
+
+            const newTask = window.syncData.addTask(testTask);
+            logActivity(`✅ Task aggiunto: ${newTask.titolo} (ID: ${newTask.id})`);
+            updateStats();
+        }
+
+        function updateTestTask() {
+            const tasks = window.sharedData.tasks;
+            if (tasks.length > 0) {
+                const taskToUpdate = tasks[0];
+                const newProgress = Math.min(taskToUpdate.progresso + 10, 100);
+                const newStatus = newProgress === 100 ? 'completato' : 'in_corso';
+                
+                window.syncData.updateTask(taskToUpdate.id, {
+                    progresso: newProgress,
+                    stato: newStatus
+                });
+                
+                logActivity(`🔄 Task aggiornato: ${taskToUpdate.titolo} (${newProgress}%)`);
+                updateStats();
+            } else {
+                logActivity('❌ Nessun task da aggiornare');
+            }
+        }
+
+        function addTestRequest() {
+            const testRequest = {
+                tipo: 'materiali',
+                titolo: `Richiesta Test ${Date.now()}`,
+                descrizione: 'Questa è una richiesta di test per verificare l\'integrazione',
+                dipendente: {
+                    id: 'mario',
+                    nome: 'Mario Rossi',
+                    email: 'mario.rossi@test.com',
+                    avatar: 'https://i.pravatar.cc/40?img=1'
+                },
+                priorita: 'media',
+                urgente: false,
+                dettagli: {
+                    motivazione: 'Test di integrazione dati'
+                }
+            };
+
+            const newRequest = window.syncData.addRequest(testRequest);
+            logActivity(`📋 Richiesta aggiunta: ${newRequest.titolo} (ID: ${newRequest.id})`);
+            updateStats();
+        }
+
+        function approveFirstRequest() {
+            const pendingRequests = window.sharedData.requests.filter(r => r.stato === 'in_attesa');
+            if (pendingRequests.length > 0) {
+                const request = pendingRequests[0];
+                window.syncData.updateRequest(request.id, { stato: 'approvata' });
+                logActivity(`✅ Richiesta approvata: ${request.titolo}`);
+                updateStats();
+            } else {
+                logActivity('❌ Nessuna richiesta in attesa da approvare');
+            }
+        }
+
+        function saveData() {
+            if (window.dataManager.save()) {
+                logActivity('💾 Dati salvati con successo in localStorage');
+            } else {
+                logActivity('❌ Errore nel salvataggio dei dati');
+            }
+        }
+
+        function loadData() {
+            if (window.dataManager.load()) {
+                logActivity('📁 Dati caricati con successo da localStorage');
+                updateStats();
+            } else {
+                logActivity('❌ Nessun dato da caricare');
+            }
+        }
+
+        function testNotification() {
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in';
+            notification.textContent = '🔔 Test notifica - Integrazione funzionante!';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+            
+            logActivity('🔔 Notifica di test inviata');
+        }
+
+        function logActivity(message) {
+            activityCounter++;
+            const log = document.getElementById('activity-log');
+            const entry = document.createElement('div');
+            entry.className = 'flex items-center justify-between p-2 bg-gray-50 rounded text-sm fade-in';
+            entry.innerHTML = `
+                <span>${message}</span>
+                <span class="text-gray-500">${new Date().toLocaleTimeString()}</span>
+            `;
+            
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 20 entries
+            while (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // Listen for data synchronization events
+        ['taskUpdated', 'taskAdded', 'taskDeleted', 'requestAdded', 'requestUpdated', 'communicationAdded'].forEach(eventType => {
+            window.addEventListener(eventType, function(event) {
+                logActivity(`🔄 Evento sincronizzazione: ${eventType} - ${JSON.stringify(event.detail).substring(0, 50)}...`);
+                updateStats();
+            });
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
+            logActivity('🚀 Sistema di test integrazione inizializzato');
+        });
+
+        // Auto-refresh stats every 10 seconds
+        setInterval(updateStats, 10000);
+    </script>
+</body>
+</html>

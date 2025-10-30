@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Utenti - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="modal-system.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
+        <div class="flex items-center justify-center h-16 gradient-bg">
+            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
+                Gestione Utenti
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Gestione Richieste
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Gestione Utenti</h2>
+                <p class="text-gray-600">Gestisci dipendenti, ruoli e permessi</p>
+            </div>
+            <button onclick="openAddUserModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                Aggiungi Utente
+            </button>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Totale Utenti</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalUsers">24</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Attivi</p>
+                        <p class="text-2xl font-bold text-green-600" id="activeUsers">20</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="user-check" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Manager</p>
+                        <p class="text-2xl font-bold text-purple-600" id="managers">4</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="crown" class="w-6 h-6 text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Nuovi (30gg)</p>
+                        <p class="text-2xl font-bold text-orange-600" id="newUsers">3</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="user-plus" class="w-6 h-6 text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-64">
+                    <input type="text" id="searchUsers" placeholder="Cerca utenti..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <select id="roleFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tutti i ruoli</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="dipendente">Dipendente</option>
+                    <option value="stagista">Stagista</option>
+                </select>
+                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tutti gli stati</option>
+                    <option value="attivo">Attivo</option>
+                    <option value="inattivo">Inattivo</option>
+                    <option value="sospeso">Sospeso</option>
+                </select>
+                <button onclick="exportUsers()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                    Esporta CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Elenco Utenti</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruolo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ultimo Accesso</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Aggiungi Utente</h3>
+                    <button onclick="closeUserModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form id="userForm" class="p-6">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="userName" class="block text-sm font-medium text-gray-700 mb-2">Nome</label>
+                            <input type="text" id="userName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="userSurname" class="block text-sm font-medium text-gray-700 mb-2">Cognome</label>
+                            <input type="text" id="userSurname" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="userEmail" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="userEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="userRole" class="block text-sm font-medium text-gray-700 mb-2">Ruolo</label>
+                            <select id="userRole" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Seleziona ruolo</option>
+                                <option value="admin">Admin</option>
+                                <option value="manager">Manager</option>
+                                <option value="dipendente">Dipendente</option>
+                                <option value="stagista">Stagista</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="userStatus" class="block text-sm font-medium text-gray-700 mb-2">Stato</label>
+                            <select id="userStatus" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="attivo">Attivo</option>
+                                <option value="inattivo">Inattivo</option>
+                                <option value="sospeso">Sospeso</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label for="userPhone" class="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                        <input type="tel" id="userPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="closeUserModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Annulla
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Salva
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEditingUserId = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            lucide.createIcons();
+            await loadUsers();
+            await updateStats();
+            setupFilters();
+        });
+
+        async function loadUsers() {
+            try {
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+
+                const users = await getFilteredUsers();
+
+                users.forEach(user => {
+                    const row = createUserRow(user);
+                    tbody.appendChild(row);
+                });
+                
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento utenti:', error);
+                showAlert('Errore', 'Impossibile caricare gli utenti: ' + error.message, 'error');
+            }
+        }
+
+        function createUserRow(user) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+
+            const statusClass = getStatusClass(user.stato);
+            const roleClass = getRoleClass(user.ruolo);
+
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <img src="${user.avatar || 'https://ui-avatars.com/api/?name=' + user.nome}" alt="${user.nome} ${user.cognome}" class="w-10 h-10 rounded-full mr-4">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${user.nome} ${user.cognome}</div>
+                            <div class="text-sm text-gray-500">${user.email}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="${roleClass} px-2 py-1 rounded-full text-xs font-medium">${user.ruolo.charAt(0).toUpperCase() + user.ruolo.slice(1)}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="${statusClass} px-2 py-1 rounded-full text-xs font-medium">${user.stato.charAt(0).toUpperCase() + user.stato.slice(1)}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${user.updated_at ? new Date(user.updated_at).toLocaleDateString('it-IT') : '-'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex space-x-2">
+                        <button onclick="editUser('${user.id}')" class="text-blue-600 hover:text-blue-900" title="Modifica">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deleteUser('${user.id}', '${user.nome} ${user.cognome}')" class="text-red-600 hover:text-red-900" title="Elimina">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            return tr;
+        }
+            const roleClass = getRoleClass(user.ruolo);
+
+            tr.innerHTML = `
+                                    </div>
+                </td>
+            `;
+
+            return tr;
+        }
+
+        async function getFilteredUsers() {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+                const roleFilter = document.getElementById('roleFilter').value;
+                const statusFilter = document.getElementById('statusFilter').value;
+
+                return users.filter(user => {
+                    const matchesSearch = (user.nome + ' ' + user.cognome).toLowerCase().includes(searchTerm) ||
+                                        user.email.toLowerCase().includes(searchTerm);
+                    const matchesRole = !roleFilter || user.ruolo === roleFilter;
+                    const matchesStatus = !statusFilter || user.stato === statusFilter;
+
+                    return matchesSearch && matchesRole && matchesStatus;
+                });
+            } catch (error) {
+                console.error('Errore filtro utenti:', error);
+                return [];
+            }
+        }
+
+        function setupFilters() {
+            const searchInput = document.getElementById('searchUsers');
+            const roleFilter = document.getElementById('roleFilter');
+            const statusFilter = document.getElementById('statusFilter');
+
+            [searchInput, roleFilter, statusFilter].forEach(element => {
+                element.addEventListener('input', loadUsers);
+                element.addEventListener('change', loadUsers);
+            });
+        }
+
+        function openAddUserModal() {
+            currentEditingUserId = null;
+            document.getElementById('modalTitle').textContent = 'Aggiungi Utente';
+            document.getElementById('userForm').reset();
+            document.getElementById('userModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.add('hidden');
+            currentEditingUserId = null;
+        }
+
+        async function editUser(userId) {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const user = users.find(u => u.id === userId);
+                if (!user) return;
+
+                currentEditingUserId = userId;
+                document.getElementById('modalTitle').textContent = 'Modifica Utente';
+                
+                document.getElementById('userName').value = user.nome;
+                document.getElementById('userSurname').value = user.cognome;
+                document.getElementById('userEmail').value = user.email;
+                document.getElementById('userRole').value = user.ruolo;
+                document.getElementById('userStatus').value = user.stato;
+                document.getElementById('userPhone').value = user.telefono || '';
+                
+                document.getElementById('userModal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore modifica utente:', error);
+                showAlert('Errore', 'Impossibile caricare i dati dell\'utente: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteUser(userId, userName) {
+            try {
+                const confirmed = await showConfirm(
+                    'Elimina Utente',
+                    `Sei sicuro di voler eliminare ${userName}?`
+                );
+
+                if (confirmed) {
+                    await window.dataManager.deleteUtente(userId);
+                    await loadUsers();
+                    await updateStats();
+                    showNotification('Utente eliminato con successo!', 'success');
+                }
+            } catch (error) {
+                console.error('Errore eliminazione utente:', error);
+                showAlert('Errore', 'Impossibile eliminare l\'utente: ' + error.message, 'error');
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const users = await window.dataManager.getUtenti();
+                document.getElementById('totalUsers').textContent = users.length;
+                document.getElementById('activeUsers').textContent = users.filter(u => u.stato === 'attivo').length;
+                document.getElementById('managers').textContent = users.filter(u => u.ruolo === 'admin').length;
+                
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                const recentUsers = users.filter(u => {
+                    const created = new Date(u.created_at);
+                    return created > thirtyDaysAgo;
+                });
+                document.getElementById('newUsers').textContent = recentUsers.length;
+            } catch (error) {
+                console.error('Errore aggiornamento statistiche:', error);
+            }
+        }
+
+        async function exportUsers() {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const csvContent = [
+                    ['Nome', 'Cognome', 'Email', 'Ruolo', 'Stato', 'Telefono'],
+                    ...users.map(user => [
+                        user.nome,
+                        user.cognome,
+                        user.email,
+                        user.ruolo,
+                        user.stato,
+                        user.telefono || ''
+                    ])
+                ].map(row => row.join(',')).join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'utenti.csv';
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Export completato!', 'success');
+            } catch (error) {
+                console.error('Errore export:', error);
+                showAlert('Errore', 'Impossibile esportare gli utenti', 'error');
+            }
+        }
+
+        // Form submission
+        document.getElementById('userForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            try {
+                const userData = {
+                    nome: document.getElementById('userName').value,
+                    cognome: document.getElementById('userSurname').value,
+                    email: document.getElementById('userEmail').value,
+                    ruolo: document.getElementById('userRole').value,
+                    stato: document.getElementById('userStatus').value,
+                    telefono: document.getElementById('userPhone').value
+                };
+
+                if (currentEditingUserId) {
+                    userData.id = currentEditingUserId;
+                    await window.dataManager.saveUtente(userData);
+                    showNotification('Utente aggiornato con successo!', 'success');
+                } else {
+                    await window.dataManager.saveUtente(userData);
+                    showNotification('Utente aggiunto con successo!', 'success');
+                }
+
+                closeUserModal();
+                await loadUsers();
+                await updateStats();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore salvataggio utente:', error);
+                showAlert('Errore', 'Impossibile salvare l\'utente: ' + error.message, 'error');
+            }
+        });
+
+        // Utility functions
+        function getStatusClass(status) {
+            switch(status) {
+                case 'attivo': return 'bg-green-100 text-green-800';
+                case 'inattivo': return 'bg-gray-100 text-gray-800';
+                case 'sospeso': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getRoleClass(role) {
+            switch(role) {
+                case 'admin': return 'bg-purple-100 text-purple-800';
+                case 'manager': return 'bg-blue-100 text-blue-800';
+                case 'dipendente': return 'bg-green-100 text-green-800';
+                case 'stagista': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : 
+                           type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST Admin - Gestione Utenti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-hidden { transform: translateX(-100%); }
+        .sidebar-visible { transform: translateX(0); }
+        .modal-hidden { opacity: 0; pointer-events: none; }
+        .modal-visible { opacity: 1; pointer-events: auto; }
+        .loading { opacity: 0.6; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 sidebar-hidden lg:sidebar-visible">
+            <!-- Header -->
+            <div class="flex h-16 items-center justify-between px-6 border-b">
+                <h1 class="text-xl font-bold text-gray-900">AST Admin</h1>
+                <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="admin-functional.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="bg-red-50 text-red-700 border-red-200 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">👥</span>
+                    Gestione Utenti
+                </a>
+                <a href="gestione-lavorazioni.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📋</span>
+                    Lavorazioni
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">💬</span>
+                    Richieste
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">📅</span>
+                    Calendario
+                </a>
+                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
+                    <span class="mr-3 text-lg">⚙️</span>
+                    Impostazioni
+                </a>
+            </nav>
+
+            <!-- User Profile -->
+            <div class="border-t p-4">
+                <div class="flex items-center">
+                    <div class="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
+                        <span class="text-sm font-medium text-white">AD</span>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-700">Admin</p>
+                        <p class="text-xs text-gray-500">Amministratore</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm border-b">
+                <div class="flex h-16 items-center justify-between px-6">
+                    <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
+                        ☰
+                    </button>
+                    <h2 class="text-lg font-semibold text-gray-900">Gestione Utenti</h2>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="openAddUserModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            ➕ Aggiungi Utente
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Users Content -->
+            <main class="flex-1 overflow-auto p-6">
+                <!-- Search and Filter Bar -->
+                <div class="mb-6 bg-white rounded-lg border p-4">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <input type="text" id="searchUsers" placeholder="Cerca per nome, email o ruolo..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="roleFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                                <option value="">Tutti i ruoli</option>
+                                <option value="admin">Amministratore</option>
+                                <option value="employee">Dipendente</option>
+                                <option value="manager">Manager</option>
+                            </select>
+                            <button onclick="exportUsers()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                                📊 Esporta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-blue-100 rounded-lg">
+                                <span class="text-blue-600 text-xl">👥</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Totale Utenti</p>
+                                <p id="totalUsers" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-green-100 rounded-lg">
+                                <span class="text-green-600 text-xl">✅</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Attivi</p>
+                                <p id="activeUsers" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-yellow-100 rounded-lg">
+                                <span class="text-yellow-600 text-xl">👨‍💼</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Manager</p>
+                                <p id="managerUsers" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border p-4">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-purple-100 rounded-lg">
+                                <span class="text-purple-600 text-xl">👷</span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-600">Dipendenti</p>
+                                <p id="employeeUsers" class="text-xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Table -->
+                <div class="bg-white rounded-lg border shadow-sm">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-900">Elenco Utenti</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utente</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruolo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ultimo Accesso</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center">
+                                        <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                        <p class="text-gray-500">Caricamento utenti...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-hidden transition-all duration-300">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
+            <div class="px-6 py-4 border-b">
+                <h3 id="modalTitle" class="text-lg font-semibold text-gray-900">Aggiungi Nuovo Utente</h3>
+            </div>
+            <form id="userForm" class="px-6 py-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                    <input type="text" id="userFullName" name="fullName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="userEmail" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ruolo</label>
+                    <select id="userRole" name="role" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                        <option value="">Seleziona ruolo</option>
+                        <option value="employee">Dipendente</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Amministratore</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                    <input type="tel" id="userPhone" name="phone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Dipartimento</label>
+                    <input type="text" id="userDepartment" name="department" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="userActive" name="active" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                    <label for="userActive" class="ml-2 block text-sm text-gray-700">Utente attivo</label>
+                </div>
+            </form>
+            <div class="px-6 py-4 border-t flex justify-end space-x-3">
+                <button onclick="closeUserModal()" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                    Annulla
+                </button>
+                <button onclick="saveUser()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                    Salva Utente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-white border rounded-lg shadow-lg p-4 max-w-sm">
+            <div class="flex items-center">
+                <div id="notificationIcon" class="mr-3"></div>
+                <div>
+                    <p id="notificationTitle" class="font-medium text-gray-900"></p>
+                    <p id="notificationMessage" class="text-sm text-gray-600"></p>
+                </div>
+                <button onclick="hideNotification()" class="ml-4 text-gray-400 hover:text-gray-600">
+                    ✕
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data per simulare database
+        let users = [
+            {
+                id: 1,
+                fullName: 'Mario Rossi',
+                email: 'mario.rossi@ast.com',
+                role: 'employee',
+                phone: '+39 123 456 7890',
+                department: 'Produzione',
+                active: true,
+                lastLogin: '2025-10-29T14:30:00Z',
+                createdAt: '2025-01-15T09:00:00Z'
+            },
+            {
+                id: 2,
+                fullName: 'Luca Bianchi',
+                email: 'luca.bianchi@ast.com',
+                role: 'manager',
+                phone: '+39 123 456 7891',
+                department: 'Qualità',
+                active: true,
+                lastLogin: '2025-10-30T08:15:00Z',
+                createdAt: '2025-02-01T10:30:00Z'
+            },
+            {
+                id: 3,
+                fullName: 'Anna Verdi',
+                email: 'anna.verdi@ast.com',
+                role: 'employee',
+                phone: '+39 123 456 7892',
+                department: 'Manutenzione',
+                active: true,
+                lastLogin: '2025-10-28T16:45:00Z',
+                createdAt: '2025-03-10T11:15:00Z'
+            },
+            {
+                id: 4,
+                fullName: 'Giuseppe Neri',
+                email: 'giuseppe.neri@ast.com',
+                role: 'employee',
+                phone: '+39 123 456 7893',
+                department: 'Logistica',
+                active: false,
+                lastLogin: '2025-10-20T12:00:00Z',
+                createdAt: '2025-01-20T14:00:00Z'
+            }
+        ];
+
+        let editingUserId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+            setupSearch();
+            updateStatistics();
+        });
+
+        function loadUsers(filteredUsers = null) {
+            const usersToShow = filteredUsers || users;
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (usersToShow.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                            Nessun utente trovato
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = usersToShow.map(user => `
+                <tr id="user-${user.id}" class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="h-10 w-10 rounded-full ${getUserAvatarColor(user.role)} flex items-center justify-center">
+                                <span class="text-sm font-medium text-white">${getInitials(user.fullName)}</span>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${user.fullName}</div>
+                                <div class="text-sm text-gray-500">${user.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeClass(user.role)}">
+                            ${getRoleLabel(user.role)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${user.active ? 'Attivo' : 'Inattivo'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${formatDate(user.lastLogin)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-900">
+                                ✏️ Modifica
+                            </button>
+                            <button onclick="toggleUserStatus(${user.id})" class="text-yellow-600 hover:text-yellow-900">
+                                ${user.active ? '⏸️ Disattiva' : '▶️ Attiva'}
+                            </button>
+                            <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900">
+                                🗑️ Elimina
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStatistics() {
+            const total = users.length;
+            const active = users.filter(u => u.active).length;
+            const managers = users.filter(u => u.role === 'manager').length;
+            const employees = users.filter(u => u.role === 'employee').length;
+
+            document.getElementById('totalUsers').textContent = total;
+            document.getElementById('activeUsers').textContent = active;
+            document.getElementById('managerUsers').textContent = managers;
+            document.getElementById('employeeUsers').textContent = employees;
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('searchUsers');
+            const roleFilter = document.getElementById('roleFilter');
+
+            function filterUsers() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedRole = roleFilter.value;
+
+                const filtered = users.filter(user => {
+                    const matchesSearch = user.fullName.toLowerCase().includes(searchTerm) ||
+                                        user.email.toLowerCase().includes(searchTerm) ||
+                                        user.department.toLowerCase().includes(searchTerm);
+                    
+                    const matchesRole = !selectedRole || user.role === selectedRole;
+
+                    return matchesSearch && matchesRole;
+                });
+
+                loadUsers(filtered);
+            }
+
+            searchInput.addEventListener('input', filterUsers);
+            roleFilter.addEventListener('change', filterUsers);
+        }
+
+        function openAddUserModal() {
+            editingUserId = null;
+            document.getElementById('modalTitle').textContent = 'Aggiungi Nuovo Utente';
+            document.getElementById('userForm').reset();
+            document.getElementById('userActive').checked = true;
+            showModal();
+        }
+
+        function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            editingUserId = userId;
+            document.getElementById('modalTitle').textContent = 'Modifica Utente';
+            
+            document.getElementById('userFullName').value = user.fullName;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userRole').value = user.role;
+            document.getElementById('userPhone').value = user.phone;
+            document.getElementById('userDepartment').value = user.department;
+            document.getElementById('userActive').checked = user.active;
+
+            showModal();
+        }
+
+        function saveUser() {
+            const form = document.getElementById('userForm');
+            const formData = new FormData(form);
+            
+            const userData = {
+                fullName: formData.get('fullName'),
+                email: formData.get('email'),
+                role: formData.get('role'),
+                phone: formData.get('phone'),
+                department: formData.get('department'),
+                active: formData.get('active') === 'on'
+            };
+
+            // Validation
+            if (!userData.fullName || !userData.email || !userData.role) {
+                showNotification('Errore', 'Compila tutti i campi obbligatori', 'error');
+                return;
+            }
+
+            if (editingUserId) {
+                // Update existing user
+                const userIndex = users.findIndex(u => u.id === editingUserId);
+                if (userIndex !== -1) {
+                    users[userIndex] = { ...users[userIndex], ...userData };
+                    showNotification('Successo', 'Utente aggiornato con successo', 'success');
+                }
+            } else {
+                // Add new user
+                const newUser = {
+                    id: Math.max(...users.map(u => u.id)) + 1,
+                    ...userData,
+                    lastLogin: null,
+                    createdAt: new Date().toISOString()
+                };
+                users.push(newUser);
+                showNotification('Successo', 'Nuovo utente aggiunto con successo', 'success');
+            }
+
+            closeUserModal();
+            loadUsers();
+            updateStatistics();
+        }
+
+        function toggleUserStatus(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            user.active = !user.active;
+            loadUsers();
+            updateStatistics();
+            
+            const status = user.active ? 'attivato' : 'disattivato';
+            showNotification('Successo', `Utente ${status} con successo`, 'info');
+        }
+
+        function deleteUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            if (confirm(`Sei sicuro di voler eliminare l'utente "${user.fullName}"?`)) {
+                users = users.filter(u => u.id !== userId);
+                loadUsers();
+                updateStatistics();
+                showNotification('Successo', 'Utente eliminato con successo', 'info');
+            }
+        }
+
+        function exportUsers() {
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + "Nome,Email,Ruolo,Telefono,Dipartimento,Stato,Ultimo Accesso\n"
+                + users.map(user => 
+                    `"${user.fullName}","${user.email}","${getRoleLabel(user.role)}","${user.phone}","${user.department}","${user.active ? 'Attivo' : 'Inattivo'}","${formatDate(user.lastLogin)}"`
+                ).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "utenti_ast.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('Successo', 'Dati esportati con successo', 'success');
+        }
+
+        function showModal() {
+            document.getElementById('userModal').classList.remove('modal-hidden');
+            document.getElementById('userModal').classList.add('modal-visible');
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.add('modal-hidden');
+            document.getElementById('userModal').classList.remove('modal-visible');
+        }
+
+        // Utility functions
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase();
+        }
+
+        function getUserAvatarColor(role) {
+            const colors = {
+                'admin': 'bg-red-500',
+                'manager': 'bg-blue-500',
+                'employee': 'bg-green-500'
+            };
+            return colors[role] || 'bg-gray-500';
+        }
+
+        function getRoleLabel(role) {
+            const labels = {
+                'admin': 'Amministratore',
+                'manager': 'Manager',
+                'employee': 'Dipendente'
+            };
+            return labels[role] || role;
+        }
+
+        function getRoleBadgeClass(role) {
+            const classes = {
+                'admin': 'bg-red-100 text-red-800',
+                'manager': 'bg-blue-100 text-blue-800',
+                'employee': 'bg-green-100 text-green-800'
+            };
+            return classes[role] || 'bg-gray-100 text-gray-800';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Mai';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT') + ' ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showNotification(title, message, type) {
+            const notification = document.getElementById('notification');
+            const icon = document.getElementById('notificationIcon');
+            const titleEl = document.getElementById('notificationTitle');
+            const messageEl = document.getElementById('notificationMessage');
+
+            const icons = {
+                'success': '✅',
+                'error': '❌',
+                'info': 'ℹ️',
+                'warning': '⚠️'
+            };
+
+            icon.textContent = icons[type] || 'ℹ️';
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+
+            notification.classList.remove('hidden');
+
+            setTimeout(() => {
+                hideNotification();
+            }, 5000);
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.add('hidden');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            
+            if (sidebar.classList.contains('sidebar-hidden')) {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-visible');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('sidebar-hidden');
+                sidebar.classList.remove('sidebar-visible');
+                overlay.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

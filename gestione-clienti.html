@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Clienti - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <!-- Original Scripts -->
+    <script src="shared-data.js"></script>
+    <script src="client-modal.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="admin-functional.html" class="text-white hover:text-gray-200">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <div>
+                        <h1 class="text-2xl font-bold">Gestione Clienti</h1>
+                        <p class="text-blue-100 text-sm">Crea, modifica e gestisci i tuoi clienti</p>
+                    </div>
+                </div>
+                <button onclick="openClientModal()" class="bg-white text-blue-600 px-6 py-2 rounded-lg hover:bg-blue-50 transition-colors font-semibold">
+                    <i class="fas fa-plus mr-2"></i>Nuovo Cliente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Totale Clienti</p>
+                        <p id="totalClients" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Aziende</p>
+                        <p id="totalCompanies" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-building text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Privati</p>
+                        <p id="totalPrivate" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-user text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Lavorazioni Attive</p>
+                        <p id="activeTasks" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-tasks text-orange-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filter -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="searchInput" placeholder="Cerca cliente..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               oninput="filterClients()">
+                    </div>
+                </div>
+                <select id="typeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="filterClients()">
+                    <option value="">Tutti i tipi</option>
+                    <option value="azienda">Aziende</option>
+                    <option value="privato">Privati</option>
+                </select>
+                <select id="sectorFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="filterClients()">
+                    <option value="">Tutti i settori</option>
+                    <option value="Tecnologia">Tecnologia</option>
+                    <option value="Big Data">Big Data</option>
+                    <option value="Cyber Security">Cyber Security</option>
+                    <option value="Web Design">Web Design</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Clients Table -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contatti</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicazione</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Settore</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Clients will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Modal (Create/Edit) -->
+    <div id="clientFormModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 id="modalTitle" class="text-2xl font-bold mb-2">Nuovo Cliente</h2>
+                        <p class="text-blue-100">Compila i dati del cliente e seleziona l'ubicazione sulla mappa</p>
+                    </div>
+                    <button onclick="closeClientModal()" class="text-white hover:text-gray-200 transition-colors">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <form id="clientForm" class="p-6">
+                <input type="hidden" id="clientId">
+                
+                <!-- Tipo Cliente -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Cliente *</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="tipoCliente" value="azienda" checked class="mr-2">
+                            <i class="fas fa-building mr-2 text-blue-600"></i>
+                            Azienda
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="tipoCliente" value="privato" class="mr-2">
+                            <i class="fas fa-user mr-2 text-green-600"></i>
+                            Privato
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Informazioni Base -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ragione Sociale / Nome Completo *</label>
+                        <input type="text" id="ragioneSociale" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Settore *</label>
+                        <input type="text" id="settore" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome Referente *</label>
+                        <input type="text" id="nome" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cognome Referente *</label>
+                        <input type="text" id="cognome" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <!-- Contatti -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Telefono *</label>
+                        <input type="tel" id="telefono" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="+39 123 4567890">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                        <input type="email" id="email" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="email@example.com">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">PEC</label>
+                        <input type="email" id="pec" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="pec@pec.it">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Partita IVA</label>
+                        <input type="text" id="partitaIva" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="IT12345678901">
+                    </div>
+                </div>
+
+                <!-- Ubicazione -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Indirizzo Completo *</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="indirizzo" required 
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Via Roma 123, 20100 Milano MI">
+                        <button type="button" onclick="searchAddress()" 
+                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-search mr-2"></i>Cerca
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Inserisci l'indirizzo e clicca "Cerca" oppure clicca sulla mappa</p>
+                </div>
+
+                <!-- Map -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Posizione sulla Mappa *</label>
+                    <div id="mapContainer" class="w-full h-96 rounded-lg border border-gray-300"></div>
+                    <div class="mt-2 flex gap-4 text-xs text-gray-600">
+                        <div>
+                            <span class="font-medium">Latitudine:</span>
+                            <input type="text" id="latitude" readonly class="ml-2 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs w-28">
+                        </div>
+                        <div>
+                            <span class="font-medium">Longitudine:</span>
+                            <input type="text" id="longitude" readonly class="ml-2 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs w-28">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                    <textarea id="note" rows="3" 
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Aggiungi eventuali note sul cliente..."></textarea>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeClientModal()" 
+                            class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        Annulla
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Salva Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let marker;
+        let editingClientId = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadClients();
+            updateStats();
+            
+            // Form submit handler
+            document.getElementById('clientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveClient();
+            });
+        });
+
+        async function loadClients() {
+            try {
+                const clients = await window.dataManager.getClienti();
+                const tbody = document.getElementById('clientsTableBody');
+            
+                tbody.innerHTML = clients.map(client => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                ${client.ragioneSociale.charAt(0)}
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${client.ragioneSociale}</div>
+                                <div class="text-sm text-gray-500">${client.nome} ${client.cognome}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">
+                            <i class="fas fa-phone text-gray-400 mr-2"></i>${client.telefono}
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <i class="fas fa-envelope text-gray-400 mr-2"></i>${client.email}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 max-w-xs truncate">${client.indirizzo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-gray-900">${client.settore}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${client.tipoCliente === 'azienda' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">
+                            ${client.tipoCliente.charAt(0).toUpperCase() + client.tipoCliente.slice(1)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button onclick="window.ClientModal.show('${client.id}')" 
+                                class="text-blue-600 hover:text-blue-900 mr-3" title="Visualizza">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="editClient('${client.id}')" 
+                                class="text-green-600 hover:text-green-900 mr-3" title="Modifica">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteClient('${client.id}')" 
+                                class="text-red-600 hover:text-red-900" title="Elimina">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+            
+                updateStats();
+            } catch (error) {
+                console.error('Errore caricamento clienti:', error);
+                showAlert('Errore', 'Impossibile caricare i clienti: ' + error.message, 'error');
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const clients = await window.dataManager.getClienti();
+                const tasks = await window.dataManager.getLavorazioni();
+            
+                document.getElementById('totalClients').textContent = clients.length;
+                document.getElementById('totalCompanies').textContent = clients.filter(c => c.tipo_cliente === 'azienda').length;
+                document.getElementById('totalPrivate').textContent = clients.filter(c => c.tipo_cliente === 'privato').length;
+                document.getElementById('activeTasks').textContent = tasks.filter(t => t.stato !== 'completato').length;
+            } catch (error) {
+                console.error('Errore aggiornamento stats:', error);
+            }
+        }
+
+        function filterClients() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const typeFilter = document.getElementById('typeFilter').value;
+            const sectorFilter = document.getElementById('sectorFilter').value;
+            
+            const clients = window.syncData.getAllClients();
+            const filtered = clients.filter(client => {
+                const matchesSearch = client.ragioneSociale.toLowerCase().includes(searchTerm) ||
+                                    client.nome.toLowerCase().includes(searchTerm) ||
+                                    client.cognome.toLowerCase().includes(searchTerm) ||
+                                    client.email.toLowerCase().includes(searchTerm);
+                const matchesType = !typeFilter || client.tipoCliente === typeFilter;
+                const matchesSector = !sectorFilter || client.settore === sectorFilter;
+                
+                return matchesSearch && matchesType && matchesSector;
+            });
+            
+            const tbody = document.getElementById('clientsTableBody');
+            tbody.innerHTML = filtered.map(client => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                ${client.ragioneSociale.charAt(0)}
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${client.ragioneSociale}</div>
+                                <div class="text-sm text-gray-500">${client.nome} ${client.cognome}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">
+                            <i class="fas fa-phone text-gray-400 mr-2"></i>${client.telefono}
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <i class="fas fa-envelope text-gray-400 mr-2"></i>${client.email}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 max-w-xs truncate">${client.indirizzo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-gray-900">${client.settore}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${client.tipoCliente === 'azienda' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">
+                            ${client.tipoCliente.charAt(0).toUpperCase() + client.tipoCliente.slice(1)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button onclick="window.ClientModal.show('${client.id}')" 
+                                class="text-blue-600 hover:text-blue-900 mr-3" title="Visualizza">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="editClient('${client.id}')" 
+                                class="text-green-600 hover:text-green-900 mr-3" title="Modifica">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteClient('${client.id}')" 
+                                class="text-red-600 hover:text-red-900" title="Elimina">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function openClientModal(clientId = null) {
+            try {
+                editingClientId = clientId;
+                const modal = document.getElementById('clientFormModal');
+                modal.classList.remove('hidden');
+                
+                // Initialize or reset map
+                setTimeout(() => {
+                    initMap();
+                }, 100);
+                
+                if (clientId) {
+                    // Edit mode - load from Supabase
+                    const clients = await window.dataManager.getClienti();
+                    const client = clients.find(c => c.id === clientId);
+                    
+                    if (!client) {
+                        throw new Error('Cliente non trovato');
+                    }
+                    
+                    document.getElementById('modalTitle').textContent = 'Modifica Cliente';
+                    document.getElementById('clientId').value = client.id;
+                    
+                    // Fill form
+                    document.querySelector(`input[name="tipoCliente"][value="${client.tipo_cliente}"]`).checked = true;
+                    document.getElementById('ragioneSociale').value = client.ragione_sociale || '';
+                    document.getElementById('settore').value = client.settore || '';
+                    document.getElementById('nome').value = client.nome || '';
+                    document.getElementById('cognome').value = client.cognome || '';
+                    document.getElementById('telefono').value = client.telefono || '';
+                    document.getElementById('email').value = client.email || '';
+                    document.getElementById('pec').value = client.pec || '';
+                    document.getElementById('partitaIva').value = client.partita_iva || '';
+                    document.getElementById('indirizzo').value = client.indirizzo || '';
+                    document.getElementById('note').value = client.note || '';
+                    
+                    // Set map marker
+                    if (client.latitudine && client.longitudine) {
+                        setTimeout(() => {
+                            if (map && marker) {
+                                const latLng = [client.latitudine, client.longitudine];
+                                marker.setLatLng(latLng);
+                                map.setView(latLng, 15);
+                                document.getElementById('latitude').value = client.latitudine;
+                                document.getElementById('longitude').value = client.longitudine;
+                            }
+                        }, 200);
+                    }
+                } else {
+                    // Create mode
+                    document.getElementById('modalTitle').textContent = 'Nuovo Cliente';
+                    document.getElementById('clientForm').reset();
+                    document.getElementById('clientId').value = '';
+                }
+            } catch (error) {
+                console.error('Errore apertura modal cliente:', error);
+                showAlert('Errore', 'Impossibile caricare i dati del cliente: ' + error.message, 'error');
+            }
+        }
+
+        function closeClientModal() {
+            document.getElementById('clientFormModal').classList.add('hidden');
+            document.getElementById('clientForm').reset();
+            editingClientId = null;
+            if (map) {
+                map.remove();
+                map = null;
+            }
+        }
+
+        function initMap() {
+            if (map) {
+                map.remove();
+            }
+            
+            // Default center (Italy)
+            const defaultLat = 41.9028;
+            const defaultLng = 12.4964;
+            
+            map = L.map('mapContainer').setView([defaultLat, defaultLng], 6);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+            
+            // Update coordinates when marker is moved
+            marker.on('dragend', function(e) {
+                const position = marker.getLatLng();
+                document.getElementById('latitude').value = position.lat.toFixed(6);
+                document.getElementById('longitude').value = position.lng.toFixed(6);
+            });
+            
+            // Add marker on map click
+            map.on('click', function(e) {
+                marker.setLatLng(e.latlng);
+                document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
+                document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
+            });
+            
+            // Set initial coordinates
+            document.getElementById('latitude').value = defaultLat;
+            document.getElementById('longitude').value = defaultLng;
+        }
+
+        function searchAddress() {
+            const address = document.getElementById('indirizzo').value;
+            if (!address) {
+                alert('Inserisci un indirizzo da cercare');
+                return;
+            }
+            
+            // Use Nominatim (OpenStreetMap) geocoding service
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        
+                        marker.setLatLng([lat, lng]);
+                        map.setView([lat, lng], 15);
+                        
+                        document.getElementById('latitude').value = lat.toFixed(6);
+                        document.getElementById('longitude').value = lng.toFixed(6);
+                        
+                        showNotification('Indirizzo trovato sulla mappa!', 'success');
+                    } else {
+                        showNotification('Indirizzo non trovato. Prova a essere più specifico.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Geocoding error:', error);
+                    showNotification('Errore nella ricerca dell\'indirizzo', 'error');
+                });
+        }
+
+        async function saveClient() {
+            try {
+                const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
+                const ragioneSociale = document.getElementById('ragioneSociale').value;
+                const settore = document.getElementById('settore').value;
+                const nome = document.getElementById('nome').value;
+                const cognome = document.getElementById('cognome').value;
+                const telefono = document.getElementById('telefono').value;
+                const email = document.getElementById('email').value;
+                const pec = document.getElementById('pec').value;
+                const partitaIva = document.getElementById('partitaIva').value;
+                const indirizzo = document.getElementById('indirizzo').value;
+                const note = document.getElementById('note').value;
+                const lat = parseFloat(document.getElementById('latitude').value);
+                const lng = parseFloat(document.getElementById('longitude').value);
+                
+                const clientData = {
+                    tipo_cliente: tipoCliente,
+                    ragione_sociale: ragioneSociale,
+                    settore,
+                    nome,
+                    cognome,
+                    telefono,
+                    email,
+                    pec,
+                    partita_iva: partitaIva,
+                    indirizzo,
+                    latitudine: lat || null,
+                    longitudine: lng || null,
+                    note
+                };
+                
+                if (editingClientId) {
+                    clientData.id = editingClientId;
+                    await window.dataManager.saveCliente(clientData);
+                    showNotification('Cliente aggiornato con successo!', 'success');
+                } else {
+                    await window.dataManager.saveCliente(clientData);
+                    showNotification('Cliente creato con successo!', 'success');
+                }
+                
+                // Reload and close
+                await loadClients();
+                await updateStats();
+                closeClientModal();
+            } catch (error) {
+                console.error('Errore salvataggio cliente:', error);
+                showAlert('Errore', 'Impossibile salvare il cliente: ' + error.message, 'error');
+            }
+        }
+
+        function editClient(clientId) {
+            openClientModal(clientId);
+        }
+
+        async function deleteClient(clientId) {
+            try {
+                const clients = await window.dataManager.getClienti();
+                const client = clients.find(c => c.id === clientId);
+                
+                const confirmed = await showConfirm(
+                    'Conferma eliminazione',
+                    `Sei sicuro di voler eliminare il cliente "${client.ragione_sociale}"?`
+                );
+                
+                if (confirmed) {
+                    await window.dataManager.deleteCliente(clientId);
+                    await loadClients();
+                    await updateStats();
+                    showNotification('Cliente eliminato', 'success');
+                }
+            } catch (error) {
+                console.error('Errore eliminazione cliente:', error);
+                showAlert('Errore', 'Impossibile eliminare il cliente: ' + error.message, 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : 
+                           type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

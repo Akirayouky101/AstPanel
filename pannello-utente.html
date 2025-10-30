@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Pannello Utente - AST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <script src="shared-data.js"></script>
+    <script src="modal-system.js"></script>
+    <script src="client-modal.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .user-gradient { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .priority-alta { border-left: 4px solid #ef4444; }
+        .priority-media { border-left: 4px solid #f59e0b; }
+        .priority-bassa { border-left: 4px solid #10b981; }
+        .progress-bar { transition: width 0.3s ease; }
+        .task-card { transition: all 0.3s ease; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
+        <div class="flex items-center justify-center h-16 user-gradient">
+            <h1 class="text-white text-xl font-bold">Pannello Utente</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="#dashboard" onclick="showSection('dashboard')" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600" id="nav-dashboard">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="#my-tasks" onclick="showSection('my-tasks')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-my-tasks">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Le Mie Lavorazioni
+            </a>
+            <a href="calendario-dipendente.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
+                Il Mio Calendario
+            </a>
+            <a href="#requests" onclick="showSection('requests')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-requests">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Le Mie Richieste
+            </a>
+            <a href="#communications" onclick="showSection('communications')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-communications">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <a href="#profile" onclick="showSection('profile')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-profile">
+                <i data-lucide="user" class="w-5 h-5 mr-3"></i>
+                Il Mio Profilo
+            </a>
+            <div class="mt-8 border-t pt-4">
+                <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                    <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
+                    Admin Panel
+                </a>
+                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                    Logout
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section">
+            <!-- User Header -->
+            <div class="flex justify-between items-center mb-8">
+                <div class="flex items-center space-x-4">
+                    <img src="https://i.pravatar.cc/60?img=1" alt="Mario Rossi" class="w-16 h-16 rounded-full border-4 border-white shadow-lg">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">Ciao, Mario Rossi!</h2>
+                        <p class="text-gray-600">Sviluppatore Frontend • Team Alpha</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Ultimo accesso</p>
+                    <p class="text-sm font-medium" id="lastLoginUser">Oggi, 09:30</p>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
+                <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Lavorazioni Attive</p>
+                            <p class="text-2xl font-bold text-blue-600" id="userActiveTasks">3</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Completate Oggi</p>
+                            <p class="text-2xl font-bold text-green-600" id="userCompletedToday">2</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">In Scadenza</p>
+                            <p class="text-2xl font-bold text-orange-600" id="userOverdueTasks">1</p>
+                        </div>
+                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Produttività</p>
+                            <p class="text-2xl font-bold text-purple-600" id="userProductivity">87%</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="showSection('my-tasks')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">Le Mie Lavorazioni</h3>
+                            <p class="text-blue-100">Visualizza e aggiorna i tuoi task</p>
+                        </div>
+                        <i data-lucide="clipboard-list" class="w-8 h-8"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="createNewRequest()">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">Nuova Richiesta</h3>
+                            <p class="text-green-100">Ferie, permessi, materiali</p>
+                        </div>
+                        <i data-lucide="plus-circle" class="w-8 h-8"></i>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="showSection('communications')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">Comunicazioni</h3>
+                            <p class="text-purple-100">Leggi gli ultimi annunci</p>
+                        </div>
+                        <i data-lucide="bell" class="w-8 h-8"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Tasks -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8 fade-in">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Lavorazioni di Oggi</h3>
+                </div>
+                <div id="todayTasks" class="p-6">
+                    <!-- Today's tasks will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- My Tasks Section -->
+        <div id="my-tasks-section" class="section hidden">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Le Mie Lavorazioni</h2>
+                    <p class="text-gray-600">Gestisci e aggiorna le tue attività</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select id="taskStatusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti gli stati</option>
+                        <option value="da_fare">Da Fare</option>
+                        <option value="in_corso">In Corso</option>
+                        <option value="revisione">Revisione</option>
+                        <option value="completato">Completato</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- My Tasks Grid -->
+            <div id="myTasksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- User's tasks will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Requests Section -->
+        <div id="requests-section" class="section hidden">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Le Mie Richieste</h2>
+                    <p class="text-gray-600">Storico e stato delle tue richieste</p>
+                </div>
+                <button onclick="openRequestModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                    <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                    Nuova Richiesta
+                </button>
+            </div>
+
+            <!-- Requests List -->
+            <div id="userRequestsList" class="space-y-4">
+                <!-- User's requests will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Communications Section -->
+        <div id="communications-section" class="section hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Comunicazioni Aziendali</h2>
+                <p class="text-gray-600">Annunci e aggiornamenti importanti</p>
+            </div>
+
+            <!-- Communications List -->
+            <div id="userCommunicationsList" class="space-y-4">
+                <!-- Communications will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Profile Section -->
+        <div id="profile-section" class="section hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Il Mio Profilo</h2>
+                <p class="text-gray-600">Informazioni personali e impostazioni</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Profile Info -->
+                <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6">Informazioni Personali</h3>
+                    <form id="profileForm">
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="profileName" class="block text-sm font-medium text-gray-700 mb-2">Nome</label>
+                                <input type="text" id="profileName" value="Mario" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="profileSurname" class="block text-sm font-medium text-gray-700 mb-2">Cognome</label>
+                                <input type="text" id="profileSurname" value="Rossi" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                        </div>
+                        <div class="mb-6">
+                            <label for="profileEmail" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="profileEmail" value="mario.rossi@azienda.com" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="profilePhone" class="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                                <input type="tel" id="profilePhone" value="+39 340 1234567" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="profileRole" class="block text-sm font-medium text-gray-700 mb-2">Ruolo</label>
+                                <input type="text" id="profileRole" value="Sviluppatore Frontend" readonly class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                            Aggiorna Profilo
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Profile Stats -->
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Statistiche</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Lavorazioni Totali</span>
+                                <span class="font-medium">24</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Completate</span>
+                                <span class="font-medium text-green-600">18</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Media Giornaliera</span>
+                                <span class="font-medium">2.3</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Valutazione</span>
+                                <div class="flex">
+                                    <i data-lucide="star" class="w-4 h-4 text-yellow-400 fill-current"></i>
+                                    <i data-lucide="star" class="w-4 h-4 text-yellow-400 fill-current"></i>
+                                    <i data-lucide="star" class="w-4 h-4 text-yellow-400 fill-current"></i>
+                                    <i data-lucide="star" class="w-4 h-4 text-yellow-400 fill-current"></i>
+                                    <i data-lucide="star" class="w-4 h-4 text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Competenze</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>React/JavaScript</span>
+                                    <span>90%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 90%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>HTML/CSS</span>
+                                    <span>95%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: 95%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Node.js</span>
+                                    <span>75%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-600 h-2 rounded-full" style="width: 75%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Update Modal -->
+    <div id="taskUpdateModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Aggiorna Lavorazione</h3>
+                    <button onclick="closeTaskUpdateModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <label for="taskProgress" class="block text-sm font-medium text-gray-700 mb-2">Progresso (%)</label>
+                        <input type="range" id="taskProgress" min="0" max="100" class="w-full" oninput="updateProgressValue(this.value)">
+                        <div class="flex justify-between text-sm text-gray-500 mt-1">
+                            <span>0%</span>
+                            <span id="progressValue">50%</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="taskNotes" class="block text-sm font-medium text-gray-700 mb-2">Note di Progresso</label>
+                        <textarea id="taskNotes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Aggiungi note sul lavoro svolto..."></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <label for="taskNewStatus" class="block text-sm font-medium text-gray-700 mb-2">Cambia Stato</label>
+                        <select id="taskNewStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="da_fare">Da Fare</option>
+                            <option value="in_corso">In Corso</option>
+                            <option value="revisione">Revisione</option>
+                            <option value="completato">Completato</option>
+                        </select>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="closeTaskUpdateModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Annulla
+                        </button>
+                        <button onclick="saveTaskUpdate()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Salva Aggiornamenti
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Modal -->
+    <div id="requestModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Nuova Richiesta</h3>
+                    <button onclick="closeRequestModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form id="requestForm" class="p-6">
+                    <div class="mb-4">
+                        <label for="requestType" class="block text-sm font-medium text-gray-700 mb-2">Tipo Richiesta</label>
+                        <select id="requestType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Seleziona tipo</option>
+                            <option value="ferie">Ferie</option>
+                            <option value="permessi">Permessi</option>
+                            <option value="materiali">Materiali</option>
+                            <option value="veicoli">Veicoli</option>
+                            <option value="straordinari">Straordinari</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="requestTitle" class="block text-sm font-medium text-gray-700 mb-2">Titolo</label>
+                        <input type="text" id="requestTitle" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="mb-4">
+                        <label for="requestDescription" class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
+                        <textarea id="requestDescription" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="requestStartDate" class="block text-sm font-medium text-gray-700 mb-2">Data Inizio</label>
+                            <input type="date" id="requestStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="requestEndDate" class="block text-sm font-medium text-gray-700 mb-2">Data Fine</label>
+                            <input type="date" id="requestEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="closeRequestModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Annulla
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Invia Richiesta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Details Modal with Components -->
+    <div id="taskDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <h3 id="taskDetailsTitle" class="text-xl font-semibold text-gray-900">Dettagli Lavorazione</h3>
+                    <button onclick="closeTaskDetailsModal()" class="text-gray-400 hover:text-gray-600" title="Chiudi">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6" id="taskDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Component Management Modal for User -->
+    <div id="userComponentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-box mr-2"></i>
+                        Gestione Componenti Lavorazione
+                    </h3>
+                    <button onclick="closeUserComponentModal()" class="text-gray-400 hover:text-gray-600" title="Chiudi">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <!-- Filter by Category -->
+                <div class="p-4 border-b bg-gray-50">
+                    <label for="userComponentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
+                    <select id="userComponentCategoryFilter" onchange="filterUserComponentsByCategory()" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutte le categorie</option>
+                        <option value="Antifurto">Antifurto</option>
+                        <option value="Videosorveglianza">Videosorveglianza</option>
+                        <option value="Rete">Rete</option>
+                        <option value="Accessori">Accessori</option>
+                    </select>
+                </div>
+                
+                <div class="p-6">
+                    <div id="userComponentsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Components will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+                    <button type="button" onclick="closeUserComponentModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Current user data (should be loaded from login)
+        const currentUser = {
+            id: 'mario',
+            nome: 'Mario',
+            cognome: 'Rossi',
+            email: 'mario.rossi@azienda.com',
+            ruolo: 'Sviluppatore Frontend',
+            avatar: 'https://i.pravatar.cc/60?img=1'
+        };
+
+        let currentEditingTask = null;
+
+        // Get tasks data from admin panel (shared data)
+        let userTasks = [
+            {
+                id: 1,
+                titolo: 'Sviluppo Frontend App Mobile',
+                descrizione: 'Implementazione interfaccia utente per applicazione mobile iOS/Android',
+                assegnatario: 'mario',
+                nomeAssegnatario: 'Mario Rossi',
+                avatar: 'https://i.pravatar.cc/40?img=1',
+                stato: 'in_corso',
+                priorita: 'alta',
+                scadenza: '2024-02-15',
+                clienteId: 'techcorp',
+                cliente: 'TechCorp srl',
+                dataCreazione: '2024-01-10',
+                progresso: 65
+            },
+            {
+                id: 5,
+                titolo: 'Ottimizzazione Performance',
+                descrizione: 'Miglioramento velocità caricamento pagine',
+                assegnatario: 'mario',
+                nomeAssegnatario: 'Mario Rossi',
+                avatar: 'https://i.pravatar.cc/40?img=1',
+                stato: 'da_fare',
+                priorita: 'media',
+                scadenza: '2024-02-20',
+                clienteId: 'webcorp',
+                cliente: 'WebCorp ltd',
+                dataCreazione: '2024-01-15',
+                progresso: 0
+            },
+            {
+                id: 6,
+                titolo: 'Bug Fix Dashboard',
+                descrizione: 'Correzione problemi visualizzazione dashboard',
+                assegnatario: 'mario',
+                nomeAssegnatario: 'Mario Rossi',
+                avatar: 'https://i.pravatar.cc/40?img=1',
+                stato: 'completato',
+                priorita: 'alta',
+                scadenza: '2024-02-05',
+                clienteId: 'datacorp',
+                cliente: 'DataCorp spa',
+                dataCreazione: '2024-01-20',
+                progresso: 100
+            }
+        ];
+
+        let userRequests = [
+            {
+                id: 1,
+                tipo: 'ferie',
+                titolo: 'Ferie Estive',
+                descrizione: 'Richiesta 10 giorni di ferie per agosto',
+                dataRichiesta: '2024-01-15',
+                dataInizio: '2024-08-15',
+                dataFine: '2024-08-25',
+                stato: 'in_attesa'
+            },
+            {
+                id: 2,
+                tipo: 'materiali',
+                titolo: 'Monitor Aggiuntivo',
+                descrizione: 'Richiesta secondo monitor per produttività',
+                dataRichiesta: '2024-01-10',
+                stato: 'approvata'
+            }
+        ];
+
+        let userCommunications = [
+            {
+                id: 1,
+                titolo: 'Aggiornamento Sistema ERP',
+                contenuto: 'Il sistema ERP sarà aggiornato domenica dalle 02:00 alle 06:00',
+                tipo: 'annuncio',
+                dataInvio: '2024-01-19',
+                letta: false,
+                priorita: 'alta'
+            },
+            {
+                id: 2,
+                titolo: 'Meeting Trimestrale',
+                contenuto: 'Meeting trimestrale Q1 2024 - venerdì 26 gennaio',
+                tipo: 'evento',
+                dataInvio: '2024-01-18',
+                letta: true,
+                priorita: 'media'
+            }
+        ];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            loadDashboardData();
+            loadMyTasks();
+            loadUserRequests();
+            loadUserCommunications();
+            updateUserStats();
+        });
+
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Remove active class from all nav items
+            document.querySelectorAll('nav a').forEach(link => {
+                link.className = link.className.replace('bg-blue-50 text-blue-600 border-r-4 border-blue-600', 'text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors');
+            });
+
+            // Show selected section
+            document.getElementById(sectionName + '-section').classList.remove('hidden');
+
+            // Add active class to selected nav item
+            document.getElementById('nav-' + sectionName).className = 'flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600';
+
+            // Load section-specific data
+            switch(sectionName) {
+                case 'my-tasks':
+                    loadMyTasks();
+                    break;
+                case 'requests':
+                    loadUserRequests();
+                    break;
+                case 'communications':
+                    loadUserCommunications();
+                    break;
+            }
+
+            lucide.createIcons();
+        }
+
+        function loadDashboardData() {
+            loadTodayTasks();
+            updateUserStats();
+        }
+
+        function loadTodayTasks() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayTasks = userTasks.filter(task => 
+                task.stato === 'in_corso' || 
+                (task.scadenza === today) || 
+                (new Date(task.scadenza) <= new Date() && task.stato !== 'completato')
+            );
+
+            const container = document.getElementById('todayTasks');
+            container.innerHTML = '';
+
+            if (todayTasks.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">Nessuna lavorazione per oggi</p>';
+                return;
+            }
+
+            todayTasks.forEach(task => {
+                const taskElement = createTodayTaskElement(task);
+                container.appendChild(taskElement);
+            });
+        }
+
+        function createTodayTaskElement(task) {
+            const div = document.createElement('div');
+            div.className = `task-card bg-gray-50 rounded-lg p-4 mb-4 ${getPriorityClass(task.priorita)}`;
+
+            const isOverdue = new Date(task.scadenza) < new Date() && task.stato !== 'completato';
+
+            div.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-gray-900 mb-2">${task.titolo}</h4>
+                        <p class="text-sm text-gray-600 mb-3">${task.descrizione}</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(task.stato)}">${getStatusText(task.stato)}</span>
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(task.priorita)}">${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}</span>
+                                <span class="text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
+                                    <i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>
+                                    ${formatDate(task.scadenza)}
+                                </span>
+                            </div>
+                            <button onclick="openTaskUpdateModal(${task.id})" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors">
+                                Aggiorna
+                            </button>
+                        </div>
+                        ${task.progresso !== undefined ? `
+                            <div class="mt-3">
+                                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                    <span>Progresso</span>
+                                    <span>${task.progresso}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="progress-bar bg-blue-600 h-2 rounded-full" style="width: ${task.progresso}%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            return div;
+        }
+
+        function loadMyTasks() {
+            const container = document.getElementById('myTasksGrid');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            const statusFilter = document.getElementById('taskStatusFilter')?.value || '';
+            const filteredTasks = userTasks.filter(task => 
+                !statusFilter || task.stato === statusFilter
+            );
+
+            filteredTasks.forEach(task => {
+                const taskCard = createTaskCard(task);
+                container.appendChild(taskCard);
+            });
+
+            // Setup filter event listener
+            const filter = document.getElementById('taskStatusFilter');
+            if (filter) {
+                filter.removeEventListener('change', loadMyTasks);
+                filter.addEventListener('change', loadMyTasks);
+            }
+        }
+
+        function createTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = `task-card bg-white rounded-lg shadow-md p-6 ${getPriorityClass(task.priorita)}`;
+
+            const isOverdue = new Date(task.scadenza) < new Date() && task.stato !== 'completato';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <h3 class="font-semibold text-gray-900">${task.titolo}</h3>
+                    <button onclick="openTaskDetails(${task.id})" class="text-blue-600 hover:text-blue-800" title="Vedi Dettagli">
+                        <i data-lucide="eye" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">${task.descrizione}</p>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(task.stato)}">${getStatusText(task.stato)}</span>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(task.priorita)}">${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <button onclick="window.ClientModal.show('${task.clienteId}')" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center">
+                            <i class="fas fa-building mr-1"></i>
+                            Cliente: ${task.cliente}
+                        </button>
+                        <span class="${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
+                            <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
+                            ${formatDate(task.scadenza)}
+                        </span>
+                    </div>
+                    ${task.progresso !== undefined ? `
+                        <div>
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>Progresso</span>
+                                <span>${task.progresso}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="progress-bar bg-blue-600 h-2 rounded-full" style="width: ${task.progresso}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            return card;
+        }
+
+        function loadUserRequests() {
+            const container = document.getElementById('userRequestsList');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            userRequests.forEach(request => {
+                const requestCard = createRequestCard(request);
+                container.appendChild(requestCard);
+            });
+        }
+
+        function createRequestCard(request) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg shadow-md p-6';
+
+            const statusClass = getRequestStatusClass(request.stato);
+            const typeIcon = getRequestTypeIcon(request.tipo);
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-4 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900 mb-2">${request.titolo}</h3>
+                            <p class="text-gray-600 text-sm mb-3">${request.descrizione}</p>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span>Richiesta: ${formatDate(request.dataRichiesta)}</span>
+                                ${request.dataInizio ? `<span>Dal: ${formatDate(request.dataInizio)}</span>` : ''}
+                                ${request.dataFine ? `<span>Al: ${formatDate(request.dataFine)}</span>` : ''}
+                            </div>
+                        </div>
+                        <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getRequestStatusText(request.stato)}</span>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function loadUserCommunications() {
+            const container = document.getElementById('userCommunicationsList');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            userCommunications.forEach(comm => {
+                const commCard = createCommunicationCard(comm);
+                container.appendChild(commCard);
+            });
+        }
+
+        function createCommunicationCard(comm) {
+            const card = document.createElement('div');
+            card.className = `bg-white rounded-lg shadow-md p-6 ${!comm.letta ? 'border-l-4 border-blue-500' : ''}`;
+
+            const typeIcon = getCommunicationTypeIcon(comm.tipo);
+            const priorityClass = comm.priorita === 'alta' ? 'text-red-600' : comm.priorita === 'media' ? 'text-orange-600' : 'text-green-600';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-4 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <h3 class="font-semibold text-gray-900">${comm.titolo}</h3>
+                                ${!comm.letta ? '<span class="w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                <span class="text-xs ${priorityClass} font-medium">${comm.priorita.toUpperCase()}</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-3">${comm.contenuto}</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-gray-500">${formatDate(comm.dataInvio)}</span>
+                                ${!comm.letta ? `
+                                    <button onclick="markAsRead(${comm.id})" class="text-blue-600 text-xs hover:text-blue-800">
+                                        Segna come letta
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function openTaskUpdateModal(taskId) {
+            const task = userTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            currentEditingTask = task;
+            
+            document.getElementById('taskProgress').value = task.progresso || 0;
+            document.getElementById('progressValue').textContent = (task.progresso || 0) + '%';
+            document.getElementById('taskNewStatus').value = task.stato;
+            document.getElementById('taskNotes').value = '';
+            
+            document.getElementById('taskUpdateModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTaskUpdateModal() {
+            document.getElementById('taskUpdateModal').classList.add('hidden');
+            currentEditingTask = null;
+        }
+
+        function updateProgressValue(value) {
+            document.getElementById('progressValue').textContent = value + '%';
+        }
+
+        function saveTaskUpdate() {
+            if (!currentEditingTask) return;
+
+            const newProgress = parseInt(document.getElementById('taskProgress').value);
+            const newStatus = document.getElementById('taskNewStatus').value;
+            const notes = document.getElementById('taskNotes').value;
+
+            // Update task
+            currentEditingTask.progresso = newProgress;
+            currentEditingTask.stato = newStatus;
+            
+            // Auto-set progress based on status
+            if (newStatus === 'completato') {
+                currentEditingTask.progresso = 100;
+            } else if (newStatus === 'revisione' && newProgress < 90) {
+                currentEditingTask.progresso = 90;
+            }
+
+            // Sync with admin panel data (if available)
+            if (window.sharedTasksData) {
+                const adminTask = window.sharedTasksData.find(t => t.id === currentEditingTask.id);
+                if (adminTask) {
+                    adminTask.progresso = currentEditingTask.progresso;
+                    adminTask.stato = currentEditingTask.stato;
+                }
+            }
+
+            closeTaskUpdateModal();
+            loadDashboardData();
+            loadMyTasks();
+            updateUserStats();
+            
+            showNotification('Lavorazione aggiornata con successo!', 'success');
+        }
+
+        function openRequestModal() {
+            document.getElementById('requestForm').reset();
+            document.getElementById('requestModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeRequestModal() {
+            document.getElementById('requestModal').classList.add('hidden');
+        }
+
+        function createNewRequest() {
+            openRequestModal();
+        }
+
+        // Request form submission
+        document.getElementById('requestForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const requestData = {
+                id: userRequests.length + 1,
+                tipo: document.getElementById('requestType').value,
+                titolo: document.getElementById('requestTitle').value,
+                descrizione: document.getElementById('requestDescription').value,
+                dataRichiesta: new Date().toISOString().split('T')[0],
+                dataInizio: document.getElementById('requestStartDate').value,
+                dataFine: document.getElementById('requestEndDate').value,
+                stato: 'in_attesa'
+            };
+
+            userRequests.unshift(requestData);
+            
+            closeRequestModal();
+            showSection('requests');
+            showNotification('Richiesta inviata con successo!', 'success');
+        });
+
+        // Profile form submission
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showNotification('Profilo aggiornato con successo!', 'success');
+        });
+
+        function markAsRead(commId) {
+            const comm = userCommunications.find(c => c.id === commId);
+            if (comm) {
+                comm.letta = true;
+                loadUserCommunications();
+                showNotification('Comunicazione segnata come letta', 'info');
+            }
+        }
+
+        function updateUserStats() {
+            const activeTasks = userTasks.filter(t => t.stato === 'in_corso').length;
+            const completedToday = userTasks.filter(t => 
+                t.stato === 'completato' && 
+                t.dataCreazione === new Date().toISOString().split('T')[0]
+            ).length;
+            const overdueTasks = userTasks.filter(t => 
+                new Date(t.scadenza) < new Date() && t.stato !== 'completato'
+            ).length;
+
+            document.getElementById('userActiveTasks').textContent = activeTasks;
+            document.getElementById('userCompletedToday').textContent = completedToday;
+            document.getElementById('userOverdueTasks').textContent = overdueTasks;
+
+            // Calculate productivity
+            const totalTasks = userTasks.length;
+            const completedTasks = userTasks.filter(t => t.stato === 'completato').length;
+            const productivity = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            document.getElementById('userProductivity').textContent = productivity + '%';
+        }
+
+        function logout() {
+            if (confirm('Sei sicuro di voler uscire?')) {
+                showNotification('Logout effettuato', 'info');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        }
+
+        // Utility functions (same as admin panel)
+        function getStatusClass(status) {
+            switch(status) {
+                case 'da_fare': return 'bg-gray-100 text-gray-800';
+                case 'in_corso': return 'bg-blue-100 text-blue-800';
+                case 'revisione': return 'bg-orange-100 text-orange-800';
+                case 'completato': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getStatusText(status) {
+            switch(status) {
+                case 'da_fare': return 'Da Fare';
+                case 'in_corso': return 'In Corso';
+                case 'revisione': return 'Revisione';
+                case 'completato': return 'Completato';
+                default: return status;
+            }
+        }
+
+        function getPriorityClass(priority) {
+            switch(priority) {
+                case 'alta': return 'priority-alta';
+                case 'media': return 'priority-media';
+                case 'bassa': return 'priority-bassa';
+                default: return '';
+            }
+        }
+
+        function getPriorityBadgeClass(priority) {
+            switch(priority) {
+                case 'alta': return 'bg-red-100 text-red-800';
+                case 'media': return 'bg-yellow-100 text-yellow-800';
+                case 'bassa': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getRequestStatusClass(status) {
+            switch(status) {
+                case 'in_attesa': return 'bg-orange-100 text-orange-800';
+                case 'approvata': return 'bg-green-100 text-green-800';
+                case 'rifiutata': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getRequestStatusText(status) {
+            switch(status) {
+                case 'in_attesa': return 'In Attesa';
+                case 'approvata': return 'Approvata';
+                case 'rifiutata': return 'Rifiutata';
+                default: return status;
+            }
+        }
+
+        function getRequestTypeIcon(type) {
+            switch(type) {
+                case 'ferie': return 'calendar';
+                case 'permessi': return 'clock';
+                case 'materiali': return 'package';
+                case 'veicoli': return 'car';
+                case 'straordinari': return 'zap';
+                default: return 'file-text';
+            }
+        }
+
+        function getCommunicationTypeIcon(type) {
+            switch(type) {
+                case 'annuncio': return 'megaphone';
+                case 'evento': return 'calendar';
+                case 'newsletter': return 'newspaper';
+                case 'formazione': return 'graduation-cap';
+                default: return 'message-circle';
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : 
+                           type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Task Details and Component Management Functions
+        let currentTaskForComponents = null;
+
+        function openTaskDetails(taskId) {
+            const task = userTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            currentTaskForComponents = task;
+            
+            document.getElementById('taskDetailsTitle').textContent = `Dettagli: ${task.titolo}`;
+            
+            const content = document.getElementById('taskDetailsContent');
+            const isOverdue = new Date(task.scadenza) < new Date() && task.stato !== 'completato';
+            
+            // Get components details
+            const components = task.componenti ? 
+                task.componenti.map(tc => {
+                    const comp = window.syncData.getComponent(tc.id);
+                    return comp ? { ...comp, quantitaAssegnata: tc.quantita } : null;
+                }).filter(c => c !== null) : [];
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Task Info -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Cliente</label>
+                            <button onclick="window.ClientModal.show('${task.clienteId}')" 
+                                    class="block text-blue-600 hover:text-blue-800 hover:underline font-medium mt-1">
+                                <i class="fas fa-building mr-1"></i>
+                                ${task.cliente}
+                            </button>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Scadenza</label>
+                            <p class="font-medium mt-1 ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
+                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
+                                ${formatDate(task.scadenza)}
+                                ${isOverdue ? ' <span class="text-xs">(Scaduta!)</span>' : ''}
+                            </p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Stato</label>
+                            <p class="mt-1">
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(task.stato)}">
+                                    ${getStatusText(task.stato)}
+                                </span>
+                            </p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Priorità</label>
+                            <p class="mt-1">
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(task.priorita)}">
+                                    ${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Descrizione</label>
+                        <p class="text-gray-700 mt-1">${task.descrizione}</p>
+                    </div>
+
+                    ${task.progresso !== undefined ? `
+                        <div>
+                            <label class="text-sm font-medium text-gray-500 mb-2 block">Progresso: ${task.progresso}%</label>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${task.progresso}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Components Section -->
+                    <div class="border-t pt-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-lg font-semibold text-gray-900">
+                                <i class="fas fa-box mr-2"></i>
+                                Componenti Necessari
+                            </h4>
+                            <button onclick="openUserComponentSelector()" 
+                                    class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm transition-colors">
+                                <i class="fas fa-plus mr-1"></i>
+                                Aggiungi Componente
+                            </button>
+                        </div>
+                        
+                        <div id="taskComponentsDetailList" class="space-y-3">
+                            ${components.length === 0 ? 
+                                '<p class="text-sm text-gray-500 italic">Nessun componente assegnato</p>' :
+                                components.map(comp => {
+                                    const available = comp.quantitaDisponibile >= comp.quantitaAssegnata;
+                                    return `
+                                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border ${available ? 'border-gray-200' : 'border-red-300 bg-red-50'}">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <p class="font-semibold text-gray-900">${comp.nome}</p>
+                                                    <span class="px-2 py-0.5 text-xs rounded ${getCategoryBadge(comp.categoria)}">
+                                                        ${comp.categoria}
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-gray-500">${comp.codice} - ${comp.descrizione}</p>
+                                                <p class="text-sm text-gray-600 mt-1">
+                                                    <i class="fas fa-warehouse mr-1"></i>
+                                                    Disponibili in magazzino: <strong>${comp.quantitaDisponibile} ${comp.unitaMisura}</strong>
+                                                </p>
+                                                ${!available ? '<p class="text-xs text-red-600 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Quantità insufficiente in magazzino!</p>' : ''}
+                                            </div>
+                                            <div class="flex items-center gap-3 ml-4">
+                                                <span class="text-lg font-bold text-gray-700">
+                                                    ${comp.quantitaAssegnata} ${comp.unitaMisura}
+                                                </span>
+                                                <button onclick="removeUserComponent('${comp.id}')" 
+                                                        class="text-red-600 hover:text-red-700 p-2" 
+                                                        title="Rimuovi componente">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="border-t pt-6 flex gap-3">
+                        <button onclick="updateTaskProgress()" 
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i data-lucide="trending-up" class="w-4 h-4 inline mr-2"></i>
+                            Aggiorna Progresso
+                        </button>
+                        <button onclick="closeTaskDetailsModal()" 
+                                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('taskDetailsModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTaskDetailsModal() {
+            document.getElementById('taskDetailsModal').classList.add('hidden');
+            currentTaskForComponents = null;
+        }
+
+        function openUserComponentSelector() {
+            document.getElementById('userComponentModal').classList.remove('hidden');
+            loadUserComponents();
+            lucide.createIcons();
+        }
+
+        function closeUserComponentModal() {
+            document.getElementById('userComponentModal').classList.add('hidden');
+        }
+
+        function loadUserComponents(category = '') {
+            const components = category ? 
+                window.syncData.getComponentsByCategory(category) : 
+                window.syncData.getAllComponents();
+            
+            const container = document.getElementById('userComponentsList');
+            container.innerHTML = '';
+            
+            const taskComponents = currentTaskForComponents.componenti || [];
+            
+            components.forEach(component => {
+                const isAdded = taskComponents.some(tc => tc.id === component.id);
+                
+                const card = document.createElement('div');
+                card.className = `bg-gray-50 rounded-lg p-4 border ${isAdded ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900">${component.nome}</h4>
+                            <p class="text-xs text-gray-500">${component.codice}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded ${getCategoryBadge(component.categoria)}">
+                            ${component.categoria}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-3">${component.descrizione}</p>
+                    <div class="flex justify-between items-center text-sm mb-3">
+                        <span class="text-gray-600">
+                            <i class="fas fa-warehouse mr-1"></i>
+                            Disponibili: <strong>${component.quantitaDisponibile} ${component.unitaMisura}</strong>
+                        </span>
+                        <span class="text-gray-600">
+                            €${component.prezzo.toFixed(2)}/${component.unitaMisura}
+                        </span>
+                    </div>
+                    ${isAdded ? `
+                        <div class="bg-blue-100 border border-blue-300 rounded p-2 text-sm text-blue-800">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            Già presente nella lavorazione
+                        </div>
+                    ` : `
+                        <button onclick="addUserComponent('${component.id}')" 
+                                class="w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                            <i class="fas fa-plus mr-1"></i>
+                            Aggiungi
+                        </button>
+                    `}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function filterUserComponentsByCategory() {
+            const category = document.getElementById('userComponentCategoryFilter').value;
+            loadUserComponents(category);
+        }
+
+        function addUserComponent(componentId) {
+            if (!currentTaskForComponents) return;
+            
+            const component = window.syncData.getComponent(componentId);
+            if (!component) return;
+            
+            // Ask for quantity
+            const quantita = prompt(`Quanti ${component.unitaMisura} di "${component.nome}" vuoi aggiungere?`, '1');
+            if (!quantita || isNaN(quantita) || parseInt(quantita) <= 0) {
+                showNotification('Quantità non valida', 'error');
+                return;
+            }
+            
+            const qty = parseInt(quantita);
+            
+            // Check availability
+            if (qty > component.quantitaDisponibile) {
+                if (!confirm(`Attenzione: stai richiedendo ${qty} ${component.unitaMisura} ma in magazzino ce ne sono solo ${component.quantitaDisponibile}.\n\nVuoi procedere comunque?`)) {
+                    return;
+                }
+            }
+            
+            // Add to task
+            window.syncData.addComponentToTask(currentTaskForComponents.id, componentId, qty);
+            
+            showNotification('Componente aggiunto con successo!', 'success');
+            
+            // Reload both modals
+            openTaskDetails(currentTaskForComponents.id);
+            closeUserComponentModal();
+        }
+
+        function removeUserComponent(componentId) {
+            if (!currentTaskForComponents) return;
+            
+            const component = window.syncData.getComponent(componentId);
+            if (!component) return;
+            
+            if (!confirm(`Sei sicuro di voler rimuovere "${component.nome}" dalla lavorazione?\n\nQuesta azione notificherà l'amministratore.`)) {
+                return;
+            }
+            
+            window.syncData.removeComponentFromTask(currentTaskForComponents.id, componentId);
+            
+            showNotification('Componente rimosso. Amministratore notificato.', 'success');
+            
+            // Reload details
+            openTaskDetails(currentTaskForComponents.id);
+        }
+
+        function updateTaskProgress() {
+            if (!currentTaskForComponents) return;
+            
+            const currentProgress = currentTaskForComponents.progresso || 0;
+            const newProgress = prompt(`Inserisci il nuovo progresso (0-100).\nProgresso attuale: ${currentProgress}%`, currentProgress);
+            
+            if (newProgress === null) return;
+            
+            const progress = parseInt(newProgress);
+            if (isNaN(progress) || progress < 0 || progress > 100) {
+                showNotification('Valore non valido. Inserisci un numero tra 0 e 100.', 'error');
+                return;
+            }
+            
+            window.syncData.updateTask(currentTaskForComponents.id, { progresso: progress });
+            
+            showNotification('Progresso aggiornato con successo!', 'success');
+            
+            // Reload all
+            loadUserTasks();
+            openTaskDetails(currentTaskForComponents.id);
+        }
+
+        function getCategoryBadge(category) {
+            switch(category) {
+                case 'Antifurto': return 'bg-red-100 text-red-700';
+                case 'Videosorveglianza': return 'bg-blue-100 text-blue-700';
+                case 'Rete': return 'bg-green-100 text-green-700';
+                case 'Accessori': return 'bg-purple-100 text-purple-700';
+                default: return 'bg-gray-100 text-gray-700';
+            }
+        }
+    </script>
+</body>
+</html>

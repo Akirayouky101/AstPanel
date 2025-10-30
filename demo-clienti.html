@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Modale Clienti - AST:ZG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="shared-data.js"></script>
+    <script src="client-modal.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hover-scale {
+            transition: transform 0.3s ease;
+        }
+        .hover-scale:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen p-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <div class="gradient-bg text-white rounded-xl shadow-lg p-8 mb-8 fade-in">
+                <h1 class="text-4xl font-bold mb-4">🗺️ Demo Modale Clienti</h1>
+                <p class="text-blue-100 text-lg">
+                    Sistema integrato di visualizzazione dettagli cliente con mappa interattiva
+                </p>
+            </div>
+
+            <!-- Info Section -->
+            <div class="bg-white rounded-xl shadow-lg p-8 mb-8 fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">✨ Funzionalità Implementate</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-check-circle text-green-500 text-xl mt-1"></i>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Dettagli Cliente Completi</h3>
+                            <p class="text-gray-600 text-sm">Nome, cognome, ragione sociale, P.IVA, settore</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-check-circle text-green-500 text-xl mt-1"></i>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Contatti Diretti</h3>
+                            <p class="text-gray-600 text-sm">Telefono, email, PEC con link click-to-call/email</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-check-circle text-green-500 text-xl mt-1"></i>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Mappa Interattiva</h3>
+                            <p class="text-gray-600 text-sm">Ubicazione con marker su mappa OpenStreetMap/Leaflet</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-check-circle text-green-500 text-xl mt-1"></i>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Navigazione GPS</h3>
+                            <p class="text-gray-600 text-sm">Link diretto a Google Maps per indicazioni stradali</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients Grid -->
+            <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">👥 Lista Clienti (Clicca per aprire dettagli)</h2>
+                <div id="clientsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Clients will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Integration Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+                <h3 class="text-lg font-semibold text-blue-800 mb-3">🔗 Integrazione nei Pannelli</h3>
+                <div class="space-y-2 text-blue-700">
+                    <p>✅ <strong>Pannello Admin - Gestione Lavorazioni:</strong> Cliente cliccabile nelle card Kanban</p>
+                    <p>✅ <strong>Pannello Utente - Le Mie Lavorazioni:</strong> Cliente cliccabile nelle card task</p>
+                    <p>✅ <strong>Modale Condivisa:</strong> Stesso componente riutilizzabile in tutti i pannelli</p>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <a href="gestione-clienti.html" class="block bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="text-center">
+                        <i class="fas fa-edit text-4xl text-orange-600 mb-3"></i>
+                        <h3 class="text-xl font-bold text-gray-800">Gestione Clienti</h3>
+                        <p class="text-gray-600 mt-2">Crea e modifica clienti</p>
+                    </div>
+                </a>
+                <a href="gestione-lavorazioni.html" class="block bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="text-center">
+                        <i class="fas fa-tasks text-4xl text-blue-600 mb-3"></i>
+                        <h3 class="text-xl font-bold text-gray-800">Gestione Lavorazioni</h3>
+                        <p class="text-gray-600 mt-2">Prova la modale nel Kanban admin</p>
+                    </div>
+                </a>
+                <a href="pannello-utente.html" class="block bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="text-center">
+                        <i class="fas fa-user text-4xl text-green-600 mb-3"></i>
+                        <h3 class="text-xl font-bold text-gray-800">Pannello Utente</h3>
+                        <p class="text-gray-600 mt-2">Prova la modale nel pannello dipendente</p>
+                    </div>
+                </a>
+                <a href="test-integrazione.html" class="block bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="text-center">
+                        <i class="fas fa-vial text-4xl text-purple-600 mb-3"></i>
+                        <h3 class="text-xl font-bold text-gray-800">Test Integrazione</h3>
+                        <p class="text-gray-600 mt-2">Testa tutto il sistema</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load clients on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadClients();
+        });
+
+        function loadClients() {
+            const clients = window.syncData.getAllClients();
+            const container = document.getElementById('clientsGrid');
+            
+            container.innerHTML = clients.map(client => `
+                <div onclick="window.ClientModal.show('${client.id}')" 
+                     class="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-6 cursor-pointer hover-scale hover:shadow-xl transition-all">
+                    <div class="text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <i class="fas fa-${client.tipoCliente === 'azienda' ? 'building' : 'user'} text-white text-2xl"></i>
+                        </div>
+                        <h3 class="font-bold text-gray-800 mb-1">${client.ragioneSociale}</h3>
+                        <p class="text-sm text-gray-600 mb-3">${client.nome} ${client.cognome}</p>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-center text-gray-500">
+                                <i class="fas fa-map-marker-alt mr-2"></i>
+                                <span>${client.indirizzo.split(',')[1] || client.indirizzo}</span>
+                            </div>
+                            <div class="flex items-center justify-center text-gray-500">
+                                <i class="fas fa-industry mr-2"></i>
+                                <span>${client.settore}</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <span class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                Clicca per dettagli
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
