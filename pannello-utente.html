@@ -893,14 +893,19 @@
         }
 
         function openTaskUpdateModal(taskId) {
-            const task = userTasks.find(t => t.id === taskId);
-            if (!task) return;
+            // Find task in userTasks array - support both numeric and UUID IDs
+            const task = userTasks.find(t => t.id == taskId || t.id === taskId);
+            if (!task) {
+                console.error('Task not found:', taskId);
+                showNotification('Lavorazione non trovata', 'error');
+                return;
+            }
 
             currentEditingTask = task;
             
             document.getElementById('taskProgress').value = task.progresso || 0;
             document.getElementById('progressValue').textContent = (task.progresso || 0) + '%';
-            document.getElementById('taskNewStatus').value = task.stato;
+            document.getElementById('taskNewStatus').value = task.stato || 'da_fare';
             document.getElementById('taskNotes').value = '';
             
             document.getElementById('taskUpdateModal').classList.remove('hidden');
@@ -947,10 +952,13 @@
                     userTasks[taskIndex] = updatedTask;
                 }
 
-                closeTaskUpdateModal();
-                await loadDashboardData();
+                // Reload data to show updated progress bars
                 await loadMyTasks();
+                await loadDashboardData();
                 updateUserStats();
+                
+                // Close modal after data is loaded
+                closeTaskUpdateModal();
                 
                 showNotification('Lavorazione aggiornata con successo!', 'success');
             } catch (error) {
@@ -1266,7 +1274,7 @@
 
                     <!-- Action Buttons -->
                     <div class="border-t pt-6 flex gap-3">
-                        <button onclick="updateTaskProgress()" 
+                        <button onclick="openTaskUpdateModal(currentTaskForComponents.id)" 
                                 class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             <i data-lucide="trending-up" class="w-4 h-4 inline mr-2"></i>
                             Aggiorna Progresso
@@ -1402,29 +1410,6 @@
             showNotification('Componente rimosso. Amministratore notificato.', 'success');
             
             // Reload details
-            openTaskDetails(currentTaskForComponents.id);
-        }
-
-        function updateTaskProgress() {
-            if (!currentTaskForComponents) return;
-            
-            const currentProgress = currentTaskForComponents.progresso || 0;
-            const newProgress = prompt(`Inserisci il nuovo progresso (0-100).\nProgresso attuale: ${currentProgress}%`, currentProgress);
-            
-            if (newProgress === null) return;
-            
-            const progress = parseInt(newProgress);
-            if (isNaN(progress) || progress < 0 || progress > 100) {
-                showNotification('Valore non valido. Inserisci un numero tra 0 e 100.', 'error');
-                return;
-            }
-            
-            window.syncData.updateTask(currentTaskForComponents.id, { progresso: progress });
-            
-            showNotification('Progresso aggiornato con successo!', 'success');
-            
-            // Reload all
-            loadUserTasks();
             openTaskDetails(currentTaskForComponents.id);
         }
 
