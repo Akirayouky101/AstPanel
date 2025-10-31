@@ -3,13 +3,36 @@
 
 window.ClientModal = {
     // Open modal with client details
-    show: function(clientId) {
-        const client = window.syncData.getClient(clientId);
-        
-        if (!client) {
-            console.error('Client not found:', clientId);
-            return;
-        }
+    show: async function(clientId) {
+        try {
+            const clients = await window.dataManager.getClienti();
+            const clientData = clients.find(c => c.id === clientId);
+            
+            if (!clientData) {
+                console.error('Client not found:', clientId);
+                return;
+            }
+
+            // Normalize field names (support both snake_case and camelCase)
+            const client = {
+                ...clientData,
+                ragioneSociale: clientData.ragione_sociale || clientData.ragioneSociale || 'N/A',
+                nome: clientData.nome || '',
+                cognome: clientData.cognome || '',
+                telefono: clientData.telefono || 'N/A',
+                email: clientData.email || 'N/A',
+                pec: clientData.pec || '',
+                partitaIva: clientData.partita_iva || clientData.partitaIva || '',
+                codiceFiscale: clientData.codice_fiscale || clientData.codiceFiscale || '',
+                indirizzo: clientData.indirizzo || 'N/A',
+                citta: clientData.citta || '',
+                cap: clientData.cap || '',
+                provincia: clientData.provincia || '',
+                settore: clientData.settore || 'N/A',
+                tipoCliente: clientData.tipo_cliente || clientData.tipoCliente || 'privato',
+                ubicazione: clientData.ubicazione || { lat: 41.9028, lng: 12.4964, address: 'Roma, Italia' },
+                note: clientData.note || ''
+            };
 
         // Create modal HTML
         const modalHTML = `
@@ -189,6 +212,9 @@ window.ClientModal = {
 
         // Load map
         this.loadMap(client.ubicazione);
+        } catch (error) {
+            console.error('Errore apertura modal cliente:', error);
+        }
     },
 
     // Load map with marker
