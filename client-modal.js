@@ -41,22 +41,17 @@ window.ClientModal = {
 
         // Create modal HTML
         const modalHTML = `
-            <div id="clientModal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 fade-in overflow-y-auto" onclick="if(event.target.id === 'clientModal') window.ClientModal.close()">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm my-4 max-h-[75vh] flex flex-col" onclick="event.stopPropagation()">
+                        <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] fade-in" onclick="if(event.target === this) window.ClientModal.close()">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col m-4">
                     <!-- Header -->
-                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 sm:p-3 rounded-t-xl">
-                        <div class="flex justify-between items-start gap-3">
-                            <div class="flex-1 min-w-0">
-                                <h2 class="text-base sm:text-lg font-bold mb-1 truncate">${client.ragioneSociale}</h2>
-                                <p class="text-blue-100 text-xs truncate">
-                                    <i class="fas fa-user mr-2"></i>
-                                    ${client.nome} ${client.cognome}
-                                </p>
-                            </div>
-                            <button onclick="window.ClientModal.close()" class="text-white hover:text-gray-200 transition-colors flex-shrink-0" title="Chiudi">
-                                <i class="fas fa-times text-base sm:text-lg"></i>
-                            </button>
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-building"></i>
+                            <h3 class="font-bold text-lg">${client.nome}</h3>
                         </div>
+                        <button onclick="window.ClientModal.close()" class="text-white/90 hover:text-white transition-colors text-xl leading-none">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
 
                     <!-- Content (Scrollable) -->
@@ -182,6 +177,21 @@ window.ClientModal = {
                             <p class="text-sm text-gray-700 break-words">${client.note}</p>
                         </div>
                         ` : ''}
+
+                        <!-- Tasks List -->
+                        <div class="bg-gray-50 rounded-lg p-3" id="clientTasksSection">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-tasks text-blue-600 mr-2"></i>
+                                Lavorazioni Associate
+                                <span id="clientTasksCount" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">0</span>
+                            </h3>
+                            <div id="clientTasksList" class="space-y-2">
+                                <!-- Tasks will be loaded here -->
+                                <div class="text-center py-4 text-gray-500 text-sm">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...
+                                </div>
+                            </div>
+                        </div>
                         </div>
                     </div>
 
@@ -217,6 +227,9 @@ window.ClientModal = {
 
         // Load map
         this.loadMap(client.ubicazione);
+        
+        // Load tasks
+        this.loadTasks(client.id);
         } catch (error) {
             console.error('Errore apertura modal cliente:', error);
         }
@@ -257,6 +270,127 @@ window.ClientModal = {
                 </div>
             `;
         }
+    },
+
+    // Load tasks for client
+    loadTasks: async function(clientId) {
+        const tasksList = document.getElementById('clientTasksList');
+        const tasksCount = document.getElementById('clientTasksCount');
+        
+        if (!tasksList || !tasksCount) return;
+        
+        try {
+            // Get all tasks and filter by client_id
+            const { data: tasks, error } = await window.supabase
+                .from('tasks')
+                .select('*')
+                .eq('client_id', clientId)
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            // Update count
+            tasksCount.textContent = tasks.length;
+            
+            if (tasks.length === 0) {
+                tasksList.innerHTML = `
+                    <div class="text-center py-6 text-gray-400">
+                        <i class="fas fa-inbox text-3xl mb-2"></i>
+                        <p class="text-sm">Nessuna lavorazione associata</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Render tasks
+            tasksList.innerHTML = tasks.map(task => `
+                <div class="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+                    <div class="flex items-start justify-between mb-2">
+                        <h4 class="font-medium text-gray-900 text-sm flex-1">${task.title || 'Senza titolo'}</h4>
+                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full ${this.getStatusBadgeClass(task.status)}">
+                            ${this.getStatusLabel(task.status)}
+                        </span>
+                    </div>
+                    
+                    ${task.description ? `
+                        <p class="text-xs text-gray-600 mb-2 line-clamp-2">${task.description}</p>
+                    ` : ''}
+                    
+                    <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                        ${task.priority ? `
+                            <span class="inline-flex items-center px-2 py-0.5 rounded ${this.getPriorityBadgeClass(task.priority)}">
+                                <i class="fas fa-flag mr-1"></i>
+                                ${this.getPriorityLabel(task.priority)}
+                            </span>
+                        ` : ''}
+                        
+                        ${task.due_date ? `
+                            <span class="inline-flex items-center">
+                                <i class="fas fa-calendar mr-1"></i>
+                                ${new Date(task.due_date).toLocaleDateString('it-IT')}
+                            </span>
+                        ` : ''}
+                        
+                        ${task.assigned_user_id ? `
+                            <span class="inline-flex items-center">
+                                <i class="fas fa-user mr-1"></i>
+                                Assegnato
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+        } catch (error) {
+            console.error('Errore caricamento lavorazioni:', error);
+            tasksList.innerHTML = `
+                <div class="text-center py-4 text-red-500 text-sm">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    Errore caricamento lavorazioni
+                </div>
+            `;
+        }
+    },
+    
+    // Helper functions for task display
+    getStatusLabel: function(status) {
+        const labels = {
+            'pending': 'In Attesa',
+            'in_progress': 'In Corso',
+            'completed': 'Completata',
+            'suspended': 'Sospesa'
+        };
+        return labels[status] || status;
+    },
+    
+    getStatusBadgeClass: function(status) {
+        const classes = {
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'in_progress': 'bg-blue-100 text-blue-800',
+            'completed': 'bg-green-100 text-green-800',
+            'suspended': 'bg-gray-100 text-gray-800'
+        };
+        return classes[status] || 'bg-gray-100 text-gray-800';
+    },
+    
+    getPriorityLabel: function(priority) {
+        const labels = {
+            'low': 'Bassa',
+            'medium': 'Media',
+            'high': 'Alta',
+            'urgent': 'Urgente'
+        };
+        return labels[priority] || priority;
+    },
+    
+    getPriorityBadgeClass: function(priority) {
+        const classes = {
+            'low': 'bg-gray-100 text-gray-700',
+            'medium': 'bg-blue-100 text-blue-700',
+            'high': 'bg-orange-100 text-orange-700',
+            'urgent': 'bg-red-100 text-red-700'
+        };
+        return classes[priority] || 'bg-gray-100 text-gray-700';
     },
 
     // Close modal
