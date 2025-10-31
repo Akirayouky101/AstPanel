@@ -525,7 +525,7 @@
                 }
             } catch (error) {
                 console.error('Errore apertura modal cliente:', error);
-                showAlert('Errore', 'Impossibile caricare i dati del cliente: ' + error.message, 'error');
+                showNotification('Impossibile caricare i dati del cliente', 'error');
             }
         }
 
@@ -654,7 +654,7 @@
                 closeClientModal();
             } catch (error) {
                 console.error('Errore salvataggio cliente:', error);
-                showAlert('Errore', 'Impossibile salvare il cliente: ' + error.message, 'error');
+                showNotification('Impossibile salvare il cliente', 'error');
             }
         }
 
@@ -667,20 +667,24 @@
                 const clients = await window.dataManager.getClienti();
                 const client = clients.find(c => c.id === clientId);
                 
-                const confirmed = await showConfirm(
-                    'Conferma eliminazione',
-                    `Sei sicuro di voler eliminare il cliente "${client.ragione_sociale}"?`
+                if (!client) {
+                    showNotification('Cliente non trovato', 'error');
+                    return;
+                }
+                
+                const confirmed = confirm(
+                    `Sei sicuro di voler eliminare il cliente "${client.ragione_sociale || client.ragioneSociale}"?`
                 );
                 
                 if (confirmed) {
                     await window.dataManager.deleteCliente(clientId);
                     await loadClients();
                     await updateStats();
-                    showNotification('Cliente eliminato', 'success');
+                    showNotification('Cliente eliminato con successo', 'success');
                 }
             } catch (error) {
                 console.error('Errore eliminazione cliente:', error);
-                showAlert('Errore', 'Impossibile eliminare il cliente: ' + error.message, 'error');
+                showNotification('Errore nell\'eliminazione del cliente', 'error');
             }
         }
 
