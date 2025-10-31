@@ -1487,16 +1487,15 @@
 
         async function loadTeamMembers(teamId, taskId) {
             try {
-                const response = await window.supabase
-                    .from('users')
-                    .select('id, nome, cognome, email')
-                    .eq('team_id', teamId);
+                // Get all users and filter by team
+                const allUsers = await window.UsersAPI.getAll();
+                const teamMembers = allUsers.filter(user => user.team_id === teamId);
                 
                 const container = document.getElementById(`team-members-${taskId}`);
                 if (!container) return;
                 
-                if (response.data && response.data.length > 0) {
-                    container.innerHTML = response.data.map(member => `
+                if (teamMembers && teamMembers.length > 0) {
+                    container.innerHTML = teamMembers.map(member => `
                         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-800 rounded-lg text-sm">
                             <i class="fas fa-user-circle"></i>
                             ${member.nome} ${member.cognome}
@@ -1512,26 +1511,19 @@
 
         async function loadTaskComponents(taskId) {
             try {
-                const response = await window.supabase
-                    .from('task_components')
-                    .select(`
-                        id,
-                        quantity,
-                        component:components(id, name, code, unit)
-                    `)
-                    .eq('task_id', taskId);
+                const components = await window.TasksAPI.getComponents(taskId);
                 
                 const container = document.getElementById(`taskComponentsList-${taskId}`);
                 if (!container) return;
                 
-                if (response.data && response.data.length > 0) {
-                    container.innerHTML = response.data.map(tc => `
+                if (components && components.length > 0) {
+                    container.innerHTML = components.map(tc => `
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                             <div class="flex items-center gap-3">
                                 <i data-lucide="box" class="w-5 h-5 text-blue-600"></i>
                                 <div>
-                                    <p class="font-semibold text-gray-900">${tc.component?.name || 'N/A'}</p>
-                                    <p class="text-xs text-gray-500">Codice: ${tc.component?.code || 'N/A'} • Quantità: ${tc.quantity} ${tc.component?.unit || ''}</p>
+                                    <p class="font-semibold text-gray-900">${tc.component?.nome || tc.component?.name || 'N/A'}</p>
+                                    <p class="text-xs text-gray-500">Codice: ${tc.component?.codice || tc.component?.code || 'N/A'} • Quantità: ${tc.quantita || tc.quantity} ${tc.component?.unita_misura || tc.component?.unit || ''}</p>
                                 </div>
                             </div>
                             <button onclick="removeTaskComponent('${tc.id}', '${taskId}')" 
@@ -1558,12 +1550,7 @@
             if (!confirm('Sei sicuro di voler rimuovere questo componente?')) return;
             
             try {
-                const { error } = await window.supabase
-                    .from('task_components')
-                    .delete()
-                    .eq('id', componentId);
-                
-                if (error) throw error;
+                await window.TasksAPI.removeComponent(componentId);
                 
                 showNotification('Componente rimosso con successo', 'success');
                 loadTaskComponents(taskId);
