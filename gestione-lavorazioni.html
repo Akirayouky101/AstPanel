@@ -445,6 +445,7 @@
             await updateStats();
             setupFilters();
             await loadTeamsDropdown();
+            await loadUsersDropdown();
             
             // Set default deadline to next week
             const nextWeek = new Date();
@@ -820,6 +821,27 @@
                 });
             } catch (error) {
                 console.error('Errore caricamento squadre:', error);
+            }
+        }
+
+        async function loadUsersDropdown() {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const select = document.getElementById('taskAssignee');
+                
+                select.innerHTML = '<option value="">Seleziona dipendente</option>';
+                
+                // Filter only active users
+                const activeUsers = users.filter(u => u.stato === 'attivo');
+                
+                activeUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.nome} ${user.cognome}${user.ruolo ? ' - ' + user.ruolo : ''}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Errore caricamento utenti:', error);
             }
         }
 
