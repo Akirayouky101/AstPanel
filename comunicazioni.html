@@ -365,89 +365,22 @@
 
     <script>
         // Mock data
-        let mockCommunications = [
-            {
-                id: 1,
-                titolo: 'Nuove Procedure di Sicurezza',
-                tipo: 'procedura',
-                contenuto: 'È obbligatorio l\'uso delle mascherine in tutti gli spazi comuni aziendali...',
-                priorita: 'alta',
-                stato: 'inviata',
-                dataCreazione: '2024-01-20',
-                dataInvio: '2024-01-20',
-                destinatari: ['Tutti i Dipendenti'],
-                autore: 'Admin',
-                visualizzazioni: 45,
-                allegati: ['sicurezza_covid.pdf']
-            },
-            {
-                id: 2,
-                titolo: 'Meeting Trimestrale Q1 2024',
-                tipo: 'evento',
-                contenuto: 'Vi invitiamo al meeting trimestrale che si terrà venerdì 26 gennaio...',
-                priorita: 'media',
-                stato: 'programmata',
-                dataCreazione: '2024-01-18',
-                dataProgrammata: '2024-01-25',
-                destinatari: ['Tutti i Dipendenti'],
-                autore: 'Admin',
-                allegati: ['agenda_meeting.pdf']
-            },
-            {
-                id: 3,
-                titolo: 'Aggiornamento Sistema ERP',
-                tipo: 'annuncio',
-                contenuto: 'Il sistema ERP sarà aggiornato domenica 28 gennaio dalle 02:00 alle 06:00...',
-                priorita: 'alta',
-                stato: 'inviata',
-                dataCreazione: '2024-01-19',
-                dataInvio: '2024-01-19',
-                destinatari: ['Tutti i Dipendenti'],
-                autore: 'IT Team',
-                visualizzazioni: 38,
-                urgente: true
-            },
-            {
-                id: 4,
-                titolo: 'Newsletter Gennaio 2024',
-                tipo: 'newsletter',
-                contenuto: 'Benvenuti nel nuovo anno! Ecco gli aggiornamenti principali del mese...',
-                priorita: 'bassa',
-                stato: 'bozza',
-                dataCreazione: '2024-01-15',
-                destinatari: ['Tutti i Dipendenti'],
-                autore: 'HR Team'
-            },
-            {
-                id: 5,
-                titolo: 'Corso di Formazione Cybersecurity',
-                tipo: 'formazione',
-                contenuto: 'Corso obbligatorio sulla cybersecurity per tutti i dipendenti...',
-                priorita: 'media',
-                stato: 'programmata',
-                dataCreazione: '2024-01-17',
-                dataProgrammata: '2024-02-01',
-                destinatari: ['Tutti i Dipendenti'],
-                autore: 'HR Team',
-                allegati: ['programma_corso.pdf']
-            }
-        ];
 
         let uploadedFiles = [];
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
-            loadCommunications();
-            updateStats();
+            await loadCommunications();
+            await updateStats();
             setupFilters();
         });
 
-        function loadCommunications() {
+        async function loadCommunications() {
             const communicationsList = document.getElementById('communicationsList');
             communicationsList.innerHTML = '';
 
-            const filteredCommunications = getFilteredCommunications();
+            const filteredCommunications = await getFilteredCommunications();
 
             filteredCommunications.forEach(comm => {
                 const commElement = createCommunicationElement(comm);
@@ -510,13 +443,14 @@
             return commDiv;
         }
 
-        function getFilteredCommunications() {
+        async function getFilteredCommunications() {
+            const communications = await window.dataManager.getComunicazioni();
             const searchTerm = document.getElementById('searchCommunications').value.toLowerCase();
             const typeFilter = document.getElementById('typeFilter').value;
             const statusFilter = document.getElementById('statusFilter').value;
             const priorityFilter = document.getElementById('priorityFilter').value;
 
-            return mockCommunications.filter(comm => {
+            return communications.filter(comm => {
                 const matchesSearch = comm.titolo.toLowerCase().includes(searchTerm) || 
                                     comm.contenuto.toLowerCase().includes(searchTerm) ||
                                     comm.autore.toLowerCase().includes(searchTerm);
@@ -627,22 +561,20 @@
             lucide.createIcons();
         }
 
-        function saveDraft() {
+        async function saveDraft() {
             const formData = getFormData();
             formData.stato = 'bozza';
             
-            // Save to mock data
-            const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
-            mockCommunications.unshift({
-                id: newId,
+            // Save to Supabase
+            await window.dataManager.saveComunicazione({
                 ...formData,
-                dataCreazione: new Date().toISOString().split('T')[0],
+                data_creazione: new Date().toISOString().split('T')[0],
                 autore: 'Admin'
             });
             
             closeCommunicationModal();
-            loadCommunications();
-            updateStats();
+            await loadCommunications();
+            await updateStats();
             showNotification('Bozza salvata con successo!', 'success');
         }
 
@@ -686,24 +618,22 @@
             closePreviewModal();
         }
 
-        function sendCommunicationNow() {
+        async function sendCommunicationNow() {
             const formData = getFormData();
             formData.stato = 'inviata';
-            formData.dataInvio = new Date().toISOString().split('T')[0];
+            formData.data_invio = new Date().toISOString().split('T')[0];
             
-            // Save to mock data
-            const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
-            mockCommunications.unshift({
-                id: newId,
+            // Save to Supabase
+            await window.dataManager.saveComunicazione({
                 ...formData,
-                dataCreazione: new Date().toISOString().split('T')[0],
+                data_creazione: new Date().toISOString().split('T')[0],
                 autore: 'Admin',
                 visualizzazioni: 0
             });
             
             closeCommunicationModal();
-            loadCommunications();
-            updateStats();
+            await loadCommunications();
+            await updateStats();
             showNotification('Comunicazione inviata con successo!', 'success');
         }
 
@@ -724,56 +654,72 @@
             };
         }
 
-        function updateStats() {
-            const total = mockCommunications.length;
+        async function updateStats() {
+            const communications = await window.dataManager.getComunicazioni();
+            const total = communications.length;
             const today = new Date().toISOString().split('T')[0];
-            const sentToday = mockCommunications.filter(c => c.dataInvio === today).length;
-            const scheduled = mockCommunications.filter(c => c.stato === 'programmata').length;
-            const drafts = mockCommunications.filter(c => c.stato === 'bozza').length;
+            const sentToday = communications.filter(c => c.data_invio === today).length;
+            const scheduled = communications.filter(c => c.stato === 'programmata').length;
+            const drafts = communications.filter(c => c.stato === 'bozza').length;
 
-            document.getElementById('totalCommunications').textContent = total;
-            document.getElementById('sentToday').textContent = sentToday;
-            document.getElementById('scheduled').textContent = scheduled;
-            document.getElementById('drafts').textContent = drafts;
+            const totalEl = document.getElementById('totalCommunications');
+            const sentEl = document.getElementById('sentToday');
+            const scheduledEl = document.getElementById('scheduled');
+            const draftsEl = document.getElementById('drafts');
+
+            if (totalEl) totalEl.textContent = total;
+            if (sentEl) sentEl.textContent = sentToday;
+            if (scheduledEl) scheduledEl.textContent = scheduled;
+            if (draftsEl) draftsEl.textContent = drafts;
         }
 
-        function viewCommunication(id) {
-            const comm = mockCommunications.find(c => c.id === id);
-            alert(`Visualizzazione comunicazione: ${comm.titolo}\n\n${comm.contenuto}`);
+        async function viewCommunication(id) {
+            const communications = await window.dataManager.getComunicazioni();
+            const comm = communications.find(c => c.id === id);
+            if (comm) {
+                alert(`Visualizzazione comunicazione: ${comm.titolo}\n\n${comm.contenuto}`);
+            }
         }
 
-        function editCommunication(id) {
-            const comm = mockCommunications.find(c => c.id === id);
-            openNewCommunicationModal();
-            
-            document.getElementById('commTitle').value = comm.titolo;
-            document.getElementById('commType').value = comm.tipo;
-            document.getElementById('commPriority').value = comm.priorita;
-            document.getElementById('commContent').innerHTML = comm.contenuto;
+        async function editCommunication(id) {
+            const communications = await window.dataManager.getComunicazioni();
+            const comm = communications.find(c => c.id === id);
+            if (comm) {
+                openNewCommunicationModal();
+                
+                document.getElementById('commTitle').value = comm.titolo;
+                document.getElementById('commType').value = comm.tipo;
+                document.getElementById('commPriority').value = comm.priorita;
+                document.getElementById('commContent').innerHTML = comm.contenuto;
+            }
         }
 
-        function sendCommunication(id) {
-            const comm = mockCommunications.find(c => c.id === id);
-            comm.stato = 'inviata';
-            comm.dataInvio = new Date().toISOString().split('T')[0];
-            
-            loadCommunications();
-            updateStats();
-            showNotification('Comunicazione inviata!', 'success');
+        async function sendCommunication(id) {
+            const communications = await window.dataManager.getComunicazioni();
+            const comm = communications.find(c => c.id === id);
+            if (comm) {
+                await window.CommunicationsAPI.update(id, {
+                    stato: 'inviata',
+                    data_invio: new Date().toISOString().split('T')[0]
+                });
+                
+                await loadCommunications();
+                await updateStats();
+                showNotification('Comunicazione inviata!', 'success');
+            }
         }
 
-        function deleteCommunication(id) {
+        async function deleteCommunication(id) {
             if (confirm('Sei sicuro di voler eliminare questa comunicazione?')) {
-                const index = mockCommunications.findIndex(c => c.id === id);
-                mockCommunications.splice(index, 1);
-                loadCommunications();
-                updateStats();
+                await window.CommunicationsAPI.delete(id);
+                await loadCommunications();
+                await updateStats();
                 showNotification('Comunicazione eliminata!', 'info');
             }
         }
 
         // Form submission
-        document.getElementById('communicationForm').addEventListener('submit', function(e) {
+        document.getElementById('communicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const scheduleDate = document.getElementById('commSchedule').value;
             
@@ -782,18 +728,16 @@
                 const formData = getFormData();
                 formData.stato = 'programmata';
                 
-                const newId = Math.max(...mockCommunications.map(c => c.id)) + 1;
-                mockCommunications.unshift({
-                    id: newId,
+                await window.dataManager.saveComunicazione({
                     ...formData,
-                    dataCreazione: new Date().toISOString().split('T')[0],
+                    data_creazione: new Date().toISOString().split('T')[0],
                     autore: 'Admin'
                 });
                 
                 showNotification('Comunicazione programmata!', 'success');
             } else {
                 // Send immediately
-                sendCommunicationNow();
+                await sendCommunicationNow();
             }
         });
 
