@@ -42,32 +42,32 @@ window.ClientModal = {
         // Create modal HTML
         const modalHTML = `
             <div id="clientModal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 fade-in overflow-y-auto" onclick="if(event.target.id === 'clientModal') window.ClientModal.close()">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg my-4 max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-md my-4 max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
                     <!-- Header -->
-                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 sm:p-6 rounded-t-xl">
+                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-xl">
                         <div class="flex justify-between items-start gap-3">
                             <div class="flex-1 min-w-0">
-                                <h2 class="text-xl sm:text-2xl font-bold mb-1 truncate">${client.ragioneSociale}</h2>
-                                <p class="text-blue-100 text-sm sm:text-base truncate">
+                                <h2 class="text-lg sm:text-xl font-bold mb-1 truncate">${client.ragioneSociale}</h2>
+                                <p class="text-blue-100 text-xs sm:text-sm truncate">
                                     <i class="fas fa-user mr-2"></i>
                                     ${client.nome} ${client.cognome}
                                 </p>
                             </div>
                             <button onclick="window.ClientModal.close()" class="text-white hover:text-gray-200 transition-colors flex-shrink-0" title="Chiudi">
-                                <i class="fas fa-times text-xl sm:text-2xl"></i>
+                                <i class="fas fa-times text-lg sm:text-xl"></i>
                             </button>
                         </div>
                     </div>
 
                     <!-- Content (Scrollable) -->
                     <div class="flex-1 overflow-y-auto">
-                        <div class="p-4 space-y-3">
+                        <div class="p-3 space-y-2">
                         <!-- Info Grid -->
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             <!-- Contact Information -->
-                            <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
-                                <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-address-book text-blue-600 mr-2"></i>
+                            <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                                <h3 class="text-sm sm:text-base font-semibold text-gray-800 mb-2 flex items-center">
+                                    <i class="fas fa-address-book text-blue-600 mr-2 text-sm"></i>
                                     Contatti
                                 </h3>
                                 <div class="space-y-2">
@@ -104,9 +104,9 @@ window.ClientModal = {
                             </div>
 
                             <!-- Business Information -->
-                            <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
-                                                                <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-building text-blue-600 mr-2"></i>
+                            <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                                <h3 class="text-sm sm:text-base font-semibold text-gray-800 mb-2 flex items-center">
+                                    <i class="fas fa-building text-blue-600 mr-2 text-sm"></i>
                                     Info Aziendali
                                 </h3>
                                 <div class="space-y-2">
@@ -148,12 +148,12 @@ window.ClientModal = {
                         </div>
 
                         <!-- Location -->
-                        <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-map-marker-alt text-blue-600 mr-2"></i>
+                        <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
+                            <h3 class="text-sm sm:text-base font-semibold text-gray-800 mb-2 flex items-center">
+                                <i class="fas fa-map-marker-alt text-blue-600 mr-2 text-sm"></i>
                                 Ubicazione
                             </h3>
-                            <div class="flex items-start mb-3">
+                            <div class="flex items-start mb-2">
                                 <i class="fas fa-location-dot text-gray-400 mt-1 mr-3 w-4 flex-shrink-0"></i>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm text-gray-900 font-medium break-words">${client.indirizzo}</p>
@@ -167,16 +167,16 @@ window.ClientModal = {
                             </div>
                             
                             <!-- Map Container -->
-                            <div id="clientMap" class="w-full h-48 sm:h-64 rounded-lg border border-gray-200 overflow-hidden">
+                            <div id="clientMap" class="w-full h-40 sm:h-48 rounded-lg border border-gray-200 overflow-hidden">
                                 <!-- Map will be loaded here -->
                             </div>
                         </div>
 
                         <!-- Notes -->
                         ${client.note ? `
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4">
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                                <i class="fas fa-sticky-note text-yellow-600 mr-2"></i>
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 sm:p-3">
+                            <h3 class="text-sm sm:text-base font-semibold text-gray-800 mb-2 flex items-center">
+                                <i class="fas fa-sticky-note text-yellow-600 mr-2 text-sm"></i>
                                 Note
                             </h3>
                             <p class="text-sm text-gray-700 break-words">${client.note}</p>
@@ -186,8 +186,8 @@ window.ClientModal = {
                     </div>
 
                     <!-- Footer Actions -->
-                    <div class="bg-gray-50 px-3 sm:px-6 py-3 sm:py-4 rounded-b-xl border-t border-gray-200">
-                        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center">
+                    <div class="bg-gray-50 px-3 py-2 sm:py-3 rounded-b-xl border-t border-gray-200">
+                        <div class="flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center">
                             <div class="flex flex-wrap gap-2">
                                 <a href="tel:${client.telefono}" class="flex-1 sm:flex-initial px-3 sm:px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-center text-sm">
                                     <i class="fas fa-phone mr-1 sm:mr-2"></i>Chiama
