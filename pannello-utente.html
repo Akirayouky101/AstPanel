@@ -1224,12 +1224,31 @@
             document.getElementById('logoutModal').classList.add('hidden');
         }
 
-        function confirmLogout() {
+        async function confirmLogout() {
             closeLogoutModal();
-            showNotification('Logout effettuato', 'info');
-            setTimeout(() => {
+            showNotification('Logout in corso...', 'info');
+            
+            try {
+                // Sign out from Supabase
+                await supabase.auth.signOut();
+                
+                // Clear all stored user data
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('ast_current_user');
+                sessionStorage.removeItem('ast_current_user');
+                sessionStorage.clear();
+                
+                showNotification('Logout effettuato', 'success');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 500);
+            } catch (error) {
+                console.error('Error during logout:', error);
+                // Even if there's an error, clear session and redirect
+                localStorage.clear();
+                sessionStorage.clear();
                 window.location.href = '/';
-            }, 1000);
+            }
         }
 
         // Profile Photo Management
