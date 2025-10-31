@@ -151,7 +151,7 @@
                     </div>
                 </div>
                 <div class="mt-4">
-                    <span class="text-purple-600 text-sm font-medium">3 inviate oggi</span>
+                    <span class="text-purple-600 text-sm font-medium" id="sentTodayText">Caricamento...</span>
                 </div>
             </div>
         </div>
@@ -399,27 +399,62 @@
                 const requests = await window.dataManager.getRichieste();
                 const communications = await window.dataManager.getComunicazioni();
                 
-                // Update all counters
+                // Calculate today's date for comparisons
+                const today = new Date().toISOString().split('T')[0];
+                const thisMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+                
+                // Update main counters
                 const totalEmployeesEl = document.getElementById('totalEmployees');
                 const totalClientsEl = document.getElementById('totalClients');
                 const activeTasksEl = document.getElementById('activeTasks');
                 const pendingRequestsEl = document.getElementById('pendingRequests');
                 const totalCommsEl = document.getElementById('totalCommunications');
                 
-                if (totalEmployeesEl) totalEmployeesEl.textContent = users.length;
-                if (totalClientsEl) totalClientsEl.textContent = clients.length;
+                if (totalEmployeesEl) totalEmployeesEl.textContent = users.length || '0';
+                if (totalClientsEl) totalClientsEl.textContent = clients.length || '0';
                 if (activeTasksEl) {
                     const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length;
-                    activeTasksEl.textContent = activeTasks;
+                    activeTasksEl.textContent = activeTasks || '0';
                 }
                 if (pendingRequestsEl) {
                     const pending = requests.filter(r => r.status === 'pending').length;
-                    pendingRequestsEl.textContent = pending;
+                    pendingRequestsEl.textContent = pending || '0';
                 }
-                if (totalCommsEl) totalCommsEl.textContent = communications.length;
+                if (totalCommsEl) totalCommsEl.textContent = communications.length || '0';
+                
+                // Update secondary stats
+                // New employees this month
+                const newEmployeesText = document.getElementById('newEmployeesText');
+                if (newEmployeesText) {
+                    const newThisMonth = users.filter(u => u.created_at?.startsWith(thisMonth)).length;
+                    newEmployeesText.textContent = newThisMonth > 0 ? `+${newThisMonth} questo mese` : 'Nessuno questo mese';
+                }
+                
+                // Completed tasks today
+                const completedTasksText = document.getElementById('completedTasksText');
+                if (completedTasksText) {
+                    const completedToday = tasks.filter(t => 
+                        t.status === 'completed' && t.completed_at?.startsWith(today)
+                    ).length;
+                    completedTasksText.textContent = completedToday > 0 ? `${completedToday} completate oggi` : 'Nessuna completata oggi';
+                }
+                
+                // Communications sent today
+                const sentTodayText = document.getElementById('sentTodayText');
+                if (sentTodayText) {
+                    const sentToday = communications.filter(c => 
+                        c.stato === 'inviata' && c.data_invio === today
+                    ).length;
+                    sentTodayText.textContent = sentToday > 0 ? `${sentToday} inviate oggi` : 'Nessuna inviata oggi';
+                }
                 
             } catch (error) {
                 console.error('Errore aggiornamento statistiche:', error);
+                // Show 0 instead of errors
+                document.getElementById('totalEmployees').textContent = '0';
+                document.getElementById('activeTasks').textContent = '0';
+                document.getElementById('pendingRequests').textContent = '0';
+                document.getElementById('totalCommunications').textContent = '0';
             }
         }
 
