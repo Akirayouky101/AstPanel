@@ -418,23 +418,17 @@
         async function updateStats() {
             try {
                 const tasks = await window.dataManager.getLavorazioni();
-                const clients = await window.dataManager.getClienti();
-                const users = await window.dataManager.getUtenti();
+                const communications = await window.dataManager.getComunicazioni();
                 
-                // Update counters
-                const activeTasks = tasks.filter(t => t.stato === 'in_corso').length;
-                const totalClients = clients.length;
-                const teamMembers = users.filter(u => u.ruolo !== 'admin').length;
+                // Update counters that exist in the page
+                const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length;
                 
-                document.getElementById('activeTasks').textContent = activeTasks;
-                document.getElementById('totalClients').textContent = totalClients;
-                document.getElementById('teamMembers').textContent = teamMembers;
+                const activeTasksEl = document.getElementById('activeTasks');
+                const totalCommsEl = document.getElementById('totalCommunications');
                 
-                // Calculate completion rate
-                const completedTasks = tasks.filter(t => t.stato === 'completato').length;
-                const totalTasks = tasks.length;
-                const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-                document.getElementById('completionRate').textContent = completionRate + '%';
+                if (activeTasksEl) activeTasksEl.textContent = activeTasks;
+                if (totalCommsEl) totalCommsEl.textContent = communications.length;
+                
             } catch (error) {
                 console.error('Errore aggiornamento statistiche:', error);
             }
