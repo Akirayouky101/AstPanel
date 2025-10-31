@@ -1280,47 +1280,73 @@
 
                 // Show progress
                 document.getElementById('uploadProgress').classList.remove('hidden');
-                document.getElementById('uploadProgressBar').style.width = '30%';
+                document.getElementById('uploadProgressBar').style.width = '20%';
 
-                // Create unique filename
-                const fileExt = selectedPhotoFile.name.split('.').pop();
-                const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
+                // Resize image before upload
+                const resizedImage = await resizeImage(selectedPhotoFile, 400, 400);
+                
+                document.getElementById('uploadProgressBar').style.width = '60%';
 
-                // Convert file to base64 or use Supabase Storage
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        document.getElementById('uploadProgressBar').style.width = '60%';
-                        
-                        // For now, save base64 directly to database
-                        // In production, you should use Supabase Storage
-                        const photoUrl = e.target.result;
-                        
-                        await window.UsersAPI.update(currentUser.id, {
-                            foto_profilo: photoUrl
-                        });
+                // Update user profile with resized image
+                await window.UsersAPI.update(currentUser.id, {
+                    foto_profilo: resizedImage
+                });
 
-                        document.getElementById('uploadProgressBar').style.width = '100%';
-                        
-                        // Update UI
-                        document.getElementById('userProfilePhoto').src = photoUrl;
-                        
-                        setTimeout(() => {
-                            closeProfilePhotoModal();
-                            showNotification('Foto profilo aggiornata con successo!', 'success');
-                        }, 500);
-                    } catch (error) {
-                        console.error('Error uploading photo:', error);
-                        showNotification('Errore durante il caricamento della foto', 'error');
-                        document.getElementById('uploadProgress').classList.add('hidden');
-                    }
-                };
-                reader.readAsDataURL(selectedPhotoFile);
+                document.getElementById('uploadProgressBar').style.width = '100%';
+                
+                // Update UI
+                document.getElementById('userProfilePhoto').src = resizedImage;
+                
+                setTimeout(() => {
+                    closeProfilePhotoModal();
+                    showNotification('Foto profilo aggiornata con successo!', 'success');
+                }, 500);
             } catch (error) {
-                console.error('Error in photo upload:', error);
-                showNotification('Errore durante il caricamento', 'error');
+                console.error('Error uploading photo:', error);
+                showNotification('Errore durante il caricamento della foto', 'error');
                 document.getElementById('uploadProgress').classList.add('hidden');
             }
+        }
+
+        // Helper function to resize image
+        function resizeImage(file, maxWidth, maxHeight) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // Calculate new dimensions
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Convert to base64 with compression
+                        const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                        resolve(resizedBase64);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
         // Utility functions (same as admin panel)
