@@ -145,10 +145,24 @@ window.dataManager = {
                 delete lavorazione.client_id;
             }
             
-            if (lavorazione.id) {
-                return await window.TasksAPI.update(lavorazione.id, lavorazione);
+            // Extract only valid task table fields (remove view-only fields)
+            const validFields = [
+                'id', 'titolo', 'descrizione', 'stato', 'priorita', 
+                'scadenza', 'progresso', 'client_id', 'assigned_user_id', 
+                'assigned_team_id', 'created_by', 'created_at', 'updated_at'
+            ];
+            
+            const cleanedTask = {};
+            validFields.forEach(field => {
+                if (lavorazione[field] !== undefined) {
+                    cleanedTask[field] = lavorazione[field];
+                }
+            });
+            
+            if (cleanedTask.id) {
+                return await window.TasksAPI.update(cleanedTask.id, cleanedTask);
             } else {
-                return await window.TasksAPI.create(lavorazione);
+                return await window.TasksAPI.create(cleanedTask);
             }
         } catch (error) {
             console.error('Errore salvataggio lavorazione:', error);
