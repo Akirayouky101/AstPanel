@@ -1288,9 +1288,11 @@
                 document.getElementById('uploadProgressBar').style.width = '60%';
 
                 // Update user profile with resized image
-                await window.UsersAPI.update(currentUser.id, {
+                const result = await window.UsersAPI.update(currentUser.id, {
                     foto_profilo: resizedImage
                 });
+
+                console.log('Update successful:', result);
 
                 document.getElementById('uploadProgressBar').style.width = '100%';
                 
@@ -1303,7 +1305,14 @@
                 }, 500);
             } catch (error) {
                 console.error('Error uploading photo:', error);
-                showNotification('Errore durante il caricamento della foto', 'error');
+                console.error('Error details:', JSON.stringify(error, null, 2));
+                
+                let errorMessage = 'Errore durante il caricamento della foto';
+                if (error.message) {
+                    errorMessage += ': ' + error.message;
+                }
+                
+                showNotification(errorMessage, 'error');
                 document.getElementById('uploadProgress').classList.add('hidden');
             }
         }
