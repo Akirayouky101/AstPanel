@@ -281,13 +281,8 @@ window.ClientModal = {
         
         try {
             // Get all tasks and filter by client_id
-            const { data: tasks, error } = await window.supabase
-                .from('tasks')
-                .select('*')
-                .eq('client_id', clientId)
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
+            const allTasks = await window.TasksAPI.getAll();
+            const tasks = allTasks.filter(task => task.client_id === clientId);
             
             // Update count
             tasksCount.textContent = tasks.length;
