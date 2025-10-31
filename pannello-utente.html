@@ -1196,71 +1196,109 @@
             
             content.innerHTML = `
                 <div class="space-y-6">
-                    <!-- Task Info -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm font-medium text-gray-500">Cliente</label>
-                            ${clienteId ? `
-                            <button onclick="window.ClientModal.show('${clienteId}')" 
-                                    class="block text-blue-600 hover:text-blue-800 hover:underline font-medium mt-1">
-                                <i class="fas fa-building mr-1"></i>
-                                ${clienteName}
-                                <i data-lucide="eye" class="w-4 h-4 inline ml-1"></i>
-                            </button>
-                            ` : '<p class="text-gray-500 mt-1">N/A</p>'}
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-500">Scadenza</label>
-                            ${scadenza ? `
-                            <p class="font-medium mt-1 ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
-                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
-                                ${formatDate(scadenza)}
-                                ${isOverdue ? ' <span class="text-xs">(Scaduta!)</span>' : ''}
-                            </p>
-                            ` : '<p class="text-gray-500 mt-1">N/A</p>'}
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-500">Stato</label>
-                            <p class="mt-1">
-                                <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(stato)}">
-                                    ${getStatusText(stato)}
-                                </span>
-                            </p>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-500">Priorità</label>
-                            <p class="mt-1">
-                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(priorita)}">
-                                    ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}
-                                </span>
-                            </p>
+                    <!-- Task Header Info Card -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                    <i data-lucide="building" class="w-4 h-4"></i>
+                                    Cliente
+                                </label>
+                                ${clienteId ? `
+                                <button onclick="window.ClientModal.show('${clienteId}')" 
+                                        class="mt-2 flex items-center gap-2 text-blue-700 hover:text-blue-900 hover:underline font-semibold">
+                                    <i class="fas fa-building"></i>
+                                    ${clienteName}
+                                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                                </button>
+                                ` : '<p class="text-gray-500 mt-2">N/A</p>'}
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                                    Scadenza
+                                </label>
+                                ${scadenza ? `
+                                <p class="font-semibold mt-2 ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
+                                    ${formatDate(scadenza)}
+                                    ${isOverdue ? '<span class="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">Scaduta!</span>' : ''}
+                                </p>
+                                ` : '<p class="text-gray-500 mt-2">N/A</p>'}
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                    <i data-lucide="flag" class="w-4 h-4"></i>
+                                    Stato
+                                </label>
+                                <p class="mt-2">
+                                    <span class="px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusClass(stato)}">
+                                        ${getStatusText(stato)}
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                                    Priorità
+                                </label>
+                                <p class="mt-2">
+                                    <span class="px-3 py-1.5 rounded-lg text-sm font-medium ${getPriorityBadgeClass(priorita)}">
+                                        ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}
+                                    </span>
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Description -->
-                    <div>
-                        <label class="text-sm font-medium text-gray-500">Descrizione</label>
-                        <p class="text-gray-700 mt-1">${descrizione}</p>
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <label class="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Descrizione
+                        </label>
+                        <p class="text-gray-700 leading-relaxed">${descrizione}</p>
                     </div>
 
+                    <!-- Progress -->
                     ${progresso !== undefined ? `
-                        <div>
-                            <label class="text-sm font-medium text-gray-500 mb-2 block">Progresso: <span id="detail-progress-text">${progresso}%</span></label>
-                            <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div id="detail-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: ${progresso}%"></div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <label class="text-sm font-semibold text-gray-700 flex items-center justify-between mb-3">
+                                <span class="flex items-center gap-2">
+                                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                                    Progresso
+                                </span>
+                                <span id="detail-progress-text" class="text-2xl font-bold text-blue-600">${progresso}%</span>
+                            </label>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div id="detail-progress-bar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm" style="width: ${progresso}%"></div>
                             </div>
                         </div>
                     ` : ''}
 
+                    <!-- Client Location Map (if client has address) -->
+                    ${clienteId ? `
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <label class="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                Posizione Cliente
+                            </label>
+                            <button onclick="window.ClientModal.show('${clienteId}')" 
+                                    class="w-full py-3 px-4 bg-blue-50 border-2 border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 text-blue-700 font-medium">
+                                <i data-lucide="map" class="w-5 h-5"></i>
+                                Visualizza su Mappa
+                            </button>
+                        </div>
+                    ` : ''}
+
                     <!-- Action Buttons -->
-                    <div class="border-t pt-6 flex gap-3">
+                    <div class="flex gap-3 pt-4 border-t border-gray-200">
                         <button onclick="openTaskUpdateModal('${task.id}')" 
-                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            <i data-lucide="trending-up" class="w-4 h-4 inline mr-2"></i>
-                            Aggiorna Progresso
+                                class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 font-medium">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                            Aggiorna Progresso e Stato
                         </button>
                         <button onclick="closeTaskDetailsModal()" 
-                                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                class="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
                             Chiudi
                         </button>
                     </div>
