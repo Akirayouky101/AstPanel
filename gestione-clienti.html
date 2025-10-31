@@ -291,10 +291,50 @@
         </div>
     </div>
 
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full transform transition-all">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <h3 id="confirmTitle" class="text-xl font-bold text-gray-900 text-center mb-2">Conferma eliminazione</h3>
+                <p id="confirmMessage" class="text-gray-600 text-center mb-6">Sei sicuro di voler procedere?</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal(false)" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium">
+                        Annulla
+                    </button>
+                    <button onclick="closeConfirmModal(true)" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                        Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let map;
         let marker;
         let editingClientId = null;
+        let confirmResolve = null;
+
+        // Confirm Modal Functions
+        function showConfirmModal(title, message) {
+            return new Promise((resolve) => {
+                confirmResolve = resolve;
+                document.getElementById('confirmTitle').textContent = title;
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmModal').classList.remove('hidden');
+            });
+        }
+
+        function closeConfirmModal(confirmed) {
+            document.getElementById('confirmModal').classList.add('hidden');
+            if (confirmResolve) {
+                confirmResolve(confirmed);
+                confirmResolve = null;
+            }
+        }
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
@@ -672,7 +712,8 @@
                     return;
                 }
                 
-                const confirmed = confirm(
+                const confirmed = await showConfirmModal(
+                    'Conferma eliminazione',
                     `Sei sicuro di voler eliminare il cliente "${client.ragione_sociale || client.ragioneSociale}"?`
                 );
                 
