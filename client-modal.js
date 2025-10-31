@@ -42,7 +42,7 @@ window.ClientModal = {
         // Create modal HTML
         const modalHTML = `
                         <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] fade-in" onclick="if(event.target === this) window.ClientModal.close()">
-                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4 max-h-[90vh] flex flex-col">
+                <div class="bg-white rounded-lg shadow-xl max-w-lg w-full m-4 max-h-[90vh] flex flex-col">
                     <!-- Header -->
                     <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex justify-between items-center flex-shrink-0">
                         <div class="flex items-center gap-2">
