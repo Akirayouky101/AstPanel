@@ -565,12 +565,45 @@
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             lucide.createIcons();
+            updateUserHeader();
             loadDashboardData();
             loadMyTasks();
             loadUserRequests();
             loadUserCommunications();
             updateUserStats();
         });
+
+        async function updateUserHeader() {
+            try {
+                const currentUser = await window.AuthHelper.getCurrentUser();
+                if (currentUser) {
+                    const userName = `${currentUser.nome || ''} ${currentUser.cognome || ''}`.trim() || 'Utente';
+                    const userRole = currentUser.ruolo || currentUser.role || 'Dipendente';
+                    const userTeam = currentUser.team || '';
+                    
+                    // Update name
+                    const nameElement = document.querySelector('.text-3xl.font-bold.text-gray-800');
+                    if (nameElement) {
+                        nameElement.textContent = `Ciao, ${userName}!`;
+                    }
+                    
+                    // Update role/team
+                    const roleElement = document.querySelector('.text-gray-600');
+                    if (roleElement && roleElement.textContent.includes('•')) {
+                        const roleText = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+                        roleElement.textContent = userTeam ? `${roleText} • ${userTeam}` : roleText;
+                    }
+                    
+                    // Update avatar alt text
+                    const avatarElement = document.querySelector('img[alt="Mario Rossi"]');
+                    if (avatarElement) {
+                        avatarElement.alt = userName;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating user header:', error);
+            }
+        }
 
         function showSection(sectionName) {
             // Hide all sections
