@@ -201,127 +201,22 @@
     </div>
 
     <script>
-        // Mock data
-        let mockRequests = [
-            {
-                id: 1,
-                tipo: 'ferie',
-                titolo: 'Richiesta Ferie Estive',
-                descrizione: 'Richiesta di 15 giorni di ferie dal 15 al 30 agosto per vacanze estive.',
-                dipendente: { nome: 'Mario Rossi', email: 'mario.rossi@azienda.com', avatar: 'https://i.pravatar.cc/40?img=1' },
-                dataRichiesta: '2024-01-15',
-                dataInizio: '2024-08-15',
-                dataFine: '2024-08-30',
-                stato: 'in_attesa',
-                priorita: 'media',
-                urgente: false,
-                dettagli: {
-                    motivazione: 'Vacanze estive pianificate da tempo',
-                    sostituto: 'Luca Bianchi',
-                    progetti_affidati: ['Progetto Alpha', 'Manutenzione Sistema']
-                }
-            },
-            {
-                id: 2,
-                tipo: 'materiali',
-                titolo: 'Richiesta Laptop Nuovo',
-                descrizione: 'Il laptop attuale è troppo lento per le attività di sviluppo.',
-                dipendente: { nome: 'Anna Verdi', email: 'anna.verdi@azienda.com', avatar: 'https://i.pravatar.cc/40?img=2' },
-                dataRichiesta: '2024-01-16',
-                stato: 'in_attesa',
-                priorita: 'alta',
-                urgente: true,
-                dettagli: {
-                    specifiche: 'Intel i7, 16GB RAM, SSD 512GB',
-                    budget_stimato: '€1,200',
-                    fornitore_suggerito: 'TechStore srl'
-                }
-            },
-            {
-                id: 3,
-                tipo: 'permessi',
-                titolo: 'Permesso Medico',
-                descrizione: 'Visita specialistica programmata.',
-                dipendente: { nome: 'Giuseppe Neri', email: 'giuseppe.neri@azienda.com', avatar: 'https://i.pravatar.cc/40?img=3' },
-                dataRichiesta: '2024-01-17',
-                dataInizio: '2024-01-20',
-                stato: 'approvata',
-                priorita: 'alta',
-                urgente: true,
-                dettagli: {
-                    ore_richieste: '4',
-                    motivazione: 'Visita cardiologica di controllo'
-                }
-            },
-            {
-                id: 4,
-                tipo: 'veicoli',
-                titolo: 'Auto Aziendale per Trasferta',
-                descrizione: 'Necessità di veicolo per visita cliente a Milano.',
-                dipendente: { nome: 'Laura Blu', email: 'laura.blu@azienda.com', avatar: 'https://i.pravatar.cc/40?img=4' },
-                dataRichiesta: '2024-01-18',
-                dataInizio: '2024-01-25',
-                dataFine: '2024-01-25',
-                stato: 'approvata',
-                priorita: 'media',
-                urgente: false,
-                dettagli: {
-                    destinazione: 'Milano - Cliente ABC srl',
-                    km_stimati: '300',
-                    durata: '1 giorno'
-                }
-            },
-            {
-                id: 5,
-                tipo: 'straordinari',
-                titolo: 'Straordinari Progetto Urgente',
-                descrizione: 'Necessità di straordinari per completare progetto Beta entro scadenza.',
-                dipendente: { nome: 'Marco Gialli', email: 'marco.gialli@azienda.com', avatar: 'https://i.pravatar.cc/40?img=5' },
-                dataRichiesta: '2024-01-19',
-                stato: 'in_attesa',
-                priorita: 'alta',
-                urgente: true,
-                dettagli: {
-                    ore_stimate: '20',
-                    periodo: 'Prossima settimana',
-                    progetto: 'Beta Release 2.0'
-                }
-            },
-            {
-                id: 6,
-                tipo: 'ferie',
-                titolo: 'Ferie Natalizie',
-                descrizione: 'Richiesta giorni di ferie per le festività natalizie.',
-                dipendente: { nome: 'Chiara Rosa', email: 'chiara.rosa@azienda.com', avatar: 'https://i.pravatar.cc/40?img=6' },
-                dataRichiesta: '2024-01-10',
-                dataInizio: '2024-12-23',
-                dataFine: '2024-12-31',
-                stato: 'rifiutata',
-                priorita: 'bassa',
-                urgente: false,
-                dettagli: {
-                    motivazione: 'Festività natalizie',
-                    note_rifiuto: 'Periodo già coperto da altri dipendenti'
-                }
-            }
-        ];
-
         let currentAction = null;
         let currentRequestId = null;
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
-            loadRequests();
-            updateStats();
+            await loadRequests();
+            await updateStats();
             setupFilters();
         });
 
-        function loadRequests() {
+        async function loadRequests() {
             const requestsList = document.getElementById('requestsList');
             requestsList.innerHTML = '';
 
-            const filteredRequests = getFilteredRequests();
+            const filteredRequests = await getFilteredRequests();
 
             filteredRequests.forEach(request => {
                 const requestElement = createRequestElement(request);
@@ -382,22 +277,28 @@
             return requestDiv;
         }
 
-        function getFilteredRequests() {
-            const searchTerm = document.getElementById('searchRequests').value.toLowerCase();
-            const typeFilter = document.getElementById('typeFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const priorityFilter = document.getElementById('priorityFilter').value;
+        async function getFilteredRequests() {
+            try {
+                const requests = await window.dataManager.getRichieste();
+                const searchTerm = document.getElementById('searchRequests').value.toLowerCase();
+                const typeFilter = document.getElementById('typeFilter').value;
+                const statusFilter = document.getElementById('statusFilter').value;
+                const priorityFilter = document.getElementById('priorityFilter').value;
 
-            return mockRequests.filter(request => {
-                const matchesSearch = request.titolo.toLowerCase().includes(searchTerm) || 
-                                    request.descrizione.toLowerCase().includes(searchTerm) ||
-                                    request.dipendente.nome.toLowerCase().includes(searchTerm);
-                const matchesType = !typeFilter || request.tipo === typeFilter;
-                const matchesStatus = !statusFilter || request.stato === statusFilter;
-                const matchesPriority = !priorityFilter || request.priorita === priorityFilter;
+                return requests.filter(request => {
+                    const matchesSearch = (request.title || request.titolo || '').toLowerCase().includes(searchTerm) || 
+                                        (request.description || request.descrizione || '').toLowerCase().includes(searchTerm) ||
+                                        (request.user_name || '').toLowerCase().includes(searchTerm);
+                    const matchesType = !typeFilter || request.type === typeFilter || request.tipo === typeFilter;
+                    const matchesStatus = !statusFilter || request.status === statusFilter || request.stato === statusFilter;
+                    const matchesPriority = !priorityFilter || request.priority === priorityFilter || request.priorita === priorityFilter;
 
-                return matchesSearch && matchesType && matchesStatus && matchesPriority;
-            });
+                    return matchesSearch && matchesType && matchesStatus && matchesPriority;
+                });
+            } catch (error) {
+                console.error('Errore caricamento richieste:', error);
+                return [];
+            }
         }
 
         function setupFilters() {
@@ -412,76 +313,48 @@
             });
         }
 
-        function viewRequest(requestId) {
-            const request = mockRequests.find(r => r.id === requestId);
-            if (!request) return;
+        async function viewRequest(requestId) {
+            try {
+                const requests = await window.dataManager.getRichieste();
+                const request = requests.find(r => r.id === requestId);
+                if (!request) return;
 
-            const modalContent = document.getElementById('requestModalContent');
-            modalContent.innerHTML = `
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <h4 class="text-xl font-bold text-gray-900">${request.titolo}</h4>
-                        <span class="${getStatusClass(request.stato)} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(request.stato)}</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Dipendente</label>
-                            <div class="flex items-center space-x-2">
-                                <img src="${request.dipendente.avatar}" alt="${request.dipendente.nome}" class="w-8 h-8 rounded-full">
-                                <div>
-                                    <p class="font-medium">${request.dipendente.nome}</p>
-                                    <p class="text-sm text-gray-500">${request.dipendente.email}</p>
-                                </div>
-                            </div>
+                const modalContent = document.getElementById('requestModalContent');
+                modalContent.innerHTML = `
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xl font-bold text-gray-900">${request.title || request.titolo || 'Richiesta'}</h4>
+                            <span class="${getStatusClass(request.status || request.stato)} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(request.status || request.stato)}</span>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Richiesta</label>
-                            <p class="capitalize">${request.tipo.replace('_', ' ')}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data Richiesta</label>
-                            <p>${formatDate(request.dataRichiesta)}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
-                            <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(request.priorita)}">${request.priorita.charAt(0).toUpperCase() + request.priorita.slice(1)}</span>
-                        </div>
-                        ${request.dataInizio ? `
+                        
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Inizio</label>
-                                <p>${formatDate(request.dataInizio)}</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Utente</label>
+                                <p class="font-medium">${request.user_name || 'N/A'}</p>
                             </div>
-                        ` : ''}
-                        ${request.dataFine ? `
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Fine</label>
-                                <p>${formatDate(request.dataFine)}</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Richiesta</label>
+                                <p class="capitalize">${(request.type || request.tipo || '').replace('_', ' ')}</p>
                             </div>
-                        ` : ''}
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
-                        <p class="text-gray-600">${request.descrizione}</p>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Dettagli</label>
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            ${Object.entries(request.dettagli).map(([key, value]) => `
-                                <div class="mb-2">
-                                    <span class="font-medium capitalize">${key.replace('_', ' ')}:</span>
-                                    <span class="ml-2">${value}</span>
-                                </div>
-                            `).join('')}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Richiesta</label>
+                                <p>${formatDate(request.created_at || request.dataRichiesta)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(request.priority || request.priorita || 'bassa')}">${(request.priority || request.priorita || 'bassa').charAt(0).toUpperCase() + (request.priority || request.priorita || 'bassa').slice(1)}</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    ${request.stato === 'in_attesa' ? `
-                        <div class="flex space-x-3 pt-4 border-t">
-                            <button onclick="approveRequest(${request.id})" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                                <i data-lucide="check" class="w-4 h-4 inline mr-2"></i>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
+                            <p class="text-gray-600">${request.description || request.descrizione || 'Nessuna descrizione'}</p>
+                        </div>
+                        
+                        ${(request.status || request.stato) === 'pending' || (request.status || request.stato) === 'in_attesa' ? `
+                            <div class="flex space-x-3 pt-4 border-t">
+                                <button onclick="approveRequest(${request.id})" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i data-lucide="check" class="w-4 h-4 inline mr-2"></i>
                                 Approva
                             </button>
                             <button onclick="rejectRequest(${request.id})" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
@@ -495,38 +368,51 @@
 
             document.getElementById('requestModal').classList.remove('hidden');
             lucide.createIcons();
+            } catch (error) {
+                console.error('Errore visualizzazione richiesta:', error);
+            }
         }
 
         function closeRequestModal() {
             document.getElementById('requestModal').classList.add('hidden');
         }
 
-        function approveRequest(requestId) {
+        async function approveRequest(requestId) {
             currentAction = 'approve';
             currentRequestId = requestId;
-            const request = mockRequests.find(r => r.id === requestId);
-            
-            document.getElementById('actionModalTitle').textContent = 'Approva Richiesta';
-            document.getElementById('actionModalText').textContent = `Sei sicuro di voler approvare la richiesta "${request.titolo}"?`;
-            document.getElementById('confirmActionBtn').className = 'flex-1 px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700';
-            document.getElementById('confirmActionBtn').innerHTML = '<i data-lucide="check" class="w-4 h-4 inline mr-2"></i>Approva';
-            
-            document.getElementById('actionModal').classList.remove('hidden');
-            lucide.createIcons();
+            try {
+                const requests = await window.dataManager.getRichieste();
+                const request = requests.find(r => r.id === requestId);
+                
+                document.getElementById('actionModalTitle').textContent = 'Approva Richiesta';
+                document.getElementById('actionModalText').textContent = `Sei sicuro di voler approvare la richiesta "${request.title || request.titolo || 'questa richiesta'}"?`;
+                document.getElementById('confirmActionBtn').className = 'flex-1 px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700';
+                document.getElementById('confirmActionBtn').innerHTML = '<i data-lucide="check" class="w-4 h-4 inline mr-2"></i>Approva';
+                
+                document.getElementById('actionModal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore:', error);
+            }
         }
 
-        function rejectRequest(requestId) {
+        async function rejectRequest(requestId) {
             currentAction = 'reject';
             currentRequestId = requestId;
-            const request = mockRequests.find(r => r.id === requestId);
-            
-            document.getElementById('actionModalTitle').textContent = 'Rifiuta Richiesta';
-            document.getElementById('actionModalText').textContent = `Sei sicuro di voler rifiutare la richiesta "${request.titolo}"?`;
-            document.getElementById('confirmActionBtn').className = 'flex-1 px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700';
-            document.getElementById('confirmActionBtn').innerHTML = '<i data-lucide="x" class="w-4 h-4 inline mr-2"></i>Rifiuta';
-            
-            document.getElementById('actionModal').classList.remove('hidden');
-            lucide.createIcons();
+            try {
+                const requests = await window.dataManager.getRichieste();
+                const request = requests.find(r => r.id === requestId);
+                
+                document.getElementById('actionModalTitle').textContent = 'Rifiuta Richiesta';
+                document.getElementById('actionModalText').textContent = `Sei sicuro di voler rifiutare la richiesta "${request.title || request.titolo || 'questa richiesta'}"?`;
+                document.getElementById('confirmActionBtn').className = 'flex-1 px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700';
+                document.getElementById('confirmActionBtn').innerHTML = '<i data-lucide="x" class="w-4 h-4 inline mr-2"></i>Rifiuta';
+                
+                document.getElementById('actionModal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore:', error);
+            }
         }
 
         function closeActionModal() {
@@ -536,39 +422,46 @@
             currentRequestId = null;
         }
 
-        function confirmAction() {
+        async function confirmAction() {
             if (!currentAction || !currentRequestId) return;
 
-            const request = mockRequests.find(r => r.id === currentRequestId);
-            const note = document.getElementById('actionNote').value;
+            try {
+                const note = document.getElementById('actionNote').value;
+                const newStatus = currentAction === 'approve' ? 'approved' : 'rejected';
+                
+                await window.RequestsAPI.update(currentRequestId, { 
+                    status: newStatus,
+                    notes: note
+                });
 
-            if (currentAction === 'approve') {
-                request.stato = 'approvata';
-                if (note) request.note_approvazione = note;
-            } else if (currentAction === 'reject') {
-                request.stato = 'rifiutata';
-                if (note) request.note_rifiuto = note;
+                closeActionModal();
+                closeRequestModal();
+                await loadRequests();
+                await updateStats();
+
+                // Show success message
+                showNotification(`Richiesta ${currentAction === 'approve' ? 'approvata' : 'rifiutata'} con successo!`, 'success');
+            } catch (error) {
+                console.error('Errore conferma azione:', error);
+                showNotification('Errore durante l\'operazione', 'error');
             }
-
-            closeActionModal();
-            closeRequestModal();
-            loadRequests();
-            updateStats();
-
-            // Show success message
-            showNotification(`Richiesta ${currentAction === 'approve' ? 'approvata' : 'rifiutata'} con successo!`, 'success');
         }
 
-        function updateStats() {
-            const total = mockRequests.length;
-            const pending = mockRequests.filter(r => r.stato === 'in_attesa').length;
-            const approved = mockRequests.filter(r => r.stato === 'approvata').length;
-            const rejected = mockRequests.filter(r => r.stato === 'rifiutata').length;
+        async function updateStats() {
+            try {
+                const requests = await window.dataManager.getRichieste();
+                const total = requests.length;
+                const pending = requests.filter(r => (r.status || r.stato) === 'pending' || (r.status || r.stato) === 'in_attesa').length;
+                const approved = requests.filter(r => (r.status || r.stato) === 'approved' || (r.status || r.stato) === 'approvata').length;
+                const rejected = requests.filter(r => (r.status || r.stato) === 'rejected' || (r.status || r.stato) === 'rifiutata').length;
 
-            document.getElementById('totalRequests').textContent = total;
-            document.getElementById('pendingRequests').textContent = pending;
-            document.getElementById('approvedRequests').textContent = approved;
-            document.getElementById('rejectedRequests').textContent = rejected;
+                document.getElementById('totalRequests').textContent = total;
+                document.getElementById('pendingRequests').textContent = pending;
+                document.getElementById('approvedRequests').textContent = approved;
+                document.getElementById('rejectedRequests').textContent = rejected;
+            } catch (error) {
+                console.error('Errore aggiornamento stats:', error);
+            }
         }
 
         function getStatusClass(status) {
