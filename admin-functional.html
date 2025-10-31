@@ -307,6 +307,13 @@
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
+            
+            // Wait for dataManager to be available
+            if (typeof window.dataManager === 'undefined') {
+                console.error('dataManager non disponibile');
+                return;
+            }
+            
             await loadPendingRequests();
             updateLastLogin();
             await updateStats();
@@ -315,8 +322,10 @@
         async function loadPendingRequests() {
             try {
                 const container = document.getElementById('pendingRequestsList');
+                if (!container) return;
+                
                 const requests = await window.dataManager.getRichieste();
-                const pendingRequests = requests.filter(r => r.stato === 'pendente');
+                const pendingRequests = requests.filter(r => r.status === 'pending');
                 
                 document.getElementById('pendingRequests').textContent = pendingRequests.length;
                 
@@ -328,8 +337,8 @@
                 container.innerHTML = pendingRequests.slice(0, 5).map(req => `
                     <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded">
                         <div class="flex-1">
-                            <p class="font-medium text-gray-900">${req.titolo}</p>
-                            <p class="text-sm text-gray-500">${req.tipo}</p>
+                            <p class="font-medium text-gray-900">${req.title || req.type}</p>
+                            <p class="text-sm text-gray-500">${req.type}</p>
                         </div>
                         <div class="flex gap-2">
                             <button onclick="approveRequest('${req.id}')" class="text-green-600 hover:text-green-900" title="Approva">
@@ -345,15 +354,11 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento richieste:', error);
+                const container = document.getElementById('pendingRequestsList');
+                if (container) {
+                    container.innerHTML = '<p class="text-red-500 text-center py-4">Errore caricamento richieste</p>';
+                }
             }
-            if (!container) return;
-
-            container.innerHTML = '';
-
-            mockPendingRequests.forEach(request => {
-                const requestElement = createRequestElement(request);
-                container.appendChild(requestElement);
-            });
         }
 
         function createRequestElement(request) {
