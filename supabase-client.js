@@ -370,12 +370,24 @@ window.TasksAPI = {
     // Get all tasks (complete view)
     async getAll() {
         const { data, error } = await supabase
-            .from('tasks_complete')
-            .select('*')
+            .from('tasks')
+            .select(`
+                *,
+                client:clients(id, ragione_sociale, email),
+                assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
+                assigned_team:teams(id, nome)
+            `)
             .order('created_at', { ascending: false });
         
         if (error) throw error;
-        return data;
+        
+        // Normalize data - flatten client info
+        return data.map(task => ({
+            ...task,
+            client_name: task.client?.ragione_sociale || 'N/A',
+            user_name: task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : null,
+            team_name: task.assigned_team?.nome || null
+        }));
     },
 
     // Get task by ID

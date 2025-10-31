@@ -751,6 +751,7 @@
             const stato = task.stato || task.status || 'da_fare';
             const scadenza = task.scadenza || task.deadline;
             const clienteId = task.cliente_id || task.client_id || task.clienteId;
+            const clienteName = task.client_name || task.cliente || 'Cliente';
             const priorita = task.priorita || task.priority || 'media';
             const progresso = task.progresso || task.progress || 0;
 
@@ -771,9 +772,10 @@
                     </div>
                     ${clienteId ? `
                     <div class="flex items-center justify-between text-sm">
-                        <button onclick="window.ClientModal.show('${clienteId}')" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center">
-                            <i class="fas fa-building mr-1"></i>
-                            Cliente
+                        <button onclick="window.ClientModal.show('${clienteId}')" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
+                            <i class="fas fa-building"></i>
+                            <span>${clienteName}</span>
+                            <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
                         ${scadenza ? `
                         <span class="${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
@@ -794,10 +796,10 @@
                         <div>
                             <div class="flex justify-between text-xs text-gray-600 mb-1">
                                 <span>Progresso</span>
-                                <span>${progresso}%</span>
+                                <span id="task-progress-${task.id}">${progresso}%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="progress-bar bg-blue-600 h-2 rounded-full" style="width: ${progresso}%"></div>
+                                <div id="task-progress-bar-${task.id}" class="progress-bar bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: ${progresso}%"></div>
                             </div>
                         </div>
                     ` : ''}
@@ -1155,22 +1157,27 @@
         let currentTaskForComponents = null;
 
         function openTaskDetails(taskId) {
-            const task = userTasks.find(t => t.id === taskId);
-            if (!task) return;
+            const task = userTasks.find(t => t.id == taskId || t.id === taskId);
+            if (!task) {
+                console.error('Task not found:', taskId);
+                return;
+            }
 
             currentTaskForComponents = task;
             
-            document.getElementById('taskDetailsTitle').textContent = `Dettagli: ${task.titolo}`;
+            const titolo = task.titolo || task.title || 'N/A';
+            const descrizione = task.descrizione || task.description || 'Nessuna descrizione';
+            const stato = task.stato || task.status || 'da_fare';
+            const priorita = task.priorita || task.priority || 'media';
+            const scadenza = task.scadenza || task.deadline;
+            const progresso = task.progresso || task.progress || 0;
+            const clienteId = task.client_id || task.cliente_id;
+            const clienteName = task.client_name || task.cliente || 'Cliente';
+            
+            document.getElementById('taskDetailsTitle').textContent = `Dettagli: ${titolo}`;
             
             const content = document.getElementById('taskDetailsContent');
-            const isOverdue = new Date(task.scadenza) < new Date() && task.stato !== 'completato';
-            
-            // Get components details
-            const components = task.componenti ? 
-                task.componenti.map(tc => {
-                    const comp = window.syncData.getComponent(tc.id);
-                    return comp ? { ...comp, quantitaAssegnata: tc.quantita } : null;
-                }).filter(c => c !== null) : [];
+            const isOverdue = scadenza && new Date(scadenza) < new Date() && stato !== 'completato';
             
             content.innerHTML = `
                 <div class="space-y-6">
@@ -1178,33 +1185,38 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="text-sm font-medium text-gray-500">Cliente</label>
-                            <button onclick="window.ClientModal.show('${task.clienteId}')" 
+                            ${clienteId ? `
+                            <button onclick="window.ClientModal.show('${clienteId}')" 
                                     class="block text-blue-600 hover:text-blue-800 hover:underline font-medium mt-1">
                                 <i class="fas fa-building mr-1"></i>
-                                ${task.cliente}
+                                ${clienteName}
+                                <i data-lucide="eye" class="w-4 h-4 inline ml-1"></i>
                             </button>
+                            ` : '<p class="text-gray-500 mt-1">N/A</p>'}
                         </div>
                         <div>
                             <label class="text-sm font-medium text-gray-500">Scadenza</label>
+                            ${scadenza ? `
                             <p class="font-medium mt-1 ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
                                 <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
-                                ${formatDate(task.scadenza)}
+                                ${formatDate(scadenza)}
                                 ${isOverdue ? ' <span class="text-xs">(Scaduta!)</span>' : ''}
                             </p>
+                            ` : '<p class="text-gray-500 mt-1">N/A</p>'}
                         </div>
                         <div>
                             <label class="text-sm font-medium text-gray-500">Stato</label>
                             <p class="mt-1">
-                                <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(task.stato)}">
-                                    ${getStatusText(task.stato)}
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getStatusClass(stato)}">
+                                    ${getStatusText(stato)}
                                 </span>
                             </p>
                         </div>
                         <div>
                             <label class="text-sm font-medium text-gray-500">Priorità</label>
                             <p class="mt-1">
-                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(task.priorita)}">
-                                    ${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}
+                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(priorita)}">
+                                    ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}
                                 </span>
                             </p>
                         </div>
@@ -1213,73 +1225,21 @@
                     <!-- Description -->
                     <div>
                         <label class="text-sm font-medium text-gray-500">Descrizione</label>
-                        <p class="text-gray-700 mt-1">${task.descrizione}</p>
+                        <p class="text-gray-700 mt-1">${descrizione}</p>
                     </div>
 
-                    ${task.progresso !== undefined ? `
+                    ${progresso !== undefined ? `
                         <div>
-                            <label class="text-sm font-medium text-gray-500 mb-2 block">Progresso: ${task.progresso}%</label>
+                            <label class="text-sm font-medium text-gray-500 mb-2 block">Progresso: <span id="detail-progress-text">${progresso}%</span></label>
                             <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${task.progresso}%"></div>
+                                <div id="detail-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: ${progresso}%"></div>
                             </div>
                         </div>
                     ` : ''}
 
-                    <!-- Components Section -->
-                    <div class="border-t pt-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4 class="text-lg font-semibold text-gray-900">
-                                <i class="fas fa-box mr-2"></i>
-                                Componenti Necessari
-                            </h4>
-                            <button onclick="openUserComponentSelector()" 
-                                    class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm transition-colors">
-                                <i class="fas fa-plus mr-1"></i>
-                                Aggiungi Componente
-                            </button>
-                        </div>
-                        
-                        <div id="taskComponentsDetailList" class="space-y-3">
-                            ${components.length === 0 ? 
-                                '<p class="text-sm text-gray-500 italic">Nessun componente assegnato</p>' :
-                                components.map(comp => {
-                                    const available = comp.quantitaDisponibile >= comp.quantitaAssegnata;
-                                    return `
-                                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border ${available ? 'border-gray-200' : 'border-red-300 bg-red-50'}">
-                                            <div class="flex-1">
-                                                <div class="flex items-center gap-2 mb-1">
-                                                    <p class="font-semibold text-gray-900">${comp.nome}</p>
-                                                    <span class="px-2 py-0.5 text-xs rounded ${getCategoryBadge(comp.categoria)}">
-                                                        ${comp.categoria}
-                                                    </span>
-                                                </div>
-                                                <p class="text-xs text-gray-500">${comp.codice} - ${comp.descrizione}</p>
-                                                <p class="text-sm text-gray-600 mt-1">
-                                                    <i class="fas fa-warehouse mr-1"></i>
-                                                    Disponibili in magazzino: <strong>${comp.quantitaDisponibile} ${comp.unitaMisura}</strong>
-                                                </p>
-                                                ${!available ? '<p class="text-xs text-red-600 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Quantità insufficiente in magazzino!</p>' : ''}
-                                            </div>
-                                            <div class="flex items-center gap-3 ml-4">
-                                                <span class="text-lg font-bold text-gray-700">
-                                                    ${comp.quantitaAssegnata} ${comp.unitaMisura}
-                                                </span>
-                                                <button onclick="removeUserComponent('${comp.id}')" 
-                                                        class="text-red-600 hover:text-red-700 p-2" 
-                                                        title="Rimuovi componente">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')
-                            }
-                        </div>
-                    </div>
-
                     <!-- Action Buttons -->
                     <div class="border-t pt-6 flex gap-3">
-                        <button onclick="openTaskUpdateModal(currentTaskForComponents.id)" 
+                        <button onclick="openTaskUpdateModal('${task.id}')" 
                                 class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             <i data-lucide="trending-up" class="w-4 h-4 inline mr-2"></i>
                             Aggiorna Progresso
