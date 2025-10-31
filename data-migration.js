@@ -112,13 +112,37 @@ window.dataManager = {
 
     async saveLavorazione(lavorazione) {
         try {
-            // Get current user for created_by
-            const currentUser = window.AuthHelper.getCurrentUser();
+            // Remove created_by if it's not a valid UUID or let backend handle it
+            if (lavorazione.created_by && typeof lavorazione.created_by !== 'string') {
+                delete lavorazione.created_by;
+            }
+            
+            // Validate UUIDs
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            
+            if (lavorazione.created_by && !uuidRegex.test(lavorazione.created_by)) {
+                console.warn('Invalid created_by UUID, removing:', lavorazione.created_by);
+                delete lavorazione.created_by;
+            }
+            
+            if (lavorazione.assigned_user_id && !uuidRegex.test(lavorazione.assigned_user_id)) {
+                console.warn('Invalid assigned_user_id UUID, removing:', lavorazione.assigned_user_id);
+                delete lavorazione.assigned_user_id;
+            }
+            
+            if (lavorazione.assigned_team_id && !uuidRegex.test(lavorazione.assigned_team_id)) {
+                console.warn('Invalid assigned_team_id UUID, removing:', lavorazione.assigned_team_id);
+                delete lavorazione.assigned_team_id;
+            }
+            
+            if (lavorazione.client_id && !uuidRegex.test(lavorazione.client_id)) {
+                console.warn('Invalid client_id UUID, removing:', lavorazione.client_id);
+                delete lavorazione.client_id;
+            }
             
             if (lavorazione.id) {
                 return await window.TasksAPI.update(lavorazione.id, lavorazione);
             } else {
-                lavorazione.created_by = currentUser?.id;
                 return await window.TasksAPI.create(lavorazione);
             }
         } catch (error) {
