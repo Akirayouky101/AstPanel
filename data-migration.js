@@ -112,25 +112,30 @@ window.dataManager = {
 
     async saveLavorazione(lavorazione) {
         try {
-            // Remove created_by if it's not a valid UUID or let backend handle it
-            if (lavorazione.created_by && typeof lavorazione.created_by !== 'string') {
-                delete lavorazione.created_by;
-            }
-            
             // Validate UUIDs
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             
+            // Validate and clean UUIDs
             if (lavorazione.created_by && !uuidRegex.test(lavorazione.created_by)) {
                 console.warn('Invalid created_by UUID, removing:', lavorazione.created_by);
                 delete lavorazione.created_by;
             }
             
-            if (lavorazione.assigned_user_id && !uuidRegex.test(lavorazione.assigned_user_id)) {
+            // For assigned_user_id and assigned_team_id, we need at least one valid
+            const hasValidUserId = lavorazione.assigned_user_id && uuidRegex.test(lavorazione.assigned_user_id);
+            const hasValidTeamId = lavorazione.assigned_team_id && uuidRegex.test(lavorazione.assigned_team_id);
+            
+            if (!hasValidUserId && !hasValidTeamId) {
+                throw new Error('Devi assegnare la lavorazione a un dipendente o a una squadra');
+            }
+            
+            // Remove invalid UUIDs
+            if (lavorazione.assigned_user_id && !hasValidUserId) {
                 console.warn('Invalid assigned_user_id UUID, removing:', lavorazione.assigned_user_id);
                 delete lavorazione.assigned_user_id;
             }
             
-            if (lavorazione.assigned_team_id && !uuidRegex.test(lavorazione.assigned_team_id)) {
+            if (lavorazione.assigned_team_id && !hasValidTeamId) {
                 console.warn('Invalid assigned_team_id UUID, removing:', lavorazione.assigned_team_id);
                 delete lavorazione.assigned_team_id;
             }
