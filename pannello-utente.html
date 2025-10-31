@@ -969,7 +969,8 @@
                 const updatedTask = {
                     ...currentEditingTask,
                     progresso: newProgress,
-                    stato: newStatus
+                    stato: newStatus,
+                    updated_at: new Date().toISOString()
                 };
                 
                 // Auto-set progress based on status
@@ -1074,22 +1075,50 @@
         }
 
         function updateUserStats() {
-            const activeTasks = userTasks.filter(t => t.stato === 'in_corso').length;
-            const completedToday = userTasks.filter(t => 
-                t.stato === 'completato' && 
-                t.dataCreazione === new Date().toISOString().split('T')[0]
-            ).length;
-            const overdueTasks = userTasks.filter(t => 
-                new Date(t.scadenza) < new Date() && t.stato !== 'completato'
-            ).length;
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Count active tasks (in progress)
+            const activeTasks = userTasks.filter(t => {
+                const stato = t.stato || t.status;
+                return stato === 'in_corso' || stato === 'in_progress';
+            }).length;
+            
+            // Count completed tasks (updated today)
+            const completedToday = userTasks.filter(t => {
+                const stato = t.stato || t.status;
+                const isCompleted = stato === 'completato' || stato === 'completed';
+                if (!isCompleted) return false;
+                
+                // Check if updated today
+                const updatedAt = t.updated_at || t.dataAggiornamento;
+                if (updatedAt) {
+                    const updateDate = new Date(updatedAt).toISOString().split('T')[0];
+                    return updateDate === today;
+                }
+                return false;
+            }).length;
+            
+            // Count overdue tasks
+            const overdueTasks = userTasks.filter(t => {
+                const scadenza = t.scadenza || t.deadline;
+                const stato = t.stato || t.status;
+                const isCompleted = stato === 'completato' || stato === 'completed';
+                
+                if (!scadenza || isCompleted) return false;
+                return new Date(scadenza) < new Date();
+            }).length;
 
+            // Update DOM
             document.getElementById('userActiveTasks').textContent = activeTasks;
             document.getElementById('userCompletedToday').textContent = completedToday;
             document.getElementById('userOverdueTasks').textContent = overdueTasks;
 
             // Calculate productivity
             const totalTasks = userTasks.length;
-            const completedTasks = userTasks.filter(t => t.stato === 'completato').length;
+            const completedTasks = userTasks.filter(t => {
+                const stato = t.stato || t.status;
+                return stato === 'completato' || stato === 'completed';
+            }).length;
             const productivity = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
             document.getElementById('userProductivity').textContent = productivity + '%';
         }
