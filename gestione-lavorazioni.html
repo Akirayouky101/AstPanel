@@ -968,7 +968,8 @@
                     priorita: document.getElementById('taskPriority').value,
                     scadenza: document.getElementById('taskDeadline').value,
                     client_id: clientId,
-                    progresso: 0
+                    progresso: 0,
+                    created_by: null // Will be set by backend or current user
                 };
 
                 if (assignType === 'team') {
@@ -1099,9 +1100,9 @@
         // Component Management Functions
         // taskComponents is now declared at the top of the script
 
-        function openComponentSelector() {
+        async function openComponentSelector() {
             document.getElementById('componentModal').classList.remove('hidden');
-            loadComponents();
+            await loadComponents();
             lucide.createIcons();
         }
 
@@ -1109,16 +1110,23 @@
             document.getElementById('componentModal').classList.add('hidden');
         }
 
-        function loadComponents(category = '') {
-            const components = category ? 
-                window.syncData.getComponentsByCategory(category) : 
-                window.syncData.getAllComponents();
-            
-            const container = document.getElementById('componentsList');
-            container.innerHTML = '';
-            
-            components.forEach(component => {
-                const isAdded = taskComponents.some(tc => tc.id === component.id);
+        async function loadComponents(category = '') {
+            try {
+                const allComponents = await window.dataManager.getComponenti();
+                const components = category ? 
+                    allComponents.filter(c => c.categoria === category) : 
+                    allComponents;
+                
+                const container = document.getElementById('componentsList');
+                container.innerHTML = '';
+                
+                if (components.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-4">Nessun componente trovato</p>';
+                    return;
+                }
+                
+                components.forEach(component => {
+                    const isAdded = taskComponents.some(tc => tc.id === component.id);
                 
                 const card = document.createElement('div');
                 card.className = `bg-gray-50 rounded-lg p-4 border ${isAdded ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
@@ -1162,28 +1170,37 @@
                 `;
                 container.appendChild(card);
             });
+            } catch (error) {
+                console.error('Errore caricamento componenti:', error);
+                document.getElementById('componentsList').innerHTML = '<p class="text-red-500 text-center py-4">Errore nel caricamento dei componenti</p>';
+            }
         }
 
-        function filterComponentsByCategory() {
+        async function filterComponentsByCategory() {
             const category = document.getElementById('componentCategoryFilter').value;
-            loadComponents(category);
+            await loadComponents(category);
         }
 
-        function addComponentToTask(componentId) {
-            const component = window.syncData.getComponent(componentId);
-            if (!component) return;
-            
-            taskComponents.push({ id: componentId, quantita: 1 });
-            updateTaskComponentsList();
-            loadComponents(document.getElementById('componentCategoryFilter').value);
+        async function addComponentToTask(componentId) {
+            try {
+                const components = await window.dataManager.getComponenti();
+                const component = components.find(c => c.id === componentId);
+                if (!component) return;
+                
+                taskComponents.push({ id: componentId, quantita: 1 });
+                updateTaskComponentsList();
+                await loadComponents(document.getElementById('componentCategoryFilter').value);
+            } catch (error) {
+                console.error('Errore aggiunta componente:', error);
+            }
         }
 
-        function removeComponentFromTask(componentId) {
+        async function removeComponentFromTask(componentId) {
             const index = taskComponents.findIndex(c => c.id === componentId);
             if (index !== -1) {
                 taskComponents.splice(index, 1);
                 updateTaskComponentsList();
-                loadComponents(document.getElementById('componentCategoryFilter').value);
+                await loadComponents(document.getElementById('componentCategoryFilter').value);
             }
         }
 
