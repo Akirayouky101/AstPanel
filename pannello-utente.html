@@ -1101,11 +1101,63 @@
         }
 
         function getPriorityBadgeClass(priority) {
-            switch(priority) {
-                case 'alta': return 'bg-red-100 text-red-800';
-                case 'media': return 'bg-yellow-100 text-yellow-800';
-                case 'bassa': return 'bg-green-100 text-green-800';
-                default: return 'bg-gray-100 text-gray-800';
+            const p = priority?.toLowerCase() || 'media';
+            switch(p) {
+                case 'urgent':
+                case 'urgente':
+                    return 'bg-red-600 text-white';
+                case 'high':
+                case 'alta':
+                    return 'bg-orange-100 text-orange-800';
+                case 'medium':
+                case 'media':
+                    return 'bg-yellow-100 text-yellow-800';
+                case 'low':
+                case 'bassa':
+                    return 'bg-green-100 text-green-800';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getPriorityText(priority) {
+            const p = priority?.toLowerCase() || 'media';
+            switch(p) {
+                case 'urgent': return 'Urgente';
+                case 'urgente': return 'Urgente';
+                case 'high': return 'Alta';
+                case 'alta': return 'Alta';
+                case 'medium': return 'Media';
+                case 'media': return 'Media';
+                case 'low': return 'Bassa';
+                case 'bassa': return 'Bassa';
+                default: return priority;
+            }
+        }
+
+        function getCategoryText(category) {
+            const c = category?.toLowerCase() || 'other';
+            switch(c) {
+                case 'maintenance':
+                case 'manutenzione':
+                    return 'Manutenzione';
+                case 'production':
+                case 'produzione':
+                    return 'Produzione';
+                case 'quality':
+                case 'controllo_qualita':
+                    return 'Controllo Qualità';
+                case 'cleaning':
+                case 'pulizia':
+                    return 'Pulizia';
+                case 'logistics':
+                case 'logistica':
+                    return 'Logistica';
+                case 'other':
+                case 'altro':
+                    return 'Altro';
+                default:
+                    return category;
             }
         }
 
@@ -1186,8 +1238,11 @@
             const priorita = task.priorita || task.priority || 'media';
             const scadenza = task.scadenza || task.deadline;
             const progresso = task.progresso || task.progress || 0;
+            const categoria = task.categoria || task.category || 'other';
             const clienteId = task.client_id || task.cliente_id;
             const clienteName = task.client_name || task.cliente || 'Cliente';
+            const assignedUser = task.user_name || task.assigned_user_name || 'N/A';
+            const createdAt = task.created_at || null;
             
             document.getElementById('taskDetailsTitle').textContent = `Dettagli: ${titolo}`;
             
@@ -1195,63 +1250,98 @@
             const isOverdue = scadenza && new Date(scadenza) < new Date() && stato !== 'completato';
             
             content.innerHTML = `
-                <div class="space-y-6">
-                    <!-- Task Header Info Card -->
-                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
-                                    <i data-lucide="building" class="w-4 h-4"></i>
-                                    Cliente
-                                </label>
-                                ${clienteId ? `
-                                <button onclick="window.ClientModal.show('${clienteId}')" 
-                                        class="mt-2 flex items-center gap-2 text-blue-700 hover:text-blue-900 hover:underline font-semibold">
-                                    <i class="fas fa-building"></i>
-                                    ${clienteName}
-                                    <i data-lucide="external-link" class="w-4 h-4"></i>
-                                </button>
-                                ` : '<p class="text-gray-500 mt-2">N/A</p>'}
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
-                                    <i data-lucide="calendar" class="w-4 h-4"></i>
-                                    Scadenza
-                                </label>
-                                ${scadenza ? `
-                                <p class="font-semibold mt-2 ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
-                                    ${formatDate(scadenza)}
-                                    ${isOverdue ? '<span class="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">Scaduta!</span>' : ''}
-                                </p>
-                                ` : '<p class="text-gray-500 mt-2">N/A</p>'}
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
-                                    <i data-lucide="flag" class="w-4 h-4"></i>
-                                    Stato
-                                </label>
-                                <p class="mt-2">
-                                    <span class="px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusClass(stato)}">
-                                        ${getStatusText(stato)}
-                                    </span>
-                                </p>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-600 flex items-center gap-2">
-                                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
-                                    Priorità
-                                </label>
-                                <p class="mt-2">
-                                    <span class="px-3 py-1.5 rounded-lg text-sm font-medium ${getPriorityBadgeClass(priorita)}">
-                                        ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}
-                                    </span>
-                                </p>
-                            </div>
+                <div class="space-y-4">
+                    <!-- Task Title -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg p-4">
+                        <h3 class="text-xl font-bold">${titolo}</h3>
+                    </div>
+
+                    <!-- Main Info Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Cliente -->
+                        ${clienteId ? `
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="building" class="w-4 h-4"></i>
+                                Cliente
+                            </label>
+                            <button onclick="window.ClientModal.show('${clienteId}')" 
+                                    class="flex items-center gap-2 text-blue-700 hover:text-blue-900 hover:underline font-semibold">
+                                <i class="fas fa-building"></i>
+                                ${clienteName}
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </button>
                         </div>
+                        ` : ''}
+                        
+                        <!-- Assegnato a -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                                Assegnato a
+                            </label>
+                            <p class="font-semibold text-gray-900">${assignedUser}</p>
+                        </div>
+
+                        <!-- Priorità -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                                Priorità
+                            </label>
+                            <span class="px-3 py-1.5 rounded-lg text-sm font-medium inline-block ${getPriorityBadgeClass(priorita)}">
+                                ${getPriorityText(priorita)}
+                            </span>
+                        </div>
+
+                        <!-- Scadenza -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                                Data Scadenza
+                            </label>
+                            ${scadenza ? `
+                            <p class="font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-900'}">
+                                ${formatDate(scadenza)}
+                                ${isOverdue ? '<span class="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">Scaduta!</span>' : ''}
+                            </p>
+                            ` : '<p class="text-gray-500">Non impostata</p>'}
+                        </div>
+
+                        <!-- Stato -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="flag" class="w-4 h-4"></i>
+                                Stato
+                            </label>
+                            <span class="px-3 py-1.5 rounded-lg text-sm font-medium inline-block ${getStatusClass(stato)}">
+                                ${getStatusText(stato)}
+                            </span>
+                        </div>
+
+                        <!-- Categoria -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="tag" class="w-4 h-4"></i>
+                                Categoria
+                            </label>
+                            <p class="font-semibold text-gray-900">${getCategoryText(categoria)}</p>
+                        </div>
+
+                        <!-- Data Creazione -->
+                        ${createdAt ? `
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 md:col-span-2">
+                            <label class="text-sm font-medium text-gray-600 flex items-center gap-2 mb-2">
+                                <i data-lucide="clock" class="w-4 h-4"></i>
+                                Creata il
+                            </label>
+                            <p class="font-semibold text-gray-900">${formatDate(createdAt)}</p>
+                        </div>
+                        ` : ''}
                     </div>
 
                     <!-- Description -->
-                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
                         <label class="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
                             <i data-lucide="file-text" class="w-4 h-4"></i>
                             Descrizione
@@ -1261,7 +1351,7 @@
 
                     <!-- Progress -->
                     ${progresso !== undefined ? `
-                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
                             <label class="text-sm font-semibold text-gray-700 flex items-center justify-between mb-3">
                                 <span class="flex items-center gap-2">
                                     <i data-lucide="trending-up" class="w-4 h-4"></i>
@@ -1277,7 +1367,7 @@
 
                     <!-- Client Location Map (if client has address) -->
                     ${clienteId ? `
-                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
                             <label class="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
                                 <i data-lucide="map-pin" class="w-4 h-4"></i>
                                 Posizione Cliente
