@@ -30,14 +30,19 @@ window.ClientModal = {
                 provincia: clientData.provincia || '',
                 settore: clientData.settore || 'N/A',
                 tipoCliente: clientData.tipo_cliente || clientData.tipoCliente || 'privato',
-                ubicazione: clientData.ubicazione || { lat: 41.9028, lng: 12.4964, address: 'Roma, Italia' },
+                // Build ubicazione from lat/lng fields or use default
+                ubicazione: (clientData.latitudine && clientData.longitudine) ? {
+                    lat: parseFloat(clientData.latitudine),
+                    lng: parseFloat(clientData.longitudine),
+                    address: `${clientData.indirizzo || ''}, ${clientData.citta || ''}, ${clientData.provincia || ''}`.trim()
+                } : (clientData.ubicazione || { lat: 41.9028, lng: 12.4964, address: 'Roma, Italia' }),
                 note: clientData.note || ''
             };
 
         // Create modal HTML
         const modalHTML = `
-            <div id="clientModal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-2 sm:p-4 fade-in overflow-y-auto" onclick="if(event.target.id === 'clientModal') window.ClientModal.close()">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-4" onclick="event.stopPropagation()">
+            <div id="clientModal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 fade-in overflow-y-auto" onclick="if(event.target.id === 'clientModal') window.ClientModal.close()">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg my-4 max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
                     <!-- Header -->
                     <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 sm:p-6 rounded-t-xl">
                         <div class="flex justify-between items-start gap-3">
@@ -55,8 +60,8 @@ window.ClientModal = {
                     </div>
 
                     <!-- Content (Scrollable) -->
-                    <div class="max-h-[calc(100vh-200px)] overflow-y-auto">
-                        <div class="p-4 sm:p-6 space-y-4">
+                    <div class="flex-1 overflow-y-auto">
+                        <div class="p-4 space-y-3">
                         <!-- Info Grid -->
                         <div class="space-y-4">
                             <!-- Contact Information -->
