@@ -280,30 +280,6 @@
 
     <script>
         // Mock data for pending requests
-        const mockPendingRequests = [
-            {
-                id: 1,
-                tipo: 'ferie',
-                titolo: 'Richiesta Ferie Estive',
-                dipendente: 'Mario Rossi',
-                data: '2024-01-15'
-            },
-            {
-                id: 2,
-                tipo: 'materiali',
-                titolo: 'Richiesta Laptop Nuovo',
-                dipendente: 'Anna Verdi',
-                data: '2024-01-16'
-            },
-            {
-                id: 3,
-                tipo: 'permessi',
-                titolo: 'Permesso Medico',
-                dipendente: 'Giuseppe Neri',
-                data: '2024-01-17'
-            }
-        ];
-
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
@@ -434,37 +410,35 @@
             }
         }
 
-        function approveRequest(requestId) {
-            showNotification('Richiesta approvata con successo!', 'success');
-            // Remove from pending list
-            const index = mockPendingRequests.findIndex(r => r.id === requestId);
-            if (index > -1) {
-                mockPendingRequests.splice(index, 1);
-                loadPendingRequests();
-                lucide.createIcons();
+        async function approveRequest(requestId) {
+            try {
+                // Update request status in Supabase
+                await window.RequestsAPI.update(requestId, { status: 'approved' });
                 
-                // Update pending count
-                const pendingCount = document.getElementById('pendingRequests');
-                if (pendingCount) {
-                    pendingCount.textContent = mockPendingRequests.length;
-                }
+                showNotification('Richiesta approvata con successo!', 'success');
+                
+                // Reload pending requests
+                await loadPendingRequests();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore approvazione richiesta:', error);
+                showNotification('Errore durante l\'approvazione', 'error');
             }
         }
 
-        function rejectRequest(requestId) {
-            showNotification('Richiesta rifiutata', 'error');
-            // Remove from pending list
-            const index = mockPendingRequests.findIndex(r => r.id === requestId);
-            if (index > -1) {
-                mockPendingRequests.splice(index, 1);
-                loadPendingRequests();
-                lucide.createIcons();
+        async function rejectRequest(requestId) {
+            try {
+                // Update request status in Supabase
+                await window.RequestsAPI.update(requestId, { status: 'rejected' });
                 
-                // Update pending count
-                const pendingCount = document.getElementById('pendingRequests');
-                if (pendingCount) {
-                    pendingCount.textContent = mockPendingRequests.length;
-                }
+                showNotification('Richiesta rifiutata', 'error');
+                
+                // Reload pending requests
+                await loadPendingRequests();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore rifiuto richiesta:', error);
+                showNotification('Errore durante il rifiuto', 'error');
             }
         }
 
