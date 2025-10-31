@@ -99,14 +99,14 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-gray-600">Dipendenti Totali</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalEmployees">24</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalEmployees">...</p>
                     </div>
                     <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                         <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
                     </div>
                 </div>
                 <div class="mt-4">
-                    <span class="text-green-600 text-sm font-medium">+3 questo mese</span>
+                    <span class="text-green-600 text-sm font-medium" id="newEmployeesText">Caricamento...</span>
                 </div>
             </div>
 
@@ -114,14 +114,14 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-gray-600">Lavorazioni Attive</p>
-                        <p class="text-2xl font-bold text-gray-900" id="activeTasks">12</p>
+                        <p class="text-2xl font-bold text-gray-900" id="activeTasks">...</p>
                     </div>
                     <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                         <i data-lucide="clipboard-list" class="w-6 h-6 text-green-600"></i>
                     </div>
                 </div>
                 <div class="mt-4">
-                    <span class="text-green-600 text-sm font-medium">5 completate oggi</span>
+                    <span class="text-green-600 text-sm font-medium" id="completedTasksText">Caricamento...</span>
                 </div>
             </div>
 
@@ -129,7 +129,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-gray-600">Richieste Pendenti</p>
-                        <p class="text-2xl font-bold text-gray-900" id="pendingRequests">8</p>
+                        <p class="text-2xl font-bold text-gray-900" id="pendingRequests">...</p>
                     </div>
                     <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                         <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
@@ -144,7 +144,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-gray-600">Comunicazioni</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalCommunications">18</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCommunications">...</p>
                     </div>
                     <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                         <i data-lucide="message-circle" class="w-6 h-6 text-purple-600"></i>
@@ -393,16 +393,29 @@
 
         async function updateStats() {
             try {
+                const users = await window.dataManager.getUtenti();
+                const clients = await window.dataManager.getClienti();
                 const tasks = await window.dataManager.getLavorazioni();
+                const requests = await window.dataManager.getRichieste();
                 const communications = await window.dataManager.getComunicazioni();
                 
-                // Update counters that exist in the page
-                const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length;
-                
+                // Update all counters
+                const totalEmployeesEl = document.getElementById('totalEmployees');
+                const totalClientsEl = document.getElementById('totalClients');
                 const activeTasksEl = document.getElementById('activeTasks');
+                const pendingRequestsEl = document.getElementById('pendingRequests');
                 const totalCommsEl = document.getElementById('totalCommunications');
                 
-                if (activeTasksEl) activeTasksEl.textContent = activeTasks;
+                if (totalEmployeesEl) totalEmployeesEl.textContent = users.length;
+                if (totalClientsEl) totalClientsEl.textContent = clients.length;
+                if (activeTasksEl) {
+                    const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length;
+                    activeTasksEl.textContent = activeTasks;
+                }
+                if (pendingRequestsEl) {
+                    const pending = requests.filter(r => r.status === 'pending').length;
+                    pendingRequestsEl.textContent = pending;
+                }
                 if (totalCommsEl) totalCommsEl.textContent = communications.length;
                 
             } catch (error) {
