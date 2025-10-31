@@ -916,39 +916,47 @@
             document.getElementById('progressValue').textContent = value + '%';
         }
 
-        function saveTaskUpdate() {
+        async function saveTaskUpdate() {
             if (!currentEditingTask) return;
 
-            const newProgress = parseInt(document.getElementById('taskProgress').value);
-            const newStatus = document.getElementById('taskNewStatus').value;
-            const notes = document.getElementById('taskNotes').value;
+            try {
+                const newProgress = parseInt(document.getElementById('taskProgress').value);
+                const newStatus = document.getElementById('taskNewStatus').value;
+                const notes = document.getElementById('taskNotes').value;
 
-            // Update task
-            currentEditingTask.progresso = newProgress;
-            currentEditingTask.stato = newStatus;
-            
-            // Auto-set progress based on status
-            if (newStatus === 'completato') {
-                currentEditingTask.progresso = 100;
-            } else if (newStatus === 'revisione' && newProgress < 90) {
-                currentEditingTask.progresso = 90;
-            }
-
-            // Sync with admin panel data (if available)
-            if (window.sharedTasksData) {
-                const adminTask = window.sharedTasksData.find(t => t.id === currentEditingTask.id);
-                if (adminTask) {
-                    adminTask.progresso = currentEditingTask.progresso;
-                    adminTask.stato = currentEditingTask.stato;
+                // Prepare updated task data
+                const updatedTask = {
+                    ...currentEditingTask,
+                    progresso: newProgress,
+                    stato: newStatus
+                };
+                
+                // Auto-set progress based on status
+                if (newStatus === 'completato') {
+                    updatedTask.progresso = 100;
+                } else if (newStatus === 'revisione' && newProgress < 90) {
+                    updatedTask.progresso = 90;
                 }
-            }
 
-            closeTaskUpdateModal();
-            loadDashboardData();
-            loadMyTasks();
-            updateUserStats();
-            
-            showNotification('Lavorazione aggiornata con successo!', 'success');
+                // Save to Supabase
+                await window.dataManager.saveLavorazione(updatedTask);
+
+                // Update local array
+                const taskIndex = userTasks.findIndex(t => t.id === currentEditingTask.id);
+                if (taskIndex !== -1) {
+                    userTasks[taskIndex] = updatedTask;
+                }
+
+                closeTaskUpdateModal();
+                await loadDashboardData();
+                await loadMyTasks();
+                updateUserStats();
+                
+                showNotification('Lavorazione aggiornata con successo!', 'success');
+            } catch (error) {
+                console.error('Error updating task:', error);
+                showNotification('Errore durante l\'aggiornamento: ' + error.message, 'error');
+            }
         }
 
         function openRequestModal() {
