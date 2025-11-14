@@ -868,12 +868,28 @@
                 console.log('All tasks loaded:', allTasks.length);
                 console.log('All tasks:', allTasks);
                 
+                // Debug: log first task fields
+                if (allTasks.length > 0) {
+                    console.log('First task fields:', Object.keys(allTasks[0]));
+                    console.log('First task assigned_user_id:', allTasks[0].assigned_user_id);
+                }
+                
                 // Filter tasks assigned to current user
-                userTasks = allTasks.filter(task => 
-                    task.assigned_user_id === currentUser.id || 
-                    task.assignedUserId === currentUser.id ||
-                    task.assegnatario === currentUser.id
-                );
+                userTasks = allTasks.filter(task => {
+                    const match = task.assigned_user_id === currentUser.id || 
+                                  task.assignedUserId === currentUser.id ||
+                                  task.assegnatario === currentUser.id;
+                    
+                    if (!match) {
+                        console.log('Task not matched:', {
+                            taskId: task.id,
+                            assigned_user_id: task.assigned_user_id,
+                            currentUserId: currentUser.id
+                        });
+                    }
+                    
+                    return match;
+                });
 
                 console.log('User tasks filtered:', userTasks.length);
                 console.log('User tasks:', userTasks);
