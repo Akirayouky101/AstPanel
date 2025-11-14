@@ -53,9 +53,12 @@
                 <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
                 Le Mie Richieste
             </a>
-            <a href="#communications" onclick="showSection('communications')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-communications">
-                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                Comunicazioni
+            <a href="#communications" onclick="showSection('communications')" class="flex items-center justify-between px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-communications">
+                <div class="flex items-center">
+                    <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                    Comunicazioni
+                </div>
+                <span id="unread-comm-badge" class="hidden bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center"></span>
             </a>
             <a href="#profile" onclick="showSection('profile')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-profile">
                 <i data-lucide="user" class="w-5 h-5 mr-3"></i>
@@ -982,6 +985,20 @@
                     return false;
                 });
 
+                // Conta quelle non lette
+                const unreadCount = userComms.filter(comm => !comm.letta_da?.includes(currentUser?.id)).length;
+                
+                // Aggiorna badge notifiche
+                const badge = document.getElementById('unread-comm-badge');
+                if (badge) {
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+
                 container.innerHTML = '';
 
                 if (userComms.length === 0) {
@@ -1200,7 +1217,7 @@
                 }
 
                 // Recupera la comunicazione corrente
-                const { data, error } = await window.supabase
+                const { data, error } = await supabase
                     .from('communications')
                     .select('letta_da')
                     .eq('id', commId)
@@ -1215,7 +1232,7 @@
                 }
 
                 // Aggiorna il record
-                const { error: updateError } = await window.supabase
+                const { error: updateError } = await supabase
                     .from('communications')
                     .update({ letta_da: updatedLettaDa })
                     .eq('id', commId);
@@ -1240,6 +1257,17 @@
                     return;
                 }
 
+                // Parse allegati if it's a JSON string
+                let allegatiArray = [];
+                if (comm.allegati) {
+                    try {
+                        allegatiArray = typeof comm.allegati === 'string' ? JSON.parse(comm.allegati) : comm.allegati;
+                    } catch (e) {
+                        console.error('Error parsing allegati:', e);
+                        allegatiArray = [];
+                    }
+                }
+
                 // Mostra modal con contenuto completo
                 const modal = document.createElement('div');
                 modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
@@ -1262,11 +1290,11 @@
                             <div class="prose max-w-none">
                                 ${comm.contenuto}
                             </div>
-                            ${comm.allegati && comm.allegati.length > 0 ? `
+                            ${allegatiArray && allegatiArray.length > 0 ? `
                                 <div class="mt-6 pt-6 border-t border-gray-200">
                                     <h4 class="font-medium text-gray-900 mb-3">Allegati</h4>
                                     <div class="space-y-2">
-                                        ${comm.allegati.map(file => `
+                                        ${allegatiArray.map(file => `
                                             <div class="flex items-center space-x-2 text-sm text-gray-600">
                                                 <i data-lucide="paperclip" class="w-4 h-4"></i>
                                                 <span>${file}</span>
