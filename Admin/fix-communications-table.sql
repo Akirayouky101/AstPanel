@@ -86,14 +86,14 @@ CREATE POLICY "Users can view their communications" ON communications
 CREATE POLICY "Users can mark as read" ON communications
     FOR UPDATE
     USING (
-        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid())
-    )
-    WITH CHECK (
-        -- Possono modificare solo il campo letta_da
-        old.id = new.id AND
-        old.titolo = new.titolo AND
-        old.tipo = new.tipo AND
-        old.contenuto = new.contenuto
+        destinatari = 'tutti' OR
+        (destinatari = 'dipendenti' AND EXISTS (
+            SELECT 1 FROM users WHERE users.id = auth.uid()
+        )) OR
+        (destinatari = 'admin' AND EXISTS (
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.ruolo = 'admin'
+        )) OR
+        (destinatari = 'specifici' AND auth.uid() = ANY(utenti_specifici))
     );
 
 COMMENT ON TABLE communications IS 'Comunicazioni aziendali con supporto per programmazione e tracking letture';
