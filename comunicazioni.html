@@ -650,9 +650,21 @@
             if (document.getElementById('managers').checked) recipients.push('admin');
             if (document.getElementById('specific').checked) recipients.push('specifici');
             
+            // Map form tipo values to database CHECK constraint values
+            const tipoMap = {
+                'annuncio': 'generale',
+                'newsletter': 'informativa',
+                'evento': 'informativa',
+                'formazione': 'informativa',
+                'procedura': 'generale'
+            };
+            
+            const rawTipo = document.getElementById('commType').value;
+            const mappedTipo = tipoMap[rawTipo] || 'generale';
+            
             return {
                 titolo: document.getElementById('commTitle').value,
-                tipo: document.getElementById('commType').value,
+                tipo: mappedTipo,
                 contenuto: document.getElementById('commContent').innerHTML,
                 priorita: document.getElementById('commPriority').value,
                 destinatari: recipients.length > 0 ? recipients[0] : 'tutti',  // Use first selection or 'tutti'
