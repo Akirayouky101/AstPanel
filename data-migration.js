@@ -103,7 +103,25 @@ window.dataManager = {
     // ==================== TASKS ====================
     async getLavorazioni() {
         try {
-            return await window.TasksAPI.getAll();
+            const tasks = await window.TasksAPI.getAll();
+            
+            // Fetch components for each task
+            for (const task of tasks) {
+                try {
+                    const components = await window.TasksAPI.getComponents(task.id);
+                    task.componenti = components.map(tc => ({
+                        id: tc.component_id,
+                        quantita: tc.quantita,
+                        note: tc.note,
+                        ...tc.component
+                    }));
+                } catch (err) {
+                    console.warn(`Could not load components for task ${task.id}:`, err);
+                    task.componenti = [];
+                }
+            }
+            
+            return tasks;
         } catch (error) {
             console.error('Errore caricamento lavorazioni:', error);
             return [];
@@ -159,11 +177,40 @@ window.dataManager = {
                 }
             });
             
+            // Save componenti separately
+            const componenti = lavorazione.componenti || lavorazione.components || [];
+            
+            let savedTask;
             if (cleanedTask.id) {
-                return await window.TasksAPI.update(cleanedTask.id, cleanedTask);
+                savedTask = await window.TasksAPI.update(cleanedTask.id, cleanedTask);
+                
+                // Update components if present
+                if (componenti.length > 0) {
+                    // First, get existing components for this task
+                    const existingComponents = await window.TasksAPI.getComponents(cleanedTask.id);
+                    
+                    // Remove old components
+                    for (const existing of existingComponents) {
+                        await window.TasksAPI.removeComponent(existing.id);
+                    }
+                    
+                    // Add new components
+                    for (const comp of componenti) {
+                        await window.TasksAPI.addComponent(cleanedTask.id, comp.id, comp.quantita || 1, comp.note || null);
+                    }
+                }
             } else {
-                return await window.TasksAPI.create(cleanedTask);
+                savedTask = await window.TasksAPI.create(cleanedTask);
+                
+                // Add components if present
+                if (componenti.length > 0) {
+                    for (const comp of componenti) {
+                        await window.TasksAPI.addComponent(savedTask.id, comp.id, comp.quantita || 1, comp.note || null);
+                    }
+                }
             }
+            
+            return savedTask;
         } catch (error) {
             console.error('Errore salvataggio lavorazione:', error);
             throw error;
