@@ -405,24 +405,49 @@ window.TasksAPI = {
     // Get task by ID
     async getById(id) {
         const { data, error } = await supabase
-            .from('tasks_complete')
-            .select('*')
+            .from('tasks')
+            .select(`
+                *,
+                client:clients(id, ragione_sociale, email),
+                assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
+                assigned_team:teams(id, nome)
+            `)
             .eq('id', id)
             .single();
         
         if (error) throw error;
-        return data;
+        
+        // Normalize data
+        return {
+            ...data,
+            client_name: data.client?.ragione_sociale || 'N/A',
+            user_name: data.assigned_user ? `${data.assigned_user.nome} ${data.assigned_user.cognome}` : null,
+            team_name: data.assigned_team?.nome || null
+        };
     },
 
     // Get tasks for user
     async getForUser(userId) {
         const { data, error } = await supabase
-            .from('tasks_complete')
-            .select('*')
-            .or(`assigned_user_id.eq.${userId},assigned_team_id.in.(SELECT team_id FROM team_members WHERE user_id = ${userId})`);
+            .from('tasks')
+            .select(`
+                *,
+                client:clients(id, ragione_sociale, email),
+                assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
+                assigned_team:teams(id, nome)
+            `)
+            .or(`assigned_user_id.eq.${userId}`)
+            .order('created_at', { ascending: false });
         
         if (error) throw error;
-        return data;
+        
+        // Normalize data
+        return data.map(task => ({
+            ...task,
+            client_name: task.client?.ragione_sociale || 'N/A',
+            user_name: task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : null,
+            team_name: task.assigned_team?.nome || null
+        }));
     },
 
     // Create task
