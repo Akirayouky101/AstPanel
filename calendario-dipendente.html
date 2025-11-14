@@ -274,52 +274,69 @@
             updateStats();
         }
 
-        function updateStats() {
-            const myTasks = window.sharedData.tasks.filter(t => t.assegnatario === currentUser.id);
-            
-            document.getElementById('totalMyTasks').textContent = myTasks.length;
-            document.getElementById('highPriorityCount').textContent = myTasks.filter(t => t.priorita === 'alta').length;
-            
-            // Tasks due in next 7 days
-            const nextWeek = new Date();
-            nextWeek.setDate(nextWeek.getDate() + 7);
-            const upcoming = myTasks.filter(t => {
-                const dueDate = new Date(t.scadenza);
-                return dueDate <= nextWeek && dueDate >= new Date() && t.stato !== 'completato';
-            });
-            document.getElementById('upcomingCount').textContent = upcoming.length;
-            
-            document.getElementById('completedCount').textContent = myTasks.filter(t => t.stato === 'completato').length;
+        async function updateStats() {
+            try {
+                const allTasks = await window.dataManager.getTasks();
+                const myTasks = allTasks.filter(t => (t.assigned_user_id || t.assegnatario) === currentUser.id);
+                
+                document.getElementById('totalMyTasks').textContent = myTasks.length;
+                document.getElementById('highPriorityCount').textContent = myTasks.filter(t => (t.priority || t.priorita) === 'alta').length;
+                
+                // Tasks due in next 7 days
+                const nextWeek = new Date();
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                const upcoming = myTasks.filter(t => {
+                    const dueDate = new Date(t.deadline || t.scadenza);
+                    return dueDate <= nextWeek && dueDate >= new Date() && (t.status || t.stato) !== 'completato';
+                });
+                document.getElementById('upcomingCount').textContent = upcoming.length;
+                
+                document.getElementById('completedCount').textContent = myTasks.filter(t => (t.status || t.stato) === 'completato').length;
+            } catch (error) {
+                console.error('Errore aggiornamento statistiche:', error);
+            }
         }
 
-        function showEventDetails(event) {
+        async function showEventDetails(event) {
             const taskId = event.extendedProps.taskId;
-            const task = window.sharedData.tasks.find(t => t.id === taskId);
             
-            if (!task) return;
-            
-            const statusText = {
-                'da_fare': 'Da Fare',
-                'in_corso': 'In Corso',
-                'revisione': 'In Revisione',
-                'completato': 'Completato'
-            };
-            
-            alert(`
-📋 ${task.titolo}
+            try {
+                const allTasks = await window.dataManager.getTasks();
+                const task = allTasks.find(t => t.id === taskId);
+                
+                if (!task) {
+                    alert('Task non trovato');
+                    return;
+                }
+                
+                const statusText = {
+                    'da_fare': 'Da Fare',
+                    'in_corso': 'In Corso',
+                    'revisione': 'In Revisione',
+                    'completato': 'Completato'
+                };
+                
+                const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
+                
+                alert(`
+📋 ${task.title || task.titolo}
 
-👥 Cliente: ${task.cliente}
-📅 Scadenza: ${new Date(task.scadenza).toLocaleDateString('it-IT')}
-⚡ Priorità: ${task.priorita.charAt(0).toUpperCase() + task.priorita.slice(1)}
-📊 Stato: ${statusText[task.stato]}
-${task.progresso !== undefined ? `\n📈 Progresso: ${task.progresso}%` : ''}
+👥 Cliente: ${clientName}
+📅 Scadenza: ${new Date(task.deadline || task.scadenza).toLocaleDateString('it-IT')}
+⚡ Priorità: ${(task.priority || task.priorita || 'normale').charAt(0).toUpperCase() + (task.priority || task.priorita || 'normale').slice(1)}
+📊 Stato: ${statusText[task.status || task.stato] || 'Da Fare'}
+${task.progress !== undefined || task.progresso !== undefined ? `\n📈 Progresso: ${task.progress || task.progresso}%` : ''}
 
-📝 ${task.descrizione}
-            `.trim());
-            
-            // Ask if user wants to view details
-            if (confirm('Vuoi visualizzare i dettagli completi di questa lavorazione?')) {
-                window.location.href = 'pannello-utente.html#my-tasks';
+📝 ${task.description || task.descrizione || 'Nessuna descrizione'}
+                `.trim());
+                
+                // Ask if user wants to view details
+                if (confirm('Vuoi visualizzare i dettagli completi di questa lavorazione?')) {
+                    window.location.href = 'pannello-utente.html#my-tasks';
+                }
+            } catch (error) {
+                console.error('Errore caricamento task:', error);
+                alert('Errore nel caricamento dei dettagli del task');
             }
         }
 
