@@ -57,10 +57,18 @@ EXECUTE FUNCTION update_communications_updated_at();
 -- RLS Policies
 ALTER TABLE communications ENABLE ROW LEVEL SECURITY;
 
--- Gli admin possono fare tutto
+-- Gli admin possono fare tutto (INSERT, UPDATE, DELETE, SELECT)
 CREATE POLICY "Admin full access" ON communications
     FOR ALL
+    TO authenticated
     USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.ruolo = 'admin'
+        )
+    )
+    WITH CHECK (
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.id = auth.uid() 
@@ -71,6 +79,7 @@ CREATE POLICY "Admin full access" ON communications
 -- Gli utenti possono vedere solo le comunicazioni a loro destinate
 CREATE POLICY "Users can view their communications" ON communications
     FOR SELECT
+    TO authenticated
     USING (
         destinatari = 'tutti' OR
         (destinatari = 'dipendenti' AND EXISTS (
@@ -85,7 +94,18 @@ CREATE POLICY "Users can view their communications" ON communications
 -- Gli utenti possono aggiornare solo letta_da (marcare come letto)
 CREATE POLICY "Users can mark as read" ON communications
     FOR UPDATE
+    TO authenticated
     USING (
+        destinatari = 'tutti' OR
+        (destinatari = 'dipendenti' AND EXISTS (
+            SELECT 1 FROM users WHERE users.id = auth.uid()
+        )) OR
+        (destinatari = 'admin' AND EXISTS (
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.ruolo = 'admin'
+        )) OR
+        (destinatari = 'specifici' AND auth.uid() = ANY(utenti_specifici))
+    )
+    WITH CHECK (
         destinatari = 'tutti' OR
         (destinatari = 'dipendenti' AND EXISTS (
             SELECT 1 FROM users WHERE users.id = auth.uid()
