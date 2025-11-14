@@ -729,7 +729,6 @@
         // Form submission
         document.getElementById('communicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const scheduleDate = document.getElementById('commSchedule').value;
             const formData = getFormData();
             
             // Map form data to database schema
@@ -741,11 +740,8 @@
                 allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
             };
             
-            if (scheduleDate) {
-                // Note: scheduled communications need additional table schema support
-                showNotification('Funzionalità programmazione in sviluppo', 'info');
-            } else {
-                // Send immediately
+            try {
+                // Send communication
                 await window.DataMigration.saveComunicazione(commData);
                 
                 await loadCommunications();
@@ -756,7 +752,10 @@
                 uploadedFiles = [];
                 document.getElementById('fileList').innerHTML = '';
                 
-                showNotification('Comunicazione inviata!', 'success');
+                showNotification('Comunicazione inviata con successo!', 'success');
+            } catch (error) {
+                console.error('Errore invio comunicazione:', error);
+                showNotification('Errore durante l\'invio della comunicazione', 'error');
             }
         });
 
