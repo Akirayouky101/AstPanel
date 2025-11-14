@@ -624,11 +624,10 @@
             // Map form data to database schema
             const commData = {
                 titolo: formData.titolo,
-                messaggio: formData.contenuto,  // contenuto → messaggio
+                messaggio: formData.contenuto,
                 tipo: formData.tipo,
-                destinatari: formData.destinatari.length > 0 ? formData.destinatari.join(',') : 'tutti',
+                destinatari: formData.destinatari,  // Already mapped correctly in getFormData
                 allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
-                // pubblicato_da sarà aggiunto automaticamente da dataManager
             };
             
             // Save to Supabase
@@ -647,16 +646,16 @@
 
         function getFormData() {
             const recipients = [];
-            if (document.getElementById('allEmployees').checked) recipients.push('Tutti i Dipendenti');
-            if (document.getElementById('managers').checked) recipients.push('Manager');
-            if (document.getElementById('specific').checked) recipients.push('Utenti Specifici');
+            if (document.getElementById('allEmployees').checked) recipients.push('dipendenti');
+            if (document.getElementById('managers').checked) recipients.push('admin');
+            if (document.getElementById('specific').checked) recipients.push('specifici');
             
             return {
                 titolo: document.getElementById('commTitle').value,
                 tipo: document.getElementById('commType').value,
                 contenuto: document.getElementById('commContent').innerHTML,
                 priorita: document.getElementById('commPriority').value,
-                destinatari: recipients,
+                destinatari: recipients.length > 0 ? recipients[0] : 'tutti',  // Use first selection or 'tutti'
                 allegati: uploadedFiles.map(f => f.name),
                 dataProgrammata: document.getElementById('commSchedule').value || null
             };
@@ -734,9 +733,9 @@
             // Map form data to database schema
             const commData = {
                 titolo: formData.titolo,
-                messaggio: formData.contenuto,  // contenuto → messaggio
+                messaggio: formData.contenuto,
                 tipo: formData.tipo,
-                destinatari: formData.destinatari.length > 0 ? formData.destinatari.join(',') : 'tutti',
+                destinatari: formData.destinatari,  // Already mapped correctly in getFormData
                 allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
             };
             
