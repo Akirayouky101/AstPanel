@@ -184,6 +184,68 @@
         </div>
     </div>
 
+    <!-- Task Details Modal -->
+    <div id="taskDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="modalTitle"></h2>
+                    <button onclick="closeTaskModal()" class="text-gray-400 hover:text-gray-600" title="Chiudi">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="building" class="w-5 h-5 mr-3"></i>
+                        <span id="modalClient"></span>
+                    </div>
+                    
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
+                        <span id="modalDeadline"></span>
+                    </div>
+                    
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="alert-circle" class="w-5 h-5 mr-3"></i>
+                        <span id="modalPriority"></span>
+                    </div>
+                    
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="activity" class="w-5 h-5 mr-3"></i>
+                        <span id="modalStatus"></span>
+                    </div>
+                    
+                    <div id="modalProgressContainer" class="hidden">
+                        <div class="flex items-center text-gray-600 mb-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 mr-3"></i>
+                            <span>Progresso: <strong id="modalProgress"></strong></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="modalProgressBar" class="bg-blue-600 h-2 rounded-full"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-200">
+                        <div class="flex items-start text-gray-600">
+                            <i data-lucide="file-text" class="w-5 h-5 mr-3 mt-1"></i>
+                            <div>
+                                <p class="font-semibold mb-1">Descrizione:</p>
+                                <p id="modalDescription" class="text-gray-700"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex gap-3">
+                    <button onclick="closeTaskModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Current user (should be loaded from session)
         const currentUser = {
@@ -192,6 +254,7 @@
         };
 
         let calendar;
+        let currentTaskId = null;
 
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
@@ -299,6 +362,7 @@
 
         async function showEventDetails(event) {
             const taskId = event.extendedProps.taskId;
+            currentTaskId = taskId;
             
             try {
                 const allTasks = await window.dataManager.getLavorazioni();
@@ -316,28 +380,45 @@
                     'completato': 'Completato'
                 };
                 
+                const priorityText = {
+                    'alta': '🔴 Alta',
+                    'media': '🟡 Media',
+                    'bassa': '🟢 Bassa',
+                    'normale': '🔵 Normale'
+                };
+                
                 const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                 
-                alert(`
-📋 ${task.title || task.titolo}
-
-👥 Cliente: ${clientName}
-📅 Scadenza: ${new Date(task.deadline || task.scadenza).toLocaleDateString('it-IT')}
-⚡ Priorità: ${(task.priority || task.priorita || 'normale').charAt(0).toUpperCase() + (task.priority || task.priorita || 'normale').slice(1)}
-📊 Stato: ${statusText[task.status || task.stato] || 'Da Fare'}
-${task.progress !== undefined || task.progresso !== undefined ? `\n📈 Progresso: ${task.progress || task.progresso}%` : ''}
-
-📝 ${task.description || task.descrizione || 'Nessuna descrizione'}
-                `.trim());
+                // Populate modal
+                document.getElementById('modalTitle').textContent = task.title || task.titolo;
+                document.getElementById('modalClient').textContent = `Cliente: ${clientName}`;
+                document.getElementById('modalDeadline').textContent = `Scadenza: ${new Date(task.deadline || task.scadenza).toLocaleDateString('it-IT')}`;
+                document.getElementById('modalPriority').textContent = `Priorità: ${priorityText[task.priority || task.priorita || 'normale']}`;
+                document.getElementById('modalStatus').textContent = `Stato: ${statusText[task.status || task.stato] || 'Da Fare'}`;
+                document.getElementById('modalDescription').textContent = task.description || task.descrizione || 'Nessuna descrizione';
                 
-                // Ask if user wants to view details
-                if (confirm('Vuoi visualizzare i dettagli completi di questa lavorazione?')) {
-                    window.location.href = 'pannello-utente.html#my-tasks';
+                // Progress bar
+                const progress = task.progress || task.progresso;
+                if (progress !== undefined) {
+                    document.getElementById('modalProgressContainer').classList.remove('hidden');
+                    document.getElementById('modalProgress').textContent = `${progress}%`;
+                    document.getElementById('modalProgressBar').style.width = `${progress}%`;
+                } else {
+                    document.getElementById('modalProgressContainer').classList.add('hidden');
                 }
+                
+                // Show modal
+                document.getElementById('taskDetailsModal').classList.remove('hidden');
+                lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento task:', error);
                 alert('Errore nel caricamento dei dettagli del task');
             }
+        }
+        
+        function closeTaskModal() {
+            document.getElementById('taskDetailsModal').classList.add('hidden');
+            currentTaskId = null;
         }
 
         function logout() {
