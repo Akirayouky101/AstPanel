@@ -241,10 +241,14 @@ window.dataManager = {
     async saveComunicazione(comunicazione) {
         try {
             const currentUser = window.AuthHelper.getCurrentUser();
+            console.log('🔍 Current User:', currentUser);
+            console.log('🔍 User Role:', currentUser?.ruolo);
+            console.log('🔍 Comunicazione Data:', comunicazione);
+            
             comunicazione.pubblicato_da = currentUser?.id;
             return await window.CommunicationsAPI.create(comunicazione);
         } catch (error) {
-            console.error('Errore salvataggio comunicazione:', error);
+            console.error('❌ Errore salvataggio comunicazione:', error);
             throw error;
         }
     },
