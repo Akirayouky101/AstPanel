@@ -318,6 +318,18 @@ window.ComponentsAPI = {
         return data;
     },
 
+    // Get component by ID
+    async getById(id) {
+        const { data, error } = await supabase
+            .from('components')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
     // Get by category
     async getByCategory(categoria) {
         const { data, error } = await supabase
@@ -449,7 +461,7 @@ window.TasksAPI = {
     },
 
     // Add component to task
-    async addComponent(taskId, componentId, quantita, note) {
+    async addComponent(taskId, componentId, quantita, note = '') {
         const { data, error } = await supabase
             .from('task_components')
             .insert([{
@@ -462,37 +474,21 @@ window.TasksAPI = {
             .single();
         
         if (error) throw error;
-
-        // Update component quantity
-        await window.ComponentsAPI.updateQuantity(componentId, -quantita);
         
+        // Do NOT update quantity here - only when task is completed
         return data;
     },
 
     // Remove component from task
     async removeComponent(taskComponentId) {
-        // Get task component to restore quantity
-        const { data: taskComponent, error: fetchError } = await supabase
-            .from('task_components')
-            .select('*')
-            .eq('id', taskComponentId)
-            .single();
-        
-        if (fetchError) throw fetchError;
-
-        // Delete task component
         const { error } = await supabase
             .from('task_components')
             .delete()
             .eq('id', taskComponentId);
         
         if (error) throw error;
-
-        // Restore component quantity
-        await window.ComponentsAPI.updateQuantity(
-            taskComponent.component_id, 
-            taskComponent.quantita
-        );
+        
+        // Do NOT restore quantity - only deduct when task is completed
     },
 
     // Get task components
@@ -507,6 +503,22 @@ window.TasksAPI = {
         
         if (error) throw error;
         return data;
+    },
+
+    // Deduct components when task is completed
+    async deductComponentsOnCompletion(taskId) {
+        // Get all components for this task
+        const components = await this.getComponents(taskId);
+        
+        // Deduct quantity from each component
+        for (const taskComponent of components) {
+            await window.ComponentsAPI.updateQuantity(
+                taskComponent.component_id,
+                -taskComponent.quantita
+            );
+        }
+        
+        return components;
     }
 };
 

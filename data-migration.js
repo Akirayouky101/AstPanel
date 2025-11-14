@@ -182,7 +182,22 @@ window.dataManager = {
             
             let savedTask;
             if (cleanedTask.id) {
+                // Check if status is changing to 'completata'
+                const previousTask = await window.TasksAPI.getById(cleanedTask.id);
+                const isBeingCompleted = previousTask.stato !== 'completata' && cleanedTask.stato === 'completata';
+                
                 savedTask = await window.TasksAPI.update(cleanedTask.id, cleanedTask);
+                
+                // Deduct components when task is completed
+                if (isBeingCompleted) {
+                    try {
+                        await window.TasksAPI.deductComponentsOnCompletion(cleanedTask.id);
+                        console.log('✅ Componenti scalati dal magazzino per task completata');
+                    } catch (error) {
+                        console.error('Errore nello scalare i componenti:', error);
+                        throw new Error('Errore nello scalare i componenti dal magazzino: ' + error.message);
+                    }
+                }
                 
                 // Update components if present
                 if (componenti.length > 0) {
