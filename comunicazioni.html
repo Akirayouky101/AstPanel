@@ -620,21 +620,29 @@
 
         async function sendCommunicationNow() {
             const formData = getFormData();
-            formData.stato = 'inviata';
-            formData.data_invio = new Date().toISOString().split('T')[0];
+            
+            // Map form data to database schema
+            const commData = {
+                titolo: formData.titolo,
+                messaggio: formData.contenuto,  // contenuto → messaggio
+                tipo: formData.tipo,
+                destinatari: formData.destinatari.length > 0 ? formData.destinatari.join(',') : 'tutti',
+                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
+                // pubblicato_da sarà aggiunto automaticamente da DataMigration
+            };
             
             // Save to Supabase
-            await window.dataManager.saveComunicazione({
-                ...formData,
-                data_creazione: new Date().toISOString().split('T')[0],
-                autore: 'Admin',
-                visualizzazioni: 0
-            });
+            await window.DataMigration.saveComunicazione(commData);
             
-            closeCommunicationModal();
             await loadCommunications();
             await updateStats();
-            showNotification('Comunicazione inviata con successo!', 'success');
+            
+            document.getElementById('communicationForm').reset();
+            document.getElementById('commContent').innerHTML = '';
+            uploadedFiles = [];
+            document.getElementById('fileList').innerHTML = '';
+            
+            showNotification('Comunicazione inviata!', 'success');
         }
 
         function getFormData() {
@@ -722,22 +730,35 @@
         document.getElementById('communicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const scheduleDate = document.getElementById('commSchedule').value;
+            const formData = getFormData();
+            
+            // Map form data to database schema
+            const commData = {
+                titolo: formData.titolo,
+                messaggio: formData.contenuto,  // contenuto → messaggio
+                tipo: formData.tipo,
+                destinatari: formData.destinatari.length > 0 ? formData.destinatari.join(',') : 'tutti',
+                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
+            };
             
             if (scheduleDate) {
-                // Schedule communication
-                const formData = getFormData();
-                formData.stato = 'programmata';
-                
-                await window.dataManager.saveComunicazione({
-                    ...formData,
-                    data_creazione: new Date().toISOString().split('T')[0],
-                    autore: 'Admin'
-                });
-                
-                showNotification('Comunicazione programmata!', 'success');
+                // Note: scheduled communications need additional table schema support
+                showNotification('Funzionalità programmazione in sviluppo', 'info');
             } else {
                 // Send immediately
-                await sendCommunicationNow();
+                await window.DataMigration.saveComunicazione(commData);
+                
+                await loadCommunications();
+                await updateStats();
+                
+                this.reset();
+                document.getElementById('commContent').innerHTML = '';
+                uploadedFiles = [];
+                document.getElementById('fileList').innerHTML = '';
+                
+                showNotification('Comunicazione inviata!', 'success');
+            }
+        });
             }
         });
 
