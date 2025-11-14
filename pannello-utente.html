@@ -634,26 +634,7 @@
             }
         ];
 
-        let userCommunications = [
-            {
-                id: 1,
-                titolo: 'Aggiornamento Sistema ERP',
-                contenuto: 'Il sistema ERP sarà aggiornato domenica dalle 02:00 alle 06:00',
-                tipo: 'annuncio',
-                dataInvio: '2024-01-19',
-                letta: false,
-                priorita: 'alta'
-            },
-            {
-                id: 2,
-                titolo: 'Meeting Trimestrale',
-                contenuto: 'Meeting trimestrale Q1 2024 - venerdì 26 gennaio',
-                tipo: 'evento',
-                dataInvio: '2024-01-18',
-                letta: true,
-                priorita: 'media'
-            }
-        ];
+        // Communications loaded from Supabase - no mock data needed
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
@@ -973,24 +954,68 @@
             return card;
         }
 
-        function loadUserCommunications() {
+        async function loadUserCommunications() {
             const container = document.getElementById('userCommunicationsList');
             if (!container) return;
 
-            container.innerHTML = '';
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Caricamento...</div>';
 
-            userCommunications.forEach(comm => {
-                const commCard = createCommunicationCard(comm);
-                container.appendChild(commCard);
-            });
+            try {
+                // Carica comunicazioni da Supabase
+                const communications = await window.dataManager.getComunicazioni();
+                
+                // Filtra solo quelle destinate all'utente corrente
+                const currentUser = window.AuthHelper.getCurrentUser();
+                const userComms = communications.filter(comm => {
+                    // Mostra se destinatari = 'tutti'
+                    if (comm.destinatari === 'tutti') return true;
+                    
+                    // Mostra se destinatari = 'dipendenti' (tutti gli utenti loggati)
+                    if (comm.destinatari === 'dipendenti') return true;
+                    
+                    // Mostra se destinatari = 'admin' E l'utente è admin
+                    if (comm.destinatari === 'admin' && currentUser?.ruolo === 'admin') return true;
+                    
+                    // Mostra se destinatari = 'specifici' E l'utente è nella lista
+                    if (comm.destinatari === 'specifici' && comm.utenti_specifici?.includes(currentUser?.id)) return true;
+                    
+                    return false;
+                });
+
+                container.innerHTML = '';
+
+                if (userComms.length === 0) {
+                    container.innerHTML = '<div class="text-center py-8 text-gray-500">Nessuna comunicazione disponibile</div>';
+                    return;
+                }
+
+                userComms.forEach(comm => {
+                    const commCard = createCommunicationCard(comm);
+                    container.appendChild(commCard);
+                });
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento comunicazioni:', error);
+                container.innerHTML = '<div class="text-center py-8 text-red-500">Errore caricamento comunicazioni</div>';
+            }
         }
 
         function createCommunicationCard(comm) {
             const card = document.createElement('div');
-            card.className = `bg-white rounded-lg shadow-md p-6 ${!comm.letta ? 'border-l-4 border-blue-500' : ''}`;
+            const currentUser = window.AuthHelper.getCurrentUser();
+            const isRead = comm.letta_da?.includes(currentUser?.id);
+            
+            card.className = `bg-white rounded-lg shadow-md p-6 ${!isRead ? 'border-l-4 border-blue-500' : ''}`;
 
             const typeIcon = getCommunicationTypeIcon(comm.tipo);
             const priorityClass = comm.priorita === 'alta' ? 'text-red-600' : comm.priorita === 'media' ? 'text-orange-600' : 'text-green-600';
+
+            // Estrai testo da HTML contenuto (rimuovi tag HTML)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = comm.contenuto || '';
+            const plainText = tempDiv.textContent || tempDiv.innerText || '';
+            const preview = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
 
             card.innerHTML = `
                 <div class="flex items-start justify-between">
@@ -1001,17 +1026,25 @@
                         <div class="flex-1">
                             <div class="flex items-center space-x-2 mb-2">
                                 <h3 class="font-semibold text-gray-900">${comm.titolo}</h3>
-                                ${!comm.letta ? '<span class="w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                ${!isRead ? '<span class="w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
                                 <span class="text-xs ${priorityClass} font-medium">${comm.priorita.toUpperCase()}</span>
                             </div>
-                            <p class="text-gray-600 text-sm mb-3">${comm.contenuto}</p>
+                            <p class="text-gray-600 text-sm mb-3">${preview}</p>
                             <div class="flex items-center justify-between">
-                                <span class="text-xs text-gray-500">${formatDate(comm.dataInvio)}</span>
-                                ${!comm.letta ? `
-                                    <button onclick="markAsRead(${comm.id})" class="text-blue-600 text-xs hover:text-blue-800">
-                                        Segna come letta
+                                <div class="flex items-center space-x-3">
+                                    <span class="text-xs text-gray-500">${formatDate(comm.data_invio || comm.created_at)}</span>
+                                    <span class="text-xs text-gray-500 capitalize">${comm.tipo}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="viewCommunicationDetail('${comm.id}')" class="text-blue-600 text-xs hover:text-blue-800">
+                                        Leggi tutto
                                     </button>
-                                ` : ''}
+                                    ${!isRead ? `
+                                        <button onclick="markAsRead('${comm.id}')" class="text-blue-600 text-xs hover:text-blue-800">
+                                            Segna come letta
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1158,12 +1191,109 @@
             showNotification('Profilo aggiornato con successo!', 'success');
         });
 
-        function markAsRead(commId) {
-            const comm = userCommunications.find(c => c.id === commId);
-            if (comm) {
-                comm.letta = true;
+        async function markAsRead(commId) {
+            try {
+                const currentUser = window.AuthHelper.getCurrentUser();
+                if (!currentUser) {
+                    showNotification('Errore: utente non autenticato', 'error');
+                    return;
+                }
+
+                // Recupera la comunicazione corrente
+                const { data, error } = await window.supabase
+                    .from('communications')
+                    .select('letta_da')
+                    .eq('id', commId)
+                    .single();
+
+                if (error) throw error;
+
+                // Aggiungi l'utente corrente all'array letta_da
+                const updatedLettaDa = data.letta_da || [];
+                if (!updatedLettaDa.includes(currentUser.id)) {
+                    updatedLettaDa.push(currentUser.id);
+                }
+
+                // Aggiorna il record
+                const { error: updateError } = await window.supabase
+                    .from('communications')
+                    .update({ letta_da: updatedLettaDa })
+                    .eq('id', commId);
+
+                if (updateError) throw updateError;
+
                 loadUserCommunications();
                 showNotification('Comunicazione segnata come letta', 'info');
+            } catch (error) {
+                console.error('Errore mark as read:', error);
+                showNotification('Errore durante l\'aggiornamento', 'error');
+            }
+        }
+
+        async function viewCommunicationDetail(commId) {
+            try {
+                const communications = await window.dataManager.getComunicazioni();
+                const comm = communications.find(c => c.id === commId);
+                
+                if (!comm) {
+                    showNotification('Comunicazione non trovata', 'error');
+                    return;
+                }
+
+                // Mostra modal con contenuto completo
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">${comm.titolo}</h3>
+                                <div class="flex items-center space-x-3 mt-2">
+                                    <span class="text-sm text-gray-500">${formatDate(comm.data_invio || comm.created_at)}</span>
+                                    <span class="text-sm text-gray-500 capitalize">${comm.tipo}</span>
+                                    <span class="text-sm font-medium ${comm.priorita === 'alta' ? 'text-red-600' : comm.priorita === 'media' ? 'text-orange-600' : 'text-green-600'}">${comm.priorita.toUpperCase()}</span>
+                                </div>
+                            </div>
+                            <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                        <div class="p-6">
+                            <div class="prose max-w-none">
+                                ${comm.contenuto}
+                            </div>
+                            ${comm.allegati && comm.allegati.length > 0 ? `
+                                <div class="mt-6 pt-6 border-t border-gray-200">
+                                    <h4 class="font-medium text-gray-900 mb-3">Allegati</h4>
+                                    <div class="space-y-2">
+                                        ${comm.allegati.map(file => `
+                                            <div class="flex items-center space-x-2 text-sm text-gray-600">
+                                                <i data-lucide="paperclip" class="w-4 h-4"></i>
+                                                <span>${file}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="p-6 border-t border-gray-200 bg-gray-50">
+                            <button onclick="markAsRead('${comm.id}'); this.closest('.fixed').remove();" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                Segna come letta e chiudi
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                lucide.createIcons();
+
+                // Marca automaticamente come letta dopo 3 secondi
+                setTimeout(() => {
+                    markAsRead(commId);
+                }, 3000);
+            } catch (error) {
+                console.error('Errore visualizzazione comunicazione:', error);
+                showNotification('Errore durante il caricamento', 'error');
             }
         }
 
