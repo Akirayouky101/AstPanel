@@ -2393,18 +2393,20 @@
             document.getElementById('userComponentModal').classList.add('hidden');
         }
 
-        function loadUserComponents(category = '') {
-            const components = category ? 
-                window.syncData.getComponentsByCategory(category) : 
-                window.syncData.getAllComponents();
-            
-            const container = document.getElementById('userComponentsList');
-            container.innerHTML = '';
-            
-            const taskComponents = currentTaskForComponents.componenti || [];
-            
-            components.forEach(component => {
-                const isAdded = taskComponents.some(tc => tc.id === component.id);
+        async function loadUserComponents(category = '') {
+            try {
+                const allComponents = await window.dataManager.getComponenti();
+                const components = category ? 
+                    allComponents.filter(c => c.categoria === category) : 
+                    allComponents;
+                
+                const container = document.getElementById('userComponentsList');
+                container.innerHTML = '';
+                
+                const taskComponents = currentTaskForComponents.componenti || [];
+                
+                components.forEach(component => {
+                    const isAdded = taskComponents.some(tc => tc.id === component.id);
                 
                 const card = document.createElement('div');
                 card.className = `bg-gray-50 rounded-lg p-4 border ${isAdded ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
@@ -2422,10 +2424,10 @@
                     <div class="flex justify-between items-center text-sm mb-3">
                         <span class="text-gray-600">
                             <i class="fas fa-warehouse mr-1"></i>
-                            Disponibili: <strong>${component.quantitaDisponibile} ${component.unitaMisura}</strong>
+                            Disponibili: <strong>${component.quantita_disponibile || 0} ${component.unita_misura || 'pz'}</strong>
                         </span>
                         <span class="text-gray-600">
-                            €${component.prezzo.toFixed(2)}/${component.unitaMisura}
+                            €${(component.prezzo_unitario || 0).toFixed(2)}/${component.unita_misura || 'pz'}
                         </span>
                     </div>
                     ${isAdded ? `
@@ -2443,6 +2445,10 @@
                 `;
                 container.appendChild(card);
             });
+            } catch (error) {
+                console.error('Errore caricamento componenti:', error);
+                document.getElementById('userComponentsList').innerHTML = '<p class="text-red-500 text-center py-4">Errore nel caricamento dei componenti</p>';
+            }
         }
 
         function filterUserComponentsByCategory() {
@@ -2450,54 +2456,84 @@
             loadUserComponents(category);
         }
 
-        function addUserComponent(componentId) {
+        async function addUserComponent(componentId) {
             if (!currentTaskForComponents) return;
             
-            const component = window.syncData.getComponent(componentId);
-            if (!component) return;
-            
-            // Ask for quantity
-            const quantita = prompt(`Quanti ${component.unitaMisura} di "${component.nome}" vuoi aggiungere?`, '1');
-            if (!quantita || isNaN(quantita) || parseInt(quantita) <= 0) {
-                showNotification('Quantità non valida', 'error');
-                return;
-            }
-            
-            const qty = parseInt(quantita);
-            
-            // Check availability
-            if (qty > component.quantitaDisponibile) {
-                if (!confirm(`Attenzione: stai richiedendo ${qty} ${component.unitaMisura} ma in magazzino ce ne sono solo ${component.quantitaDisponibile}.\n\nVuoi procedere comunque?`)) {
+            try {
+                const allComponents = await window.dataManager.getComponenti();
+                const component = allComponents.find(c => c.id === componentId);
+                if (!component) return;
+                
+                // Ask for quantity
+                const quantita = prompt(`Quanti ${component.unita_misura || 'pz'} di "${component.nome}" vuoi aggiungere?`, '1');
+                if (!quantita || isNaN(quantita) || parseInt(quantita) <= 0) {
+                    showNotification('Quantità non valida', 'error');
                     return;
                 }
+                
+                const qty = parseInt(quantita);
+                
+                // Check availability
+                if (qty > (component.quantita_disponibile || 0)) {
+                    if (!confirm(`Attenzione: stai richiedendo ${qty} ${component.unita_misura || 'pz'} ma in magazzino ce ne sono solo ${component.quantita_disponibile || 0}.\n\nVuoi procedere comunque?`)) {
+                        return;
+                    }
+                }
+                
+                // Add to task components
+                if (!currentTaskForComponents.componenti) {
+                    currentTaskForComponents.componenti = [];
+                }
+                
+                const existingIndex = currentTaskForComponents.componenti.findIndex(c => c.id === componentId);
+                if (existingIndex >= 0) {
+                    currentTaskForComponents.componenti[existingIndex].quantita = qty;
+                } else {
+                    currentTaskForComponents.componenti.push({ id: componentId, quantita: qty });
+                }
+                
+                // Update task in database
+                await window.dataManager.saveLavorazione(currentTaskForComponents);
+                
+                showNotification('Componente aggiunto con successo!', 'success');
+                
+                // Reload both modals
+                openTaskDetails(currentTaskForComponents.id);
+                closeUserComponentModal();
+            } catch (error) {
+                console.error('Errore aggiunta componente:', error);
+                showNotification('Errore durante l\'aggiunta del componente', 'error');
             }
-            
-            // Add to task
-            window.syncData.addComponentToTask(currentTaskForComponents.id, componentId, qty);
-            
-            showNotification('Componente aggiunto con successo!', 'success');
-            
-            // Reload both modals
-            openTaskDetails(currentTaskForComponents.id);
-            closeUserComponentModal();
         }
 
-        function removeUserComponent(componentId) {
+        async function removeUserComponent(componentId) {
             if (!currentTaskForComponents) return;
             
-            const component = window.syncData.getComponent(componentId);
-            if (!component) return;
-            
-            if (!confirm(`Sei sicuro di voler rimuovere "${component.nome}" dalla lavorazione?\n\nQuesta azione notificherà l'amministratore.`)) {
-                return;
+            try {
+                const allComponents = await window.dataManager.getComponenti();
+                const component = allComponents.find(c => c.id === componentId);
+                if (!component) return;
+                
+                if (!confirm(`Sei sicuro di voler rimuovere "${component.nome}" dalla lavorazione?\n\nQuesta azione notificherà l'amministratore.`)) {
+                    return;
+                }
+                
+                // Remove from task components
+                if (currentTaskForComponents.componenti) {
+                    currentTaskForComponents.componenti = currentTaskForComponents.componenti.filter(c => c.id !== componentId);
+                }
+                
+                // Update task in database
+                await window.dataManager.saveLavorazione(currentTaskForComponents);
+                
+                showNotification('Componente rimosso. Amministratore notificato.', 'success');
+                
+                // Reload details
+                openTaskDetails(currentTaskForComponents.id);
+            } catch (error) {
+                console.error('Errore rimozione componente:', error);
+                showNotification('Errore durante la rimozione del componente', 'error');
             }
-            
-            window.syncData.removeComponentFromTask(currentTaskForComponents.id, componentId);
-            
-            showNotification('Componente rimosso. Amministratore notificato.', 'success');
-            
-            // Reload details
-            openTaskDetails(currentTaskForComponents.id);
         }
 
         function getCategoryBadge(category) {
