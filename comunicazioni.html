@@ -409,6 +409,17 @@
             
             const typeIcon = getTypeIcon(comm.tipo);
             
+            // Parse allegati if it's a JSON string
+            let allegatiCount = 0;
+            if (comm.allegati) {
+                try {
+                    const parsed = typeof comm.allegati === 'string' ? JSON.parse(comm.allegati) : comm.allegati;
+                    allegatiCount = Array.isArray(parsed) ? parsed.length : 0;
+                } catch (e) {
+                    allegatiCount = 0;
+                }
+            }
+            
             commDiv.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4 flex-1">
@@ -419,13 +430,13 @@
                             <div class="flex items-center">
                                 <h4 class="text-lg font-medium text-gray-900">${comm.titolo}</h4>
                             </div>
-                            <p class="text-sm text-gray-500 mt-1">${comm.messaggio ? comm.messaggio.substring(0, 100) + '...' : ''}</p>
+                            <p class="text-sm text-gray-500 mt-1">${comm.contenuto ? comm.contenuto.substring(0, 100).replace(/<[^>]*>/g, '') + '...' : ''}</p>
                             <div class="flex items-center mt-2 space-x-4">
                                 <span class="text-sm text-gray-600">${comm.publisher?.email || 'Sistema'}</span>
                                 <span class="text-sm text-gray-500">${formatDate(comm.created_at)}</span>
                                 <span class="text-sm font-medium text-gray-600 capitalize">${comm.tipo}</span>
                                 <span class="text-sm text-gray-500 capitalize">${comm.destinatari}</span>
-                                ${comm.allegati?.length ? `<span class="text-sm text-gray-500"><i data-lucide="paperclip" class="w-3 h-3 inline mr-1"></i>${comm.allegati.length} allegati</span>` : ''}
+                                ${allegatiCount > 0 ? `<span class="text-sm text-gray-500"><i data-lucide="paperclip" class="w-3 h-3 inline mr-1"></i>${allegatiCount} allegati</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -483,12 +494,18 @@
         }
 
         function openNewCommunicationModal() {
+            editingCommunicationId = null; // Reset editing state
             document.getElementById('communicationModal').classList.remove('hidden');
             document.getElementById('commContent').focus();
+            
+            // Reset modal title
+            document.querySelector('#communicationModal h3').textContent = 'Nuova Comunicazione';
+            
             lucide.createIcons();
         }
 
         function closeCommunicationModal() {
+            editingCommunicationId = null; // Reset editing state
             document.getElementById('communicationModal').classList.add('hidden');
             document.getElementById('communicationForm').reset();
             document.getElementById('commContent').innerHTML = '';
@@ -569,29 +586,42 @@
             lucide.createIcons();
         }
 
+        let isSaving = false;
+
         async function saveDraft() {
-            const formData = getFormData();
+            if (isSaving) {
+                console.log('Già in salvataggio, ignoro');
+                return;
+            }
             
-            // Map form data to database schema
-            const commData = {
-                titolo: formData.titolo,
-                tipo: formData.tipo,
-                priorita: formData.priorita,
-                contenuto: formData.contenuto,
-                destinatari: formData.destinatari,
-                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
-                data_programmata: formData.data_programmata,
-                stato: 'bozza',
-                data_invio: null
-            };
+            isSaving = true;
             
-            // Save to Supabase
-            await window.dataManager.saveComunicazione(commData);
-            
-            closeCommunicationModal();
-            await loadCommunications();
-            await updateStats();
-            showNotification('Bozza salvata con successo!', 'success');
+            try {
+                const formData = getFormData();
+                
+                // Map form data to database schema
+                const commData = {
+                    titolo: formData.titolo,
+                    tipo: formData.tipo,
+                    priorita: formData.priorita,
+                    contenuto: formData.contenuto,
+                    destinatari: formData.destinatari,
+                    allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
+                    data_programmata: formData.data_programmata,
+                    stato: 'bozza',
+                    data_invio: null
+                };
+                
+                // Save to Supabase
+                await window.dataManager.saveComunicazione(commData);
+                
+                closeCommunicationModal();
+                await loadCommunications();
+                await updateStats();
+                showNotification('Bozza salvata con successo!', 'success');
+            } finally {
+                isSaving = false;
+            }
         }
 
         function previewCommunication() {
@@ -719,17 +749,64 @@
             }
         }
 
+        let editingCommunicationId = null;
+
         async function editCommunication(id) {
             const communications = await window.dataManager.getComunicazioni();
             const comm = communications.find(c => c.id === id);
-            if (comm) {
-                openNewCommunicationModal();
-                
-                document.getElementById('commTitle').value = comm.titolo;
-                document.getElementById('commType').value = comm.tipo;
-                document.getElementById('commPriority').value = comm.priorita;
-                document.getElementById('commContent').innerHTML = comm.contenuto;
+            if (!comm) {
+                showNotification('Comunicazione non trovata', 'error');
+                return;
             }
+            
+            editingCommunicationId = id;
+            openNewCommunicationModal();
+            
+            // Popola tutti i campi del form
+            document.getElementById('commTitle').value = comm.titolo || '';
+            document.getElementById('commType').value = comm.tipo || '';
+            document.getElementById('commPriority').value = comm.priorita || 'media';
+            document.getElementById('commContent').innerHTML = comm.contenuto || '';
+            
+            // Programma data
+            if (comm.data_programmata) {
+                const date = new Date(comm.data_programmata);
+                const formatted = date.toISOString().slice(0, 16);
+                document.getElementById('commSchedule').value = formatted;
+            }
+            
+            // Destinatari
+            const destinatariMap = {
+                'dipendenti': 'allEmployees',
+                'admin': 'managers',
+                'specifici': 'specific',
+                'tutti': null
+            };
+            
+            // Reset checkboxes
+            document.getElementById('allEmployees').checked = false;
+            document.getElementById('managers').checked = false;
+            document.getElementById('specific').checked = false;
+            
+            // Set checkbox
+            const checkboxId = destinatariMap[comm.destinatari];
+            if (checkboxId) {
+                document.getElementById(checkboxId).checked = true;
+            }
+            
+            // Allegati
+            if (comm.allegati) {
+                try {
+                    const allegatiArray = typeof comm.allegati === 'string' ? JSON.parse(comm.allegati) : comm.allegati;
+                    uploadedFiles = allegatiArray.map(name => ({ name }));
+                    updateFileList();
+                } catch (e) {
+                    console.error('Error parsing allegati:', e);
+                }
+            }
+            
+            // Cambia il titolo della modale
+            document.querySelector('#communicationModal h3').textContent = 'Modifica Comunicazione';
         }
 
         async function sendCommunication(id) {
@@ -759,24 +836,42 @@
         // Form submission
         document.getElementById('communicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const formData = getFormData();
             
-            // Map form data to database schema with all required fields
-            const commData = {
-                titolo: formData.titolo,
-                tipo: formData.tipo,
-                priorita: formData.priorita,
-                contenuto: formData.contenuto,
-                destinatari: formData.destinatari,
-                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
-                data_programmata: formData.data_programmata,
-                stato: formData.stato,
-                data_invio: formData.stato === 'inviata' ? new Date().toISOString() : null
-            };
+            if (isSaving) {
+                console.log('Già in salvataggio, ignoro');
+                return;
+            }
+            
+            isSaving = true;
             
             try {
-                // Send communication
-                await window.dataManager.saveComunicazione(commData);
+                const formData = getFormData();
+                
+                // Map form data to database schema with all required fields
+                const commData = {
+                    titolo: formData.titolo,
+                    tipo: formData.tipo,
+                    priorita: formData.priorita,
+                    contenuto: formData.contenuto,
+                    destinatari: formData.destinatari,
+                    allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
+                    data_programmata: formData.data_programmata,
+                    stato: formData.stato,
+                    data_invio: formData.stato === 'inviata' ? new Date().toISOString() : null
+                };
+                
+                // If editing, update existing communication
+                if (editingCommunicationId) {
+                    await window.CommunicationsAPI.update(editingCommunicationId, commData);
+                    showNotification('Comunicazione aggiornata con successo!', 'success');
+                } else {
+                    // Otherwise create new
+                    await window.dataManager.saveComunicazione(commData);
+                    showNotification('Comunicazione inviata con successo!', 'success');
+                }
+                
+                // Reset editing state
+                editingCommunicationId = null;
                 
                 await loadCommunications();
                 await updateStats();
@@ -785,11 +880,12 @@
                 document.getElementById('commContent').innerHTML = '';
                 uploadedFiles = [];
                 document.getElementById('fileList').innerHTML = '';
-                
-                showNotification('Comunicazione inviata con successo!', 'success');
+                closeCommunicationModal();
             } catch (error) {
                 console.error('Errore invio comunicazione:', error);
                 showNotification('Errore durante l\'invio della comunicazione', 'error');
+            } finally {
+                isSaving = false;
             }
         });
 

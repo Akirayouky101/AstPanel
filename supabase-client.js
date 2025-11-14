@@ -607,6 +607,29 @@ window.CommunicationsAPI = {
         return data;
     },
 
+    // Update communication
+    async update(id, updates) {
+        const { data, error } = await supabase
+            .from('communications')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // Delete communication
+    async delete(id) {
+        const { error } = await supabase
+            .from('communications')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+    },
+
     // Mark as read
     async markAsRead(id, userId) {
         const comm = await this.getById(id);
