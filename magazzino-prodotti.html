@@ -294,7 +294,7 @@
             }
 
             tbody.innerHTML = products.map(product => {
-                const quantity = parseFloat(product.quantita || 0);
+                const quantity = parseFloat(product.quantita_disponibile || 0);
                 const minStock = parseFloat(product.scorta_minima || 0);
                 
                 let statusBadge, statusText;
@@ -355,13 +355,13 @@
         // Update stats
         function updateStats() {
             const total = allProducts.length;
-            const inStock = allProducts.filter(p => parseFloat(p.quantita || 0) > parseFloat(p.scorta_minima || 0)).length;
+            const inStock = allProducts.filter(p => parseFloat(p.quantita_disponibile || 0) > parseFloat(p.scorta_minima || 0)).length;
             const lowStock = allProducts.filter(p => {
-                const qty = parseFloat(p.quantita || 0);
+                const qty = parseFloat(p.quantita_disponibile || 0);
                 const min = parseFloat(p.scorta_minima || 0);
                 return qty > 0 && min > 0 && qty <= min;
             }).length;
-            const outOfStock = allProducts.filter(p => parseFloat(p.quantita || 0) === 0).length;
+            const outOfStock = allProducts.filter(p => parseFloat(p.quantita_disponibile || 0) === 0).length;
 
             document.getElementById('totalProducts').textContent = total;
             document.getElementById('inStockProducts').textContent = inStock;
@@ -385,7 +385,7 @@
 
                 let matchStock = true;
                 if (stock !== 'all') {
-                    const qty = parseFloat(product.quantita || 0);
+                    const qty = parseFloat(product.quantita_disponibile || 0);
                     const min = parseFloat(product.scorta_minima || 0);
                     
                     if (stock === 'outofstock') matchStock = qty === 0;
@@ -425,7 +425,7 @@
             document.getElementById('productName').value = product.nome || '';
             document.getElementById('productCode').value = product.codice || '';
             document.getElementById('productCategory').value = product.categoria || '';
-            document.getElementById('productQuantity').value = product.quantita || 0;
+            document.getElementById('productQuantity').value = product.quantita_disponibile || 0;
             document.getElementById('productUnit').value = product.unita_misura || 'pz';
             document.getElementById('productMinStock').value = product.scorta_minima || 0;
             document.getElementById('productPrice').value = product.prezzo_unitario || '';
@@ -458,7 +458,7 @@
                 nome: document.getElementById('productName').value,
                 codice: document.getElementById('productCode').value,
                 categoria: document.getElementById('productCategory').value,
-                quantita: parseFloat(document.getElementById('productQuantity').value),
+                quantita_disponibile: parseFloat(document.getElementById('productQuantity').value),
                 unita_misura: document.getElementById('productUnit').value,
                 scorta_minima: parseFloat(document.getElementById('productMinStock').value) || 0,
                 prezzo_unitario: parseFloat(document.getElementById('productPrice').value) || null,

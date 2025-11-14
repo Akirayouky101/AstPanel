@@ -34,4 +34,4 @@ COMMENT ON COLUMN components.note IS 'Additional notes (supplier, storage locati
 -- Create index for better search performance
 CREATE INDEX IF NOT EXISTS idx_components_categoria ON components(categoria);
 CREATE INDEX IF NOT EXISTS idx_components_codice ON components(codice);
-CREATE INDEX IF NOT EXISTS idx_components_quantita ON components(quantita);
+CREATE INDEX IF NOT EXISTS idx_components_quantita_disponibile ON components(quantita_disponibile);
