@@ -571,14 +571,22 @@
 
         async function saveDraft() {
             const formData = getFormData();
-            formData.stato = 'bozza';
+            
+            // Map form data to database schema
+            const commData = {
+                titolo: formData.titolo,
+                tipo: formData.tipo,
+                priorita: formData.priorita,
+                contenuto: formData.contenuto,
+                destinatari: formData.destinatari,
+                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
+                data_programmata: formData.data_programmata,
+                stato: 'bozza',
+                data_invio: null
+            };
             
             // Save to Supabase
-            await window.dataManager.saveComunicazione({
-                ...formData,
-                data_creazione: new Date().toISOString().split('T')[0],
-                autore: 'Admin'
-            });
+            await window.dataManager.saveComunicazione(commData);
             
             closeCommunicationModal();
             await loadCommunications();
@@ -590,6 +598,14 @@
             const formData = getFormData();
             const previewContent = document.getElementById('previewContent');
             
+            // Mappa destinatari per visualizzazione
+            const destinatariMap = {
+                'tutti': 'Tutti',
+                'dipendenti': 'Tutti i Dipendenti',
+                'admin': 'Solo Manager',
+                'specifici': 'Utenti Specifici'
+            };
+            
             previewContent.innerHTML = `
                 <div class="space-y-6">
                     <div class="border-b pb-4">
@@ -597,7 +613,7 @@
                         <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                             <span>Tipo: ${formData.tipo}</span>
                             <span>Priorità: ${formData.priorita}</span>
-                            <span>Destinatari: ${formData.destinatari.join(', ')}</span>
+                            <span>Destinatari: ${destinatariMap[formData.destinatari] || formData.destinatari}</span>
                         </div>
                     </div>
                     <div class="prose max-w-none">
