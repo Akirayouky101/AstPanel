@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magazzino Prodotti - AST:ZG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/data-migration.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+        <div class="flex items-center justify-center h-16 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
+            <h1 class="text-xl font-bold text-white">AST:ZG Admin</h1>
+        </div>
+        <nav class="mt-6">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="briefcase" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="package" class="w-5 h-5 mr-3"></i>
+                Magazzino Prodotti
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="bell" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <a href="index.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors mt-auto">
+                <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                Esci
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">Magazzino Prodotti</h1>
+                    <p class="text-gray-600 mt-1">Gestisci i prodotti disponibili per le lavorazioni</p>
+                </div>
+                <button onclick="openNewProductModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    Nuovo Prodotto
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Prodotti Totali</p>
+                        <p id="totalProducts" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i data-lucide="package" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">In Stock</p>
+                        <p id="inStockProducts" class="text-2xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Scorta Bassa</p>
+                        <p id="lowStockProducts" class="text-2xl font-bold text-orange-600">0</p>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-lg">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Esauriti</p>
+                        <p id="outOfStockProducts" class="text-2xl font-bold text-red-600">0</p>
+                    </div>
+                    <div class="bg-red-100 p-3 rounded-lg">
+                        <i data-lucide="x-circle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="Cerca per nome, codice o descrizione..."
+                               oninput="applyFilters()"
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <i data-lucide="search" class="w-5 h-5 absolute left-3 top-2.5 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <select id="categoryFilter" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="all">Tutte le categorie</option>
+                    <option value="elettronica">Elettronica</option>
+                    <option value="meccanica">Meccanica</option>
+                    <option value="materiali">Materiali</option>
+                    <option value="componentistica">Componentistica</option>
+                    <option value="altro">Altro</option>
+                </select>
+
+                <select id="stockFilter" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="all">Tutti gli stock</option>
+                    <option value="instock">In Stock</option>
+                    <option value="lowstock">Scorta Bassa</option>
+                    <option value="outofstock">Esaurito</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Products Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodotto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantità</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unità</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Products will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- New/Edit Product Modal -->
+    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Nuovo Prodotto</h3>
+                    <button onclick="closeProductModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form id="productForm" class="p-6">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="col-span-2">
+                            <label for="productName" class="block text-sm font-medium text-gray-700 mb-2">Nome Prodotto *</label>
+                            <input type="text" id="productName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label for="productCode" class="block text-sm font-medium text-gray-700 mb-2">Codice Prodotto *</label>
+                            <input type="text" id="productCode" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label for="productCategory" class="block text-sm font-medium text-gray-700 mb-2">Categoria *</label>
+                            <select id="productCategory" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Seleziona categoria</option>
+                                <option value="elettronica">Elettronica</option>
+                                <option value="meccanica">Meccanica</option>
+                                <option value="materiali">Materiali</option>
+                                <option value="componentistica">Componentistica</option>
+                                <option value="altro">Altro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="productQuantity" class="block text-sm font-medium text-gray-700 mb-2">Quantità *</label>
+                            <input type="number" id="productQuantity" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label for="productUnit" class="block text-sm font-medium text-gray-700 mb-2">Unità di Misura *</label>
+                            <select id="productUnit" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="pz">Pezzi (pz)</option>
+                                <option value="kg">Kilogrammi (kg)</option>
+                                <option value="g">Grammi (g)</option>
+                                <option value="l">Litri (l)</option>
+                                <option value="ml">Millilitri (ml)</option>
+                                <option value="m">Metri (m)</option>
+                                <option value="cm">Centimetri (cm)</option>
+                                <option value="m²">Metri quadrati (m²)</option>
+                                <option value="confezione">Confezione</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="productMinStock" class="block text-sm font-medium text-gray-700 mb-2">Scorta Minima</label>
+                            <input type="number" id="productMinStock" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">Avviso se la quantità scende sotto questo valore</p>
+                        </div>
+
+                        <div>
+                            <label for="productPrice" class="block text-sm font-medium text-gray-700 mb-2">Prezzo Unitario (€)</label>
+                            <input type="number" id="productPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div class="col-span-2">
+                            <label for="productDescription" class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
+                            <textarea id="productDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+
+                        <div class="col-span-2">
+                            <label for="productNotes" class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                            <textarea id="productNotes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Note aggiuntive, fornitore, etc."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+                        <button type="button" onclick="closeProductModal()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                            Annulla
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Salva Prodotto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allProducts = [];
+        let editingProductId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            await loadProducts();
+            updateStats();
+        });
+
+        // Load products from database
+        async function loadProducts() {
+            try {
+                allProducts = await window.dataManager.getComponenti() || [];
+                renderProducts(allProducts);
+                updateStats();
+            } catch (error) {
+                console.error('Error loading products:', error);
+                showNotification('Errore nel caricamento dei prodotti', 'error');
+            }
+        }
+
+        // Render products table
+        function renderProducts(products) {
+            const tbody = document.getElementById('productsTableBody');
+            
+            if (!products || products.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                            <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 text-gray-400"></i>
+                            <p>Nessun prodotto in magazzino</p>
+                            <p class="text-sm">Clicca su "Nuovo Prodotto" per iniziare</p>
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            tbody.innerHTML = products.map(product => {
+                const quantity = parseFloat(product.quantita || 0);
+                const minStock = parseFloat(product.scorta_minima || 0);
+                
+                let statusBadge, statusText;
+                if (quantity === 0) {
+                    statusBadge = 'bg-red-100 text-red-800';
+                    statusText = 'Esaurito';
+                } else if (minStock > 0 && quantity <= minStock) {
+                    statusBadge = 'bg-orange-100 text-orange-800';
+                    statusText = 'Scorta Bassa';
+                } else {
+                    statusBadge = 'bg-green-100 text-green-800';
+                    statusText = 'Disponibile';
+                }
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                    <i data-lucide="package" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">${product.nome}</div>
+                                    ${product.descrizione ? `<div class="text-xs text-gray-500">${product.descrizione.substring(0, 50)}${product.descrizione.length > 50 ? '...' : ''}</div>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${product.codice || '-'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize">
+                                ${product.categoria || 'N/D'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${quantity}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${product.unita_misura || 'pz'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${statusBadge}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <button onclick="editProduct('${product.id}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Modifica">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteProduct('${product.id}')" class="p-1 text-red-600 hover:bg-red-50 rounded" title="Elimina">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // Update stats
+        function updateStats() {
+            const total = allProducts.length;
+            const inStock = allProducts.filter(p => parseFloat(p.quantita || 0) > parseFloat(p.scorta_minima || 0)).length;
+            const lowStock = allProducts.filter(p => {
+                const qty = parseFloat(p.quantita || 0);
+                const min = parseFloat(p.scorta_minima || 0);
+                return qty > 0 && min > 0 && qty <= min;
+            }).length;
+            const outOfStock = allProducts.filter(p => parseFloat(p.quantita || 0) === 0).length;
+
+            document.getElementById('totalProducts').textContent = total;
+            document.getElementById('inStockProducts').textContent = inStock;
+            document.getElementById('lowStockProducts').textContent = lowStock;
+            document.getElementById('outOfStockProducts').textContent = outOfStock;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const stock = document.getElementById('stockFilter').value;
+
+            const filtered = allProducts.filter(product => {
+                const matchSearch = !search || 
+                    (product.nome || '').toLowerCase().includes(search) ||
+                    (product.codice || '').toLowerCase().includes(search) ||
+                    (product.descrizione || '').toLowerCase().includes(search);
+
+                const matchCategory = category === 'all' || product.categoria === category;
+
+                let matchStock = true;
+                if (stock !== 'all') {
+                    const qty = parseFloat(product.quantita || 0);
+                    const min = parseFloat(product.scorta_minima || 0);
+                    
+                    if (stock === 'outofstock') matchStock = qty === 0;
+                    else if (stock === 'lowstock') matchStock = qty > 0 && min > 0 && qty <= min;
+                    else if (stock === 'instock') matchStock = qty > min || (qty > 0 && min === 0);
+                }
+
+                return matchSearch && matchCategory && matchStock;
+            });
+
+            renderProducts(filtered);
+        }
+
+        // Open modal
+        function openNewProductModal() {
+            editingProductId = null;
+            document.getElementById('modalTitle').textContent = 'Nuovo Prodotto';
+            document.getElementById('productForm').reset();
+            document.getElementById('productModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Close modal
+        function closeProductModal() {
+            editingProductId = null;
+            document.getElementById('productModal').classList.add('hidden');
+            document.getElementById('productForm').reset();
+        }
+
+        // Edit product
+        async function editProduct(id) {
+            const product = allProducts.find(p => p.id === id);
+            if (!product) return;
+
+            editingProductId = id;
+            document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
+            document.getElementById('productName').value = product.nome || '';
+            document.getElementById('productCode').value = product.codice || '';
+            document.getElementById('productCategory').value = product.categoria || '';
+            document.getElementById('productQuantity').value = product.quantita || 0;
+            document.getElementById('productUnit').value = product.unita_misura || 'pz';
+            document.getElementById('productMinStock').value = product.scorta_minima || 0;
+            document.getElementById('productPrice').value = product.prezzo_unitario || '';
+            document.getElementById('productDescription').value = product.descrizione || '';
+            document.getElementById('productNotes').value = product.note || '';
+
+            document.getElementById('productModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Delete product
+        async function deleteProduct(id) {
+            if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) return;
+
+            try {
+                await window.dataManager.deleteComponente(id);
+                showNotification('Prodotto eliminato con successo', 'success');
+                await loadProducts();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                showNotification('Errore durante l\'eliminazione', 'error');
+            }
+        }
+
+        // Form submit
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const productData = {
+                nome: document.getElementById('productName').value,
+                codice: document.getElementById('productCode').value,
+                categoria: document.getElementById('productCategory').value,
+                quantita: parseFloat(document.getElementById('productQuantity').value),
+                unita_misura: document.getElementById('productUnit').value,
+                scorta_minima: parseFloat(document.getElementById('productMinStock').value) || 0,
+                prezzo_unitario: parseFloat(document.getElementById('productPrice').value) || null,
+                descrizione: document.getElementById('productDescription').value,
+                note: document.getElementById('productNotes').value
+            };
+
+            try {
+                if (editingProductId) {
+                    await window.dataManager.updateComponente(editingProductId, productData);
+                    showNotification('Prodotto aggiornato con successo', 'success');
+                } else {
+                    await window.dataManager.saveComponente(productData);
+                    showNotification('Prodotto creato con successo', 'success');
+                }
+
+                closeProductModal();
+                await loadProducts();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                showNotification('Errore durante il salvataggio', 'error');
+            }
+        });
+
+        // Notification helper
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
