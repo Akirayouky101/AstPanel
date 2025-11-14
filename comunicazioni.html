@@ -370,6 +370,21 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in and is admin
+            const currentUser = window.AuthHelper.getCurrentUser();
+            
+            if (!currentUser) {
+                alert('Devi effettuare il login per accedere a questa pagina');
+                window.location.href = 'admin-functional.html';
+                return;
+            }
+            
+            if (currentUser.ruolo !== 'admin') {
+                alert('Solo gli amministratori possono accedere a questa pagina');
+                window.location.href = 'pannello-utente.html';
+                return;
+            }
+            
             lucide.createIcons();
             await loadCommunications();
             await updateStats();
