@@ -1294,17 +1294,25 @@
                                 <div class="mt-6 pt-6 border-t border-gray-200">
                                     <h4 class="font-medium text-gray-900 mb-3">Allegati (${allegatiArray.length})</h4>
                                     <div class="space-y-2">
-                                        ${allegatiArray.map((file, index) => `
+                                        ${allegatiArray.map((fileData, index) => {
+                                            const fileName = typeof fileData === 'string' ? fileData : fileData.name;
+                                            const fileUrl = typeof fileData === 'object' && fileData.url ? fileData.url : null;
+                                            return `
                                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                 <div class="flex items-center space-x-2">
                                                     <i data-lucide="paperclip" class="w-4 h-4 text-gray-600"></i>
-                                                    <span class="text-sm text-gray-700">${file}</span>
+                                                    <span class="text-sm text-gray-700">${fileName}</span>
                                                 </div>
-                                                <button onclick="viewAttachment('${file}', ${index})" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
-                                                    Mostra
-                                                </button>
+                                                ${fileUrl ? `
+                                                <a href="${fileUrl}" target="_blank" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
+                                                    Visualizza
+                                                </a>
+                                                ` : `
+                                                <span class="text-xs text-gray-400">Non disponibile</span>
+                                                `}
                                             </div>
-                                        `).join('')}
+                                            `;
+                                        }).join('')}
                                     </div>
                                 </div>
                             ` : ''}

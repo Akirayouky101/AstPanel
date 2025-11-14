@@ -688,4 +688,90 @@ window.RealtimeService = {
     }
 };
 
+// =====================================================
+// STORAGE API (for attachments)
+// =====================================================
+window.StorageAPI = {
+    BUCKET_NAME: 'communications-attachments',
+
+    // Upload file to storage
+    async uploadFile(file, folder = 'attachments') {
+        try {
+            const timestamp = Date.now();
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${folder}/${timestamp}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            
+            const { data, error } = await supabase.storage
+                .from(this.BUCKET_NAME)
+                .upload(fileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+            
+            if (error) throw error;
+            
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from(this.BUCKET_NAME)
+                .getPublicUrl(fileName);
+            
+            return {
+                path: fileName,
+                url: publicUrl,
+                name: file.name,
+                size: file.size,
+                type: file.type
+            };
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            throw error;
+        }
+    },
+
+    // Upload multiple files
+    async uploadFiles(files, folder = 'attachments') {
+        const uploadPromises = Array.from(files).map(file => this.uploadFile(file, folder));
+        return Promise.all(uploadPromises);
+    },
+
+    // Delete file from storage
+    async deleteFile(filePath) {
+        try {
+            const { error } = await supabase.storage
+                .from(this.BUCKET_NAME)
+                .remove([filePath]);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            throw error;
+        }
+    },
+
+    // Get public URL for a file
+    getPublicUrl(filePath) {
+        const { data } = supabase.storage
+            .from(this.BUCKET_NAME)
+            .getPublicUrl(filePath);
+        
+        return data.publicUrl;
+    },
+
+    // List files in a folder
+    async listFiles(folder = 'attachments') {
+        try {
+            const { data, error } = await supabase.storage
+                .from(this.BUCKET_NAME)
+                .list(folder);
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error listing files:', error);
+            throw error;
+        }
+    }
+};
+
 console.log('✅ Supabase Client initialized');

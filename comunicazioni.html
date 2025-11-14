@@ -569,21 +569,36 @@
             document.getElementById('commContent').focus();
         }
 
-        function handleFileUpload(event) {
+        async function handleFileUpload(event) {
             const files = Array.from(event.target.files);
-            files.forEach(file => {
-                uploadedFiles.push(file);
-                const fileElement = document.createElement('div');
-                fileElement.className = 'flex items-center justify-between bg-gray-100 p-2 rounded';
-                fileElement.innerHTML = `
-                    <span class="text-sm">${file.name}</span>
-                    <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                `;
-                document.getElementById('fileList').appendChild(fileElement);
-            });
+            
+            if (files.length === 0) return;
+            
+            // Show loading
+            const fileList = document.getElementById('fileList');
+            const loadingEl = document.createElement('div');
+            loadingEl.className = 'text-sm text-gray-600 py-2';
+            loadingEl.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline animate-spin"></i> Caricamento file...';
+            fileList.appendChild(loadingEl);
             lucide.createIcons();
+            
+            try {
+                // Upload to Supabase Storage
+                const uploadedData = await window.StorageAPI.uploadFiles(files, 'communications');
+                
+                // Add to uploaded files array with full data
+                uploadedData.forEach(fileData => {
+                    uploadedFiles.push(fileData);
+                });
+                
+                // Refresh file list
+                loadFileList();
+                showNotification(`${files.length} file caricati con successo!`, 'success');
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                showNotification('Errore durante il caricamento dei file', 'error');
+                loadFileList(); // Remove loading
+            }
         }
 
         function removeFile(fileName) {
@@ -597,9 +612,10 @@
             uploadedFiles.forEach(file => {
                 const fileElement = document.createElement('div');
                 fileElement.className = 'flex items-center justify-between bg-gray-100 p-2 rounded';
+                const displayName = file.name || file;
                 fileElement.innerHTML = `
-                    <span class="text-sm">${file.name}</span>
-                    <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                    <span class="text-sm">${displayName}</span>
+                    <button onclick="removeFile('${displayName}')" type="button" class="text-red-500 hover:text-red-700">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 `;
@@ -738,7 +754,7 @@
                 priorita: document.getElementById('commPriority').value, // bassa, media, alta
                 contenuto: document.getElementById('commContent').innerHTML,
                 destinatari: recipients.length > 0 ? recipients[0] : 'tutti',
-                allegati: uploadedFiles.map(f => f.name),
+                allegati: uploadedFiles, // Save complete file data with URLs
                 data_programmata: scheduleDate ? new Date(scheduleDate).toISOString() : null,
                 stato: scheduleDate ? 'programmata' : 'inviata' // Se ha data futura = programmata, altrimenti inviata subito
             };
@@ -842,17 +858,25 @@
                     <div class="border-t pt-4">
                         <h5 class="text-sm font-medium text-gray-700 mb-2">Allegati (${allegatiArray.length}):</h5>
                         <div class="space-y-2">
-                            ${allegatiArray.map(filename => `
+                            ${allegatiArray.map(fileData => {
+                                const fileName = typeof fileData === 'string' ? fileData : fileData.name;
+                                const fileUrl = typeof fileData === 'object' && fileData.url ? fileData.url : null;
+                                return `
                                 <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                                     <div class="flex items-center gap-2">
                                         <i data-lucide="file" class="w-4 h-4 text-gray-500"></i>
-                                        <span class="text-sm text-gray-700">${filename}</span>
+                                        <span class="text-sm text-gray-700">${fileName}</span>
                                     </div>
-                                    <button onclick="downloadAttachment('${filename}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                        Scarica
-                                    </button>
+                                    ${fileUrl ? `
+                                    <a href="${fileUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                        Visualizza
+                                    </a>
+                                    ` : `
+                                    <span class="text-gray-400 text-sm">Non disponibile</span>
+                                    `}
                                 </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                     ` : ''}
@@ -866,11 +890,6 @@
         
         function closeViewCommunicationModal() {
             document.getElementById('viewCommunicationModal').classList.add('hidden');
-        }
-        
-        function downloadAttachment(filename) {
-            // For now, just show notification that upload system is not yet implemented
-            showNotification('Sistema upload in fase di implementazione', 'info');
         }
 
         let editingCommunicationId = null;
@@ -922,7 +941,16 @@
             if (comm.allegati) {
                 try {
                     const allegatiArray = typeof comm.allegati === 'string' ? JSON.parse(comm.allegati) : comm.allegati;
-                    uploadedFiles = allegatiArray.map(name => ({ name }));
+                    // Check if allegati are already objects with url/name, or just strings (old format)
+                    uploadedFiles = allegatiArray.map(item => {
+                        if (typeof item === 'string') {
+                            // Old format: just filename
+                            return { name: item };
+                        } else {
+                            // New format: full object with url, name, etc.
+                            return item;
+                        }
+                    });
                     loadFileList();
                 } catch (e) {
                     console.error('Error parsing allegati:', e);
