@@ -730,7 +730,7 @@ window.CommunicationsAPI = {
         }
     },
 
-    // Get all deletions (for admin panel)
+    // Get all deletions (for admin panel) with user details
     async getDeletions() {
         const { data, error } = await supabase
             .from('communications')
@@ -738,6 +738,45 @@ window.CommunicationsAPI = {
             .not('eliminata_da', 'eq', '[]');
         
         if (error) throw error;
+        
+        // Enrich with user data
+        if (data && data.length > 0) {
+            // Collect all unique user IDs from eliminata_da
+            const userIds = new Set();
+            data.forEach(comm => {
+                const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                eliminataData.forEach(deletion => {
+                    if (deletion.user_id) userIds.add(deletion.user_id);
+                });
+            });
+            
+            // Fetch user data for all IDs
+            if (userIds.size > 0) {
+                const { data: users, error: userError } = await supabase
+                    .from('users')
+                    .select('id, nome, cognome, email')
+                    .in('id', Array.from(userIds));
+                
+                if (!userError && users) {
+                    // Create user lookup map
+                    const userMap = {};
+                    users.forEach(user => {
+                        userMap[user.id] = user;
+                    });
+                    
+                    // Enrich deletion data with user info
+                    data.forEach(comm => {
+                        if (Array.isArray(comm.eliminata_da)) {
+                            comm.eliminata_da = comm.eliminata_da.map(deletion => ({
+                                ...deletion,
+                                user: userMap[deletion.user_id] || null
+                            }));
+                        }
+                    });
+                }
+            }
+        }
+        
         return data;
     }
 };

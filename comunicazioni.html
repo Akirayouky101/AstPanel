@@ -80,6 +80,7 @@
             <a href="comunicazioni.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
                 <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
                 Comunicazioni
+                <span id="deletionsBadge" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full hidden">0</span>
             </a>
         </nav>
     </div>
@@ -236,9 +237,85 @@
                         </h3>
                         <p class="text-sm text-gray-600 mt-1">Tracciamento di quali utenti hanno eliminato le comunicazioni</p>
                     </div>
-                    <button onclick="toggleDeletionsSection()" class="text-sm text-gray-600 hover:text-gray-800">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportDeletionsToCSV()" 
+                                class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center gap-2"
+                                title="Esporta in CSV per audit">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            Esporta CSV
+                        </button>
+                        <button onclick="toggleDeletionsSection()" class="text-sm text-gray-600 hover:text-gray-800" title="Chiudi">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="mt-4 pb-4 border-b border-gray-200">
+                    <!-- Search Bar -->
+                    <div class="mb-3">
+                        <div class="relative">
+                            <input type="text" 
+                                   id="deletionsSearchInput"
+                                   placeholder="Cerca per titolo, nome utente o email..."
+                                   oninput="applyDeletionsFilters()"
+                                   class="w-full pl-10 pr-4 py-2 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                    </div>
+
+                    <!-- Filter Dropdowns -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Periodo</label>
+                            <select id="deletionsPeriodFilter" 
+                                    onchange="applyDeletionsFilters()"
+                                    class="w-full text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="all">Tutte</option>
+                                <option value="today">Oggi</option>
+                                <option value="week">Ultima settimana</option>
+                                <option value="month">Ultimo mese</option>
+                                <option value="custom">Personalizzato</option>
+                            </select>
+                        </div>
+
+                        <div id="customDateRange" class="hidden col-span-2">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Range personalizzato</label>
+                            <div class="flex gap-2">
+                                <input type="date" 
+                                       id="deletionsFromDate" 
+                                       onchange="applyDeletionsFilters()"
+                                       class="flex-1 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <input type="date" 
+                                       id="deletionsToDate" 
+                                       onchange="applyDeletionsFilters()"
+                                       class="flex-1 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                            <select id="deletionsTypeFilter" 
+                                    onchange="applyDeletionsFilters()"
+                                    class="w-full text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="all">Tutti</option>
+                                <option value="generale">Generale</option>
+                                <option value="urgente">Urgente</option>
+                                <option value="informativa">Informativa</option>
+                                <option value="promemoria">Promemoria</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Utente</label>
+                            <select id="deletionsUserFilter" 
+                                    onchange="applyDeletionsFilters()"
+                                    class="w-full text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="all">Tutti gli utenti</option>
+                                <!-- Will be populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -439,6 +516,7 @@
             lucide.createIcons();
             await loadCommunications();
             await updateStats();
+            await updateDeletionsBadge();
             setupFilters();
         });
 
@@ -471,10 +549,16 @@
                 }
             }
             
+            // Calculate engagement stats
+            const lettaCount = comm.letta_da?.length || 0;
+            const archiviataCount = comm.archiviata_da?.length || 0;
+            const eliminataCount = Array.isArray(comm.eliminata_da) ? comm.eliminata_da.length : 0;
+            const totalEngagement = lettaCount + archiviataCount + eliminataCount;
+            
             commDiv.innerHTML = `
-                <div class="flex items-center justify-between">
+                <div class="flex items-start justify-between">
                     <div class="flex items-center space-x-4 flex-1">
-                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
                         </div>
                         <div class="flex-1">
@@ -482,28 +566,50 @@
                                 <h4 class="text-lg font-medium text-gray-900">${comm.titolo}</h4>
                             </div>
                             <p class="text-sm text-gray-500 mt-1">${comm.contenuto ? comm.contenuto.substring(0, 100).replace(/<[^>]*>/g, '') + '...' : ''}</p>
-                            <div class="flex items-center mt-2 space-x-4">
+                            <div class="flex items-center mt-2 space-x-4 flex-wrap">
                                 <span class="text-sm text-gray-600">${comm.publisher?.email || 'Sistema'}</span>
                                 <span class="text-sm text-gray-500">${formatDate(comm.created_at)}</span>
                                 <span class="text-sm font-medium text-gray-600 capitalize">${comm.tipo}</span>
                                 <span class="text-sm text-gray-500 capitalize">${comm.destinatari}</span>
                                 ${allegatiCount > 0 ? `<span class="text-sm text-gray-500"><i data-lucide="paperclip" class="w-3 h-3 inline mr-1"></i>${allegatiCount} allegati</span>` : ''}
                             </div>
+                            ${comm.stato !== 'bozza' ? `
+                            <div class="flex items-center mt-3 space-x-3 text-xs">
+                                <span class="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded" title="Lette">
+                                    <i data-lucide="eye" class="w-3 h-3"></i>
+                                    <span class="font-medium">${lettaCount}</span>
+                                </span>
+                                <span class="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded" title="Archiviate">
+                                    <i data-lucide="archive" class="w-3 h-3"></i>
+                                    <span class="font-medium">${archiviataCount}</span>
+                                </span>
+                                ${eliminataCount > 0 ? `
+                                <span class="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 rounded" title="Eliminate">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                    <span class="font-medium">${eliminataCount}</span>
+                                </span>
+                                ` : ''}
+                                ${totalEngagement > 0 ? `
+                                <span class="text-gray-500">•</span>
+                                <span class="text-gray-600">Engagement: <span class="font-semibold">${totalEngagement}</span> interazioni</span>
+                                ` : ''}
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
-                    <div class="flex items-center space-x-2 ml-4">
-                        <button onclick="viewCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
+                        <button onclick="viewCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Visualizza">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="editCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                        <button onclick="editCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Modifica">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
                         ${comm.stato === 'bozza' ? `
-                            <button onclick="sendCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <button onclick="sendCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Invia">
                                 <i data-lucide="send" class="w-4 h-4"></i>
                             </button>
                         ` : ''}
-                        <button onclick="deleteCommunication(${comm.id})" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button onclick="deleteCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Elimina">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -1136,6 +1242,8 @@
         }
 
         // User Deletions Tracking Functions
+        let allDeletionsData = []; // Store all deletions for filtering
+
         async function toggleDeletionsSection() {
             const section = document.getElementById('deletionsSection');
             const isHidden = section.classList.contains('hidden');
@@ -1156,20 +1264,20 @@
 
             try {
                 const deletions = await window.CommunicationsAPI.getDeletions();
+                allDeletionsData = deletions || []; // Store for filtering
                 
                 if (!deletions || deletions.length === 0) {
                     deletionsList.innerHTML = '<div class="p-6 text-center text-gray-500">Nessuna eliminazione registrata</div>';
+                    populateUserFilter([]);
                     return;
                 }
 
-                deletionsList.innerHTML = '';
+                // Populate user filter dropdown
+                populateUserFilter(deletions);
 
-                // Group deletions by communication
-                for (const comm of deletions) {
-                    const deletionEl = createDeletionElement(comm);
-                    deletionsList.appendChild(deletionEl);
-                }
-
+                // Initial display
+                renderDeletions(deletions);
+                
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento eliminazioni:', error);
@@ -1194,15 +1302,27 @@
                     minute: '2-digit'
                 });
                 
+                // Get user info if available
+                const userName = deletion.user ? `${deletion.user.nome} ${deletion.user.cognome}` : 'Utente sconosciuto';
+                const userEmail = deletion.user ? deletion.user.email : deletion.user_id.substring(0, 8) + '...';
+                
                 return `
-                    <div class="flex items-center justify-between py-2 px-3 bg-red-50 rounded">
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="user-x" class="w-4 h-4 text-red-600"></i>
-                            <span class="text-sm font-medium text-gray-900">User ID: ${deletion.user_id.substring(0, 8)}...</span>
+                    <div class="flex items-center justify-between py-3 px-4 bg-red-50 rounded-lg border border-red-100">
+                        <div class="flex items-center gap-3 flex-1">
+                            <div class="w-8 h-8 bg-red-200 rounded-full flex items-center justify-center">
+                                <i data-lucide="user-x" class="w-4 h-4 text-red-700"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900">${userName}</p>
+                                <p class="text-xs text-gray-600">${userEmail}</p>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
-                            <span class="text-sm text-gray-600">${formattedDate}</span>
+                        <div class="flex items-center gap-2 text-right">
+                            <div>
+                                <p class="text-xs text-gray-500">Eliminata il</p>
+                                <p class="text-sm font-medium text-gray-900">${formattedDate}</p>
+                            </div>
+                            <i data-lucide="clock" class="w-4 h-4 text-gray-400 ml-2"></i>
                         </div>
                     </div>
                 `;
@@ -1243,6 +1363,260 @@
             `;
 
             return deletionDiv;
+        }
+
+        // Export deletions to CSV for audit trail
+        async function exportDeletionsToCSV() {
+            try {
+                const deletions = await window.CommunicationsAPI.getDeletions();
+                
+                if (!deletions || deletions.length === 0) {
+                    showNotification('Nessuna eliminazione da esportare', 'info');
+                    return;
+                }
+
+                // Build CSV content
+                const csvRows = [];
+                
+                // Header
+                csvRows.push(['Comunicazione ID', 'Titolo', 'Tipo', 'Data Creazione', 'Utente', 'Email Utente', 'Data Eliminazione'].join(','));
+                
+                // Data rows
+                deletions.forEach(comm => {
+                    const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                    eliminataData.forEach(deletion => {
+                        const userName = deletion.user ? `${deletion.user.nome} ${deletion.user.cognome}` : 'Sconosciuto';
+                        const userEmail = deletion.user ? deletion.user.email : deletion.user_id;
+                        const deletedDate = new Date(deletion.deleted_at).toLocaleString('it-IT');
+                        const createdDate = new Date(comm.created_at).toLocaleDateString('it-IT');
+                        
+                        csvRows.push([
+                            `"${comm.id}"`,
+                            `"${comm.titolo.replace(/"/g, '""')}"`,
+                            `"${comm.tipo}"`,
+                            `"${createdDate}"`,
+                            `"${userName.replace(/"/g, '""')}"`,
+                            `"${userEmail}"`,
+                            `"${deletedDate}"`
+                        ].join(','));
+                    });
+                });
+
+                // Create CSV file and download
+                const csvContent = csvRows.join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `eliminazioni_comunicazioni_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('CSV esportato con successo!', 'success');
+            } catch (error) {
+                console.error('Errore export CSV:', error);
+                showNotification('Errore durante l\'export', 'error');
+            }
+        }
+
+        // Update deletions badge notification
+        async function updateDeletionsBadge() {
+            try {
+                const deletions = await window.CommunicationsAPI.getDeletions();
+                
+                if (!deletions || deletions.length === 0) {
+                    document.getElementById('deletionsBadge').classList.add('hidden');
+                    return;
+                }
+
+                // Count deletions in last 24 hours
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                let recentDeletionsCount = 0;
+                
+                deletions.forEach(comm => {
+                    const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                    eliminataData.forEach(deletion => {
+                        const deletedDate = new Date(deletion.deleted_at);
+                        if (deletedDate >= oneDayAgo) {
+                            recentDeletionsCount++;
+                        }
+                    });
+                });
+
+                const badge = document.getElementById('deletionsBadge');
+                if (recentDeletionsCount > 0) {
+                    badge.textContent = recentDeletionsCount;
+                    badge.classList.remove('hidden');
+                    badge.title = `${recentDeletionsCount} eliminazione${recentDeletionsCount > 1 ? 'i' : ''} nelle ultime 24 ore`;
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Errore aggiornamento badge:', error);
+            }
+        }
+
+        // Filter and render functions
+        function populateUserFilter(deletions) {
+            const userFilter = document.getElementById('deletionsUserFilter');
+            const uniqueUsers = new Map();
+
+            deletions.forEach(comm => {
+                const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                eliminataData.forEach(deletion => {
+                    if (deletion.user_id && deletion.user) {
+                        uniqueUsers.set(deletion.user_id, deletion.user);
+                    }
+                });
+            });
+
+            // Clear current options except "Tutti gli utenti"
+            userFilter.innerHTML = '<option value="all">Tutti gli utenti</option>';
+
+            // Add unique users sorted by name
+            Array.from(uniqueUsers.entries())
+                .sort((a, b) => {
+                    const nameA = `${a[1].nome || ''} ${a[1].cognome || ''}`.trim();
+                    const nameB = `${b[1].nome || ''} ${b[1].cognome || ''}`.trim();
+                    return nameA.localeCompare(nameB);
+                })
+                .forEach(([userId, user]) => {
+                    const option = document.createElement('option');
+                    option.value = userId;
+                    option.textContent = `${user.nome || ''} ${user.cognome || ''}`.trim() || 'Utente sconosciuto';
+                    userFilter.appendChild(option);
+                });
+        }
+
+        function applyDeletionsFilters() {
+            const periodFilter = document.getElementById('deletionsPeriodFilter').value;
+            const typeFilter = document.getElementById('deletionsTypeFilter').value;
+            const userFilter = document.getElementById('deletionsUserFilter').value;
+            const searchQuery = document.getElementById('deletionsSearchInput').value.toLowerCase().trim();
+            const customDateRange = document.getElementById('customDateRange');
+
+            // Show/hide custom date range
+            if (periodFilter === 'custom') {
+                customDateRange.classList.remove('hidden');
+            } else {
+                customDateRange.classList.add('hidden');
+            }
+
+            // Filter deletions
+            let filteredDeletions = allDeletionsData.filter(comm => {
+                // Search filter - check title, user names, and emails
+                if (searchQuery) {
+                    const titleMatch = (comm.titolo || '').toLowerCase().includes(searchQuery);
+                    
+                    const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                    const userMatch = eliminataData.some(deletion => {
+                        if (!deletion.user) return false;
+                        const userName = `${deletion.user.nome || ''} ${deletion.user.cognome || ''}`.toLowerCase();
+                        const userEmail = (deletion.user.email || '').toLowerCase();
+                        return userName.includes(searchQuery) || userEmail.includes(searchQuery);
+                    });
+
+                    if (!titleMatch && !userMatch) {
+                        return false;
+                    }
+                }
+
+                // Type filter
+                if (typeFilter !== 'all' && comm.tipo !== typeFilter) {
+                    return false;
+                }
+
+                // User filter - check if any deletion matches the user
+                if (userFilter !== 'all') {
+                    const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                    const hasUser = eliminataData.some(del => del.user_id === userFilter);
+                    if (!hasUser) return false;
+                }
+
+                // Period filter
+                const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+                if (eliminataData.length === 0) return false;
+
+                let periodMatch = false;
+                const now = new Date();
+
+                eliminataData.forEach(deletion => {
+                    const deletedDate = new Date(deletion.deleted_at);
+
+                    switch (periodFilter) {
+                        case 'all':
+                            periodMatch = true;
+                            break;
+                        case 'today':
+                            if (deletedDate.toDateString() === now.toDateString()) {
+                                periodMatch = true;
+                            }
+                            break;
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            if (deletedDate >= weekAgo) {
+                                periodMatch = true;
+                            }
+                            break;
+                        case 'month':
+                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            if (deletedDate >= monthAgo) {
+                                periodMatch = true;
+                            }
+                            break;
+                        case 'custom':
+                            const fromDate = document.getElementById('deletionsFromDate').value;
+                            const toDate = document.getElementById('deletionsToDate').value;
+                            if (fromDate && toDate) {
+                                const from = new Date(fromDate);
+                                const to = new Date(toDate);
+                                to.setHours(23, 59, 59, 999); // Include full day
+                                if (deletedDate >= from && deletedDate <= to) {
+                                    periodMatch = true;
+                                }
+                            } else if (fromDate) {
+                                const from = new Date(fromDate);
+                                if (deletedDate >= from) {
+                                    periodMatch = true;
+                                }
+                            } else if (toDate) {
+                                const to = new Date(toDate);
+                                to.setHours(23, 59, 59, 999);
+                                if (deletedDate <= to) {
+                                    periodMatch = true;
+                                }
+                            } else {
+                                periodMatch = true; // No dates specified
+                            }
+                            break;
+                    }
+                });
+
+                return periodMatch;
+            });
+
+            renderDeletions(filteredDeletions);
+        }
+
+        function renderDeletions(deletions) {
+            const deletionsList = document.getElementById('deletionsList');
+            
+            if (deletions.length === 0) {
+                deletionsList.innerHTML = '<div class="p-6 text-center text-gray-500">Nessun risultato trovato con i filtri applicati</div>';
+                return;
+            }
+
+            deletionsList.innerHTML = '';
+            deletions.forEach(comm => {
+                const deletionEl = createDeletionElement(comm);
+                deletionsList.appendChild(deletionEl);
+            });
+
+            lucide.createIcons();
         }
     </script>
 </body>

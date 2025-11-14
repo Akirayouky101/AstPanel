@@ -1409,25 +1409,69 @@
 
         // Delete communication for user (soft delete with tracking)
         async function deleteCommunicationAsUser(commId) {
-            if (!confirm('Sei sicuro di voler eliminare questa comunicazione? L\'admin riceverà una notifica.')) {
-                return;
-            }
-
-            try {
-                const currentUser = window.AuthHelper.getCurrentUser();
-                if (!currentUser) {
-                    showNotification('Errore: utente non autenticato', 'error');
-                    return;
-                }
-
-                await window.CommunicationsAPI.deleteCommunicationForUser(commId, currentUser.id);
+            // Show custom confirmation modal instead of simple confirm
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900">Conferma Eliminazione</h3>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-700 mb-3">Sei sicuro di voler eliminare questa comunicazione?</p>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+                                <div>
+                                    <p class="text-sm font-medium text-blue-900 mb-1">Informativa</p>
+                                    <p class="text-sm text-blue-800">
+                                        • La comunicazione sarà spostata nel cestino<br>
+                                        • <strong>L'amministratore riceverà una notifica</strong> con data e ora dell'eliminazione<br>
+                                        • Questo serve come prova che hai ricevuto la comunicazione
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                            Annulla
+                        </button>
+                        <button id="confirmDeleteBtn" 
+                                class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
+                            Elimina
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            lucide.createIcons();
+            
+            // Handle confirmation
+            document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+                modal.remove();
                 
-                loadUserCommunications();
-                showNotification('Comunicazione eliminata. L\'admin è stato notificato.', 'info');
-            } catch (error) {
-                console.error('Errore delete communication:', error);
-                showNotification('Errore durante l\'eliminazione', 'error');
-            }
+                try {
+                    const currentUser = window.AuthHelper.getCurrentUser();
+                    if (!currentUser) {
+                        showNotification('Errore: utente non autenticato', 'error');
+                        return;
+                    }
+
+                    await window.CommunicationsAPI.deleteCommunicationForUser(commId, currentUser.id);
+                    
+                    loadUserCommunications();
+                    showNotification('Comunicazione eliminata. L\'admin è stato notificato.', 'info');
+                } catch (error) {
+                    console.error('Errore delete communication:', error);
+                    showNotification('Errore durante l\'eliminazione', 'error');
+                }
+            });
         }
 
         // Filter communications
