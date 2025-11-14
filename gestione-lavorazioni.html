@@ -944,7 +944,7 @@
                 
                 // Load components
                 taskComponents = task.components || task.componenti || [];
-                updateTaskComponentsList();
+                await updateTaskComponentsList();
                 
                 document.getElementById('taskModal').classList.remove('hidden');
             } catch (error) {
@@ -1218,10 +1218,10 @@
                     <div class="flex justify-between items-center text-sm mb-3">
                         <span class="text-gray-600">
                             <i class="fas fa-warehouse mr-1"></i>
-                            Disponibili: <strong>${component.quantitaDisponibile} ${component.unitaMisura}</strong>
+                            Disponibili: <strong>${component.quantita_disponibile || 0} ${component.unita_misura || 'pz'}</strong>
                         </span>
                         <span class="text-gray-600">
-                            €${(component.prezzo_unitario || 0).toFixed(2)}/${component.unitaMisura}
+                            €${(component.prezzo_unitario || 0).toFixed(2)}/${component.unita_misura || 'pz'}
                         </span>
                     </div>
                     ${isAdded ? `
@@ -1262,7 +1262,7 @@
                 if (!component) return;
                 
                 taskComponents.push({ id: componentId, quantita: 1 });
-                updateTaskComponentsList();
+                await updateTaskComponentsList();
                 await loadComponents(document.getElementById('componentCategoryFilter').value);
             } catch (error) {
                 console.error('Errore aggiunta componente:', error);
@@ -1273,16 +1273,16 @@
             const index = taskComponents.findIndex(c => c.id === componentId);
             if (index !== -1) {
                 taskComponents.splice(index, 1);
-                updateTaskComponentsList();
+                await updateTaskComponentsList();
                 await loadComponents(document.getElementById('componentCategoryFilter').value);
             }
         }
 
-        function updateComponentQuantity(componentId, quantita) {
+        async function updateComponentQuantity(componentId, quantita) {
             const component = taskComponents.find(c => c.id === componentId);
             if (component) {
                 component.quantita = parseInt(quantita) || 1;
-                updateTaskComponentsList();
+                await updateTaskComponentsList();
             }
         }
 
@@ -1291,7 +1291,7 @@
             return component ? component.quantita : 1;
         }
 
-        function updateTaskComponentsList() {
+        async function updateTaskComponentsList() {
             const container = document.getElementById('taskComponentsList');
             
             if (taskComponents.length === 0) {
@@ -1301,23 +1301,26 @@
             
             container.innerHTML = '';
             
+            // Fetch all components
+            const allComponents = await window.dataManager.getComponenti();
+            
             taskComponents.forEach(tc => {
-                const component = window.syncData.getComponent(tc.id);
+                const component = allComponents.find(c => c.id === tc.id);
                 if (!component) return;
                 
-                const available = component.quantitaDisponibile >= tc.quantita;
+                const available = (component.quantita_disponibile || 0) >= tc.quantita;
                 
                 const item = document.createElement('div');
                 item.className = `flex items-center justify-between p-3 bg-gray-50 rounded-lg border ${available ? 'border-gray-200' : 'border-red-300 bg-red-50'}`;
                 item.innerHTML = `
                     <div class="flex-1">
                         <p class="font-medium text-gray-900">${component.nome}</p>
-                        <p class="text-xs text-gray-500">${component.codice}</p>
+                        <p class="text-xs text-gray-500">${component.codice || 'N/A'}</p>
                         ${!available ? '<p class="text-xs text-red-600 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Quantità non disponibile in magazzino</p>' : ''}
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-medium text-gray-700">
-                            ${tc.quantita} ${component.unitaMisura}
+                            ${tc.quantita} ${component.unita_misura || 'pz'}
                         </span>
                         <button onclick="editComponentInList('${tc.id}')" 
                                 class="text-blue-600 hover:text-blue-700" title="Modifica quantità">
