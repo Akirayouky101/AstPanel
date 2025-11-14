@@ -656,6 +656,89 @@ window.CommunicationsAPI = {
         
         if (error) throw error;
         return data;
+    },
+
+    // Archive communication for a user
+    async archiveCommunication(id, userId) {
+        const { data: comm, error: fetchError } = await supabase
+            .from('communications')
+            .select('archiviata_da')
+            .eq('id', id)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const archiviata = comm.archiviata_da || [];
+        if (!archiviata.includes(userId)) {
+            archiviata.push(userId);
+            
+            const { error } = await supabase
+                .from('communications')
+                .update({ archiviata_da: archiviata })
+                .eq('id', id);
+            
+            if (error) throw error;
+        }
+    },
+
+    // Unarchive communication for a user
+    async unarchiveCommunication(id, userId) {
+        const { data: comm, error: fetchError } = await supabase
+            .from('communications')
+            .select('archiviata_da')
+            .eq('id', id)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const archiviata = (comm.archiviata_da || []).filter(uid => uid !== userId);
+        
+        const { error } = await supabase
+            .from('communications')
+            .update({ archiviata_da: archiviata })
+            .eq('id', id);
+        
+        if (error) throw error;
+    },
+
+    // Delete communication for a user (soft delete with tracking)
+    async deleteCommunicationForUser(id, userId) {
+        const { data: comm, error: fetchError } = await supabase
+            .from('communications')
+            .select('eliminata_da')
+            .eq('id', id)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const eliminata = comm.eliminata_da || [];
+        
+        // Check if already deleted by this user
+        const alreadyDeleted = eliminata.find(item => item.user_id === userId);
+        if (!alreadyDeleted) {
+            eliminata.push({
+                user_id: userId,
+                deleted_at: new Date().toISOString()
+            });
+            
+            const { error } = await supabase
+                .from('communications')
+                .update({ eliminata_da: eliminata })
+                .eq('id', id);
+            
+            if (error) throw error;
+        }
+    },
+
+    // Get all deletions (for admin panel)
+    async getDeletions() {
+        const { data, error } = await supabase
+            .from('communications')
+            .select('id, titolo, tipo, eliminata_da, created_at')
+            .not('eliminata_da', 'eq', '[]');
+        
+        if (error) throw error;
+        return data;
     }
 };
 
