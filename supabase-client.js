@@ -778,6 +778,17 @@ window.CommunicationsAPI = {
         }
         
         return data;
+    },
+
+    // Get all users (for admin selection)
+    async getAllUsers() {
+        const { data, error } = await supabase
+            .from('users')
+            .select('id, nome, cognome, email, ruolo')
+            .order('nome', { ascending: true });
+        
+        if (error) throw error;
+        return data;
     }
 };
 

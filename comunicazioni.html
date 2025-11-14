@@ -369,19 +369,36 @@
 
                     <div class="mb-6">
                         <label for="commRecipients" class="block text-sm font-medium text-gray-700 mb-2">Destinatari</label>
-                        <div class="space-y-2">
+                        <div class="space-y-3">
                             <label class="flex items-center">
-                                <input type="checkbox" id="allEmployees" checked class="mr-2">
+                                <input type="radio" name="recipientType" value="tutti" id="allEmployees" checked class="mr-2" onchange="toggleSpecificUsers()">
                                 <span>Tutti i Dipendenti</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="checkbox" id="managers" class="mr-2">
+                                <input type="radio" name="recipientType" value="admin" id="managers" class="mr-2" onchange="toggleSpecificUsers()">
                                 <span>Solo Manager</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="checkbox" id="specific" class="mr-2">
+                                <input type="radio" name="recipientType" value="specifici" id="specific" class="mr-2" onchange="toggleSpecificUsers()">
                                 <span>Utenti Specifici</span>
                             </label>
+                            
+                            <!-- Specific Users Selector -->
+                            <div id="specificUsersContainer" class="hidden ml-6 mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Seleziona utenti</label>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="selectAllUsers()" class="text-xs text-blue-600 hover:text-blue-800">Seleziona tutti</button>
+                                        <button type="button" onclick="deselectAllUsers()" class="text-xs text-gray-600 hover:text-gray-800">Deseleziona tutti</button>
+                                    </div>
+                                </div>
+                                <div id="specificUsersList" class="max-h-48 overflow-y-auto space-y-2">
+                                    <!-- Users will be populated here -->
+                                </div>
+                                <div id="selectedUsersCount" class="mt-2 text-xs text-gray-500">
+                                    0 utenti selezionati
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -658,7 +675,78 @@
             // Reset modal title
             document.querySelector('#communicationModal h3').textContent = 'Nuova Comunicazione';
             
+            // Load users for specific selection
+            loadUsersForSelection();
+            
             lucide.createIcons();
+        }
+
+        async function loadUsersForSelection() {
+            try {
+                const users = await window.CommunicationsAPI.getAllUsers();
+                const usersList = document.getElementById('specificUsersList');
+                
+                if (!users || users.length === 0) {
+                    usersList.innerHTML = '<p class="text-sm text-gray-500 p-2">Nessun utente disponibile</p>';
+                    return;
+                }
+
+                usersList.innerHTML = users.map(user => `
+                    <label class="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input type="checkbox" 
+                               class="user-checkbox mr-3 h-4 w-4 text-blue-600 rounded" 
+                               value="${user.id}"
+                               onchange="updateSelectedUsersCount()">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span class="text-xs font-medium text-blue-600">${(user.nome?.[0] || '') + (user.cognome?.[0] || '')}</span>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">${user.nome || ''} ${user.cognome || ''}</div>
+                                <div class="text-xs text-gray-500">${user.email || ''}</div>
+                            </div>
+                        </div>
+                    </label>
+                `).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('specificUsersList').innerHTML = 
+                    '<p class="text-sm text-red-500 p-2">Errore nel caricamento degli utenti</p>';
+            }
+        }
+
+        function toggleSpecificUsers() {
+            const specificRadio = document.getElementById('specific');
+            const container = document.getElementById('specificUsersContainer');
+            
+            if (specificRadio.checked) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                // Deselect all users when hiding
+                deselectAllUsers();
+            }
+        }
+
+        function selectAllUsers() {
+            const checkboxes = document.querySelectorAll('.user-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+            updateSelectedUsersCount();
+        }
+
+        function deselectAllUsers() {
+            const checkboxes = document.querySelectorAll('.user-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedUsersCount();
+        }
+
+        function updateSelectedUsersCount() {
+            const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+            const count = checkboxes.length;
+            const countEl = document.getElementById('selectedUsersCount');
+            countEl.textContent = `${count} utente${count !== 1 ? 'i' : ''} selezionato${count !== 1 ? 'i' : ''}`;
         }
 
         function closeCommunicationModal() {
@@ -772,6 +860,13 @@
             try {
                 const formData = getFormData();
                 
+                // Validate specific users selection
+                if (formData.destinatari === 'specifici' && (!formData.destinatari_specifici || formData.destinatari_specifici.length === 0)) {
+                    showNotification('Seleziona almeno un utente specifico', 'error');
+                    isSaving = false;
+                    return;
+                }
+                
                 // Map form data to database schema
                 const commData = {
                     titolo: formData.titolo,
@@ -779,6 +874,7 @@
                     priorita: formData.priorita,
                     contenuto: formData.contenuto,
                     destinatari: formData.destinatari,
+                    destinatari_specifici: formData.destinatari_specifici,
                     allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
                     data_programmata: formData.data_programmata,
                     stato: 'bozza',
@@ -809,14 +905,35 @@
                 'specifici': 'Utenti Specifici'
             };
             
+            // Get selected users names if specific
+            let specificUsersText = '';
+            if (formData.destinatari === 'specifici' && formData.destinatari_specifici?.length > 0) {
+                const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
+                const userNames = Array.from(selectedCheckboxes).map(cb => {
+                    const label = cb.closest('label');
+                    const nameDiv = label.querySelector('.text-sm.font-medium');
+                    return nameDiv ? nameDiv.textContent : '';
+                }).filter(n => n);
+                
+                specificUsersText = `<div class="mt-2 text-sm text-gray-600">
+                    <strong>Utenti selezionati (${userNames.length}):</strong>
+                    <ul class="ml-4 mt-1 list-disc">
+                        ${userNames.map(name => `<li>${name}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+            
             previewContent.innerHTML = `
                 <div class="space-y-6">
                     <div class="border-b pb-4">
                         <h2 class="text-2xl font-bold text-gray-900">${formData.titolo}</h2>
-                        <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                            <span>Tipo: ${formData.tipo}</span>
-                            <span>Priorità: ${formData.priorita}</span>
-                            <span>Destinatari: ${destinatariMap[formData.destinatari] || formData.destinatari}</span>
+                        <div class="mt-2 text-sm text-gray-600">
+                            <div class="flex items-center space-x-4">
+                                <span>Tipo: ${formData.tipo}</span>
+                                <span>Priorità: ${formData.priorita}</span>
+                                <span>Destinatari: ${destinatariMap[formData.destinatari] || formData.destinatari}</span>
+                            </div>
+                            ${specificUsersText}
                         </div>
                     </div>
                     <div class="prose max-w-none">
@@ -848,6 +965,12 @@
         async function sendCommunicationNow() {
             const formData = getFormData();
             
+            // Validate specific users selection
+            if (formData.destinatari === 'specifici' && (!formData.destinatari_specifici || formData.destinatari_specifici.length === 0)) {
+                showNotification('Seleziona almeno un utente specifico', 'error');
+                return;
+            }
+            
             // Map form data to database schema with all required fields
             const commData = {
                 titolo: formData.titolo,
@@ -855,6 +978,7 @@
                 priorita: formData.priorita,
                 contenuto: formData.contenuto,
                 destinatari: formData.destinatari,
+                destinatari_specifici: formData.destinatari_specifici,
                 allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
                 data_programmata: formData.data_programmata,
                 stato: formData.stato,
@@ -876,10 +1000,20 @@
         }
 
         function getFormData() {
-            const recipients = [];
-            if (document.getElementById('allEmployees').checked) recipients.push('dipendenti');
-            if (document.getElementById('managers').checked) recipients.push('admin');
-            if (document.getElementById('specific').checked) recipients.push('specifici');
+            // Get recipient type
+            let recipientType = 'tutti';
+            let specificUserIds = [];
+            
+            if (document.getElementById('allEmployees').checked) {
+                recipientType = 'tutti';
+            } else if (document.getElementById('managers').checked) {
+                recipientType = 'admin';
+            } else if (document.getElementById('specific').checked) {
+                recipientType = 'specifici';
+                // Get selected user IDs
+                const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
+                specificUserIds = Array.from(checkedBoxes).map(cb => cb.value);
+            }
             
             const scheduleDate = document.getElementById('commSchedule').value;
             
@@ -888,7 +1022,8 @@
                 tipo: document.getElementById('commType').value, // annuncio, newsletter, evento, formazione, procedura
                 priorita: document.getElementById('commPriority').value, // bassa, media, alta
                 contenuto: document.getElementById('commContent').innerHTML,
-                destinatari: recipients.length > 0 ? recipients[0] : 'tutti',
+                destinatari: recipientType,
+                destinatari_specifici: specificUserIds.length > 0 ? specificUserIds : null, // Array of user IDs
                 allegati: uploadedFiles, // Save complete file data with URLs
                 data_programmata: scheduleDate ? new Date(scheduleDate).toISOString() : null,
                 stato: scheduleDate ? 'programmata' : 'inviata' // Se ha data futura = programmata, altrimenti inviata subito

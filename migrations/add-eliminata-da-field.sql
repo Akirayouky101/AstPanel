@@ -11,3 +11,9 @@ ALTER TABLE communications
 ADD COLUMN IF NOT EXISTS archiviata_da UUID[] DEFAULT ARRAY[]::UUID[];
 
 COMMENT ON COLUMN communications.archiviata_da IS 'Array of user UUIDs who archived this communication';
+
+-- Add destinatari_specifici field to store specific user IDs when destinatari = 'specifici'
+ALTER TABLE communications 
+ADD COLUMN IF NOT EXISTS destinatari_specifici UUID[] DEFAULT NULL;
+
+COMMENT ON COLUMN communications.destinatari_specifici IS 'Array of user UUIDs when communication is sent to specific users only';
