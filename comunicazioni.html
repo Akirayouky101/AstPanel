@@ -614,16 +614,20 @@
         async function sendCommunicationNow() {
             const formData = getFormData();
             
-            // Map form data to database schema
+            // Map form data to database schema with all required fields
             const commData = {
                 titolo: formData.titolo,
-                messaggio: formData.contenuto,
                 tipo: formData.tipo,
-                destinatari: formData.destinatari,  // Already mapped correctly in getFormData
-                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : null
+                priorita: formData.priorita,
+                contenuto: formData.contenuto,
+                destinatari: formData.destinatari,
+                allegati: formData.allegati.length > 0 ? JSON.stringify(formData.allegati) : '[]',
+                data_programmata: formData.data_programmata,
+                stato: formData.stato,
+                data_invio: formData.stato === 'inviata' ? new Date().toISOString() : null
             };
             
-            // Save to Supabase
+            // Save to Supabase (pubblicato_da sarà aggiunto automaticamente da dataManager)
             await window.dataManager.saveComunicazione(commData);
             
             await loadCommunications();
@@ -643,26 +647,17 @@
             if (document.getElementById('managers').checked) recipients.push('admin');
             if (document.getElementById('specific').checked) recipients.push('specifici');
             
-            // Map form tipo values to database CHECK constraint values
-            const tipoMap = {
-                'annuncio': 'generale',
-                'newsletter': 'informativa',
-                'evento': 'informativa',
-                'formazione': 'informativa',
-                'procedura': 'generale'
-            };
-            
-            const rawTipo = document.getElementById('commType').value;
-            const mappedTipo = tipoMap[rawTipo] || 'generale';
+            const scheduleDate = document.getElementById('commSchedule').value;
             
             return {
                 titolo: document.getElementById('commTitle').value,
-                tipo: mappedTipo,
+                tipo: document.getElementById('commType').value, // annuncio, newsletter, evento, formazione, procedura
+                priorita: document.getElementById('commPriority').value, // bassa, media, alta
                 contenuto: document.getElementById('commContent').innerHTML,
-                priorita: document.getElementById('commPriority').value,
-                destinatari: recipients.length > 0 ? recipients[0] : 'tutti',  // Use first selection or 'tutti'
+                destinatari: recipients.length > 0 ? recipients[0] : 'tutti',
                 allegati: uploadedFiles.map(f => f.name),
-                dataProgrammata: document.getElementById('commSchedule').value || null
+                data_programmata: scheduleDate ? new Date(scheduleDate).toISOString() : null,
+                stato: scheduleDate ? 'programmata' : 'inviata' // Se ha data futura = programmata, altrimenti inviata subito
             };
         }
 
