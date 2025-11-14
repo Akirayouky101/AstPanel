@@ -161,6 +161,32 @@
         </div>
     </div>
 
+    <!-- View User Modal -->
+    <div id="viewUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-purple-600">
+                    <h3 class="text-lg font-medium text-white">Dettagli Utente</h3>
+                    <button onclick="closeViewUserModal()" class="text-white hover:text-gray-200">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div id="viewUserContent" class="p-6 space-y-4">
+                    <!-- User details will be loaded here -->
+                </div>
+                <div class="flex justify-end gap-3 p-6 border-t border-gray-200">
+                    <button onclick="closeViewUserModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                        Chiudi
+                    </button>
+                    <button id="editFromViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i data-lucide="edit" class="w-4 h-4 inline-block mr-1"></i>
+                        Modifica
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add/Edit User Modal -->
     <div id="userModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -338,6 +364,92 @@
         function closeUserModal() {
             document.getElementById('userModal').classList.add('hidden');
             currentEditingUserId = null;
+        }
+
+        function closeViewUserModal() {
+            document.getElementById('viewUserModal').classList.add('hidden');
+        }
+
+        async function viewUser(userId) {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const user = users.find(u => u.id === userId);
+                if (!user) return;
+
+                const roleClass = getRoleClass(user.ruolo);
+                const statusClass = user.stato === 'attivo' ? 'bg-green-100 text-green-800' : 
+                                   user.stato === 'inattivo' ? 'bg-gray-100 text-gray-800' : 
+                                   'bg-red-100 text-red-800';
+
+                const content = `
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="col-span-2 flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                                ${user.nome.charAt(0)}${user.cognome.charAt(0)}
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-semibold text-gray-900">${user.nome} ${user.cognome}</h4>
+                                <p class="text-sm text-gray-600">${user.email}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="user-check" class="w-5 h-5 text-blue-600 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Ruolo</span>
+                            </div>
+                            <span class="${roleClass} px-3 py-1 rounded-full text-sm font-medium inline-block">
+                                ${user.ruolo.charAt(0).toUpperCase() + user.ruolo.slice(1)}
+                            </span>
+                        </div>
+
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="activity" class="w-5 h-5 text-green-600 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Stato</span>
+                            </div>
+                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium inline-block">
+                                ${user.stato.charAt(0).toUpperCase() + user.stato.slice(1)}
+                            </span>
+                        </div>
+
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="phone" class="w-5 h-5 text-orange-600 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Telefono</span>
+                            </div>
+                            <p class="text-gray-900 font-medium">${user.telefono || 'Non disponibile'}</p>
+                        </div>
+
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="calendar" class="w-5 h-5 text-purple-600 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Creato il</span>
+                            </div>
+                            <p class="text-gray-900 font-medium">${new Date(user.created_at).toLocaleDateString('it-IT')}</p>
+                        </div>
+
+                        <div class="col-span-2 bg-gray-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="clock" class="w-5 h-5 text-gray-600 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Ultimo aggiornamento</span>
+                            </div>
+                            <p class="text-gray-900 font-medium">${user.updated_at ? new Date(user.updated_at).toLocaleDateString('it-IT') + ' - ' + new Date(user.updated_at).toLocaleTimeString('it-IT') : 'Mai aggiornato'}</p>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('viewUserContent').innerHTML = content;
+                document.getElementById('editFromViewBtn').onclick = () => {
+                    closeViewUserModal();
+                    editUser(userId);
+                };
+                document.getElementById('viewUserModal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore visualizzazione utente:', error);
+                showAlert('Errore', 'Impossibile caricare i dati dell\'utente: ' + error.message, 'error');
+            }
         }
 
         async function editUser(userId) {
