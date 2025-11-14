@@ -208,13 +208,42 @@
         </div>
 
         <!-- Communications List -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in mb-8">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Elenco Comunicazioni</h3>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">Elenco Comunicazioni</h3>
+                    <button onclick="toggleDeletionsSection()" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-2">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        Visualizza Eliminazioni Utenti
+                    </button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <div id="communicationsList" class="divide-y divide-gray-200">
                     <!-- Communications will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- User Deletions Section (Initially Hidden) -->
+        <div id="deletionsSection" class="bg-white rounded-lg shadow-md overflow-hidden fade-in hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-red-50">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
+                            <i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>
+                            Comunicazioni Eliminate dagli Utenti
+                        </h3>
+                        <p class="text-sm text-gray-600 mt-1">Tracciamento di quali utenti hanno eliminato le comunicazioni</p>
+                    </div>
+                    <button onclick="toggleDeletionsSection()" class="text-sm text-gray-600 hover:text-gray-800">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <div id="deletionsList" class="divide-y divide-gray-200">
+                    <!-- Deletions will be loaded here -->
                 </div>
             </div>
         </div>
@@ -1104,6 +1133,116 @@
             setTimeout(() => {
                 notification.remove();
             }, 3000);
+        }
+
+        // User Deletions Tracking Functions
+        async function toggleDeletionsSection() {
+            const section = document.getElementById('deletionsSection');
+            const isHidden = section.classList.contains('hidden');
+            
+            if (isHidden) {
+                section.classList.remove('hidden');
+                await loadUserDeletions();
+            } else {
+                section.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+
+        async function loadUserDeletions() {
+            const deletionsList = document.getElementById('deletionsList');
+            deletionsList.innerHTML = '<div class="p-6 text-center text-gray-500">Caricamento...</div>';
+
+            try {
+                const deletions = await window.CommunicationsAPI.getDeletions();
+                
+                if (!deletions || deletions.length === 0) {
+                    deletionsList.innerHTML = '<div class="p-6 text-center text-gray-500">Nessuna eliminazione registrata</div>';
+                    return;
+                }
+
+                deletionsList.innerHTML = '';
+
+                // Group deletions by communication
+                for (const comm of deletions) {
+                    const deletionEl = createDeletionElement(comm);
+                    deletionsList.appendChild(deletionEl);
+                }
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento eliminazioni:', error);
+                deletionsList.innerHTML = '<div class="p-6 text-center text-red-500">Errore caricamento eliminazioni</div>';
+            }
+        }
+
+        function createDeletionElement(comm) {
+            const deletionDiv = document.createElement('div');
+            deletionDiv.className = 'p-6 hover:bg-gray-50 transition-colors';
+            
+            const typeIcon = getTypeIcon(comm.tipo);
+            const eliminataData = Array.isArray(comm.eliminata_da) ? comm.eliminata_da : [];
+            
+            const deletionRows = eliminataData.map(deletion => {
+                const deletedDate = new Date(deletion.deleted_at);
+                const formattedDate = deletedDate.toLocaleString('it-IT', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return `
+                    <div class="flex items-center justify-between py-2 px-3 bg-red-50 rounded">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="user-x" class="w-4 h-4 text-red-600"></i>
+                            <span class="text-sm font-medium text-gray-900">User ID: ${deletion.user_id.substring(0, 8)}...</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
+                            <span class="text-sm text-gray-600">${formattedDate}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            deletionDiv.innerHTML = `
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="${typeIcon}" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h4 class="text-lg font-medium text-gray-900">${comm.titolo}</h4>
+                            <span class="text-xs text-gray-500 capitalize">${comm.tipo}</span>
+                        </div>
+                        <div class="mb-3">
+                            <p class="text-sm text-gray-600">
+                                <i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>
+                                Creata il: ${formatDate(comm.created_at)}
+                            </p>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="text-sm font-medium text-gray-700 mb-2">
+                                <i data-lucide="trash-2" class="w-3 h-3 inline mr-1"></i>
+                                Eliminata da ${eliminataData.length} utente${eliminataData.length > 1 ? 'i' : ''}:
+                            </p>
+                            ${deletionRows}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="viewCommunication('${comm.id}')" 
+                                class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Visualizza comunicazione">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return deletionDiv;
         }
     </script>
 </body>
