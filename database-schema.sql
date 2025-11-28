@@ -106,6 +106,7 @@ CREATE TABLE tasks (
     data_inizio DATE,
     data_completamento DATE,
     progresso INTEGER DEFAULT 0 CHECK (progresso >= 0 AND progresso <= 100),
+    note_progresso TEXT,
     
     -- Assegnazione singola o squadra
     assigned_user_id UUID REFERENCES users(id) ON DELETE SET NULL,

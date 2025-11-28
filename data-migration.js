@@ -182,6 +182,8 @@ window.dataManager = {
                 console.log('💾 Salvando note_progresso:', lavorazione.note_progresso);
             }
             
+            console.log('📤 cleanedTask da salvare:', cleanedTask);
+            
             // Save componenti separately
             const componenti = lavorazione.componenti || lavorazione.components || [];
             
