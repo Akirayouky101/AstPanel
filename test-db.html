@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Database Connection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/data-migration.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Database Connection Test</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-xl font-bold mb-4">Test Results</h2>
+            <div id="results" class="space-y-2"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Raw Data</h2>
+            <pre id="rawData" class="bg-gray-50 p-4 rounded overflow-auto text-xs"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function testConnection() {
+            const results = document.getElementById('results');
+            const rawData = document.getElementById('rawData');
+            
+            results.innerHTML = '<p class="text-blue-600">⏳ Testing connection...</p>';
+            
+            try {
+                // Test 1: Supabase client exists
+                results.innerHTML += '<p class="text-green-600">✅ Supabase client loaded</p>';
+                
+                // Test 2: Direct query to users table
+                results.innerHTML += '<p class="text-blue-600">⏳ Querying users table...</p>';
+                const { data: users, error: usersError } = await supabase.from('users').select('*');
+                
+                if (usersError) {
+                    results.innerHTML += `<p class="text-red-600">❌ Users query error: ${usersError.message}</p>`;
+                    rawData.textContent = JSON.stringify(usersError, null, 2);
+                } else {
+                    results.innerHTML += `<p class="text-green-600">✅ Users loaded: ${users.length} records</p>`;
+                    rawData.textContent = JSON.stringify(users, null, 2);
+                }
+                
+                // Test 3: DataManager
+                if (typeof window.dataManager !== 'undefined') {
+                    results.innerHTML += '<p class="text-green-600">✅ DataManager loaded</p>';
+                    
+                    const dmUsers = await window.dataManager.getUtenti();
+                    results.innerHTML += `<p class="text-green-600">✅ DataManager.getUtenti(): ${dmUsers.length} records</p>`;
+                } else {
+                    results.innerHTML += '<p class="text-red-600">❌ DataManager not available</p>';
+                }
+                
+                // Test 4: Other tables
+                const { data: tasks, error: tasksError } = await supabase.from('tasks').select('*');
+                if (!tasksError) {
+                    results.innerHTML += `<p class="text-green-600">✅ Tasks loaded: ${tasks.length} records</p>`;
+                }
+                
+                const { data: clients, error: clientsError } = await supabase.from('clients').select('*');
+                if (!clientsError) {
+                    results.innerHTML += `<p class="text-green-600">✅ Clients loaded: ${clients.length} records</p>`;
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<p class="text-red-600">❌ Fatal error: ${error.message}</p>`;
+                rawData.textContent = JSON.stringify(error, null, 2);
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(testConnection, 1000); // Wait 1s for scripts to load
+        });
+    </script>
+</body>
+</html>
