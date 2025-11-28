@@ -214,23 +214,52 @@
 
         async function loadRequests() {
             const requestsList = document.getElementById('requestsList');
-            requestsList.innerHTML = '';
+            requestsList.innerHTML = '<div class="p-6 text-center text-gray-500">Caricamento...</div>';
 
-            const filteredRequests = await getFilteredRequests();
+            try {
+                // Carica utenti e richieste
+                const [users, requests] = await Promise.all([
+                    window.dataManager.getUtenti(),
+                    getFilteredRequests()
+                ]);
 
-            filteredRequests.forEach(request => {
-                const requestElement = createRequestElement(request);
-                requestsList.appendChild(requestElement);
-            });
+                requestsList.innerHTML = '';
+
+                if (requests.length === 0) {
+                    requestsList.innerHTML = '<div class="p-6 text-center text-gray-500">Nessuna richiesta trovata</div>';
+                    return;
+                }
+
+                requests.forEach(request => {
+                    // Trova l'utente associato alla richiesta
+                    const user = users.find(u => u.id === request.user_id);
+                    const requestElement = createRequestElement(request, user);
+                    requestsList.appendChild(requestElement);
+                });
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento richieste:', error);
+                requestsList.innerHTML = '<div class="p-6 text-center text-red-500">Errore caricamento richieste</div>';
+            }
         }
 
-        function createRequestElement(request) {
+        function createRequestElement(request, user) {
             const requestDiv = document.createElement('div');
             requestDiv.className = `p-6 hover:bg-gray-50 transition-colors ${getPriorityClass(request.priorita)}`;
             
-            const statusClass = getStatusClass(request.stato);
-            const typeIcon = getTypeIcon(request.tipo);
-            const urgentBadge = request.urgente ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Urgente</span>' : '';
+            const stato = request.stato || request.status;
+            const tipo = request.tipo || request.type;
+            const titolo = request.titolo || request.title || 'Senza titolo';
+            const descrizione = request.descrizione || request.description || '';
+            const priorita = request.priorita || request.priority || 'normale';
+            
+            const statusClass = getStatusClass(stato);
+            const typeIcon = getTypeIcon(tipo);
+            const urgentBadge = priorita === 'urgente' || priorita === 'alta' ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Urgente</span>' : '';
+            
+            const userName = user ? `${user.nome} ${user.cognome}` : 'Utente sconosciuto';
+            const userAvatar = user?.foto_profilo || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
             
             requestDiv.innerHTML = `
                 <div class="flex items-center justify-between">
@@ -240,33 +269,33 @@
                         </div>
                         <div class="flex-1">
                             <div class="flex items-center">
-                                <h4 class="text-lg font-medium text-gray-900">${request.titolo}</h4>
+                                <h4 class="text-lg font-medium text-gray-900">${titolo}</h4>
                                 ${urgentBadge}
                             </div>
-                            <p class="text-sm text-gray-500 mt-1">${request.descrizione}</p>
+                            <p class="text-sm text-gray-500 mt-1">${descrizione}</p>
                             <div class="flex items-center mt-2 space-x-4">
                                 <div class="flex items-center space-x-2">
-                                    <img src="${request.dipendente.avatar}" alt="${request.dipendente.nome}" class="w-6 h-6 rounded-full">
-                                    <span class="text-sm text-gray-600">${request.dipendente.nome}</span>
+                                    <img src="${userAvatar}" alt="${userName}" class="w-6 h-6 rounded-full" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random'">
+                                    <span class="text-sm text-gray-600">${userName}</span>
                                 </div>
-                                <span class="text-sm text-gray-500">${formatDate(request.dataRichiesta)}</span>
-                                <span class="text-sm font-medium text-gray-600 capitalize">${request.tipo.replace('_', ' ')}</span>
+                                <span class="text-sm text-gray-500">${formatDate(request.created_at)}</span>
+                                <span class="text-sm font-medium text-gray-600 capitalize">${tipo.replace('_', ' ')}</span>
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(request.stato)}</span>
-                            <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(request.priorita)}">${request.priorita.charAt(0).toUpperCase() + request.priorita.slice(1)}</span>
+                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(stato)}</span>
+                            <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(priorita)}">${priorita.charAt(0).toUpperCase() + priorita.slice(1)}</span>
                         </div>
                     </div>
                     <div class="flex items-center space-x-2 ml-4">
-                        <button onclick="viewRequest(${request.id})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <button onclick="viewRequest('${request.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
-                        ${request.stato === 'in_attesa' ? `
-                            <button onclick="approveRequest(${request.id})" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                        ${stato === 'pendente' || stato === 'in_attesa' || stato === 'pending' ? `
+                            <button onclick="approveRequest('${request.id}')" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
                                 <i data-lucide="check" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="rejectRequest(${request.id})" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <button onclick="rejectRequest('${request.id}')" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                 <i data-lucide="x" class="w-4 h-4"></i>
                             </button>
                         ` : ''}
