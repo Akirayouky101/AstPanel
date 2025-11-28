@@ -1178,11 +1178,12 @@
                 const taskData = {
                     titolo: document.getElementById('taskTitle').value,
                     descrizione: document.getElementById('taskDescription').value,
-                    stato: 'da_fare',
+                    stato: currentEditingTask ? currentEditingTask.stato : 'da_fare',
                     priorita: document.getElementById('taskPriority').value,
                     scadenza: document.getElementById('taskDeadline').value,
                     client_id: clientId,
-                    progresso: 0,
+                    progresso: currentEditingTask ? currentEditingTask.progresso : 0,
+                    note_progresso: currentEditingTask ? currentEditingTask.note_progresso : null,
                     created_by: null // Will be set by backend or current user
                 };
 
@@ -1209,7 +1210,12 @@
                 }
 
                 if (currentEditingTask) {
+                    // Editing existing task - preserve all existing data
                     taskData.id = currentEditingTask.id;
+                    taskData.created_at = currentEditingTask.created_at;
+                    taskData.created_by = currentEditingTask.created_by;
+                    taskData.data_inizio = currentEditingTask.data_inizio;
+                    taskData.data_completamento = currentEditingTask.data_completamento;
                 }
                 
                 // Add components to task data
