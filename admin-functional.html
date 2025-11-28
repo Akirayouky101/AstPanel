@@ -506,17 +506,17 @@
                     deletedCount++;
                 }
 
-                // Delete pending requests
+                // Delete pending requests using Supabase API directly
                 const pendingRequests = requests.filter(r => r.status === 'pending');
                 for (const req of pendingRequests) {
-                    await window.dataManager.deleteRichiesta(req.id);
-                    deletedCount++;
+                    const { error } = await supabase.from('requests').delete().eq('id', req.id);
+                    if (!error) deletedCount++;
                 }
 
-                // Delete all communications
+                // Delete all communications using Supabase API directly
                 for (const comm of communications) {
-                    await window.dataManager.deleteComunicazione(comm.id);
-                    deletedCount++;
+                    const { error } = await supabase.from('communications').delete().eq('id', comm.id);
+                    if (!error) deletedCount++;
                 }
 
                 alert(`✅ Operazione completata!\n\n${deletedCount} elementi eliminati con successo.`);
