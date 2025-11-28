@@ -557,65 +557,28 @@
         }
 
         async function clearRecentActivities() {
-            if (!confirm('⚠️ ATTENZIONE!\n\nVuoi davvero eliminare tutte le attività recenti?\n\nQuesta azione eliminerà:\n- Tutte le lavorazioni completate\n- Tutti i nuovi utenti recenti\n- Tutte le richieste pendenti\n- Tutte le comunicazioni\n\nQuesta operazione è IRREVERSIBILE!')) {
-                return;
-            }
-
-            const finalConfirm = prompt('Per confermare, scrivi: ELIMINA TUTTO');
-            if (finalConfirm !== 'ELIMINA TUTTO') {
-                alert('Operazione annullata');
+            // SAFE VERSION: Clear only visualization, does NOT delete from database
+            if (!confirm('Vuoi nascondere le attività visualizzate?\n\nNOTA: Questa azione nasconde solo la lista visualizzata.\nI dati rimangono nel database e riappariranno ricaricando la pagina.')) {
                 return;
             }
 
             try {
                 const container = document.getElementById('recentActivitiesList');
-                container.innerHTML = '<div class="p-6 text-center text-blue-500"><i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin"></i><p>Eliminazione in corso...</p></div>';
-                lucide.createIcons();
-
-                // Get all data
-                const [tasks, users, requests, communications] = await Promise.all([
-                    window.dataManager.getLavorazioni(),
-                    window.dataManager.getUtenti(),
-                    window.dataManager.getRichieste(),
-                    window.dataManager.getComunicazioni()
-                ]);
-
-                let deletedCount = 0;
-
-                // Delete completed tasks
-                const completedTasks = tasks.filter(t => t.stato === 'completato');
-                for (const task of completedTasks) {
-                    await window.dataManager.deleteLavorazione(task.id);
-                    deletedCount++;
-                }
-
-                // Delete recent users (last 30 days)
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const recentUsers = users.filter(u => u.created_at && new Date(u.created_at) > thirtyDaysAgo);
-                for (const user of recentUsers) {
-                    await window.dataManager.deleteUtente(user.id);
-                    deletedCount++;
-                }
-
-                // Delete pending requests using Supabase API directly
-                const pendingRequests = requests.filter(r => r.status === 'pending');
-                for (const req of pendingRequests) {
-                    const { error } = await supabase.from('requests').delete().eq('id', req.id);
-                    if (!error) deletedCount++;
-                }
-
-                // Delete all communications using Supabase API directly
-                for (const comm of communications) {
-                    const { error } = await supabase.from('communications').delete().eq('id', comm.id);
-                    if (!error) deletedCount++;
-                }
-
-                alert(`✅ Operazione completata!\n\n${deletedCount} elementi eliminati con successo.`);
                 
-                // Reload activities and stats
-                await loadRecentActivities();
-                await updateStats();
+                // Clear the visual list only
+                container.innerHTML = `
+                    <div class="p-8 text-center">
+                        <i data-lucide="eye-off" class="w-12 h-12 mx-auto mb-3 text-gray-400"></i>
+                        <p class="text-gray-600 font-medium mb-2">Attività nascoste</p>
+                        <p class="text-sm text-gray-500 mb-4">La lista è stata nascosta. I dati sono ancora nel database.</p>
+                        <button onclick="loadRecentActivities()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2"></i>
+                            Ricarica Attività
+                        </button>
+                    </div>
+                `;
+                
+                lucide.createIcons();
             } catch (error) {
                 console.error('Errore durante l\'eliminazione:', error);
                 alert('❌ Errore durante l\'eliminazione delle attività: ' + error.message);
