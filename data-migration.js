@@ -271,6 +271,15 @@ window.dataManager = {
         }
     },
 
+    async deleteComponente(id) {
+        try {
+            return await window.ComponentsAPI.delete(id);
+        } catch (error) {
+            console.error('Errore eliminazione componente:', error);
+            throw error;
+        }
+    },
+
     // ==================== REQUESTS ====================
     async getRichieste() {
         try {
