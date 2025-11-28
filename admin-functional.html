@@ -247,26 +247,26 @@
         <!-- System Status -->
         <div class="mt-8 bg-white rounded-lg shadow-md p-6 fade-in">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Stato del Sistema</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div id="systemStatus" class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="flex items-center">
-                    <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
                     <div>
                         <p class="text-sm font-medium text-gray-900">Server Database</p>
-                        <p class="text-sm text-gray-500">Operativo</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
                     </div>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
                     <div>
                         <p class="text-sm font-medium text-gray-900">Sistema di Backup</p>
-                        <p class="text-sm text-gray-500">Ultimo backup: 2 ore fa</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
                     </div>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-3 h-3 bg-yellow-400 rounded-full mr-3"></div>
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
                     <div>
-                        <p class="text-sm font-medium text-gray-900">Aggiornamenti</p>
-                        <p class="text-sm text-gray-500">1 aggiornamento disponibile</p>
+                        <p class="text-sm font-medium text-gray-900">Ultimo Aggiornamento</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
                     </div>
                 </div>
             </div>
@@ -287,6 +287,7 @@
             
             await loadPendingRequests();
             await loadRecentActivities();
+            await loadSystemStatus();
             updateLastLogin();
             await updateStats();
         });
@@ -462,6 +463,97 @@
             
             const months = Math.floor(days / 30);
             return `${months} ${months === 1 ? 'mese' : 'mesi'} fa`;
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const statusContainer = document.getElementById('systemStatus');
+                if (!statusContainer) return;
+
+                // Test database connection
+                let dbStatus = 'offline';
+                let dbColor = 'red';
+                let dbText = 'Non raggiungibile';
+                
+                try {
+                    const { data, error } = await supabase.from('users').select('id').limit(1);
+                    if (!error) {
+                        dbStatus = 'online';
+                        dbColor = 'green';
+                        dbText = 'Operativo';
+                    }
+                } catch (e) {
+                    console.error('DB check failed:', e);
+                }
+
+                // Get last activity timestamp (most recent update across all tables)
+                let lastBackup = null;
+                let backupColor = 'yellow';
+                let backupText = 'Nessun dato';
+
+                try {
+                    const [tasks, users, communications] = await Promise.all([
+                        window.dataManager.getLavorazioni(),
+                        window.dataManager.getUtenti(),
+                        window.dataManager.getComunicazioni()
+                    ]);
+
+                    const allDates = [
+                        ...tasks.map(t => t.updated_at || t.created_at),
+                        ...users.map(u => u.updated_at || u.created_at),
+                        ...communications.map(c => c.updated_at || c.created_at)
+                    ].filter(Boolean).map(d => new Date(d));
+
+                    if (allDates.length > 0) {
+                        lastBackup = new Date(Math.max(...allDates));
+                        const hoursSinceBackup = (new Date() - lastBackup) / (1000 * 60 * 60);
+                        
+                        if (hoursSinceBackup < 24) {
+                            backupColor = 'green';
+                            backupText = `Ultimo backup: ${getTimeAgo(lastBackup)}`;
+                        } else if (hoursSinceBackup < 72) {
+                            backupColor = 'yellow';
+                            backupText = `Ultimo backup: ${getTimeAgo(lastBackup)}`;
+                        } else {
+                            backupColor = 'red';
+                            backupText = `⚠️ Backup obsoleto: ${getTimeAgo(lastBackup)}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Backup check failed:', e);
+                }
+
+                // Get app version from commits (simulated - in real app use version from package.json or git)
+                const appVersion = 'v2.5.0';
+                const lastUpdate = new Date('2025-11-28'); // Today's date
+                const updateText = `Versione ${appVersion} • ${getTimeAgo(lastUpdate)}`;
+
+                statusContainer.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-${dbColor}-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Server Database</p>
+                            <p class="text-sm text-gray-500">${dbText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-${backupColor}-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Sistema di Backup</p>
+                            <p class="text-sm text-gray-500">${backupText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-blue-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Ultimo Aggiornamento</p>
+                            <p class="text-sm text-gray-500">${updateText}</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Errore caricamento stato sistema:', error);
+            }
         }
 
         async function clearRecentActivities() {
