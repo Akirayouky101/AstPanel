@@ -208,8 +208,14 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Recent Activities -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
-                <div class="px-6 py-4 border-b border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h3 class="text-lg font-medium text-gray-900">Attività Recenti</h3>
+                    <button onclick="clearRecentActivities()" 
+                            class="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Elimina tutte le attività recenti">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span>Elimina attività</span>
+                    </button>
                 </div>
                 <div id="recentActivitiesList" class="divide-y divide-gray-200">
                     <!-- Populated by JavaScript -->
@@ -456,6 +462,73 @@
             
             const months = Math.floor(days / 30);
             return `${months} ${months === 1 ? 'mese' : 'mesi'} fa`;
+        }
+
+        async function clearRecentActivities() {
+            if (!confirm('⚠️ ATTENZIONE!\n\nVuoi davvero eliminare tutte le attività recenti?\n\nQuesta azione eliminerà:\n- Tutte le lavorazioni completate\n- Tutti i nuovi utenti recenti\n- Tutte le richieste pendenti\n- Tutte le comunicazioni\n\nQuesta operazione è IRREVERSIBILE!')) {
+                return;
+            }
+
+            const finalConfirm = prompt('Per confermare, scrivi: ELIMINA TUTTO');
+            if (finalConfirm !== 'ELIMINA TUTTO') {
+                alert('Operazione annullata');
+                return;
+            }
+
+            try {
+                const container = document.getElementById('recentActivitiesList');
+                container.innerHTML = '<div class="p-6 text-center text-blue-500"><i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin"></i><p>Eliminazione in corso...</p></div>';
+                lucide.createIcons();
+
+                // Get all data
+                const [tasks, users, requests, communications] = await Promise.all([
+                    window.dataManager.getLavorazioni(),
+                    window.dataManager.getUtenti(),
+                    window.dataManager.getRichieste(),
+                    window.dataManager.getComunicazioni()
+                ]);
+
+                let deletedCount = 0;
+
+                // Delete completed tasks
+                const completedTasks = tasks.filter(t => t.stato === 'completato');
+                for (const task of completedTasks) {
+                    await window.dataManager.deleteLavorazione(task.id);
+                    deletedCount++;
+                }
+
+                // Delete recent users (last 30 days)
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                const recentUsers = users.filter(u => u.created_at && new Date(u.created_at) > thirtyDaysAgo);
+                for (const user of recentUsers) {
+                    await window.dataManager.deleteUtente(user.id);
+                    deletedCount++;
+                }
+
+                // Delete pending requests
+                const pendingRequests = requests.filter(r => r.status === 'pending');
+                for (const req of pendingRequests) {
+                    await window.dataManager.deleteRichiesta(req.id);
+                    deletedCount++;
+                }
+
+                // Delete all communications
+                for (const comm of communications) {
+                    await window.dataManager.deleteComunicazione(comm.id);
+                    deletedCount++;
+                }
+
+                alert(`✅ Operazione completata!\n\n${deletedCount} elementi eliminati con successo.`);
+                
+                // Reload activities and stats
+                await loadRecentActivities();
+                await updateStats();
+            } catch (error) {
+                console.error('Errore durante l\'eliminazione:', error);
+                alert('❌ Errore durante l\'eliminazione delle attività: ' + error.message);
+                await loadRecentActivities();
+            }
         }
 
         function createRequestElement(request) {
