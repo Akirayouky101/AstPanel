@@ -165,16 +165,41 @@
                 <!-- Tipo Cliente -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Cliente *</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center">
-                            <input type="radio" name="tipoCliente" value="azienda" checked class="mr-2">
-                            <i class="fas fa-building mr-2 text-blue-600"></i>
-                            Azienda
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="azienda" checked class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-building text-blue-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Azienda</span>
+                            </div>
                         </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="tipoCliente" value="privato" class="mr-2">
-                            <i class="fas fa-user mr-2 text-green-600"></i>
-                            Privato
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="privato" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-user text-green-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Privato</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-purple-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="condominio" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-building-user text-purple-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Condominio</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-orange-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="associazione" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-users text-orange-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Associazione</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-red-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="comune" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-landmark text-red-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Comune</span>
+                            </div>
                         </label>
                     </div>
                 </div>
@@ -182,27 +207,68 @@
                 <!-- Informazioni Base -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ragione Sociale / Nome Completo *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" id="labelRagioneSociale">Ragione Sociale / Nome Completo *</label>
                         <input type="text" id="ragioneSociale" required 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Settore *</label>
-                        <input type="text" id="settore" required 
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Settore</label>
+                        <input type="text" id="settore" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Campi Referente (per aziende, associazioni, comuni) -->
+                <div id="referenteFields" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Nome Referente *</label>
-                        <input type="text" id="nome" required 
+                        <input type="text" id="nome" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Cognome Referente *</label>
-                        <input type="text" id="cognome" required 
+                        <input type="text" id="cognome" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <!-- Campi Amministratore (per condomini) -->
+                <div id="amministratoreFields" class="hidden space-y-4 mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <h4 class="font-semibold text-purple-900 flex items-center">
+                        <i class="fas fa-user-tie mr-2"></i>
+                        Dati Amministratore Condominiale
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Amministratore *</label>
+                            <input type="text" id="nomeAmministratore" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cognome Amministratore *</label>
+                            <input type="text" id="cognomeAmministratore" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefono Amministratore *</label>
+                            <input type="tel" id="telefonoAmministratore" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="+39 123 4567890">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Amministratore *</label>
+                            <input type="email" id="emailAmministratore" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="amministratore@email.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">PEC Amministratore</label>
+                        <input type="email" id="pecAmministratore" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="amministratore@pec.it">
                     </div>
                 </div>
 
@@ -393,7 +459,22 @@
                         <span class="text-sm text-gray-900">${client.settore || 'N/A'}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded-full ${(client.tipo_cliente || client.tipoCliente) === 'azienda' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                            (client.tipo_cliente || client.tipoCliente) === 'azienda' ? 'bg-blue-100 text-blue-700' :
+                            (client.tipo_cliente || client.tipoCliente) === 'privato' ? 'bg-green-100 text-green-700' :
+                            (client.tipo_cliente || client.tipoCliente) === 'condominio' ? 'bg-purple-100 text-purple-700' :
+                            (client.tipo_cliente || client.tipoCliente) === 'associazione' ? 'bg-orange-100 text-orange-700' :
+                            (client.tipo_cliente || client.tipoCliente) === 'comune' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                        }">
+                            <i class="fas ${
+                                (client.tipo_cliente || client.tipoCliente) === 'azienda' ? 'fa-building' :
+                                (client.tipo_cliente || client.tipoCliente) === 'privato' ? 'fa-user' :
+                                (client.tipo_cliente || client.tipoCliente) === 'condominio' ? 'fa-building-user' :
+                                (client.tipo_cliente || client.tipoCliente) === 'associazione' ? 'fa-users' :
+                                (client.tipo_cliente || client.tipoCliente) === 'comune' ? 'fa-landmark' :
+                                'fa-question'
+                            } mr-1"></i>
                             ${((client.tipo_cliente || client.tipoCliente || 'privato').charAt(0).toUpperCase() + (client.tipo_cliente || client.tipoCliente || 'privato').slice(1))}
                         </span>
                     </td>
@@ -433,7 +514,10 @@
                 const tasks = await window.dataManager.getLavorazioni();
             
                 document.getElementById('totalClients').textContent = clients.length;
-                document.getElementById('totalCompanies').textContent = clients.filter(c => c.tipo_cliente === 'azienda').length;
+                document.getElementById('totalCompanies').textContent = clients.filter(c => 
+                    (c.tipo_cliente === 'azienda' || c.tipo_cliente === 'associazione' || 
+                     c.tipo_cliente === 'condominio' || c.tipo_cliente === 'comune')
+                ).length;
                 document.getElementById('totalPrivate').textContent = clients.filter(c => c.tipo_cliente === 'privato').length;
                 document.getElementById('activeTasks').textContent = tasks.filter(t => t.stato !== 'completato').length;
             } catch (error) {
@@ -647,13 +731,64 @@
                 });
         }
 
+        function updateClientTypeFields() {
+            const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
+            const referenteFields = document.getElementById('referenteFields');
+            const amministratoreFields = document.getElementById('amministratoreFields');
+            const labelRagioneSociale = document.getElementById('labelRagioneSociale');
+            
+            // Update label based on type
+            const labels = {
+                'azienda': 'Ragione Sociale *',
+                'privato': 'Nome Completo *',
+                'condominio': 'Nome Condominio *',
+                'associazione': 'Nome Associazione *',
+                'comune': 'Nome Comune *'
+            };
+            labelRagioneSociale.textContent = labels[tipoCliente] || 'Ragione Sociale *';
+            
+            // Show/hide fields based on type
+            if (tipoCliente === 'condominio') {
+                referenteFields.classList.add('hidden');
+                amministratoreFields.classList.remove('hidden');
+                // Make admin fields required
+                document.getElementById('nomeAmministratore').setAttribute('required', 'required');
+                document.getElementById('cognomeAmministratore').setAttribute('required', 'required');
+                document.getElementById('telefonoAmministratore').setAttribute('required', 'required');
+                document.getElementById('emailAmministratore').setAttribute('required', 'required');
+                // Remove required from referente
+                document.getElementById('nome').removeAttribute('required');
+                document.getElementById('cognome').removeAttribute('required');
+            } else if (tipoCliente === 'privato') {
+                referenteFields.classList.add('hidden');
+                amministratoreFields.classList.add('hidden');
+                // Remove all required
+                document.getElementById('nome').removeAttribute('required');
+                document.getElementById('cognome').removeAttribute('required');
+                document.getElementById('nomeAmministratore').removeAttribute('required');
+                document.getElementById('cognomeAmministratore').removeAttribute('required');
+                document.getElementById('telefonoAmministratore').removeAttribute('required');
+                document.getElementById('emailAmministratore').removeAttribute('required');
+            } else {
+                // azienda, associazione, comune - show referente
+                referenteFields.classList.remove('hidden');
+                amministratoreFields.classList.add('hidden');
+                // Make referente required
+                document.getElementById('nome').setAttribute('required', 'required');
+                document.getElementById('cognome').setAttribute('required', 'required');
+                // Remove admin required
+                document.getElementById('nomeAmministratore').removeAttribute('required');
+                document.getElementById('cognomeAmministratore').removeAttribute('required');
+                document.getElementById('telefonoAmministratore').removeAttribute('required');
+                document.getElementById('emailAmministratore').removeAttribute('required');
+            }
+        }
+
         async function saveClient() {
             try {
                 const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
                 const ragioneSociale = document.getElementById('ragioneSociale').value;
                 const settore = document.getElementById('settore').value;
-                const nome = document.getElementById('nome').value;
-                const cognome = document.getElementById('cognome').value;
                 const telefono = document.getElementById('telefono').value;
                 const email = document.getElementById('email').value;
                 const pec = document.getElementById('pec').value;
@@ -667,8 +802,6 @@
                     tipo_cliente: tipoCliente,
                     ragione_sociale: ragioneSociale,
                     settore,
-                    nome,
-                    cognome,
                     telefono,
                     email,
                     pec,
@@ -678,6 +811,23 @@
                     longitudine: lng || null,
                     note
                 };
+                
+                // Add referente or amministratore fields based on type
+                if (tipoCliente === 'condominio') {
+                    clientData.nome_amministratore = document.getElementById('nomeAmministratore').value;
+                    clientData.cognome_amministratore = document.getElementById('cognomeAmministratore').value;
+                    clientData.telefono_amministratore = document.getElementById('telefonoAmministratore').value;
+                    clientData.email_amministratore = document.getElementById('emailAmministratore').value;
+                    clientData.pec_amministratore = document.getElementById('pecAmministratore').value;
+                } else if (tipoCliente !== 'privato') {
+                    // azienda, associazione, comune
+                    clientData.nome_referente = document.getElementById('nome').value;
+                    clientData.cognome_referente = document.getElementById('cognome').value;
+                } else {
+                    // privato - use nome/cognome directly
+                    clientData.nome = document.getElementById('nome').value || '';
+                    clientData.cognome = document.getElementById('cognome').value || '';
+                }
                 
                 if (editingClientId) {
                     clientData.id = editingClientId;

@@ -31,7 +31,7 @@ CREATE TABLE clients (
     ragione_sociale VARCHAR(255) NOT NULL,
     nome VARCHAR(100),
     cognome VARCHAR(100),
-    tipo_cliente VARCHAR(50) CHECK (tipo_cliente IN ('azienda', 'privato')),
+    tipo_cliente VARCHAR(50) CHECK (tipo_cliente IN ('azienda', 'privato', 'condominio', 'associazione', 'comune')),
     indirizzo TEXT,
     citta VARCHAR(100),
     provincia VARCHAR(10),
@@ -45,6 +45,20 @@ CREATE TABLE clients (
     codice_fiscale VARCHAR(50),
     settore VARCHAR(100),
     note TEXT,
+    
+    -- Referente (per aziende, associazioni, comuni)
+    nome_referente VARCHAR(100),
+    cognome_referente VARCHAR(100),
+    telefono_referente VARCHAR(50),
+    email_referente VARCHAR(255),
+    
+    -- Amministratore (per condomini)
+    nome_amministratore VARCHAR(100),
+    cognome_amministratore VARCHAR(100),
+    telefono_amministratore VARCHAR(50),
+    email_amministratore VARCHAR(255),
+    pec_amministratore VARCHAR(255),
+    
     data_inizio_rapporto DATE,
     stato VARCHAR(20) DEFAULT 'attivo' CHECK (stato IN ('attivo', 'inattivo', 'potenziale')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
