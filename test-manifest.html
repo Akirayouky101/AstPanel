@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manifest Diagnostics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">🔍 Manifest.json Diagnostics</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-xl font-bold mb-4">Test Results</h2>
+            <div id="results" class="space-y-2"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-xl font-bold mb-4">Response Headers</h2>
+            <pre id="headers" class="bg-gray-50 p-4 rounded overflow-auto text-xs"></pre>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Response Body</h2>
+            <pre id="body" class="bg-gray-50 p-4 rounded overflow-auto text-xs"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function testManifest() {
+            const results = document.getElementById('results');
+            const headersEl = document.getElementById('headers');
+            const bodyEl = document.getElementById('body');
+            
+            results.innerHTML = '<p class="text-blue-600">⏳ Testing manifest endpoints...</p>';
+            
+            // Test 1: /api/manifest
+            try {
+                results.innerHTML += '<p class="text-blue-600">⏳ Testing /api/manifest...</p>';
+                
+                const response = await fetch('/api/manifest');
+                
+                results.innerHTML += `<p class="text-${response.ok ? 'green' : 'red'}-600">
+                    ${response.ok ? '✅' : '❌'} /api/manifest: Status ${response.status} ${response.statusText}
+                </p>`;
+                
+                // Get headers
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                headersEl.textContent = JSON.stringify(headers, null, 2);
+                
+                // Get body
+                if (response.ok) {
+                    const data = await response.json();
+                    bodyEl.textContent = JSON.stringify(data, null, 2);
+                    results.innerHTML += '<p class="text-green-600">✅ Manifest JSON parsed successfully</p>';
+                } else {
+                    const text = await response.text();
+                    bodyEl.textContent = text;
+                    results.innerHTML += `<p class="text-red-600">❌ Error response: ${text}</p>`;
+                }
+            } catch (error) {
+                results.innerHTML += `<p class="text-red-600">❌ Fetch error: ${error.message}</p>`;
+                bodyEl.textContent = error.stack;
+            }
+            
+            // Test 2: /manifest.json
+            try {
+                results.innerHTML += '<p class="text-blue-600">⏳ Testing /manifest.json...</p>';
+                const response2 = await fetch('/manifest.json');
+                results.innerHTML += `<p class="text-${response2.ok ? 'green' : 'red'}-600">
+                    ${response2.ok ? '✅' : '❌'} /manifest.json: Status ${response2.status} ${response2.statusText}
+                </p>`;
+            } catch (error) {
+                results.innerHTML += `<p class="text-red-600">❌ /manifest.json error: ${error.message}</p>`;
+            }
+            
+            // Test 3: /Admin/manifest.json
+            try {
+                results.innerHTML += '<p class="text-blue-600">⏳ Testing /Admin/manifest.json...</p>';
+                const response3 = await fetch('/Admin/manifest.json');
+                results.innerHTML += `<p class="text-${response3.ok ? 'green' : 'red'}-600">
+                    ${response3.ok ? '✅' : '❌'} /Admin/manifest.json: Status ${response3.status} ${response3.statusText}
+                </p>`;
+            } catch (error) {
+                results.innerHTML += `<p class="text-red-600">❌ /Admin/manifest.json error: ${error.message}</p>`;
+            }
+            
+            // Test 4: Check Vercel environment
+            results.innerHTML += '<hr class="my-4">';
+            results.innerHTML += `<p class="text-gray-600">📍 Current URL: ${window.location.href}</p>`;
+            results.innerHTML += `<p class="text-gray-600">📍 Origin: ${window.location.origin}</p>`;
+            results.innerHTML += `<p class="text-gray-600">📍 Hostname: ${window.location.hostname}</p>`;
+        }
+        
+        window.addEventListener('DOMContentLoaded', testManifest);
+    </script>
+</body>
+</html>
