@@ -67,12 +67,17 @@
                 
                 select.innerHTML = '<option value="">-- Seleziona un utente --</option>';
                 
+                // Ruoli considerati ADMIN
+                const adminRoles = ['Tecnico', 'Segreteria', 'Titolare'];
+                
                 users.forEach(user => {
                     const option = document.createElement('option');
                     option.value = user.id;
                     
-                    const roleIcon = user.ruolo === 'admin' ? '👑' : '👤';
-                    option.textContent = `${roleIcon} ${user.nome} ${user.cognome} (${user.ruolo})`;
+                    const isAdmin = adminRoles.includes(user.ruolo);
+                    const roleIcon = isAdmin ? '👑' : '👤';
+                    const roleLabel = isAdmin ? `${user.ruolo} - ADMIN` : user.ruolo;
+                    option.textContent = `${roleIcon} ${user.nome} ${user.cognome} (${roleLabel})`;
                     
                     select.appendChild(option);
                 });
@@ -107,8 +112,8 @@
             try {
                 const user = await window.AuthHelper.login(userId);
                 
-                // Redirect based on role
-                if (user.ruolo === 'admin') {
+                // Redirect based on role using AuthHelper.isAdmin()
+                if (window.AuthHelper.isAdmin()) {
                     window.location.href = 'admin-functional.html';
                 } else {
                     window.location.href = 'pannello-utente.html';
@@ -125,8 +130,7 @@
 
         // Check if already logged in
         if (window.AuthHelper.isLoggedIn()) {
-            const user = window.AuthHelper.getCurrentUser();
-            if (user.ruolo === 'admin') {
+            if (window.AuthHelper.isAdmin()) {
                 window.location.href = 'admin-functional.html';
             } else {
                 window.location.href = 'pannello-utente.html';

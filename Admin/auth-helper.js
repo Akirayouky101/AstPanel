@@ -37,7 +37,11 @@ window.AuthHelper = {
     // Check if user is admin
     isAdmin() {
         const user = this.getCurrentUser();
-        return user && user.ruolo === 'admin';
+        if (!user) return false;
+        
+        // Ruoli considerati ADMIN con accesso al pannello amministrativo
+        const adminRoles = ['Tecnico', 'Segreteria', 'Titolare'];
+        return adminRoles.includes(user.ruolo);
     },
 
     // Require login (call in pages)
