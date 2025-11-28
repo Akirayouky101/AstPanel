@@ -971,24 +971,50 @@
             return card;
         }
 
-        function loadUserRequests() {
+        async function loadUserRequests() {
             const container = document.getElementById('userRequestsList');
             if (!container) return;
 
-            container.innerHTML = '';
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Caricamento...</div>';
 
-            userRequests.forEach(request => {
-                const requestCard = createRequestCard(request);
-                container.appendChild(requestCard);
-            });
+            try {
+                // Carica richieste da Supabase
+                const allRequests = await window.dataManager.getRichieste();
+                const currentUser = window.AuthHelper.getCurrentUser();
+                
+                // Filtra solo le richieste dell'utente corrente
+                const userRequests = allRequests.filter(req => req.user_id === currentUser?.id);
+
+                container.innerHTML = '';
+
+                if (userRequests.length === 0) {
+                    container.innerHTML = '<div class="text-center py-8 text-gray-500">Nessuna richiesta trovata</div>';
+                    return;
+                }
+
+                userRequests.forEach(request => {
+                    const requestCard = createRequestCard(request);
+                    container.appendChild(requestCard);
+                });
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento richieste:', error);
+                container.innerHTML = '<div class="text-center py-8 text-red-500">Errore caricamento richieste</div>';
+            }
         }
 
         function createRequestCard(request) {
             const card = document.createElement('div');
             card.className = 'bg-white rounded-lg shadow-md p-6';
 
-            const statusClass = getRequestStatusClass(request.stato);
-            const typeIcon = getRequestTypeIcon(request.tipo);
+            const statusClass = getRequestStatusClass(request.status || request.stato);
+            const typeIcon = getRequestTypeIcon(request.type || request.tipo);
+
+            // Formatta le date
+            const dataRichiesta = request.created_at || request.dataRichiesta;
+            const dataInizio = request.data_inizio || request.dataInizio;
+            const dataFine = request.data_fine || request.dataFine;
 
             card.innerHTML = `
                 <div class="flex items-start justify-between">
@@ -997,15 +1023,15 @@
                             <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-gray-900 mb-2">${request.titolo}</h3>
-                            <p class="text-gray-600 text-sm mb-3">${request.descrizione}</p>
+                            <h3 class="font-semibold text-gray-900 mb-2">${request.title || request.titolo || 'Senza titolo'}</h3>
+                            <p class="text-gray-600 text-sm mb-3">${request.description || request.descrizione || ''}</p>
                             <div class="flex items-center space-x-4 text-sm text-gray-500">
-                                <span>Richiesta: ${formatDate(request.dataRichiesta)}</span>
-                                ${request.dataInizio ? `<span>Dal: ${formatDate(request.dataInizio)}</span>` : ''}
-                                ${request.dataFine ? `<span>Al: ${formatDate(request.dataFine)}</span>` : ''}
+                                <span>Richiesta: ${formatDate(dataRichiesta)}</span>
+                                ${dataInizio ? `<span>Dal: ${formatDate(dataInizio)}</span>` : ''}
+                                ${dataFine ? `<span>Al: ${formatDate(dataFine)}</span>` : ''}
                             </div>
                         </div>
-                        <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getRequestStatusText(request.stato)}</span>
+                        <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getRequestStatusText(request.status || request.stato)}</span>
                     </div>
                 </div>
             `;
