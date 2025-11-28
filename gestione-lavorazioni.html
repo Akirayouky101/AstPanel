@@ -380,6 +380,49 @@
                         <label for="taskDescription" class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
                         <textarea id="taskDescription" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                     </div>
+                    
+                    <!-- Progresso Section (visible only in edit mode) -->
+                    <div id="progressSection" class="mb-6 hidden border-t pt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-tasks mr-2"></i>
+                                Progresso & Note Dipendente
+                            </label>
+                            <span id="progressPercentage" class="text-lg font-bold text-blue-600">0%</span>
+                        </div>
+                        <div class="mb-4">
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="progressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-sticky-note mr-2"></i>
+                                Ultime Note sul Progresso
+                            </label>
+                            <div id="progressNotes" class="text-sm text-gray-700 italic">
+                                Nessuna nota disponibile
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lock/Unlock Toggle -->
+                    <div id="editLockSection" class="mb-4 hidden">
+                        <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <div class="flex items-center">
+                                <i id="lockIcon" class="fas fa-lock text-yellow-600 mr-3 text-xl"></i>
+                                <div>
+                                    <p id="lockText" class="text-sm font-medium text-yellow-800">Campi bloccati per sicurezza</p>
+                                    <p class="text-xs text-yellow-600">Sblocca per modificare i dettagli della lavorazione</p>
+                                </div>
+                            </div>
+                            <button type="button" id="toggleLockButton" onclick="toggleFieldsLock()" 
+                                    class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
+                                <i class="fas fa-unlock mr-2"></i>Sblocca
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="flex space-x-3">
                         <button type="button" onclick="closeTaskModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                             Annulla
@@ -928,6 +971,17 @@
         function closeTaskModal() {
             document.getElementById('taskModal').classList.add('hidden');
             currentEditingTask = null;
+            
+            // Reset progress section and lock
+            document.getElementById('progressSection').classList.add('hidden');
+            document.getElementById('editLockSection').classList.add('hidden');
+            fieldsLocked = true;
+            
+            // Unlock all fields for next use
+            lockAllFields(false);
+            
+            // Hide delete button
+            document.getElementById('deleteTaskButton').classList.add('hidden');
         }
 
         async function editTask(taskId) {
@@ -942,6 +996,25 @@
                 // Show delete button for existing tasks
                 document.getElementById('deleteTaskButton').classList.remove('hidden');
                 
+                // Show progress section and lock controls
+                document.getElementById('progressSection').classList.remove('hidden');
+                document.getElementById('editLockSection').classList.remove('hidden');
+                
+                // Update progress display
+                const progresso = task.progresso || 0;
+                document.getElementById('progressPercentage').textContent = progresso + '%';
+                document.getElementById('progressBar').style.width = progresso + '%';
+                
+                // Show progress notes from user
+                const progressNotes = task.note_progresso || task.notes || '';
+                if (progressNotes) {
+                    document.getElementById('progressNotes').innerHTML = progressNotes.replace(/\n/g, '<br>');
+                    document.getElementById('progressNotes').classList.remove('italic');
+                } else {
+                    document.getElementById('progressNotes').textContent = 'Nessuna nota disponibile';
+                    document.getElementById('progressNotes').classList.add('italic');
+                }
+                
                 // Populate clients dropdown first
                 populateClientsDropdown();
                 
@@ -952,6 +1025,9 @@
                 document.getElementById('taskClient').value = task.client_id || task.clienteId || '';
                 document.getElementById('taskDescription').value = task.description || task.descrizione || '';
                 
+                // Lock all fields by default
+                lockAllFields(true);
+                
                 // Load components
                 taskComponents = task.components || task.componenti || [];
                 await updateTaskComponentsList();
@@ -961,6 +1037,60 @@
                 console.error('Errore caricamento task:', error);
             }
         }
+
+        let fieldsLocked = true;
+
+        function toggleFieldsLock() {
+            fieldsLocked = !fieldsLocked;
+            lockAllFields(fieldsLocked);
+            
+            const lockIcon = document.getElementById('lockIcon');
+            const lockText = document.getElementById('lockText');
+            const toggleButton = document.getElementById('toggleLockButton');
+            
+            if (fieldsLocked) {
+                lockIcon.classList.remove('fa-unlock');
+                lockIcon.classList.add('fa-lock');
+                lockText.textContent = 'Campi bloccati per sicurezza';
+                toggleButton.innerHTML = '<i class="fas fa-unlock mr-2"></i>Sblocca';
+                toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                toggleButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+            } else {
+                lockIcon.classList.remove('fa-lock');
+                lockIcon.classList.add('fa-unlock');
+                lockText.textContent = 'Campi sbloccati - Modifica attiva';
+                toggleButton.innerHTML = '<i class="fas fa-lock mr-2"></i>Blocca';
+                toggleButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                toggleButton.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+        }
+
+        function lockAllFields(lock) {
+            const fields = [
+                'taskTitle',
+                'taskAssignee',
+                'taskPriority',
+                'taskDeadline',
+                'taskClient',
+                'taskDescription'
+            ];
+            
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    if (lock) {
+                        field.setAttribute('readonly', 'readonly');
+                        field.setAttribute('disabled', 'disabled');
+                        field.classList.add('bg-gray-100', 'cursor-not-allowed');
+                    } else {
+                        field.removeAttribute('readonly');
+                        field.removeAttribute('disabled');
+                        field.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    }
+                }
+            });
+        }
+
 
         async function deleteTaskFromModal() {
             if (!currentEditingTask) return;
