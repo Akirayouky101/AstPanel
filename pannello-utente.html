@@ -1304,25 +1304,38 @@
         }
 
         // Request form submission
-        document.getElementById('requestForm').addEventListener('submit', function(e) {
+        document.getElementById('requestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            const currentUser = window.AuthHelper.getCurrentUser();
+            if (!currentUser) {
+                showNotification('Errore: utente non autenticato', 'error');
+                return;
+            }
+
             const requestData = {
-                id: userRequests.length + 1,
-                tipo: document.getElementById('requestType').value,
-                titolo: document.getElementById('requestTitle').value,
-                descrizione: document.getElementById('requestDescription').value,
-                dataRichiesta: new Date().toISOString().split('T')[0],
-                dataInizio: document.getElementById('requestStartDate').value,
-                dataFine: document.getElementById('requestEndDate').value,
-                stato: 'in_attesa'
+                user_id: currentUser.id,
+                type: document.getElementById('requestType').value,
+                title: document.getElementById('requestTitle').value,
+                description: document.getElementById('requestDescription').value,
+                data_inizio: document.getElementById('requestStartDate').value || null,
+                data_fine: document.getElementById('requestEndDate').value || null,
+                status: 'pending'
             };
 
-            userRequests.unshift(requestData);
-            
-            closeRequestModal();
-            showSection('requests');
-            showNotification('Richiesta inviata con successo!', 'success');
+            try {
+                // Salva nel database usando dataManager
+                await window.dataManager.saveRichiesta(requestData);
+                
+                closeRequestModal();
+                showNotification('Richiesta inviata con successo!', 'success');
+                
+                // Ricarica la lista delle richieste
+                await loadUserRequests();
+            } catch (error) {
+                console.error('Errore invio richiesta:', error);
+                showNotification('Errore durante l\'invio della richiesta', 'error');
+            }
         });
 
         // Profile form submission
