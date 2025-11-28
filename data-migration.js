@@ -166,7 +166,7 @@ window.dataManager = {
             // Extract only valid task table fields (remove view-only fields)
             const validFields = [
                 'id', 'titolo', 'descrizione', 'stato', 'priorita', 
-                'scadenza', 'progresso', 'client_id', 'assigned_user_id', 
+                'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id', 
                 'assigned_team_id', 'created_by', 'created_at', 'updated_at'
             ];
             
@@ -176,6 +176,11 @@ window.dataManager = {
                     cleanedTask[field] = lavorazione[field];
                 }
             });
+            
+            // Debug log per verificare salvataggio note
+            if (lavorazione.note_progresso !== undefined) {
+                console.log('💾 Salvando note_progresso:', lavorazione.note_progresso);
+            }
             
             // Save componenti separately
             const componenti = lavorazione.componenti || lavorazione.components || [];
