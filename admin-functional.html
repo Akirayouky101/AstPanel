@@ -79,6 +79,10 @@
                     <i data-lucide="user" class="w-5 h-5 mr-3"></i>
                     Pannello Utente
                 </a>
+                <a href="/superuser.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i data-lucide="shield-alert" class="w-5 h-5 mr-3"></i>
+                    SuperUser Panel
+                </a>
                 <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
                     <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
                     Logout
@@ -207,39 +211,11 @@
                 <div class="px-6 py-4 border-b border-gray-200">
                     <h3 class="text-lg font-medium text-gray-900">Attività Recenti</h3>
                 </div>
-                <div class="divide-y divide-gray-200">
-                    <div class="p-6">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                                <i data-lucide="check" class="w-5 h-5 text-green-600"></i>
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-900">Lavorazione "Progetto Alpha" completata</p>
-                                <p class="text-sm text-gray-500">Mario Rossi • 2 ore fa</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                                <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i>
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-900">Nuovo dipendente aggiunto</p>
-                                <p class="text-sm text-gray-500">Anna Verdi • 4 ore fa</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-4">
-                                <i data-lucide="clock" class="w-5 h-5 text-orange-600"></i>
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-900">Richiesta ferie in attesa</p>
-                                <p class="text-sm text-gray-500">Giuseppe Neri • 6 ore fa</p>
-                            </div>
-                        </div>
+                <div id="recentActivitiesList" class="divide-y divide-gray-200">
+                    <!-- Populated by JavaScript -->
+                    <div class="p-6 text-center text-gray-500">
+                        <i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                        <p>Caricamento attività...</p>
                     </div>
                 </div>
                 <div class="px-6 py-3 bg-gray-50">
@@ -304,6 +280,7 @@
             }
             
             await loadPendingRequests();
+            await loadRecentActivities();
             updateLastLogin();
             await updateStats();
         });
@@ -348,6 +325,137 @@
                     container.innerHTML = '<p class="text-red-500 text-center py-4">Errore caricamento richieste</p>';
                 }
             }
+        }
+
+        async function loadRecentActivities() {
+            try {
+                const container = document.getElementById('recentActivitiesList');
+                if (!container) return;
+
+                // Fetch all data sources
+                const [tasks, users, requests, communications] = await Promise.all([
+                    window.dataManager.getLavorazioni(),
+                    window.dataManager.getUtenti(),
+                    window.dataManager.getRichieste(),
+                    window.dataManager.getComunicazioni()
+                ]);
+
+                // Create activity objects with timestamps
+                const activities = [];
+
+                // Add completed tasks
+                tasks.filter(t => t.stato === 'completato' && t.data_completamento).forEach(task => {
+                    activities.push({
+                        type: 'task_completed',
+                        timestamp: new Date(task.data_completamento),
+                        icon: 'check',
+                        iconColor: 'green',
+                        title: `Lavorazione "${task.titolo}" completata`,
+                        user: task.assigned_to_name || 'Utente',
+                        data: task
+                    });
+                });
+
+                // Add new users (created in last 30 days)
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                users.filter(u => u.created_at && new Date(u.created_at) > thirtyDaysAgo).forEach(user => {
+                    activities.push({
+                        type: 'user_created',
+                        timestamp: new Date(user.created_at),
+                        icon: 'user-plus',
+                        iconColor: 'blue',
+                        title: `Nuovo dipendente aggiunto: ${user.nome} ${user.cognome}`,
+                        user: 'Admin',
+                        data: user
+                    });
+                });
+
+                // Add pending requests
+                requests.filter(r => r.status === 'pending' && r.created_at).forEach(req => {
+                    activities.push({
+                        type: 'request_pending',
+                        timestamp: new Date(req.created_at),
+                        icon: 'clock',
+                        iconColor: 'orange',
+                        title: `Richiesta ${req.type || 'generica'} in attesa`,
+                        user: req.user_name || 'Dipendente',
+                        data: req
+                    });
+                });
+
+                // Add recent communications
+                communications.filter(c => c.created_at).forEach(comm => {
+                    activities.push({
+                        type: 'communication',
+                        timestamp: new Date(comm.created_at),
+                        icon: 'message-square',
+                        iconColor: 'purple',
+                        title: `Nuova comunicazione: ${comm.titolo}`,
+                        user: 'Admin',
+                        data: comm
+                    });
+                });
+
+                // Sort by timestamp (most recent first)
+                activities.sort((a, b) => b.timestamp - a.timestamp);
+
+                // Take top 10
+                const recentActivities = activities.slice(0, 10);
+
+                if (recentActivities.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">Nessuna attività recente</p>';
+                    return;
+                }
+
+                // Render activities
+                container.innerHTML = recentActivities.map(activity => {
+                    const timeAgo = getTimeAgo(activity.timestamp);
+                    return `
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-${activity.iconColor}-100 rounded-full flex items-center justify-center mr-4">
+                                    <i data-lucide="${activity.icon}" class="w-5 h-5 text-${activity.iconColor}-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">${activity.title}</p>
+                                    <p class="text-sm text-gray-500">${activity.user} • ${timeAgo}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento attività:', error);
+                const container = document.getElementById('recentActivitiesList');
+                if (container) {
+                    container.innerHTML = '<p class="text-red-500 text-center py-4">Errore caricamento attività</p>';
+                }
+            }
+        }
+
+        function getTimeAgo(date) {
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return 'Pochi secondi fa';
+            
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minuto' : 'minuti'} fa`;
+            
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ${hours === 1 ? 'ora' : 'ore'} fa`;
+            
+            const days = Math.floor(hours / 24);
+            if (days < 7) return `${days} ${days === 1 ? 'giorno' : 'giorni'} fa`;
+            
+            const weeks = Math.floor(days / 7);
+            if (weeks < 4) return `${weeks} ${weeks === 1 ? 'settimana' : 'settimane'} fa`;
+            
+            const months = Math.floor(days / 30);
+            return `${months} ${months === 1 ? 'mese' : 'mesi'} fa`;
         }
 
         function createRequestElement(request) {

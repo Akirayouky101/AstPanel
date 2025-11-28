@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperUser Panel - Gestione Database</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .gradient-bg { background: linear-gradient(135deg, #1e3a8a 0%, #991b1b 100%); }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 max-w-md w-full border border-red-900">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-shield-halved text-white text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">SuperUser Panel</h1>
+                <p class="text-gray-400">Accesso riservato - Gestione Database</p>
+            </div>
+            
+            <form id="loginForm" onsubmit="checkPassword(event)" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Password SuperUser</label>
+                    <input type="password" id="superuserPassword" required 
+                           class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           placeholder="Inserisci la password">
+                </div>
+                <button type="submit" 
+                        class="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium">
+                    <i class="fas fa-lock-open mr-2"></i>Accedi
+                </button>
+            </form>
+            
+            <div id="loginError" class="hidden mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Password errata!
+            </div>
+        </div>
+    </div>
+
+    <!-- SuperUser Dashboard -->
+    <div id="dashboard" class="hidden min-h-screen">
+        <!-- Header -->
+        <div class="gradient-bg text-white p-6 shadow-2xl">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-halved text-3xl mr-4"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SuperUser Control Panel</h1>
+                        <p class="text-gray-300 text-sm">Gestione completa del database</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto p-6">
+            <!-- Warning Banner -->
+            <div class="bg-red-900/30 border-2 border-red-700 rounded-xl p-4 mb-6 flex items-start">
+                <i class="fas fa-exclamation-triangle text-red-500 text-2xl mr-4 mt-1"></i>
+                <div>
+                    <h3 class="text-red-400 font-bold text-lg mb-1">⚠️ ZONA AD ALTO RISCHIO</h3>
+                    <p class="text-red-300 text-sm">Le operazioni qui sotto possono eliminare dati permanentemente. Procedi con estrema cautela.</p>
+                </div>
+            </div>
+
+            <!-- Database Tables Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Users Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-blue-900 p-4 border-b border-blue-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-users text-blue-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Utenti</h3>
+                            </div>
+                            <span id="usersCount" class="bg-blue-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('users')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('users')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('users')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tasks Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-green-900 p-4 border-b border-green-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-tasks text-green-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Lavorazioni</h3>
+                            </div>
+                            <span id="tasksCount" class="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('tasks')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('tasks')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('tasks')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Clients Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-purple-900 p-4 border-b border-purple-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-building text-purple-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Clienti</h3>
+                            </div>
+                            <span id="clientsCount" class="bg-purple-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('clients')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('clients')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('clients')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Teams Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-yellow-900 p-4 border-b border-yellow-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-user-group text-yellow-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Squadre</h3>
+                            </div>
+                            <span id="teamsCount" class="bg-yellow-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('teams')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('teams')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('teams')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Components Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-indigo-900 p-4 border-b border-indigo-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-box text-indigo-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Componenti</h3>
+                            </div>
+                            <span id="componentsCount" class="bg-indigo-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('components')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('components')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('components')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Communications Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-pink-900 p-4 border-b border-pink-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-message text-pink-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Comunicazioni</h3>
+                            </div>
+                            <span id="communicationsCount" class="bg-pink-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('communications')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('communications')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('communications')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Requests Table -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="bg-teal-900 p-4 border-b border-teal-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-lines text-teal-300 text-xl mr-3"></i>
+                                <h3 class="text-white font-bold text-lg">Richieste</h3>
+                            </div>
+                            <span id="requestsCount" class="bg-teal-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="viewTable('requests')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>Visualizza
+                        </button>
+                        <button onclick="deleteSelected('requests')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
+                        </button>
+                        <button onclick="deleteAllTable('requests')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Danger Zone - Delete All Database -->
+                <div class="bg-gray-800 rounded-xl shadow-xl border-4 border-red-600 overflow-hidden md:col-span-2 lg:col-span-3">
+                    <div class="bg-red-900 p-4 border-b border-red-800">
+                        <div class="flex items-center">
+                            <i class="fas fa-skull-crossbones text-red-300 text-2xl mr-3"></i>
+                            <h3 class="text-white font-bold text-xl">☢️ DANGER ZONE ☢️</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-red-300 mb-4">Questa azione eliminerà <strong>TUTTO IL DATABASE</strong>. Non è reversibile!</p>
+                        <button onclick="nukeDatabase()" class="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-lg transition-colors font-bold text-lg">
+                            <i class="fas fa-radiation mr-2"></i>ELIMINA TUTTO IL DATABASE
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Viewer Modal -->
+    <div id="tableModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div class="bg-gray-700 p-4 border-b border-gray-600 flex justify-between items-center">
+                <h3 id="modalTitle" class="text-white font-bold text-xl"></h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-auto p-4">
+                <div id="tableContent" class="text-white"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPERUSER_PASSWORD = 'admin123'; // CAMBIA QUESTA PASSWORD!
+        let currentTable = null;
+        let selectedItems = new Set();
+
+        function checkPassword(e) {
+            e.preventDefault();
+            const password = document.getElementById('superuserPassword').value;
+            
+            if (password === SUPERUSER_PASSWORD) {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                loadAllCounts();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('loginError').classList.add('hidden');
+                }, 3000);
+            }
+        }
+
+        function logout() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('superuserPassword').value = '';
+        }
+
+        async function loadAllCounts() {
+            try {
+                const tables = ['users', 'tasks', 'clients', 'teams', 'components', 'communications', 'requests'];
+                
+                for (const table of tables) {
+                    const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+                    document.getElementById(`${table}Count`).textContent = count || 0;
+                }
+            } catch (error) {
+                console.error('Error loading counts:', error);
+            }
+        }
+
+        async function viewTable(tableName) {
+            try {
+                currentTable = tableName;
+                selectedItems.clear();
+                
+                const { data, error } = await supabase.from(tableName).select('*');
+                
+                if (error) throw error;
+
+                document.getElementById('modalTitle').textContent = `Tabella: ${tableName} (${data.length} record)`;
+                
+                if (data.length === 0) {
+                    document.getElementById('tableContent').innerHTML = '<p class="text-center text-gray-400 py-8">Nessun dato presente</p>';
+                } else {
+                    let html = '<div class="space-y-2">';
+                    data.forEach(item => {
+                        const displayText = item.nome || item.titolo || item.ragione_sociale || item.email || item.id;
+                        html += `
+                            <div class="bg-gray-700 p-3 rounded-lg flex items-center justify-between hover:bg-gray-600 transition-colors">
+                                <label class="flex items-center flex-1 cursor-pointer">
+                                    <input type="checkbox" class="mr-3" onchange="toggleSelection('${item.id}')" ${selectedItems.has(item.id) ? 'checked' : ''}>
+                                    <span>${displayText}</span>
+                                </label>
+                                <button onclick="deleteSingle('${tableName}', '${item.id}')" class="text-red-400 hover:text-red-300 ml-4">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    html += `
+                        <div class="mt-4 flex gap-3">
+                            <button onclick="selectAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                                Seleziona Tutti
+                            </button>
+                            <button onclick="deleteSelectedFromModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                                Elimina Selezionati (${selectedItems.size})
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('tableContent').innerHTML = html;
+                }
+                
+                document.getElementById('tableModal').classList.remove('hidden');
+            } catch (error) {
+                alert('Errore: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('tableModal').classList.add('hidden');
+            selectedItems.clear();
+            currentTable = null;
+        }
+
+        function toggleSelection(id) {
+            if (selectedItems.has(id)) {
+                selectedItems.delete(id);
+            } else {
+                selectedItems.add(id);
+            }
+        }
+
+        async function selectAll() {
+            const { data } = await supabase.from(currentTable).select('id');
+            data.forEach(item => selectedItems.add(item.id));
+            viewTable(currentTable); // Refresh
+        }
+
+        async function deleteSingle(tableName, id) {
+            if (confirm('Sei sicuro di voler eliminare questo record?')) {
+                try {
+                    await supabase.from(tableName).delete().eq('id', id);
+                    alert('Record eliminato!');
+                    viewTable(tableName);
+                    loadAllCounts();
+                } catch (error) {
+                    alert('Errore: ' + error.message);
+                }
+            }
+        }
+
+        async function deleteSelectedFromModal() {
+            if (selectedItems.size === 0) {
+                alert('Nessun elemento selezionato!');
+                return;
+            }
+            
+            if (confirm(`Eliminare ${selectedItems.size} record selezionati?`)) {
+                try {
+                    for (const id of selectedItems) {
+                        await supabase.from(currentTable).delete().eq('id', id);
+                    }
+                    alert(`${selectedItems.size} record eliminati!`);
+                    viewTable(currentTable);
+                    loadAllCounts();
+                } catch (error) {
+                    alert('Errore: ' + error.message);
+                }
+            }
+        }
+
+        async function deleteSelected(tableName) {
+            viewTable(tableName);
+        }
+
+        async function deleteAllTable(tableName) {
+            const confirmed = confirm(`⚠️ ATTENZIONE!\n\nSei sicuro di voler eliminare TUTTI i record dalla tabella "${tableName}"?\n\nQuesta azione è IRREVERSIBILE!`);
+            
+            if (confirmed) {
+                const doubleConfirm = prompt(`Per confermare, scrivi: DELETE ${tableName.toUpperCase()}`);
+                
+                if (doubleConfirm === `DELETE ${tableName.toUpperCase()}`) {
+                    try {
+                        const { data } = await supabase.from(tableName).select('id');
+                        for (const item of data) {
+                            await supabase.from(tableName).delete().eq('id', item.id);
+                        }
+                        alert(`Tutti i record di "${tableName}" sono stati eliminati!`);
+                        loadAllCounts();
+                    } catch (error) {
+                        alert('Errore: ' + error.message);
+                    }
+                } else {
+                    alert('Operazione annullata - testo di conferma errato');
+                }
+            }
+        }
+
+        async function nukeDatabase() {
+            const confirmed = confirm('☢️ ATTENZIONE MASSIMA! ☢️\n\nStai per ELIMINARE TUTTO IL DATABASE!\n\nQuesta azione cancellerà TUTTI i dati da TUTTE le tabelle.\n\nSei ASSOLUTAMENTE SICURO?');
+            
+            if (confirmed) {
+                const password = prompt('Inserisci la password SUPERUSER per confermare:');
+                
+                if (password === SUPERUSER_PASSWORD) {
+                    const finalConfirm = prompt('ULTIMA CONFERMA: Scrivi "NUKE DATABASE" per procedere');
+                    
+                    if (finalConfirm === 'NUKE DATABASE') {
+                        try {
+                            const tables = ['requests', 'communications', 'task_components', 'tasks', 'team_members', 'teams', 'components', 'clients', 'users'];
+                            
+                            for (const table of tables) {
+                                const { data } = await supabase.from(table).select('id');
+                                for (const item of data) {
+                                    await supabase.from(table).delete().eq('id', item.id);
+                                }
+                            }
+                            
+                            alert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥');
+                            loadAllCounts();
+                        } catch (error) {
+                            alert('Errore durante l\'eliminazione: ' + error.message);
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
