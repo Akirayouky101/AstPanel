@@ -1251,11 +1251,33 @@
         }
 
         async function deleteCommunication(id) {
-            if (confirm('Sei sicuro di voler eliminare questa comunicazione?')) {
-                await window.CommunicationsAPI.delete(id);
-                await loadCommunications();
-                await updateStats();
-                showNotification('Comunicazione eliminata!', 'info');
+            // Get communication details for confirmation
+            const communications = await window.dataManager.getComunicazioni();
+            const comm = communications.find(c => c.id === id);
+            
+            if (!comm) {
+                showNotification('Comunicazione non trovata', 'error');
+                return;
+            }
+            
+            // Show detailed confirmation
+            const confirmMessage = `Sei sicuro di voler ELIMINARE DEFINITIVAMENTE questa comunicazione?\n\n` +
+                                  `Titolo: ${comm.titolo}\n` +
+                                  `Tipo: ${comm.tipo}\n` +
+                                  `Data: ${new Date(comm.created_at).toLocaleDateString('it-IT')}\n\n` +
+                                  `⚠️ ATTENZIONE: Questa azione NON può essere annullata!\n` +
+                                  `La comunicazione verrà eliminata permanentemente dal sistema.`;
+            
+            if (confirm(confirmMessage)) {
+                try {
+                    await window.CommunicationsAPI.delete(id);
+                    await loadCommunications();
+                    await updateStats();
+                    showNotification('✅ Comunicazione eliminata definitivamente con successo!', 'success');
+                } catch (error) {
+                    console.error('Errore eliminazione comunicazione:', error);
+                    showNotification('❌ Errore durante l\'eliminazione della comunicazione', 'error');
+                }
             }
         }
 
