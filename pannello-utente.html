@@ -906,15 +906,25 @@
                     return;
                 }
 
+                // Get user's teams
+                const userTeamIds = await window.TeamsAPI.getUserTeams(currentUser.id);
+
                 // Load all tasks from Supabase
                 const allTasks = await window.dataManager.getLavorazioni();
                 
-                // Filter tasks assigned to current user
-                userTasks = allTasks.filter(task => 
-                    task.assigned_user_id === currentUser.id || 
-                    task.assignedUserId === currentUser.id ||
-                    task.assegnatario === currentUser.id
-                );
+                // Filter tasks assigned to current user OR to their teams
+                userTasks = allTasks.filter(task => {
+                    // Direct user assignment
+                    const isDirectlyAssigned = task.assigned_user_id === currentUser.id || 
+                                              task.assignedUserId === currentUser.id ||
+                                              task.assegnatario === currentUser.id;
+                    
+                    // Team assignment
+                    const isTeamAssigned = task.assigned_team_id && 
+                                          userTeamIds.includes(task.assigned_team_id);
+                    
+                    return isDirectlyAssigned || isTeamAssigned;
+                });
 
                 container.innerHTML = '';
 

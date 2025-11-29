@@ -322,6 +322,28 @@ window.TeamsAPI = {
         }));
     },
 
+    // Get teams for a specific user
+    async getUserTeams(userId) {
+        const { data, error } = await supabase
+            .from('team_members')
+            .select(`
+                team_id,
+                ruolo_squadra,
+                teams (
+                    id,
+                    nome,
+                    descrizione,
+                    colore
+                )
+            `)
+            .eq('user_id', userId);
+        
+        if (error) throw error;
+        
+        // Return array of team IDs
+        return data.map(tm => tm.team_id);
+    },
+
     // Delete team
     async delete(id) {
         const { error } = await supabase
