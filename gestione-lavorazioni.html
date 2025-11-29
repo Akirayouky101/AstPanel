@@ -307,7 +307,7 @@
                             
                             <!-- Team Assignment -->
                             <div id="teamAssignment" class="assignment-section hidden">
-                                <select id="taskTeam" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <select id="taskTeam" onchange="showTeamMembers()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     <option value="">Seleziona squadra</option>
                                     <!-- Populated by JavaScript -->
                                 </select>
@@ -911,10 +911,55 @@
                     option.value = team.id;
                     const memberCount = team.membri ? team.membri.length : 0;
                     option.textContent = `${team.nome} (${memberCount} membri)`;
+                    // Store team data in option for later use
+                    option.dataset.teamData = JSON.stringify(team);
                     select.appendChild(option);
                 });
             } catch (error) {
                 console.error('Errore caricamento squadre:', error);
+            }
+        }
+
+        async function showTeamMembers() {
+            const select = document.getElementById('taskTeam');
+            const preview = document.getElementById('teamMembersPreview');
+            const membersList = document.getElementById('teamMembersList');
+            
+            const selectedOption = select.options[select.selectedIndex];
+            
+            if (!selectedOption || !selectedOption.value) {
+                preview.classList.add('hidden');
+                return;
+            }
+            
+            try {
+                const team = JSON.parse(selectedOption.dataset.teamData);
+                
+                if (!team.membri || team.membri.length === 0) {
+                    membersList.innerHTML = '<p class="text-sm text-gray-500">Nessun membro nella squadra</p>';
+                    preview.classList.remove('hidden');
+                    return;
+                }
+                
+                // Load users to get names
+                const allUsers = await window.dataManager.getUtenti();
+                
+                membersList.innerHTML = team.membri.map(memberId => {
+                    const user = allUsers.find(u => u.id === memberId);
+                    if (!user) return '';
+                    
+                    return `
+                        <span class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                            <i class="fas fa-user mr-2"></i>
+                            ${user.nome} ${user.cognome}
+                        </span>
+                    `;
+                }).join('');
+                
+                preview.classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore visualizzazione membri:', error);
+                preview.classList.add('hidden');
             }
         }
 
@@ -1203,15 +1248,39 @@
                 };
 
                 if (assignType === 'team') {
-                    // Team assignment
+                    // Team assignment - create task for each team member
                     const teamId = document.getElementById('taskTeam').value;
                     if (!teamId) {
                         showNotification('Seleziona una squadra', 'error');
                         return;
                     }
                     
+                    // Get team data
+                    const select = document.getElementById('taskTeam');
+                    const selectedOption = select.options[select.selectedIndex];
+                    const team = JSON.parse(selectedOption.dataset.teamData);
+                    
+                    if (!team.membri || team.membri.length === 0) {
+                        showNotification('La squadra selezionata non ha membri', 'error');
+                        return;
+                    }
+                    
                     taskData.assigned_team_id = teamId;
                     taskData.assigned_user_id = null;
+                    
+                    // Create a task for each team member
+                    const savePromises = team.membri.map(async (memberId) => {
+                        const memberTaskData = {
+                            ...taskData,
+                            assigned_user_id: memberId,
+                            assigned_team_id: teamId
+                        };
+                        return window.dataManager.saveLavorazione(memberTaskData);
+                    });
+                    
+                    await Promise.all(savePromises);
+                    
+                    showNotification(`Lavorazione assegnata a ${team.membri.length} membri della squadra!`, 'success');
                 } else {
                     // Single assignment
                     const assigneeId = document.getElementById('taskAssignee').value;
@@ -1222,25 +1291,26 @@
                     
                     taskData.assigned_user_id = assigneeId;
                     taskData.assigned_team_id = null;
-                }
+                    
+                    if (currentEditingTask) {
+                        // Editing existing task - preserve all existing data
+                        taskData.id = currentEditingTask.id;
+                        taskData.created_at = currentEditingTask.created_at;
+                        taskData.created_by = currentEditingTask.created_by;
+                        taskData.data_inizio = currentEditingTask.data_inizio;
+                        taskData.data_completamento = currentEditingTask.data_completamento;
+                    }
+                    
+                    // Add components to task data
+                    if (taskComponents.length > 0) {
+                        taskData.componenti = taskComponents;
+                    }
 
-                if (currentEditingTask) {
-                    // Editing existing task - preserve all existing data
-                    taskData.id = currentEditingTask.id;
-                    taskData.created_at = currentEditingTask.created_at;
-                    taskData.created_by = currentEditingTask.created_by;
-                    taskData.data_inizio = currentEditingTask.data_inizio;
-                    taskData.data_completamento = currentEditingTask.data_completamento;
+                    await window.dataManager.saveLavorazione(taskData);
+                    
+                    showNotification(currentEditingTask ? 'Lavorazione aggiornata!' : 'Lavorazione creata!', 'success');
                 }
                 
-                // Add components to task data
-                if (taskComponents.length > 0) {
-                    taskData.componenti = taskComponents;
-                }
-
-                await window.dataManager.saveLavorazione(taskData);
-                
-                showNotification(currentEditingTask ? 'Lavorazione aggiornata!' : 'Lavorazione creata!', 'success');
                 closeTaskModal();
                 await loadTasks();
             } catch (error) {
