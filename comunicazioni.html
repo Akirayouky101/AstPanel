@@ -1261,24 +1261,70 @@
                 return;
             }
             
-            // Show detailed confirmation
-            const confirmMessage = `Sei sicuro di voler ELIMINARE DEFINITIVAMENTE questa comunicazione?\n\n` +
-                                  `Titolo: ${comm.titolo}\n` +
-                                  `Tipo: ${comm.tipo}\n` +
-                                  `Data: ${new Date(comm.created_at).toLocaleDateString('it-IT')}\n\n` +
-                                  `⚠️ ATTENZIONE: Questa azione NON può essere annullata!\n` +
-                                  `La comunicazione verrà eliminata permanentemente dal sistema.`;
+            // Create modal for confirmation
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+                        <i data-lucide="trash-2" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Conferma Eliminazione</h3>
+                    <p class="text-gray-700 mb-4 text-center">Sei sicuro di voler ELIMINARE DEFINITIVAMENTE questa comunicazione?</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Titolo:</span>
+                            <span class="text-sm text-gray-900 ml-2">${comm.titolo}</span>
+                        </div>
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Tipo:</span>
+                            <span class="text-sm text-gray-900 ml-2">${comm.tipo}</span>
+                        </div>
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Data:</span>
+                            <span class="text-sm text-gray-900 ml-2">${new Date(comm.created_at).toLocaleDateString('it-IT')}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                        <p class="text-sm text-red-800">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
+                            <strong>ATTENZIONE:</strong> Questa azione NON può essere annullata!<br>
+                            La comunicazione verrà eliminata permanentemente dal sistema.
+                        </p>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            Annulla
+                        </button>
+                        <button onclick="confirmDeleteCommunication('${id}')" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4 inline mr-2"></i>
+                            Ok
+                        </button>
+                    </div>
+                </div>
+            `;
             
-            if (confirm(confirmMessage)) {
-                try {
-                    await window.CommunicationsAPI.delete(id);
-                    await loadCommunications();
-                    await updateStats();
-                    showNotification('✅ Comunicazione eliminata definitivamente con successo!', 'success');
-                } catch (error) {
-                    console.error('Errore eliminazione comunicazione:', error);
-                    showNotification('❌ Errore durante l\'eliminazione della comunicazione', 'error');
-                }
+            document.body.appendChild(modal);
+            lucide.createIcons();
+        }
+
+        async function confirmDeleteCommunication(id) {
+            // Remove modal
+            const modal = document.querySelector('.fixed.inset-0');
+            if (modal) modal.remove();
+            
+            try {
+                await window.CommunicationsAPI.delete(id);
+                await loadCommunications();
+                await updateStats();
+                showNotification('✅ Comunicazione eliminata definitivamente con successo!', 'success');
+            } catch (error) {
+                console.error('Errore eliminazione comunicazione:', error);
+                showNotification('❌ Errore durante l\'eliminazione della comunicazione', 'error');
             }
         }
 
