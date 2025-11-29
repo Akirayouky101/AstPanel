@@ -1109,22 +1109,32 @@
                 
                 if (assignTeamRadio && assignSingleRadio) {
                     if (task.assigned_team_id) {
+                        // Task assigned to team
                         assignTeamRadio.checked = true;
                         if (taskTeamSelect) {
                             taskTeamSelect.value = task.assigned_team_id;
+                            console.log('✅ Team assignment set:', task.assigned_team_id);
                         }
-                        showTeamMembers();
-                    } else {
+                        // Call showTeamMembers after a brief delay to ensure DOM is ready
+                        setTimeout(() => showTeamMembers(), 100);
+                    } else if (task.assigned_user_id) {
+                        // Task assigned to single user
                         assignSingleRadio.checked = true;
                         if (taskAssigneeSelect) {
-                            taskAssigneeSelect.value = task.assigned_user_id || task.assegnatario || '';
+                            taskAssigneeSelect.value = task.assigned_user_id;
+                            console.log('✅ User assignment set:', task.assigned_user_id);
                         }
+                    } else {
+                        // No assignment - default to single
+                        assignSingleRadio.checked = true;
+                        console.log('⚠️ No assignment found, defaulting to single');
                     }
                     toggleAssignmentType();
                 } else {
                     // Fallback for old modal structure without assignment type radio
-                    if (taskAssigneeSelect) {
-                        taskAssigneeSelect.value = task.assigned_user_id || task.assegnatario || '';
+                    console.log('⚠️ Assignment type radio buttons not found, using fallback');
+                    if (taskAssigneeSelect && task.assigned_user_id) {
+                        taskAssigneeSelect.value = task.assigned_user_id;
                     }
                 }
                 
