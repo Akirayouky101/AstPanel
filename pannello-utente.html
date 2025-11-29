@@ -2502,6 +2502,7 @@
                 
                 components.forEach(component => {
                     const isAdded = taskComponents.some(tc => tc.id === component.id);
+                    const currentQty = isAdded ? taskComponents.find(tc => tc.id === component.id)?.quantita || 1 : 1;
                 
                 const card = document.createElement('div');
                 card.className = `bg-gray-50 rounded-lg p-4 border ${isAdded ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
@@ -2526,9 +2527,18 @@
                         </span>
                     </div>
                     ${isAdded ? `
-                        <div class="bg-blue-100 border border-blue-300 rounded p-2 text-sm text-blue-800">
-                            <i class="fas fa-check-circle mr-1"></i>
-                            Già presente nella lavorazione
+                        <div class="space-y-2">
+                            <div class="bg-blue-100 border border-blue-300 rounded p-2 text-sm text-blue-800 flex items-center justify-between">
+                                <span>
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Già presente: <strong>${currentQty} ${component.unita_misura || 'pz'}</strong>
+                                </span>
+                            </div>
+                            <button onclick="addUserComponent('${component.id}')" 
+                                    class="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                <i class="fas fa-edit mr-1"></i>
+                                Modifica Quantità
+                            </button>
                         </div>
                     ` : `
                         <button onclick="addUserComponent('${component.id}')" 
@@ -2567,14 +2577,19 @@
                 const component = allComponents.find(c => c.id === componentId);
                 if (!component) return;
                 
+                // Check if component is already in task
+                const existingComponent = currentTaskForComponents.componenti?.find(c => c.id === componentId);
+                const currentQty = existingComponent ? existingComponent.quantita : 1;
+                
                 // Store component info for modal
                 pendingComponentId = componentId;
                 pendingComponent = component;
                 
-                // Show quantity modal
+                // Show quantity modal with current quantity if editing
+                const action = existingComponent ? 'modificare' : 'aggiungere';
                 document.getElementById('quantityModalMessage').textContent = 
-                    `Quanti ${component.unita_misura || 'pz'} di "${component.nome}" vuoi aggiungere?`;
-                document.getElementById('componentQuantityInput').value = '1';
+                    `Quanti ${component.unita_misura || 'pz'} di "${component.nome}" vuoi ${action}?`;
+                document.getElementById('componentQuantityInput').value = currentQty;
                 document.getElementById('quantityModal').classList.remove('hidden');
                 
                 // Focus on input
