@@ -20,7 +20,7 @@ window.AuthHelper = {
     // Logout
     logout() {
         sessionStorage.removeItem(this.STORAGE_KEY);
-        window.location.href = 'index.html';
+        window.location.href = '/Admin/index.html';
     },
 
     // Get current user from session
