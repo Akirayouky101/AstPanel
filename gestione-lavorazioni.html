@@ -906,15 +906,20 @@
                 
                 select.innerHTML = '<option value="">Seleziona squadra</option>';
                 
-                teams.forEach(team => {
+                // Load team members for each team
+                for (const team of teams) {
+                    // Get team members
+                    const members = await window.TeamsAPI.getMembers(team.id);
+                    team.membri = members || [];
+                    
                     const option = document.createElement('option');
                     option.value = team.id;
-                    const memberCount = team.membri ? team.membri.length : 0;
+                    const memberCount = team.membri.length;
                     option.textContent = `${team.nome} (${memberCount} membri)`;
                     // Store team data in option for later use
                     option.dataset.teamData = JSON.stringify(team);
                     select.appendChild(option);
-                });
+                }
             } catch (error) {
                 console.error('Errore caricamento squadre:', error);
             }
@@ -944,8 +949,8 @@
                 // Load users to get names
                 const allUsers = await window.dataManager.getUtenti();
                 
-                membersList.innerHTML = team.membri.map(memberId => {
-                    const user = allUsers.find(u => u.id === memberId);
+                membersList.innerHTML = team.membri.map(member => {
+                    const user = allUsers.find(u => u.id === member.user_id);
                     if (!user) return '';
                     
                     return `
@@ -1248,14 +1253,14 @@
                 };
 
                 if (assignType === 'team') {
-                    // Team assignment - create task for each team member
+                    // Team assignment - create ONE task assigned to the team
                     const teamId = document.getElementById('taskTeam').value;
                     if (!teamId) {
                         showNotification('Seleziona una squadra', 'error');
                         return;
                     }
                     
-                    // Get team data
+                    // Get team data to verify it has members
                     const select = document.getElementById('taskTeam');
                     const selectedOption = select.options[select.selectedIndex];
                     const team = JSON.parse(selectedOption.dataset.teamData);
@@ -1266,21 +1271,23 @@
                     }
                     
                     taskData.assigned_team_id = teamId;
-                    taskData.assigned_user_id = null;
+                    taskData.assigned_user_id = null; // NULL means it's a team task
                     
-                    // Create a task for each team member
-                    const savePromises = team.membri.map(async (memberId) => {
-                        const memberTaskData = {
-                            ...taskData,
-                            assigned_user_id: memberId,
-                            assigned_team_id: teamId
-                        };
-                        return window.dataManager.saveLavorazione(memberTaskData);
-                    });
+                    if (currentEditingTask) {
+                        taskData.id = currentEditingTask.id;
+                        taskData.created_at = currentEditingTask.created_at;
+                        taskData.created_by = currentEditingTask.created_by;
+                        taskData.data_inizio = currentEditingTask.data_inizio;
+                        taskData.data_completamento = currentEditingTask.data_completamento;
+                    }
                     
-                    await Promise.all(savePromises);
+                    if (taskComponents.length > 0) {
+                        taskData.componenti = taskComponents;
+                    }
+
+                    await window.dataManager.saveLavorazione(taskData);
                     
-                    showNotification(`Lavorazione assegnata a ${team.membri.length} membri della squadra!`, 'success');
+                    showNotification(`Lavorazione assegnata alla squadra ${team.nome} (${team.membri.length} membri)!`, 'success');
                 } else {
                     // Single assignment
                     const assigneeId = document.getElementById('taskAssignee').value;

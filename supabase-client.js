@@ -292,6 +292,36 @@ window.TeamsAPI = {
         return await this.getById(id);
     },
 
+    // Get team members with user details
+    async getMembers(teamId) {
+        const { data, error } = await supabase
+            .from('team_members')
+            .select(`
+                user_id,
+                ruolo_squadra,
+                users (
+                    id,
+                    nome,
+                    cognome,
+                    email,
+                    ruolo
+                )
+            `)
+            .eq('team_id', teamId);
+        
+        if (error) throw error;
+        
+        // Flatten user data into member object
+        return data.map(member => ({
+            user_id: member.user_id,
+            ruolo_squadra: member.ruolo_squadra,
+            nome: member.users.nome,
+            cognome: member.users.cognome,
+            email: member.users.email,
+            ruolo: member.users.ruolo
+        }));
+    },
+
     // Delete team
     async delete(id) {
         const { error } = await supabase
