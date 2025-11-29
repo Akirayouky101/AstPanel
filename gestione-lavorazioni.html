@@ -456,17 +456,32 @@
                     </button>
                 </div>
                 
-                <!-- Filter by Category -->
-                <div class="p-4 border-b bg-gray-50">
-                    <label for="componentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
-                    <select id="componentCategoryFilter" onchange="filterComponentsByCategory()" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="">Tutte le categorie</option>
-                        <option value="Antifurto">Antifurto</option>
-                        <option value="Videosorveglianza">Videosorveglianza</option>
-                        <option value="Rete">Rete</option>
-                        <option value="Accessori">Accessori</option>
-                    </select>
+                <!-- Search and Filter -->
+                <div class="p-4 border-b bg-gray-50 space-y-3">
+                    <!-- Search Bar -->
+                    <div>
+                        <label for="componentSearch" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-search mr-1"></i>
+                            Cerca Componente
+                        </label>
+                        <input type="text" id="componentSearch" 
+                               oninput="filterComponents()"
+                               placeholder="Cerca per nome, codice o descrizione..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    <div>
+                        <label for="componentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
+                        <select id="componentCategoryFilter" onchange="filterComponents()" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tutte le categorie</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                            <option value="Rete">Rete</option>
+                            <option value="Accessori">Accessori</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="p-6">
@@ -1330,18 +1345,29 @@
             document.getElementById('componentModal').classList.add('hidden');
         }
 
-        async function loadComponents(category = '') {
+        async function loadComponents(category = '', searchTerm = '') {
             try {
                 const allComponents = await window.dataManager.getComponenti();
-                const components = category ? 
+                
+                // Filter by category
+                let components = category ? 
                     allComponents.filter(c => c.categoria === category) : 
                     allComponents;
+                
+                // Filter by search term
+                if (searchTerm) {
+                    components = components.filter(c => 
+                        c.nome.toLowerCase().includes(searchTerm) ||
+                        c.codice.toLowerCase().includes(searchTerm) ||
+                        (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm))
+                    );
+                }
                 
                 const container = document.getElementById('componentsList');
                 container.innerHTML = '';
                 
                 if (components.length === 0) {
-                    container.innerHTML = '<p class="text-gray-500 text-center py-4">Nessun componente trovato</p>';
+                    container.innerHTML = '<p class="col-span-2 text-center text-gray-500 py-8">Nessun componente trovato</p>';
                     return;
                 }
                 
@@ -1396,9 +1422,14 @@
             }
         }
 
-        async function filterComponentsByCategory() {
+        function filterComponents() {
             const category = document.getElementById('componentCategoryFilter').value;
-            await loadComponents(category);
+            const searchTerm = document.getElementById('componentSearch').value.toLowerCase();
+            loadComponents(category, searchTerm);
+        }
+
+        async function filterComponentsByCategory() {
+            filterComponents();
         }
 
         async function addComponentToTask(componentId) {
@@ -1409,7 +1440,7 @@
                 
                 taskComponents.push({ id: componentId, quantita: 1 });
                 await updateTaskComponentsList();
-                await loadComponents(document.getElementById('componentCategoryFilter').value);
+                filterComponents();
             } catch (error) {
                 console.error('Errore aggiunta componente:', error);
             }
@@ -1420,7 +1451,7 @@
             if (index !== -1) {
                 taskComponents.splice(index, 1);
                 await updateTaskComponentsList();
-                await loadComponents(document.getElementById('componentCategoryFilter').value);
+                filterComponents();
             }
         }
 
