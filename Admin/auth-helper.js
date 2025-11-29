@@ -19,8 +19,11 @@ window.AuthHelper = {
 
     // Logout
     logout() {
+        // Just clear session data - let the calling page handle UI and redirect
         sessionStorage.removeItem(this.STORAGE_KEY);
-        window.location.href = '/Admin/index.html';
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('ast_current_user');
+        sessionStorage.clear();
     },
 
     // Get current user from session
