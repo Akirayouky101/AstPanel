@@ -1101,16 +1101,32 @@
                 document.getElementById('taskClient').value = task.client_id || task.clienteId || '';
                 document.getElementById('taskDescription').value = task.description || task.descrizione || '';
                 
-                // Set assignment type based on task data
-                if (task.assigned_team_id) {
-                    document.getElementById('assignTeam').checked = true;
-                    document.getElementById('taskTeam').value = task.assigned_team_id;
-                    showTeamMembers();
+                // Set assignment type based on task data (only if elements exist)
+                const assignTeamRadio = document.getElementById('assignTeam');
+                const assignSingleRadio = document.getElementById('assignSingle');
+                const taskTeamSelect = document.getElementById('taskTeam');
+                const taskAssigneeSelect = document.getElementById('taskAssignee');
+                
+                if (assignTeamRadio && assignSingleRadio) {
+                    if (task.assigned_team_id) {
+                        assignTeamRadio.checked = true;
+                        if (taskTeamSelect) {
+                            taskTeamSelect.value = task.assigned_team_id;
+                        }
+                        showTeamMembers();
+                    } else {
+                        assignSingleRadio.checked = true;
+                        if (taskAssigneeSelect) {
+                            taskAssigneeSelect.value = task.assigned_user_id || task.assegnatario || '';
+                        }
+                    }
+                    toggleAssignmentType();
                 } else {
-                    document.getElementById('assignSingle').checked = true;
-                    document.getElementById('taskAssignee').value = task.assigned_user_id || task.assegnatario || '';
+                    // Fallback for old modal structure without assignment type radio
+                    if (taskAssigneeSelect) {
+                        taskAssigneeSelect.value = task.assigned_user_id || task.assegnatario || '';
+                    }
                 }
-                toggleAssignmentType();
                 
                 // Lock all fields by default
                 lockAllFields(true);
