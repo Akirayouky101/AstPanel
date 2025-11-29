@@ -275,32 +275,32 @@ window.ClientModal = {
             tasksList.innerHTML = tasks.map(task => `
                 <div class="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
                     <div class="flex items-start justify-between mb-2">
-                        <h4 class="font-medium text-gray-900 text-sm flex-1">${task.title || 'Senza titolo'}</h4>
-                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full ${this.getStatusBadgeClass(task.status)}">
-                            ${this.getStatusLabel(task.status)}
+                        <h4 class="font-medium text-gray-900 text-sm flex-1">${task.title || task.titolo || 'Senza titolo'}</h4>
+                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full ${this.getStatusBadgeClass(task.status || task.stato)}">
+                            ${this.getStatusLabel(task.status || task.stato)}
                         </span>
                     </div>
                     
-                    ${task.description ? `
-                        <p class="text-xs text-gray-600 mb-2 line-clamp-2">${task.description}</p>
+                    ${task.description || task.descrizione ? `
+                        <p class="text-xs text-gray-600 mb-2 line-clamp-2">${task.description || task.descrizione}</p>
                     ` : ''}
                     
                     <div class="flex flex-wrap gap-2 text-xs text-gray-500">
-                        ${task.priority ? `
-                            <span class="inline-flex items-center px-2 py-0.5 rounded ${this.getPriorityBadgeClass(task.priority)}">
+                        ${task.priority || task.priorita ? `
+                            <span class="inline-flex items-center px-2 py-0.5 rounded ${this.getPriorityBadgeClass(task.priority || task.priorita)}">
                                 <i class="fas fa-flag mr-1"></i>
-                                ${this.getPriorityLabel(task.priority)}
+                                ${this.getPriorityLabel(task.priority || task.priorita)}
                             </span>
                         ` : ''}
                         
-                        ${task.due_date ? `
+                        ${task.due_date || task.scadenza || task.deadline ? `
                             <span class="inline-flex items-center">
                                 <i class="fas fa-calendar mr-1"></i>
-                                ${new Date(task.due_date).toLocaleDateString('it-IT')}
+                                ${new Date(task.due_date || task.scadenza || task.deadline).toLocaleDateString('it-IT')}
                             </span>
                         ` : ''}
                         
-                        ${task.assigned_user_id ? `
+                        ${task.assigned_user_id || task.assegnatario ? `
                             <span class="inline-flex items-center">
                                 <i class="fas fa-user mr-1"></i>
                                 Assegnato
