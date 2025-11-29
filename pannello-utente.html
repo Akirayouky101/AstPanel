@@ -627,17 +627,32 @@
                     </button>
                 </div>
                 
-                <!-- Filter by Category -->
-                <div class="p-4 border-b bg-gray-50">
-                    <label for="userComponentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
-                    <select id="userComponentCategoryFilter" onchange="filterUserComponentsByCategory()" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="">Tutte le categorie</option>
-                        <option value="Antifurto">Antifurto</option>
-                        <option value="Videosorveglianza">Videosorveglianza</option>
-                        <option value="Rete">Rete</option>
-                        <option value="Accessori">Accessori</option>
-                    </select>
+                <!-- Search and Filter -->
+                <div class="p-4 border-b bg-gray-50 space-y-3">
+                    <!-- Search Bar -->
+                    <div>
+                        <label for="userComponentSearch" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-search mr-1"></i>
+                            Cerca Componente
+                        </label>
+                        <input type="text" id="userComponentSearch" 
+                               oninput="filterUserComponents()"
+                               placeholder="Cerca per nome, codice o descrizione..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    <div>
+                        <label for="userComponentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
+                        <select id="userComponentCategoryFilter" onchange="filterUserComponents()" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Tutte le categorie</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                            <option value="Rete">Rete</option>
+                            <option value="Accessori">Accessori</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="p-6">
@@ -650,6 +665,36 @@
                     <button type="button" onclick="closeUserComponentModal()" 
                             class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                         Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quantity Input Modal -->
+    <div id="quantityModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[60]">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                <div class="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4">
+                    <i data-lucide="package" class="w-8 h-8 text-blue-600"></i>
+                </div>
+                
+                <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Quantità Componente</h3>
+                <p class="text-gray-600 text-center mb-6" id="quantityModalMessage">Quanti pz vuoi aggiungere?</p>
+                
+                <div class="mb-6">
+                    <label for="componentQuantityInput" class="block text-sm font-medium text-gray-700 mb-2">Quantità</label>
+                    <input type="number" id="componentQuantityInput" value="1" min="1"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-center text-2xl font-bold"
+                           onkeypress="if(event.key === 'Enter') confirmQuantity()">
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button onclick="cancelQuantity()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                        Annulla
+                    </button>
+                    <button onclick="confirmQuantity()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Ok
                     </button>
                 </div>
             </div>
@@ -2426,14 +2471,31 @@
             document.getElementById('userComponentModal').classList.add('hidden');
         }
 
-        async function loadUserComponents(category = '') {
+        async function loadUserComponents(category = '', searchTerm = '') {
             try {
                 const allComponents = await window.dataManager.getComponenti();
-                const components = category ? 
+                
+                // Filter by category
+                let components = category ? 
                     allComponents.filter(c => c.categoria === category) : 
                     allComponents;
                 
+                // Filter by search term
+                if (searchTerm) {
+                    components = components.filter(c => 
+                        c.nome.toLowerCase().includes(searchTerm) ||
+                        c.codice.toLowerCase().includes(searchTerm) ||
+                        (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm))
+                    );
+                }
+                
                 const container = document.getElementById('userComponentsList');
+                
+                if (components.length === 0) {
+                    container.innerHTML = '<p class="col-span-2 text-center text-gray-500 py-8">Nessun componente trovato</p>';
+                    return;
+                }
+                
                 container.innerHTML = '';
                 
                 const taskComponents = currentTaskForComponents.componenti || [];
@@ -2485,9 +2547,17 @@
         }
 
         function filterUserComponentsByCategory() {
-            const category = document.getElementById('userComponentCategoryFilter').value;
-            loadUserComponents(category);
+            filterUserComponents();
         }
+
+        function filterUserComponents() {
+            const category = document.getElementById('userComponentCategoryFilter').value;
+            const searchTerm = document.getElementById('userComponentSearch').value.toLowerCase();
+            loadUserComponents(category, searchTerm);
+        }
+
+        let pendingComponentId = null;
+        let pendingComponent = null;
 
         async function addUserComponent(componentId) {
             if (!currentTaskForComponents) return;
@@ -2497,32 +2567,99 @@
                 const component = allComponents.find(c => c.id === componentId);
                 if (!component) return;
                 
-                // Ask for quantity
-                const quantita = prompt(`Quanti ${component.unita_misura || 'pz'} di "${component.nome}" vuoi aggiungere?`, '1');
-                if (!quantita || isNaN(quantita) || parseInt(quantita) <= 0) {
-                    showNotification('Quantità non valida', 'error');
+                // Store component info for modal
+                pendingComponentId = componentId;
+                pendingComponent = component;
+                
+                // Show quantity modal
+                document.getElementById('quantityModalMessage').textContent = 
+                    `Quanti ${component.unita_misura || 'pz'} di "${component.nome}" vuoi aggiungere?`;
+                document.getElementById('componentQuantityInput').value = '1';
+                document.getElementById('quantityModal').classList.remove('hidden');
+                
+                // Focus on input
+                setTimeout(() => {
+                    document.getElementById('componentQuantityInput').focus();
+                    document.getElementById('componentQuantityInput').select();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Errore aggiunta componente:', error);
+                showNotification('Errore durante l\'aggiunta del componente', 'error');
+            }
+        }
+
+        function cancelQuantity() {
+            document.getElementById('quantityModal').classList.add('hidden');
+            pendingComponentId = null;
+            pendingComponent = null;
+        }
+
+        async function confirmQuantity() {
+            if (!currentTaskForComponents || !pendingComponentId || !pendingComponent) return;
+            
+            const quantita = document.getElementById('componentQuantityInput').value;
+            
+            if (!quantita || isNaN(quantita) || parseInt(quantita) <= 0) {
+                showNotification('Quantità non valida', 'error');
+                return;
+            }
+            
+            const qty = parseInt(quantita);
+            
+            // Close quantity modal
+            document.getElementById('quantityModal').classList.add('hidden');
+            
+            try {
+                // Check availability
+                if (qty > (pendingComponent.quantita_disponibile || 0)) {
+                    // Create confirmation modal for low stock
+                    const confirmModal = document.createElement('div');
+                    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]';
+                    confirmModal.innerHTML = `
+                        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                            <div class="flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mx-auto mb-4">
+                                <i data-lucide="alert-triangle" class="w-8 h-8 text-orange-600"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Attenzione Stock</h3>
+                            <p class="text-gray-700 text-center mb-6">
+                                Stai richiedendo <strong>${qty} ${pendingComponent.unita_misura || 'pz'}</strong> ma in magazzino ce ne sono solo <strong>${pendingComponent.quantita_disponibile || 0}</strong>.<br><br>
+                                Vuoi procedere comunque?
+                            </p>
+                            <div class="flex space-x-3">
+                                <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                    Annulla
+                                </button>
+                                <button onclick="proceedWithQuantity(${qty}); this.closest('.fixed').remove();" class="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                                    Procedi
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(confirmModal);
+                    lucide.createIcons();
                     return;
                 }
                 
-                const qty = parseInt(quantita);
-                
-                // Check availability
-                if (qty > (component.quantita_disponibile || 0)) {
-                    if (!confirm(`Attenzione: stai richiedendo ${qty} ${component.unita_misura || 'pz'} ma in magazzino ce ne sono solo ${component.quantita_disponibile || 0}.\n\nVuoi procedere comunque?`)) {
-                        return;
-                    }
-                }
-                
+                await proceedWithQuantity(qty);
+            } catch (error) {
+                console.error('Errore aggiunta componente:', error);
+                showNotification('Errore durante l\'aggiunta del componente', 'error');
+            }
+        }
+
+        async function proceedWithQuantity(qty) {
+            try {
                 // Add to task components
                 if (!currentTaskForComponents.componenti) {
                     currentTaskForComponents.componenti = [];
                 }
                 
-                const existingIndex = currentTaskForComponents.componenti.findIndex(c => c.id === componentId);
+                const existingIndex = currentTaskForComponents.componenti.findIndex(c => c.id === pendingComponentId);
                 if (existingIndex >= 0) {
                     currentTaskForComponents.componenti[existingIndex].quantita = qty;
                 } else {
-                    currentTaskForComponents.componenti.push({ id: componentId, quantita: qty });
+                    currentTaskForComponents.componenti.push({ id: pendingComponentId, quantita: qty });
                 }
                 
                 // Update task in database
@@ -2530,12 +2667,16 @@
                 
                 showNotification('Componente aggiunto con successo!', 'success');
                 
+                // Reset pending
+                pendingComponentId = null;
+                pendingComponent = null;
+                
                 // Reload both modals
                 openTaskDetails(currentTaskForComponents.id);
                 closeUserComponentModal();
             } catch (error) {
-                console.error('Errore aggiunta componente:', error);
-                showNotification('Errore durante l\'aggiunta del componente', 'error');
+                console.error('Errore salvataggio componente:', error);
+                showNotification('Errore durante il salvataggio', 'error');
             }
         }
 
