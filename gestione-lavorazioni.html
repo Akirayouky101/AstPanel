@@ -849,6 +849,7 @@
 
         function openTaskModal() {
             currentEditingTask = null;
+            previousAssignmentType = null; // Reset for new task
             document.getElementById('taskModalTitle').textContent = 'Nuova Lavorazione';
             document.getElementById('taskForm').reset();
             
@@ -868,6 +869,7 @@
             const assignSingleRadio = document.getElementById('assignSingle');
             if (assignSingleRadio) {
                 assignSingleRadio.checked = true;
+                previousAssignmentType = 'single';
                 toggleAssignmentType();
             }
             
@@ -1000,10 +1002,33 @@
             }
         }
 
-        function toggleAssignmentType() {
+        let previousAssignmentType = null;
+
+        async function toggleAssignmentType() {
             const assignType = document.querySelector('input[name="assignType"]:checked').value;
             const singleAssignment = document.getElementById('singleAssignment');
             const teamAssignment = document.getElementById('teamAssignment');
+            
+            // If editing an existing task and fields are unlocked, ask for confirmation
+            if (currentEditingTask && !fieldsLocked && previousAssignmentType && previousAssignmentType !== assignType) {
+                const confirmed = await showConfirm(
+                    'Conferma Cambio Assegnazione',
+                    `Sei sicuro di voler cambiare l'assegnazione da "${previousAssignmentType === 'single' ? 'Singolo Dipendente' : 'Squadra'}" a "${assignType === 'single' ? 'Singolo Dipendente' : 'Squadra'}"?`
+                );
+                
+                if (!confirmed) {
+                    // Revert to previous selection
+                    if (previousAssignmentType === 'single') {
+                        document.getElementById('assignSingle').checked = true;
+                    } else {
+                        document.getElementById('assignTeam').checked = true;
+                    }
+                    return;
+                }
+            }
+            
+            // Update previous assignment type
+            previousAssignmentType = assignType;
             
             if (assignType === 'single') {
                 singleAssignment.classList.remove('hidden');
@@ -1114,6 +1139,7 @@
                     if (task.assigned_team_id) {
                         // Task assigned to team
                         assignTeamRadio.checked = true;
+                        previousAssignmentType = 'team';
                         if (taskTeamSelect) {
                             taskTeamSelect.value = task.assigned_team_id;
                             console.log('✅ Team assignment set:', task.assigned_team_id);
@@ -1123,6 +1149,7 @@
                     } else if (task.assigned_user_id) {
                         // Task assigned to single user
                         assignSingleRadio.checked = true;
+                        previousAssignmentType = 'single';
                         if (taskAssigneeSelect) {
                             taskAssigneeSelect.value = task.assigned_user_id;
                             console.log('✅ User assignment set:', task.assigned_user_id);
@@ -1130,6 +1157,7 @@
                     } else {
                         // No assignment - default to single
                         assignSingleRadio.checked = true;
+                        previousAssignmentType = 'single';
                         console.log('⚠️ No assignment found, defaulting to single');
                     }
                     toggleAssignmentType();
@@ -1185,12 +1213,14 @@
             const fields = [
                 'taskTitle',
                 'taskAssignee',
+                'taskTeam',
                 'taskPriority',
                 'taskDeadline',
                 'taskClient',
                 'taskDescription'
             ];
             
+            // Lock/unlock text inputs and selects
             fields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
@@ -1205,6 +1235,24 @@
                     }
                 }
             });
+            
+            // Lock/unlock assignment type radio buttons
+            const assignSingleRadio = document.getElementById('assignSingle');
+            const assignTeamRadio = document.getElementById('assignTeam');
+            
+            if (assignSingleRadio && assignTeamRadio) {
+                if (lock) {
+                    assignSingleRadio.setAttribute('disabled', 'disabled');
+                    assignTeamRadio.setAttribute('disabled', 'disabled');
+                    assignSingleRadio.classList.add('cursor-not-allowed');
+                    assignTeamRadio.classList.add('cursor-not-allowed');
+                } else {
+                    assignSingleRadio.removeAttribute('disabled');
+                    assignTeamRadio.removeAttribute('disabled');
+                    assignSingleRadio.classList.remove('cursor-not-allowed');
+                    assignTeamRadio.classList.remove('cursor-not-allowed');
+                }
+            }
         }
 
 
