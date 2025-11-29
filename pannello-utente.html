@@ -2431,25 +2431,30 @@
 
         async function loadTeamMembers(teamId, taskId) {
             try {
-                // Get all users and filter by team
-                const allUsers = await window.UsersAPI.getAll();
-                const teamMembers = allUsers.filter(user => user.team_id === teamId);
+                // Get team members using TeamsAPI
+                const teamMembers = await window.TeamsAPI.getMembers(teamId);
                 
                 const container = document.getElementById(`team-members-${taskId}`);
                 if (!container) return;
                 
                 if (teamMembers && teamMembers.length > 0) {
                     container.innerHTML = teamMembers.map(member => `
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-800 rounded-lg text-sm">
-                            <i class="fas fa-user-circle"></i>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-800 rounded-lg text-sm font-medium">
+                            <i data-lucide="user" class="w-4 h-4"></i>
                             ${member.nome} ${member.cognome}
                         </span>
                     `).join('');
+                    // Reinitialize icons
+                    if (window.lucide) lucide.createIcons();
                 } else {
                     container.innerHTML = '<span class="text-gray-500 text-sm">Nessun membro trovato</span>';
                 }
             } catch (error) {
                 console.error('Error loading team members:', error);
+                const container = document.getElementById(`team-members-${taskId}`);
+                if (container) {
+                    container.innerHTML = '<span class="text-red-500 text-sm">Errore caricamento membri</span>';
+                }
             }
         }
 
