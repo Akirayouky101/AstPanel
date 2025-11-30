@@ -566,12 +566,34 @@
     // ============================================
     
     function createMobileTaskModal(taskData) {
+        console.log('🎨 createMobileTaskModal chiamata con:', taskData);
+        
         // Remove existing mobile modal if present
         const existing = document.querySelector('.mobile-task-modal');
-        if (existing) existing.remove();
+        if (existing) {
+            console.log('🗑️ Rimuovo modal esistente');
+            existing.remove();
+        }
         
         const modal = document.createElement('div');
         modal.className = 'mobile-task-modal';
+        
+        // Add inline styles to ensure visibility
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        `;
+        
+        console.log('✅ Modal element created');
         
         const priorityEmoji = {
             'alta': '🔴',
@@ -587,80 +609,95 @@
             'completato': 'Completato'
         };
         
-        modal.innerHTML = `
-            <div class="mobile-task-modal-header">
-                <h2>${taskData.title}</h2>
-                <button class="mobile-task-modal-close" onclick="closeMobileTaskModal()">✕</button>
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        `;
+        
+        modalContent.innerHTML = `
+            <div class="mobile-task-modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white; border-radius: 16px 16px 0 0; position: relative;">
+                <h2 style="margin: 0; font-size: 20px; font-weight: bold;">${taskData.title}</h2>
+                <button class="mobile-task-modal-close" onclick="closeMobileTaskModal()" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 35px; height: 35px; border-radius: 50%; cursor: pointer;">✕</button>
             </div>
             
-            <div class="mobile-task-modal-content">
+            <div class="mobile-task-modal-content" style="padding: 20px;">
                 <!-- Cliente -->
-                <div class="mobile-task-info-card client">
-                    <div class="mobile-task-info-icon client">🏢</div>
+                <div class="mobile-task-info-card client" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
+                    <div class="mobile-task-info-icon client" style="font-size: 24px;">🏢</div>
                     <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label">Cliente</div>
-                        <div class="mobile-task-info-value">${taskData.client || 'Nessun cliente'}</div>
+                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Cliente</div>
+                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${taskData.client || 'Nessun cliente'}</div>
                     </div>
                 </div>
                 
                 <!-- Scadenza -->
-                <div class="mobile-task-info-card deadline">
-                    <div class="mobile-task-info-icon deadline">📅</div>
+                <div class="mobile-task-info-card deadline" style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
+                    <div class="mobile-task-info-icon deadline" style="font-size: 24px;">📅</div>
                     <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label">Scadenza</div>
-                        <div class="mobile-task-info-value">${taskData.deadline}</div>
+                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Scadenza</div>
+                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${taskData.deadline}</div>
                     </div>
                 </div>
                 
                 <!-- Priorità -->
-                <div class="mobile-task-info-card priority">
-                    <div class="mobile-task-info-icon priority">⚠️</div>
+                <div class="mobile-task-info-card priority" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
+                    <div class="mobile-task-info-icon priority" style="font-size: 24px;">⚠️</div>
                     <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label">Priorità</div>
-                        <div class="mobile-task-info-value">${priorityEmoji[taskData.priority] || '🔵'} ${taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1)}</div>
+                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Priorità</div>
+                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${priorityEmoji[taskData.priority] || '🔵'} ${taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1)}</div>
                     </div>
                 </div>
                 
                 <!-- Stato -->
-                <div class="mobile-task-info-card status">
-                    <div class="mobile-task-info-icon status">📊</div>
+                <div class="mobile-task-info-card status" style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
+                    <div class="mobile-task-info-icon status" style="font-size: 24px;">📊</div>
                     <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label">Stato</div>
-                        <div class="mobile-task-info-value">${statusText[taskData.status] || 'Da Fare'}</div>
+                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Stato</div>
+                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${statusText[taskData.status] || 'Da Fare'}</div>
                     </div>
                 </div>
                 
-                ${taskData.progress !== undefined ? `
+                ${taskData.progress !== undefined && taskData.progress > 0 ? `
                 <!-- Progress -->
-                <div class="mobile-task-progress">
-                    <div class="mobile-task-progress-header">
-                        <div class="mobile-task-progress-label">
+                <div class="mobile-task-progress" style="background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 12px; padding: 15px; margin-bottom: 12px;">
+                    <div class="mobile-task-progress-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="mobile-task-progress-label" style="font-size: 12px; color: #6b7280;">
                             <span>📈</span> Progresso
                         </div>
-                        <div class="mobile-task-progress-value">${taskData.progress}%</div>
+                        <div class="mobile-task-progress-value" style="font-size: 16px; font-weight: bold; color: #0891b2;">${taskData.progress}%</div>
                     </div>
-                    <div class="mobile-task-progress-bar-bg">
-                        <div class="mobile-task-progress-bar-fill" style="width: ${taskData.progress}%"></div>
+                    <div class="mobile-task-progress-bar-bg" style="background: #e5e7eb; border-radius: 999px; height: 8px; overflow: hidden;">
+                        <div class="mobile-task-progress-bar-fill" style="width: ${taskData.progress}%; background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 100%); height: 100%; border-radius: 999px; transition: width 0.3s;"></div>
                     </div>
                 </div>
                 ` : ''}
                 
                 <!-- Descrizione -->
-                <div class="mobile-task-description">
-                    <div class="mobile-task-description-header">
-                        <div class="mobile-task-description-icon">📝</div>
-                        <div class="mobile-task-description-label">Descrizione</div>
+                <div class="mobile-task-description" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 15px;">
+                    <div class="mobile-task-description-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <div class="mobile-task-description-icon" style="font-size: 20px;">📝</div>
+                        <div class="mobile-task-description-label" style="font-size: 12px; color: #6b7280; font-weight: 600;">Descrizione</div>
                     </div>
-                    <div class="mobile-task-description-text">${taskData.description || 'Nessuna descrizione'}</div>
+                    <div class="mobile-task-description-text" style="font-size: 14px; color: #374151; line-height: 1.6;">${taskData.description || 'Nessuna descrizione'}</div>
                 </div>
             </div>
             
-            <div class="mobile-task-modal-footer">
-                <button onclick="closeMobileTaskModal()">Chiudi</button>
+            <div class="mobile-task-modal-footer" style="padding: 15px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb; border-radius: 0 0 16px 16px;">
+                <button onclick="closeMobileTaskModal()" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">Chiudi</button>
             </div>
         `;
         
+        modal.appendChild(modalContent);
         document.body.appendChild(modal);
+        
+        console.log('✅ Modal appended to body');
+        console.log('📍 Modal in DOM:', document.querySelector('.mobile-task-modal'));
         
         // Prevent body scroll
         document.body.style.overflow = 'hidden';
