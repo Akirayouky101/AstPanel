@@ -566,12 +566,9 @@
     // ============================================
     
     function createMobileTaskModal(taskData) {
-        console.log('🎨 createMobileTaskModal chiamata con:', taskData);
-        
         // Remove existing mobile modal if present
         const existing = document.querySelector('.mobile-task-modal');
         if (existing) {
-            console.log('🗑️ Rimuovo modal esistente');
             existing.remove();
         }
         
@@ -592,8 +589,6 @@
             justify-content: center;
             padding: 20px;
         `;
-        
-        console.log('✅ Modal element created');
         
         const priorityEmoji = {
             'alta': '🔴',
@@ -627,39 +622,34 @@
             </div>
             
             <div class="mobile-task-modal-content" style="padding: 20px;">
-                <!-- Cliente -->
-                <div class="mobile-task-info-card client" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <div class="mobile-task-info-icon client" style="font-size: 24px;">🏢</div>
-                    <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Cliente</div>
-                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${taskData.client || 'Nessun cliente'}</div>
+                <!-- Griglia 2 colonne -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <!-- Cliente -->
+                    <div class="mobile-task-info-card client" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px;">
+                        <div style="font-size: 20px; margin-bottom: 8px;">🏢</div>
+                        <div class="mobile-task-info-label" style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Cliente</div>
+                        <div class="mobile-task-info-value" style="font-size: 13px; font-weight: 600; color: #111827; line-height: 1.3;">${taskData.client || 'Nessun cliente'}</div>
                     </div>
-                </div>
-                
-                <!-- Scadenza -->
-                <div class="mobile-task-info-card deadline" style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <div class="mobile-task-info-icon deadline" style="font-size: 24px;">📅</div>
-                    <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Scadenza</div>
-                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${taskData.deadline}</div>
+                    
+                    <!-- Scadenza -->
+                    <div class="mobile-task-info-card deadline" style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px;">
+                        <div style="font-size: 20px; margin-bottom: 8px;">📅</div>
+                        <div class="mobile-task-info-label" style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Scadenza</div>
+                        <div class="mobile-task-info-value" style="font-size: 13px; font-weight: 600; color: #111827;">${taskData.deadline}</div>
                     </div>
-                </div>
-                
-                <!-- Priorità -->
-                <div class="mobile-task-info-card priority" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <div class="mobile-task-info-icon priority" style="font-size: 24px;">⚠️</div>
-                    <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Priorità</div>
-                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${priorityEmoji[taskData.priority] || '🔵'} ${taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1)}</div>
+                    
+                    <!-- Priorità -->
+                    <div class="mobile-task-info-card priority" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px;">
+                        <div style="font-size: 20px; margin-bottom: 8px;">⚠️</div>
+                        <div class="mobile-task-info-label" style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Priorità</div>
+                        <div class="mobile-task-info-value" style="font-size: 13px; font-weight: 600; color: #111827;">${priorityEmoji[taskData.priority] || '🔵'} ${taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1)}</div>
                     </div>
-                </div>
-                
-                <!-- Stato -->
-                <div class="mobile-task-info-card status" style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <div class="mobile-task-info-icon status" style="font-size: 24px;">📊</div>
-                    <div class="mobile-task-info-text">
-                        <div class="mobile-task-info-label" style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Stato</div>
-                        <div class="mobile-task-info-value" style="font-size: 14px; font-weight: 600; color: #111827;">${statusText[taskData.status] || 'Da Fare'}</div>
+                    
+                    <!-- Stato -->
+                    <div class="mobile-task-info-card status" style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 12px;">
+                        <div style="font-size: 20px; margin-bottom: 8px;">📊</div>
+                        <div class="mobile-task-info-label" style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Stato</div>
+                        <div class="mobile-task-info-value" style="font-size: 13px; font-weight: 600; color: #111827;">${statusText[taskData.status] || 'Da Fare'}</div>
                     </div>
                 </div>
                 
@@ -695,9 +685,6 @@
         
         modal.appendChild(modalContent);
         document.body.appendChild(modal);
-        
-        console.log('✅ Modal appended to body');
-        console.log('📍 Modal in DOM:', document.querySelector('.mobile-task-modal'));
         
         // Prevent body scroll
         document.body.style.overflow = 'hidden';
