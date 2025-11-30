@@ -446,12 +446,19 @@
         }
 
         async function showEventDetails(event) {
+            console.log('🔍 showEventDetails chiamata', event);
             const taskId = event.extendedProps.taskId;
             currentTaskId = taskId;
+            
+            console.log('📌 taskId:', taskId);
+            console.log('📱 window.innerWidth:', window.innerWidth);
+            console.log('🔧 window.createMobileTaskModal exists:', !!window.createMobileTaskModal);
             
             try {
                 const allTasks = await window.dataManager.getLavorazioni();
                 const task = allTasks.find(t => t.id === taskId);
+                
+                console.log('📋 Task trovato:', task);
                 
                 if (!task) {
                     alert('Task non trovato');
@@ -461,7 +468,10 @@
                 // Check if mobile
                 const isMobile = window.innerWidth <= 768;
                 
+                console.log('📱 isMobile:', isMobile);
+                
                 if (isMobile && window.createMobileTaskModal) {
+                    console.log('✅ Usando mobile modal');
                     // Use custom mobile modal
                     const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                     const taskData = {
@@ -473,8 +483,10 @@
                         progress: task.progress || task.progresso,
                         description: task.description || task.descrizione || 'Nessuna descrizione'
                     };
+                    console.log('📦 taskData:', taskData);
                     window.createMobileTaskModal(taskData);
                 } else {
+                    console.log('🖥️ Usando desktop modal');
                     // Use desktop modal
                     const statusText = {
                         'da_fare': 'Da Fare',
@@ -515,7 +527,7 @@
                     lucide.createIcons();
                 }
             } catch (error) {
-                console.error('Errore caricamento task:', error);
+                console.error('❌ Errore caricamento task:', error);
                 alert('Errore nel caricamento dei dettagli del task');
             }
         }
