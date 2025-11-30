@@ -368,9 +368,7 @@
                     },
                     events: allEvents,
                     eventClick: function(info) {
-                        console.log('🔵 ADMIN: Click evento calendario', info);
                         info.jsEvent.preventDefault();
-                        console.log('🔵 ADMIN: Chiamando showEventDetails...');
                         showEventDetails(info.event);
                     },
                     eventDidMount: function(info) {
@@ -428,23 +426,15 @@
         }
 
         async function showEventDetails(event) {
-            console.log('🟢 ADMIN showEventDetails: START', event);
             const taskId = event.extendedProps.taskId;
             currentTaskId = taskId;
             
-            console.log('🟢 ADMIN taskId:', taskId);
-            
             try {
                 // Fetch task from database
-                console.log('🟢 ADMIN: Fetching tasks...');
                 const tasks = await window.dataManager.getLavorazioni();
-                console.log('🟢 ADMIN: Tasks loaded:', tasks.length);
                 const task = tasks.find(t => t.id === taskId);
                 
-                console.log('🟢 ADMIN: Task trovato:', task);
-                
                 if (!task) {
-                    console.error('❌ ADMIN: Task non trovato con ID:', taskId);
                     alert('Task non trovato');
                     return;
                 }
@@ -466,16 +456,14 @@
                 const assigneeName = task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : 'Non assegnato';
                 const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                 
-                console.log('🟢 ADMIN: Populating modal...');
-                
                 // Populate modal
-                document.getElementById('modalTitle').textContent = task.title || task.titolo;
-                document.getElementById('modalAssignee').textContent = `Assegnato a: ${assigneeName}`;
-                document.getElementById('modalClient').textContent = `Cliente: ${clientName}`;
-                document.getElementById('modalDeadline').textContent = `Scadenza: ${new Date(task.deadline || task.scadenza).toLocaleDateString('it-IT')}`;
-                document.getElementById('modalPriority').textContent = `Priorità: ${priorityText[task.priority || task.priorita || 'normale']}`;
-                document.getElementById('modalStatus').textContent = `Stato: ${statusText[task.status || task.stato] || 'Da Fare'}`;
-                document.getElementById('modalDescription').textContent = task.description || task.descrizione || 'Nessuna descrizione';
+                document.getElementById('modalTitle').textContent = task.titolo || task.title;
+                document.getElementById('modalAssignee').textContent = assigneeName;
+                document.getElementById('modalClient').textContent = clientName;
+                document.getElementById('modalDeadline').textContent = new Date(task.scadenza || task.deadline).toLocaleDateString('it-IT');
+                document.getElementById('modalPriority').textContent = priorityText[task.priorita || task.priority || 'normale'];
+                document.getElementById('modalStatus').textContent = statusText[task.stato || task.status] || 'Da Fare';
+                document.getElementById('modalDescription').textContent = task.descrizione || task.description || 'Nessuna descrizione';
                 
                 // Progress bar
                 const progress = task.progress || task.progresso;
@@ -487,13 +475,11 @@
                     document.getElementById('modalProgressContainer').classList.add('hidden');
                 }
                 
-                console.log('🟢 ADMIN: Showing modal...');
                 // Show modal
                 document.getElementById('taskDetailsModal').classList.remove('hidden');
                 lucide.createIcons();
-                console.log('✅ ADMIN: Modal aperto!');
             } catch (error) {
-                console.error('❌ ADMIN Errore caricamento task:', error);
+                console.error('❌ Errore caricamento task:', error);
                 alert('Errore nel caricamento dei dettagli del task');
             }
         }
