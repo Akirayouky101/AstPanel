@@ -15,9 +15,15 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <!-- MOBILE OPTIMIZATIONS - Si attiva solo su mobile, non tocca il desktop -->
+    <link rel="stylesheet" href="mobile-optimizations.css">
+    
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(50px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -41,6 +47,38 @@
         .comm-filter-tab:hover {
             background-color: #f3f4f6;
         }
+        
+        /* Team Members Collapsible */
+        .team-members-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .team-members-container.expanded {
+            max-height: 500px;
+        }
+        
+        .team-toggle-btn {
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .team-toggle-btn:hover {
+            opacity: 0.8;
+        }
+        
+        .team-toggle-btn .arrow {
+            transition: transform 0.3s;
+            font-size: 14px;
+        }
+        
+        .team-toggle-btn.expanded .arrow {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -62,9 +100,12 @@
                 <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
                 Il Mio Calendario
             </a>
-            <a href="#requests" onclick="showSection('requests')" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-requests">
-                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
-                Le Mie Richieste
+            <a href="#requests" onclick="showSection('requests')" class="flex items-center justify-between px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-requests">
+                <div class="flex items-center">
+                    <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                    Le Mie Richieste
+                </div>
+                <span id="processed-requests-badge" class="hidden bg-green-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center font-bold"></span>
             </a>
             <a href="#communications" onclick="showSection('communications')" class="flex items-center justify-between px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" id="nav-communications">
                 <div class="flex items-center">
@@ -751,14 +792,34 @@
         // Communications loaded from Supabase - no mock data needed
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            lucide.createIcons();
-            updateUserHeader();
-            loadDashboardData();
-            loadMyTasks();
-            loadUserRequests();
-            loadUserCommunications();
-            updateUserStats();
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Initializing user panel...');
+            try {
+                lucide.createIcons();
+                console.log('✅ Icons loaded');
+                
+                await updateUserHeader();
+                console.log('✅ User header updated');
+                
+                await loadDashboardData();
+                console.log('✅ Dashboard data loaded');
+                
+                await loadMyTasks();
+                console.log('✅ Tasks loaded');
+                
+                await loadUserRequests();
+                console.log('✅ Requests loaded');
+                
+                await loadUserCommunications();
+                console.log('✅ Communications loaded');
+                
+                updateUserStats();
+                console.log('✅ Stats updated');
+                
+                console.log('🎉 User panel fully loaded!');
+            } catch (error) {
+                console.error('❌ Error during initialization:', error);
+            }
         });
 
         async function updateUserHeader() {
@@ -801,14 +862,19 @@
 
             // Remove active class from all nav items
             document.querySelectorAll('nav a').forEach(link => {
-                link.className = link.className.replace('bg-blue-50 text-blue-600 border-r-4 border-blue-600', 'text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors');
+                link.classList.remove('bg-blue-50', 'text-blue-600', 'border-r-4', 'border-blue-600');
+                link.classList.add('text-gray-700');
             });
 
             // Show selected section
             document.getElementById(sectionName + '-section').classList.remove('hidden');
 
             // Add active class to selected nav item
-            document.getElementById('nav-' + sectionName).className = 'flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600';
+            const selectedNav = document.getElementById('nav-' + sectionName);
+            if (selectedNav) {
+                selectedNav.classList.remove('text-gray-700');
+                selectedNav.classList.add('bg-blue-50', 'text-blue-600', 'border-r-4', 'border-blue-600');
+            }
 
             // Load section-specific data
             switch(sectionName) {
@@ -816,7 +882,15 @@
                     loadMyTasks();
                     break;
                 case 'requests':
-                    loadUserRequests();
+                    loadUserRequests().then(() => {
+                        // Marca tutte le richieste elaborate come visualizzate
+                        markProcessedRequestsAsViewed();
+                    });
+                    // Nascondi badge quando visualizza le richieste
+                    setTimeout(() => {
+                        const badge = document.getElementById('processed-requests-badge');
+                        if (badge) badge.classList.add('hidden');
+                    }, 1000);
                     break;
                 case 'communications':
                     loadUserCommunications();
@@ -1010,12 +1084,19 @@
                 
                 teamMembersHTML = `
                     <div class="mt-3 pt-3 border-t border-gray-200">
-                        <div class="text-xs text-gray-600 mb-2 flex items-center gap-1">
-                            <i data-lucide="users" class="w-4 h-4"></i>
-                            <span class="font-medium">Squadra: ${task.team?.nome || 'N/A'}</span>
+                        <div class="text-xs text-gray-600 mb-2 flex items-center justify-between gap-1">
+                            <div class="flex items-center gap-1">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                                <span class="font-medium">Squadra: ${task.team?.nome || 'N/A'}</span>
+                            </div>
+                            <button onclick="toggleTeamMembers(this)" class="team-toggle-btn" style="display: none;">
+                                <i class="fas fa-users"></i> Mostra Membri <span class="arrow">▼</span>
+                            </button>
                         </div>
-                        <div class="flex flex-wrap gap-1">
-                            ${memberBadges}
+                        <div class="team-members-container">
+                            <div class="flex flex-wrap gap-1">
+                                ${memberBadges}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1088,6 +1169,29 @@
                 // Filtra solo le richieste dell'utente corrente
                 const userRequests = allRequests.filter(req => req.user_id === currentUser?.id);
 
+                // Recupera le richieste già visualizzate da localStorage
+                const viewedRequestsKey = `viewedRequests_${currentUser?.id}`;
+                const viewedRequests = JSON.parse(localStorage.getItem(viewedRequestsKey) || '[]');
+
+                // Conta richieste elaborate NON ancora visualizzate
+                const processedRequests = userRequests.filter(req => {
+                    const stato = req.stato || req.status;
+                    const isProcessed = stato === 'approvata' || stato === 'approved' || stato === 'rifiutata' || stato === 'rejected';
+                    const notViewed = !viewedRequests.includes(req.id);
+                    return isProcessed && notViewed;
+                });
+
+                // Aggiorna badge nel menu
+                const badge = document.getElementById('processed-requests-badge');
+                if (badge) {
+                    if (processedRequests.length > 0) {
+                        badge.textContent = processedRequests.length;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+
                 container.innerHTML = '';
 
                 if (userRequests.length === 0) {
@@ -1107,33 +1211,139 @@
             }
         }
 
+        async function markProcessedRequestsAsViewed() {
+            try {
+                const allRequests = await window.dataManager.getRichieste();
+                const currentUser = window.AuthHelper.getCurrentUser();
+                
+                // Filtra richieste elaborate dell'utente corrente
+                const processedRequestIds = allRequests
+                    .filter(req => {
+                        const stato = req.stato || req.status;
+                        const isProcessed = stato === 'approvata' || stato === 'approved' || stato === 'rifiutata' || stato === 'rejected';
+                        return req.user_id === currentUser?.id && isProcessed;
+                    })
+                    .map(req => req.id);
+
+                // Salva in localStorage
+                const viewedRequestsKey = `viewedRequests_${currentUser?.id}`;
+                const existingViewed = JSON.parse(localStorage.getItem(viewedRequestsKey) || '[]');
+                const updatedViewed = [...new Set([...existingViewed, ...processedRequestIds])];
+                localStorage.setItem(viewedRequestsKey, JSON.stringify(updatedViewed));
+            } catch (error) {
+                console.error('Errore salvataggio richieste visualizzate:', error);
+            }
+        }
+
         function createRequestCard(request) {
             const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-md p-6';
+            card.className = 'bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow';
 
             const statusClass = getRequestStatusClass(request.stato);
             const typeIcon = getRequestTypeIcon(request.tipo);
 
             card.innerHTML = `
-                <div class="flex items-start justify-between">
-                    <div class="flex items-start space-x-4 flex-1">
-                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <i data-lucide="${typeIcon}" class="w-5 h-5 text-blue-600"></i>
+                <div class="flex flex-col space-y-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start space-x-4 flex-1">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="${typeIcon}" class="w-6 h-6 text-blue-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900 mb-2 text-lg">${request.titolo || 'Senza titolo'}</h3>
+                                <p class="text-gray-600 text-sm mb-3">${request.descrizione || ''}</p>
+                            </div>
+                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium h-fit">${getRequestStatusText(request.stato)}</span>
                         </div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-gray-900 mb-2">${request.titolo || 'Senza titolo'}</h3>
-                            <p class="text-gray-600 text-sm mb-3">${request.descrizione || ''}</p>
-                            <div class="flex items-center space-x-4 text-sm text-gray-500">
-                                <span>Richiesta: ${formatDate(request.created_at)}</span>
-                                <span class="capitalize">Priorità: ${request.priorita || 'normale'}</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-gray-100">
+                        <div class="flex items-center space-x-2 text-sm">
+                            <span class="text-gray-400">📅</span>
+                            <div>
+                                <div class="text-xs text-gray-500 font-medium">Richiesta il</div>
+                                <div class="text-gray-900 font-semibold">${formatDate(request.created_at)}</div>
                             </div>
                         </div>
-                        <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getRequestStatusText(request.stato)}</span>
+                        ${request.data_inizio && request.data_fine ? `
+                        <div class="flex items-center space-x-2 text-sm">
+                            <span class="text-gray-400">🗓️</span>
+                            <div>
+                                <div class="text-xs text-gray-500 font-medium">Periodo richiesto</div>
+                                <div class="text-gray-900 font-semibold">${formatDate(request.data_inizio)} - ${formatDate(request.data_fine)}</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        <div class="flex items-center space-x-2 text-sm">
+                            <span class="text-gray-400">⚡</span>
+                            <div>
+                                <div class="text-xs text-gray-500 font-medium">Priorità</div>
+                                <div class="text-gray-900 font-semibold capitalize">${request.priorita || 'normale'}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
 
+            // Click handler per aprire i dettagli
+            card.addEventListener('click', () => {
+                // Se ha note, mostra solo quelle
+                if (request.note && (request.stato === 'approvata' || request.stato === 'rifiutata')) {
+                    openRequestNotes(request);
+                }
+            });
+
             return card;
+        }
+
+        function openRequestNotes(request) {
+            // Crea modal con solo le note
+            const existingModal = document.getElementById('requestNotesModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'requestNotesModal';
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            
+            const isApproved = request.stato === 'approvata';
+            const bgColor = isApproved ? 'green' : 'red';
+            const icon = isApproved ? '✅' : '❌';
+            const statusText = isApproved ? 'Approvata' : 'Rifiutata';
+
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full animate-slide-up mx-4 request-notes-popup">
+                    <div class="bg-${bgColor}-500 text-white px-5 py-4 rounded-t-xl flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-2xl">${icon}</span>
+                            <h3 class="font-bold text-lg">${statusText}</h3>
+                        </div>
+                        <button onclick="closeRequestNotes()" class="text-white/90 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    
+                    <div class="p-5">
+                        <div class="text-sm font-semibold text-gray-700 mb-2">Note dell'Admin:</div>
+                        <div class="bg-${bgColor}-50 border border-${bgColor}-200 rounded-lg p-4">
+                            <p class="text-${bgColor}-900 text-base leading-relaxed">${request.note}</p>
+                        </div>
+                        
+                        <button onclick="closeRequestNotes()" class="w-full mt-4 bg-gray-600 text-white px-4 py-3 rounded-lg text-base font-medium hover:bg-gray-700 transition-colors">
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeRequestNotes();
+            });
+        }
+
+        function closeRequestNotes() {
+            const modal = document.getElementById('requestNotesModal');
+            if (modal) modal.remove();
         }
 
         async function loadUserCommunications() {
@@ -1432,6 +1642,8 @@
                 tipo: document.getElementById('requestType').value,
                 titolo: document.getElementById('requestTitle').value,
                 descrizione: document.getElementById('requestDescription').value,
+                data_inizio: document.getElementById('requestStartDate').value,
+                data_fine: document.getElementById('requestEndDate').value,
                 stato: 'pendente',
                 priorita: 'normale'
             };
@@ -2303,12 +2515,17 @@
                         <!-- Team Members (only if assigned to team) -->
                         ${assignedTeamId ? `
                         <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 md:col-span-2">
-                            <label class="text-sm font-medium text-purple-800 flex items-center gap-2 mb-2">
-                                <i data-lucide="users" class="w-4 h-4"></i>
-                                Membri del Team
-                            </label>
-                            <div id="team-members-${task.id}" class="flex flex-wrap gap-2 mt-2">
-                                <span class="text-gray-500 text-sm">Caricamento...</span>
+                            <button onclick="toggleTeamMembers(this)" class="team-toggle-btn w-full text-left flex items-center justify-between">
+                                <span class="flex items-center gap-2">
+                                    <i data-lucide="users" class="w-4 h-4"></i>
+                                    <span class="text-sm font-medium text-purple-800">Membri del Team</span>
+                                </span>
+                                <span class="arrow text-purple-600">▼</span>
+                            </button>
+                            <div class="team-members-container mt-3">
+                                <div id="team-members-${task.id}" class="flex flex-wrap gap-2">
+                                    <span class="text-gray-500 text-sm">Caricamento...</span>
+                                </div>
                             </div>
                         </div>
                         ` : ''}
@@ -2542,8 +2759,15 @@
         }
 
         function openUserComponentSelector() {
+            // Reset search and filters
+            document.getElementById('userComponentSearch').value = '';
+            document.getElementById('userComponentCategoryFilter').value = '';
+            
             document.getElementById('userComponentModal').classList.remove('hidden');
-            loadUserComponents();
+            
+            // Load only added components (no search/filter)
+            loadUserComponents('', '');
+            
             lucide.createIcons();
         }
 
@@ -2555,33 +2779,57 @@
             try {
                 const allComponents = await window.dataManager.getComponenti();
                 
-                // Filter by category
-                let components = category ? 
-                    allComponents.filter(c => c.categoria === category) : 
-                    allComponents;
+                // Get components already added to this task
+                const taskComponents = currentTaskForComponents.componenti || [];
+                const addedComponentIds = taskComponents.map(tc => tc.id);
                 
-                // Filter by search term
-                if (searchTerm) {
-                    components = components.filter(c => 
-                        c.nome.toLowerCase().includes(searchTerm) ||
-                        c.codice.toLowerCase().includes(searchTerm) ||
-                        (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm))
-                    );
+                let components = [];
+                
+                // If searching or filtering, show all matching components
+                if (searchTerm || category) {
+                    components = allComponents.filter(c => {
+                        const matchesCategory = !category || c.categoria === category;
+                        const matchesSearch = !searchTerm || 
+                            c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            c.codice.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm.toLowerCase()));
+                        return matchesCategory && matchesSearch;
+                    });
+                } else {
+                    // No search/filter: show ONLY components already added to task
+                    components = allComponents.filter(c => addedComponentIds.includes(c.id));
                 }
                 
                 const container = document.getElementById('userComponentsList');
                 
                 if (components.length === 0) {
-                    container.innerHTML = '<p class="col-span-2 text-center text-gray-500 py-8">Nessun componente trovato</p>';
+                    if (searchTerm || category) {
+                        container.innerHTML = `
+                            <div class="col-span-2 text-center text-gray-500 py-12">
+                                <i class="fas fa-inbox text-5xl mb-4 opacity-30"></i>
+                                <p class="text-lg font-medium">Nessun componente trovato</p>
+                                <p class="text-sm mt-2">Prova con altri termini di ricerca</p>
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = `
+                            <div class="col-span-2 text-center text-gray-500 py-12">
+                                <i class="fas fa-box-open text-5xl mb-4 opacity-30"></i>
+                                <p class="text-lg font-medium mb-2">Nessun componente aggiunto</p>
+                                <p class="text-sm text-gray-400">
+                                    <i class="fas fa-search mr-1"></i>
+                                    Usa la barra di ricerca qui sopra per trovare e aggiungere componenti
+                                </p>
+                            </div>
+                        `;
+                    }
                     return;
                 }
                 
                 container.innerHTML = '';
                 
-                const taskComponents = currentTaskForComponents.componenti || [];
-                
                 components.forEach(component => {
-                    const isAdded = taskComponents.some(tc => tc.id === component.id);
+                    const isAdded = addedComponentIds.includes(component.id);
                     const currentQty = isAdded ? taskComponents.find(tc => tc.id === component.id)?.quantita || 1 : 1;
                 
                 const card = document.createElement('div');
@@ -2815,5 +3063,8 @@
             }
         }
     </script>
+    
+    <!-- MOBILE ENHANCEMENTS - Funzionalità touch e gestures (solo mobile) -->
+    <script src="mobile-enhancements.js"></script>
 </body>
 </html>

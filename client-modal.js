@@ -133,6 +133,15 @@ window.ClientModal = {
                                         </a>
                                     </div>
                                 </div>
+                                
+                                <!-- Mobile Maps Button (hidden on desktop) -->
+                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}" 
+                                   target="_blank"
+                                   class="mobile-open-maps-btn"
+                                   style="display: none;">
+                                    <i class="fas fa-map-marked-alt mr-2"></i>
+                                    Apri in Google Maps
+                                </a>
                             </div>
 
                             <!-- Notes -->
@@ -175,9 +184,6 @@ window.ClientModal = {
                             <div class="flex gap-2">
                                 <a href="tel:${client.telefono}" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">
                                     <i class="fas fa-phone mr-2"></i>Chiama
-                                </a>
-                                <a href="mailto:${client.email}" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium">
-                                    <i class="fas fa-envelope mr-2"></i>Email
                                 </a>
                                 <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.indirizzo)}" 
                                    target="_blank"

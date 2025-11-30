@@ -68,7 +68,8 @@
             </a>
             <a href="/gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                 <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
-                Gestione Richieste
+                <span class="flex-1">Gestione Richieste</span>
+                <span id="requestsBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
             </a>
             <a href="/comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                 <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
@@ -303,9 +304,24 @@
                 if (!container) return;
                 
                 const requests = await window.dataManager.getRichieste();
-                const pendingRequests = requests.filter(r => r.status === 'pending');
+                const pendingRequests = requests.filter(r => {
+                    const stato = r.status || r.stato;
+                    return stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+                });
                 
-                document.getElementById('pendingRequests').textContent = pendingRequests.length;
+                const count = pendingRequests.length;
+                document.getElementById('pendingRequests').textContent = count;
+                
+                // Update sidebar badge
+                const badge = document.getElementById('requestsBadge');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
                 
                 if (pendingRequests.length === 0) {
                     container.innerHTML = '<p class="text-gray-500 text-center py-4">Nessuna richiesta pendente</p>';
@@ -671,7 +687,10 @@
                     activeTasksEl.textContent = activeTasks || '0';
                 }
                 if (pendingRequestsEl) {
-                    const pending = requests.filter(r => r.status === 'pending').length;
+                    const pending = requests.filter(r => {
+                        const stato = r.status || r.stato;
+                        return stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+                    }).length;
                     pendingRequestsEl.textContent = pending || '0';
                 }
                 if (totalCommsEl) totalCommsEl.textContent = communications.length || '0';

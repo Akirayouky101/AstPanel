@@ -306,6 +306,24 @@ window.dataManager = {
         }
     },
 
+    async updateRichiesta(id, updates) {
+        try {
+            return await window.RequestsAPI.update(id, updates);
+        } catch (error) {
+            console.error('Errore aggiornamento richiesta:', error);
+            throw error;
+        }
+    },
+
+    async deleteRichiesta(id) {
+        try {
+            return await window.RequestsAPI.delete(id);
+        } catch (error) {
+            console.error('Errore eliminazione richiesta:', error);
+            throw error;
+        }
+    },
+
     // ==================== COMMUNICATIONS ====================
     async getComunicazioni() {
         try {

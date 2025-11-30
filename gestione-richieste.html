@@ -230,11 +230,36 @@
                     return;
                 }
 
+                // Raggruppa richieste per utente
+                const requestsByUser = {};
                 requests.forEach(request => {
-                    // Trova l'utente associato alla richiesta
-                    const user = users.find(u => u.id === request.user_id);
-                    const requestElement = createRequestElement(request, user);
-                    requestsList.appendChild(requestElement);
+                    const userId = request.user_id;
+                    if (!requestsByUser[userId]) {
+                        requestsByUser[userId] = [];
+                    }
+                    requestsByUser[userId].push(request);
+                });
+
+                // Ordina le richieste di ogni utente (più recenti prima)
+                Object.keys(requestsByUser).forEach(userId => {
+                    requestsByUser[userId].sort((a, b) => 
+                        new Date(b.created_at) - new Date(a.created_at)
+                    );
+                });
+
+                // Crea accordion per ogni utente
+                Object.keys(requestsByUser).forEach(userId => {
+                    const user = users.find(u => u.id === userId);
+                    const userRequests = requestsByUser[userId];
+                    
+                    // Conta richieste pendenti per questo utente
+                    const pendingCount = userRequests.filter(r => {
+                        const stato = r.status || r.stato;
+                        return stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+                    }).length;
+                    
+                    const accordionItem = createUserAccordion(user, userRequests, pendingCount);
+                    requestsList.appendChild(accordionItem);
                 });
 
                 lucide.createIcons();
@@ -242,6 +267,98 @@
                 console.error('Errore caricamento richieste:', error);
                 requestsList.innerHTML = '<div class="p-6 text-center text-red-500">Errore caricamento richieste</div>';
             }
+        }
+
+        function createUserAccordion(user, requests, pendingCount) {
+            const accordionDiv = document.createElement('div');
+            accordionDiv.className = 'border-b border-gray-200';
+            
+            const userName = user ? `${user.nome} ${user.cognome}` : 'Utente Sconosciuto';
+            const userId = user ? user.id : 'unknown';
+            
+            accordionDiv.innerHTML = `
+                <div class="accordion-header bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onclick="toggleAccordion('user-${userId}')">
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                ${userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-900 text-lg">${userName}</h4>
+                                <p class="text-sm text-gray-500">${requests.length} richieste totali</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            ${pendingCount > 0 ? `
+                                <span class="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                                    ${pendingCount} ${pendingCount === 1 ? 'nuova' : 'nuove'}
+                                </span>
+                            ` : ''}
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 transition-transform accordion-icon-${userId}"></i>
+                        </div>
+                    </div>
+                </div>
+                <div id="user-${userId}" class="accordion-content hidden">
+                    ${requests.map(request => createRequestElementHTML(request, user)).join('')}
+                </div>
+            `;
+            
+            return accordionDiv;
+        }
+
+        function toggleAccordion(id) {
+            const content = document.getElementById(id);
+            const icon = document.querySelector(`.accordion-icon-${id.replace('user-', '')}`);
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function createRequestElementHTML(request, user) {
+            const stato = request.status || request.stato;
+            const tipo = request.type || request.tipo;
+            const priorita = request.priority || request.priorita || 'bassa';
+            const statusClass = getStatusClass(stato);
+            const userName = user ? `${user.nome} ${user.cognome}` : 'Utente sconosciuto';
+            
+            return `
+                <div class="p-6 hover:bg-gray-50 transition-colors border-t border-gray-100 ${getPriorityClass(priorita)}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-3">
+                                <div class="flex flex-col space-y-1">
+                                    <span class="text-sm text-gray-500">📅 ${formatDate(request.created_at)}</span>
+                                    ${request.data_inizio && request.data_fine ? `<span class="text-sm text-gray-500">🗓️ Periodo: ${formatDate(request.data_inizio)} - ${formatDate(request.data_fine)}</span>` : ''}
+                                    <span class="text-sm font-medium text-gray-600 capitalize">${tipo.replace('_', ' ')}</span>
+                                </div>
+                            </div>
+                            <p class="text-gray-700 mb-2">${request.description || request.descrizione || 'Nessuna descrizione'}</p>
+                            <div class="flex items-center space-x-2">
+                            <span class="${statusClass} px-3 py-1 rounded-full text-sm font-medium">${getStatusText(stato)}</span>
+                            <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(priorita)}">${priorita.charAt(0).toUpperCase() + priorita.slice(1)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button onclick="viewRequest('${request.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                        ${stato === 'pendente' || stato === 'in_attesa' || stato === 'pending' ? `
+                            <button onclick="approveRequest('${request.id}')" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="rejectRequest('${request.id}')" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            `;
         }
 
         function createRequestElement(request, user) {
@@ -278,7 +395,8 @@
                                     <img src="${userAvatar}" alt="${userName}" class="w-6 h-6 rounded-full" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random'">
                                     <span class="text-sm text-gray-600">${userName}</span>
                                 </div>
-                                <span class="text-sm text-gray-500">${formatDate(request.created_at)}</span>
+                                <span class="text-sm text-gray-500">📅 ${formatDate(request.created_at)}</span>
+                                ${request.data_inizio && request.data_fine ? `<span class="text-sm text-gray-500">🗓️ Periodo: ${formatDate(request.data_inizio)} - ${formatDate(request.data_fine)}</span>` : ''}
                                 <span class="text-sm font-medium text-gray-600 capitalize">${tipo.replace('_', ' ')}</span>
                             </div>
                         </div>
@@ -376,18 +494,42 @@
                                     </div>
                                 </div>
                             </div>
+                            
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Richiesta</label>
-                                <p class="capitalize">${(request.type || request.tipo || '').replace('_', ' ')}</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Richiesta</label>
-                                <p>${formatDate(request.created_at || request.dataRichiesta)}</p>
+                                <p class="capitalize bg-gray-50 rounded-lg p-2 font-medium">${(request.type || request.tipo || '').replace('_', ' ')}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
-                                <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(request.priority || request.priorita || 'bassa')}">${(request.priority || request.priorita || 'bassa').charAt(0).toUpperCase() + (request.priority || request.priorita || 'bassa').slice(1)}</span>
+                                <div class="bg-gray-50 rounded-lg p-2">
+                                    <span class="px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeClass(request.priority || request.priorita || 'bassa')}">${(request.priority || request.priorita || 'bassa').charAt(0).toUpperCase() + (request.priority || request.priorita || 'bassa').slice(1)}</span>
+                                </div>
                             </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">📅 Data Richiesta</label>
+                                <p class="bg-blue-50 rounded-lg p-2 font-semibold text-blue-900">${formatDate(request.created_at || request.dataRichiesta)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
+                                <p class="text-xs text-gray-500 p-2">Quando è stata fatta</p>
+                            </div>
+                            
+                            ${request.data_inizio && request.data_fine ? `
+                            <div class="col-span-2 bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                                <label class="block text-sm font-medium text-green-800 mb-3">🗓️ Periodo Richiesto</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <span class="block text-xs text-green-700 mb-1">Data Inizio</span>
+                                        <p class="font-bold text-green-900 text-lg">${formatDate(request.data_inizio)}</p>
+                                    </div>
+                                    <div>
+                                        <span class="block text-xs text-green-700 mb-1">Data Fine</span>
+                                        <p class="font-bold text-green-900 text-lg">${formatDate(request.data_fine)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                         
                         <div>
@@ -395,13 +537,13 @@
                             <p class="text-gray-600">${request.description || request.descrizione || 'Nessuna descrizione'}</p>
                         </div>
                         
-                        ${(request.status || request.stato) === 'pending' || (request.status || request.stato) === 'in_attesa' ? `
+                        ${(request.status || request.stato) === 'pending' || (request.status || request.stato) === 'in_attesa' || (request.status || request.stato) === 'pendente' ? `
                             <div class="flex space-x-3 pt-4 border-t">
-                                <button onclick="approveRequest(${request.id})" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                <button onclick="approveRequest('${request.id}')" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
                                     <i data-lucide="check" class="w-4 h-4 inline mr-2"></i>
                                 Approva
                             </button>
-                            <button onclick="rejectRequest(${request.id})" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                            <button onclick="rejectRequest('${request.id}')" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
                                 <i data-lucide="x" class="w-4 h-4 inline mr-2"></i>
                                 Rifiuta
                             </button>
@@ -471,11 +613,12 @@
 
             try {
                 const note = document.getElementById('actionNote').value;
-                const newStatus = currentAction === 'approve' ? 'approved' : 'rejected';
+                const newStatus = currentAction === 'approve' ? 'approvata' : 'rifiutata';
                 
-                await window.RequestsAPI.update(currentRequestId, { 
-                    status: newStatus,
-                    notes: note
+                // Usa dataManager per aggiornare la richiesta
+                await window.dataManager.updateRichiesta(currentRequestId, { 
+                    stato: newStatus,
+                    note: note
                 });
 
                 closeActionModal();
@@ -487,7 +630,7 @@
                 showNotification(`Richiesta ${currentAction === 'approve' ? 'approvata' : 'rifiutata'} con successo!`, 'success');
             } catch (error) {
                 console.error('Errore conferma azione:', error);
-                showNotification('Errore durante l\'operazione', 'error');
+                showNotification('Errore durante l\'operazione: ' + error.message, 'error');
             }
         }
 
@@ -495,7 +638,10 @@
             try {
                 const requests = await window.dataManager.getRichieste();
                 const total = requests.length;
-                const pending = requests.filter(r => (r.status || r.stato) === 'pending' || (r.status || r.stato) === 'in_attesa').length;
+                const pending = requests.filter(r => {
+                    const stato = r.status || r.stato;
+                    return stato === 'pending' || stato === 'in_attesa' || stato === 'pendente';
+                }).length;
                 const approved = requests.filter(r => (r.status || r.stato) === 'approved' || (r.status || r.stato) === 'approvata').length;
                 const rejected = requests.filter(r => (r.status || r.stato) === 'rejected' || (r.status || r.stato) === 'rifiutata').length;
 
@@ -510,18 +656,32 @@
 
         function getStatusClass(status) {
             switch(status) {
-                case 'in_attesa': return 'bg-orange-100 text-orange-800';
-                case 'approvata': return 'bg-green-100 text-green-800';
-                case 'rifiutata': return 'bg-red-100 text-red-800';
+                case 'in_attesa':
+                case 'pending':
+                case 'pendente':
+                    return 'bg-orange-100 text-orange-800';
+                case 'approvata':
+                case 'approved':
+                    return 'bg-green-100 text-green-800';
+                case 'rifiutata':
+                case 'rejected':
+                    return 'bg-red-100 text-red-800';
                 default: return 'bg-gray-100 text-gray-800';
             }
         }
 
         function getStatusText(status) {
             switch(status) {
-                case 'in_attesa': return 'In Attesa';
-                case 'approvata': return 'Approvata';
-                case 'rifiutata': return 'Rifiutata';
+                case 'in_attesa':
+                case 'pending':
+                case 'pendente':
+                    return 'In Attesa';
+                case 'approvata':
+                case 'approved':
+                    return 'Approvata';
+                case 'rifiutata':
+                case 'rejected':
+                    return 'Rifiutata';
                 default: return status;
             }
         }
