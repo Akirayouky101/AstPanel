@@ -373,7 +373,9 @@
                     },
                     events: myEvents,
                     eventClick: function(info) {
+                        console.log('📱 MOBILE: Click evento calendario', info);
                         info.jsEvent.preventDefault();
+                        console.log('📱 MOBILE: Chiamando showEventDetails...');
                         showEventDetails(info.event);
                     },
                     eventDidMount: function(info) {
@@ -446,22 +448,34 @@
         }
 
         async function showEventDetails(event) {
+            console.log('🔍 MOBILE showEventDetails START');
+            console.log('📦 Event object:', event);
             const taskId = event.extendedProps.taskId;
             currentTaskId = taskId;
             
+            console.log('🆔 TaskId:', taskId);
+            console.log('📏 Window width:', window.innerWidth);
+            console.log('🔧 createMobileTaskModal exists:', !!window.createMobileTaskModal);
+            
             try {
                 const allTasks = await window.dataManager.getLavorazioni();
+                console.log('📋 Total tasks:', allTasks.length);
                 const task = allTasks.find(t => t.id === taskId);
                 
+                console.log('✅ Task found:', task);
+                
                 if (!task) {
+                    console.error('❌ Task not found!');
                     alert('Task non trovato');
                     return;
                 }
                 
                 // Check if mobile
                 const isMobile = window.innerWidth <= 768;
+                console.log('📱 isMobile:', isMobile);
                 
                 if (isMobile && window.createMobileTaskModal) {
+                    console.log('✅ Using MOBILE modal');
                     // Use custom mobile modal
                     const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                     const taskData = {
@@ -473,8 +487,11 @@
                         progress: task.progress || task.progresso,
                         description: task.descrizione || task.description || 'Nessuna descrizione'
                     };
+                    console.log('📦 Calling createMobileTaskModal with:', taskData);
                     window.createMobileTaskModal(taskData);
+                    console.log('✅ Mobile modal called!');
                 } else {
+                    console.log('🖥️ Using DESKTOP modal');
                     // Use desktop modal
                     const statusText = {
                         'da_fare': 'Da Fare',
