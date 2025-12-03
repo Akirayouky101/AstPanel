@@ -3873,8 +3873,11 @@
 
                 if (error) throw error;
 
-                // 3. Genera PDF
-                await generatePDF({ ...currentTaskForSignature, ...data });
+                // 3. Ricarica task completo con dati joinati
+                const fullTask = await window.TasksAPI.getById(currentTaskForSignature.id);
+                
+                // 4. Genera PDF con dati completi
+                await generatePDF(fullTask);
                 
                 closeSignatureModal();
                 showNotification('✅ Firma salvata e PDF generato con successo!', 'success');
