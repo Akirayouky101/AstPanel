@@ -3923,17 +3923,17 @@
                 
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
-                doc.text(`Cliente: ${task.cliente_nome || 'N/A'}`, 20, y);
+                doc.text(`Cliente: ${task.client_name || 'N/A'}`, 20, y);
                 y += 6;
-                doc.text(`Indirizzo: ${task.indirizzo || 'N/A'}`, 20, y);
+                doc.text(`Indirizzo: ${task.client_address || 'N/A'}`, 20, y);
                 y += 6;
-                doc.text(`Data: ${new Date(task.data).toLocaleDateString('it-IT')}`, 20, y);
+                doc.text(`Data: ${task.scadenza ? new Date(task.scadenza).toLocaleDateString('it-IT') : 'N/A'}`, 20, y);
                 y += 6;
-                doc.text(`Tipo Lavorazione: ${task.tipo_lavorazione || 'N/A'}`, 20, y);
+                doc.text(`Tipo Lavorazione: ${task.titolo || 'N/A'}`, 20, y);
                 y += 6;
                 doc.text(`Stato: ${task.stato}`, 20, y);
                 y += 6;
-                doc.text(`Dipendente: ${task.dipendente_nome || 'N/A'}`, 20, y);
+                doc.text(`Dipendente: ${task.user_name || 'N/A'}`, 20, y);
                 y += 12;
 
                 // 3. Descrizione
@@ -3951,7 +3951,7 @@
                 }
 
                 // 4. Componenti utilizzati
-                if (task.componenti_utilizzati && task.componenti_utilizzati.length > 0) {
+                if (task.componenti && task.componenti.length > 0) {
                     if (y > 250) {
                         doc.addPage();
                         y = 20;
@@ -3964,15 +3964,15 @@
                     
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(10);
-                    task.componenti_utilizzati.forEach(comp => {
-                        doc.text(`• ${comp.nome} - Quantità: ${comp.quantita}`, 25, y);
+                    task.componenti.forEach(comp => {
+                        doc.text(`• ${comp.nome || comp.name} - Quantità: ${comp.quantita || comp.quantity}`, 25, y);
                         y += 6;
                     });
                     y += 6;
                 }
 
                 // 5. Note
-                if (task.note) {
+                if (task.note_progresso || task.note) {
                     if (y > 250) {
                         doc.addPage();
                         y = 20;
@@ -3985,7 +3985,7 @@
                     
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(10);
-                    const splitNotes = doc.splitTextToSize(task.note, 170);
+                    const splitNotes = doc.splitTextToSize(task.note_progresso || task.note, 170);
                     doc.text(splitNotes, 20, y);
                     y += (splitNotes.length * 5) + 10;
                 }
@@ -4016,7 +4016,7 @@
                     doc.setFontSize(8);
                     doc.setTextColor(100, 100, 100);
                     doc.text(`Firmato digitalmente il ${new Date(task.firma_timestamp).toLocaleString('it-IT')}`, 20, y);
-                    doc.text(`Cliente: ${task.cliente_nome}`, 20, y + 4);
+                    doc.text(`Cliente: ${task.client_name || 'N/A'}`, 20, y + 4);
                 }
 
                 // 7. Footer
@@ -4026,7 +4026,7 @@
                 doc.text(`ID Lavorazione: ${task.id}`, 105, 290, { align: 'center' });
 
                 // 8. Salva PDF
-                const filename = `Lavorazione_${task.cliente_nome?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+                const filename = `Lavorazione_${task.client_name?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
                 
                 // Download locale
                 doc.save(filename);
