@@ -3860,7 +3860,7 @@
                 const signatureData = signaturePad.toDataURL('image/png');
                 
                 // 2. Salva in Supabase
-                const { data, error } = await supabase
+                const { data, error } = await window.supabaseClient
                     .from('tasks')
                     .update({
                         firma_cliente: signatureData,
@@ -4048,7 +4048,7 @@
                 // Upload a Supabase Storage
                 const filePath = `lavorazioni/${taskId}/${filename}`;
                 
-                const { data, error } = await supabase.storage
+                const { data, error } = await window.supabaseClient.storage
                     .from('reports')
                     .upload(filePath, blob, {
                         contentType: 'application/pdf',
@@ -4062,12 +4062,12 @@
                 }
 
                 // Ottieni URL pubblico
-                const { data: { publicUrl } } = supabase.storage
+                const { data: { publicUrl } } = window.supabaseClient.storage
                     .from('reports')
                     .getPublicUrl(filePath);
 
                 // Salva URL in database
-                await supabase
+                await window.supabaseClient
                     .from('tasks')
                     .update({ pdf_report_url: publicUrl })
                     .eq('id', taskId);
