@@ -3515,9 +3515,9 @@
 
     <!-- Modal Firma Digitale -->
     <div id="signatureModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col animate-slide-up">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full animate-slide-up">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl flex-shrink-0">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
                 <h2 class="text-2xl font-bold flex items-center gap-2">
                     <i data-lucide="pen-tool" class="w-7 h-7"></i>
                     Firma Digitale Cliente
@@ -3525,8 +3525,8 @@
                 <p class="text-blue-100 text-sm mt-1">Fai firmare il cliente per completare la lavorazione</p>
             </div>
 
-            <!-- Body Scrollabile -->
-            <div class="p-6 pb-safe overflow-y-auto flex-1">
+            <!-- Body -->
+            <div class="p-6 pb-safe">
                 <!-- Info Lavorazione -->
                 <div class="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 mb-4 border-2 border-blue-200">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -3729,8 +3729,7 @@
             setTimeout(() => {
                 const canvas = document.getElementById('signatureCanvas');
                 canvas.width = canvas.offsetWidth;
-                // Riduci altezza su mobile
-                canvas.height = window.innerWidth < 768 ? 180 : 250;
+                canvas.height = 250;
                 
                 signaturePad = new SignaturePad(canvas, {
                     backgroundColor: 'rgb(255, 255, 255)',
@@ -3861,8 +3860,8 @@
                 const signatureData = signaturePad.toDataURL('image/png');
                 
                 // 2. Salva in Supabase
-                const { data, error } = await window.supabase
-                    .from('lavorazioni')
+                const { data, error } = await supabase
+                    .from('tasks')
                     .update({
                         firma_cliente: signatureData,
                         firma_timestamp: new Date().toISOString(),
@@ -4049,7 +4048,7 @@
                 // Upload a Supabase Storage
                 const filePath = `lavorazioni/${taskId}/${filename}`;
                 
-                const { data, error } = await window.supabase.storage
+                const { data, error } = await supabase.storage
                     .from('reports')
                     .upload(filePath, blob, {
                         contentType: 'application/pdf',
@@ -4063,13 +4062,13 @@
                 }
 
                 // Ottieni URL pubblico
-                const { data: { publicUrl } } = window.supabase.storage
+                const { data: { publicUrl } } = supabase.storage
                     .from('reports')
                     .getPublicUrl(filePath);
 
                 // Salva URL in database
-                await window.supabase
-                    .from('lavorazioni')
+                await supabase
+                    .from('tasks')
                     .update({ pdf_report_url: publicUrl })
                     .eq('id', taskId);
 
