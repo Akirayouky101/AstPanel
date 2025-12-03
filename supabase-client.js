@@ -437,7 +437,7 @@ window.TasksAPI = {
             .from('tasks')
             .select(`
                 *,
-                client:clients(id, ragione_sociale, email),
+                client:clients(id, ragione_sociale, email, indirizzo, citta, cap),
                 assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
                 assigned_team:teams(id, nome)
             `)
@@ -449,6 +449,9 @@ window.TasksAPI = {
         return data.map(task => ({
             ...task,
             client_name: task.client?.ragione_sociale || 'N/A',
+            client_address: task.client?.indirizzo || null,
+            client_city: task.client?.citta || null,
+            client_zip: task.client?.cap || null,
             user_name: task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : null,
             team_name: task.assigned_team?.nome || null
         }));
@@ -460,7 +463,7 @@ window.TasksAPI = {
             .from('tasks')
             .select(`
                 *,
-                client:clients(id, ragione_sociale, email),
+                client:clients(id, ragione_sociale, email, indirizzo, citta, cap),
                 assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
                 assigned_team:teams(id, nome)
             `)
@@ -473,6 +476,9 @@ window.TasksAPI = {
         return {
             ...data,
             client_name: data.client?.ragione_sociale || 'N/A',
+            client_address: data.client?.indirizzo || null,
+            client_city: data.client?.citta || null,
+            client_zip: data.client?.cap || null,
             user_name: data.assigned_user ? `${data.assigned_user.nome} ${data.assigned_user.cognome}` : null,
             team_name: data.assigned_team?.nome || null
         };
@@ -484,7 +490,7 @@ window.TasksAPI = {
             .from('tasks')
             .select(`
                 *,
-                client:clients(id, ragione_sociale, email),
+                client:clients(id, ragione_sociale, email, indirizzo, citta, cap),
                 assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
                 assigned_team:teams(id, nome)
             `)
@@ -497,6 +503,9 @@ window.TasksAPI = {
         return data.map(task => ({
             ...task,
             client_name: task.client?.ragione_sociale || 'N/A',
+            client_address: task.client?.indirizzo || null,
+            client_city: task.client?.citta || null,
+            client_zip: task.client?.cap || null,
             user_name: task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : null,
             team_name: task.assigned_team?.nome || null
         }));
