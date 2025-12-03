@@ -4,12 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Magazzino Prodotti - AST:ZG</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/output.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/supabase-client.js"></script>
     <script src="/data-migration.js"></script>
     <script src="/Admin/auth-helper.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Sidebar -->
@@ -34,7 +40,7 @@
                 <i data-lucide="bell" class="w-5 h-5 mr-3"></i>
                 Comunicazioni
             </a>
-            <a href="index.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors mt-auto">
+            <a href="index.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors mt-8">
                 <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
                 Esci
             </a>
@@ -57,85 +63,88 @@
             </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow p-6">
+        <!-- Stats Cards con gradiente -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-2xl shadow-lg p-6 hover-scale">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 mb-1">Prodotti Totali</p>
-                        <p id="totalProducts" class="text-2xl font-bold text-gray-900">0</p>
+                        <p class="text-sm font-medium text-blue-700 mb-1">Prodotti Totali</p>
+                        <p id="totalProducts" class="text-3xl font-bold text-gray-900">0</p>
                     </div>
-                    <div class="bg-blue-100 p-3 rounded-lg">
-                        <i data-lucide="package" class="w-6 h-6 text-blue-600"></i>
+                    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="package" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-2xl shadow-lg p-6 hover-scale">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 mb-1">In Stock</p>
-                        <p id="inStockProducts" class="text-2xl font-bold text-green-600">0</p>
+                        <p class="text-sm font-medium text-green-700 mb-1">In Stock</p>
+                        <p id="inStockProducts" class="text-3xl font-bold text-green-600">0</p>
                     </div>
-                    <div class="bg-green-100 p-3 rounded-lg">
-                        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                    <div class="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="check-circle" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-2xl shadow-lg p-6 hover-scale">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 mb-1">Scorta Bassa</p>
-                        <p id="lowStockProducts" class="text-2xl font-bold text-orange-600">0</p>
+                        <p class="text-sm font-medium text-orange-700 mb-1">Scorta Bassa</p>
+                        <p id="lowStockProducts" class="text-3xl font-bold text-orange-600">0</p>
                     </div>
-                    <div class="bg-orange-100 p-3 rounded-lg">
-                        <i data-lucide="alert-triangle" class="w-6 h-6 text-orange-600"></i>
+                    <div class="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="alert-triangle" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-gradient-to-br from-red-50 to-rose-100 border-2 border-red-200 rounded-2xl shadow-lg p-6 hover-scale">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 mb-1">Esauriti</p>
-                        <p id="outOfStockProducts" class="text-2xl font-bold text-red-600">0</p>
+                        <p class="text-sm font-medium text-red-700 mb-1">Esauriti</p>
+                        <p id="outOfStockProducts" class="text-3xl font-bold text-red-600">0</p>
                     </div>
-                    <div class="bg-red-100 p-3 rounded-lg">
-                        <i data-lucide="x-circle" class="w-6 h-6 text-red-600"></i>
+                    <div class="bg-gradient-to-br from-red-500 to-rose-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="x-circle" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Search and Filters -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-2xl shadow-lg p-6 mb-6 fade-in">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="md:col-span-2">
                     <div class="relative">
                         <input type="text" 
                                id="searchInput" 
-                               placeholder="Cerca per nome, codice o descrizione..."
+                               placeholder="🔍 Cerca per nome, codice o descrizione..."
                                oninput="applyFilters()"
-                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <i data-lucide="search" class="w-5 h-5 absolute left-3 top-2.5 text-gray-400"></i>
+                               class="w-full pl-12 pr-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
+                        <i data-lucide="search" class="w-6 h-6 absolute left-3 top-3 text-purple-600"></i>
                     </div>
                 </div>
 
-                <select id="categoryFilter" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="all">Tutte le categorie</option>
-                    <option value="elettronica">Elettronica</option>
-                    <option value="meccanica">Meccanica</option>
-                    <option value="materiali">Materiali</option>
-                    <option value="componentistica">Componentistica</option>
+                <select id="categoryFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
+                    <option value="all">📁 Tutte le categorie</option>
+                    <option value="Componentistica">Componentistica</option>
+                    <option value="Materiali">Materiali</option>
+                    <option value="Accessori">Accessori</option>
+                    <option value="Antifurto">Antifurto</option>
+                    <option value="Videosorveglianza">Videosorveglianza</option>
+                    <option value="Rete">Rete</option>
+```
                     <option value="altro">Altro</option>
                 </select>
 
-                <select id="stockFilter" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="all">Tutti gli stock</option>
-                    <option value="instock">In Stock</option>
-                    <option value="lowstock">Scorta Bassa</option>
-                    <option value="outofstock">Esaurito</option>
+                <select id="stockFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
+                    <option value="all">📊 Tutti gli stock</option>
+                    <option value="instock">✅ In Stock</option>
+                    <option value="lowstock">⚠️ Scorta Bassa</option>
+                    <option value="outofstock">❌ Esaurito</option>
                 </select>
             </div>
         </div>
@@ -164,47 +173,83 @@
     </div>
 
     <!-- New/Edit Product Modal -->
-    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <!-- Modal Nuovo Prodotto -->
+    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
-                <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                    <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Nuovo Prodotto</h3>
-                    <button onclick="closeProductModal()" class="text-gray-400 hover:text-gray-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="package" class="w-7 h-7 text-green-600"></i>
+                            </div>
+                            <h3 id="modalTitle" class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
+                        </div>
+                        <button onclick="closeProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
                 </div>
-                <form id="productForm" class="p-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="col-span-2">
-                            <label for="productName" class="block text-sm font-medium text-gray-700 mb-2">Nome Prodotto *</label>
-                            <input type="text" id="productName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                
+                <!-- Content scrollabile -->
+                <form id="productForm" class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <!-- Nome Prodotto -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label for="productName" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                            Nome Prodotto *
+                        </label>
+                        <input type="text" id="productName" required placeholder="Es: Connettori RJ45" 
+                               class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
+                    </div>
+
+                    <!-- Codice e Categoria -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-xl p-4">
+                            <label for="productCode" class="flex items-center gap-2 text-sm font-bold text-purple-700 mb-2">
+                                <i data-lucide="hash" class="w-4 h-4"></i>
+                                Codice Prodotto *
+                            </label>
+                            <input type="text" id="productCode" required placeholder="Es: 180.811" 
+                                   class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
                         </div>
 
-                        <div>
-                            <label for="productCode" class="block text-sm font-medium text-gray-700 mb-2">Codice Prodotto *</label>
-                            <input type="text" id="productCode" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-
-                        <div>
-                            <label for="productCategory" class="block text-sm font-medium text-gray-700 mb-2">Categoria *</label>
-                            <select id="productCategory" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <div class="bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-xl p-4">
+                            <label for="productCategory" class="flex items-center gap-2 text-sm font-bold text-cyan-700 mb-2">
+                                <i data-lucide="folder" class="w-4 h-4"></i>
+                                Categoria *
+                            </label>
+                            <select id="productCategory" required class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium bg-white">
                                 <option value="">Seleziona categoria</option>
-                                <option value="elettronica">Elettronica</option>
-                                <option value="meccanica">Meccanica</option>
-                                <option value="materiali">Materiali</option>
-                                <option value="componentistica">Componentistica</option>
+                                <option value="Componentistica">Componentistica</option>
+                                <option value="Materiali">Materiali</option>
+                                <option value="Accessori">Accessori</option>
+                                <option value="Antifurto">Antifurto</option>
+                                <option value="Videosorveglianza">Videosorveglianza</option>
+                                <option value="Rete">Rete</option>
                                 <option value="altro">Altro</option>
                             </select>
                         </div>
+                    </div>
 
-                        <div>
-                            <label for="productQuantity" class="block text-sm font-medium text-gray-700 mb-2">Quantità *</label>
-                            <input type="number" id="productQuantity" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <!-- Quantità e Unità -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                            <label for="productQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
+                                <i data-lucide="package-2" class="w-4 h-4"></i>
+                                Quantità *
+                            </label>
+                            <input type="number" id="productQuantity" min="0" step="0.01" required placeholder="400" 
+                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
                         </div>
 
-                        <div>
-                            <label for="productUnit" class="block text-sm font-medium text-gray-700 mb-2">Unità di Misura *</label>
-                            <select id="productUnit" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <label for="productUnit" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
+                                <i data-lucide="ruler" class="w-4 h-4"></i>
+                                Unità di Misura *
+                            </label>
+                            <select id="productUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
                                 <option value="pz">Pezzi (pz)</option>
                                 <option value="kg">Kilogrammi (kg)</option>
                                 <option value="g">Grammi (g)</option>
@@ -216,35 +261,66 @@
                                 <option value="confezione">Confezione</option>
                             </select>
                         </div>
+                    </div>
 
-                        <div>
-                            <label for="productMinStock" class="block text-sm font-medium text-gray-700 mb-2">Scorta Minima</label>
-                            <input type="number" id="productMinStock" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">Avviso se la quantità scende sotto questo valore</p>
+                    <!-- Scorta Minima e Prezzo -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-orange-50 to-red-100 border-2 border-orange-200 rounded-xl p-4">
+                            <label for="productMinStock" class="flex items-center gap-2 text-sm font-bold text-orange-700 mb-2">
+                                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                Scorta Minima
+                            </label>
+                            <input type="number" id="productMinStock" min="0" step="0.01" placeholder="10" 
+                                   class="w-full px-4 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium">
+                            <p class="text-xs text-orange-600 mt-1 font-medium">⚠️ Avviso se scende sotto questo valore</p>
                         </div>
 
-                        <div>
-                            <label for="productPrice" class="block text-sm font-medium text-gray-700 mb-2">Prezzo Unitario (€)</label>
-                            <input type="number" id="productPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-
-                        <div class="col-span-2">
-                            <label for="productDescription" class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
-                            <textarea id="productDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
-                        </div>
-
-                        <div class="col-span-2">
-                            <label for="productNotes" class="block text-sm font-medium text-gray-700 mb-2">Note</label>
-                            <textarea id="productNotes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Note aggiuntive, fornitore, etc."></textarea>
+                        <div class="bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-emerald-200 rounded-xl p-4">
+                            <label for="productPrice" class="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-2">
+                                <i data-lucide="euro" class="w-4 h-4"></i>
+                                Prezzo Unitario (€)
+                            </label>
+                            <input type="number" id="productPrice" min="0" step="0.01" placeholder="12.50" 
+                                   class="w-full px-4 py-2 border-2 border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-                        <button type="button" onclick="closeProductModal()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                    <!-- Descrizione -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <label for="productDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Descrizione
+                        </label>
+                        <textarea id="productDescription" rows="3" placeholder="Descrizione dettagliata del prodotto..." 
+                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Note -->
+                    <div class="bg-gradient-to-br from-gray-50 to-slate-100 border-2 border-gray-300 rounded-xl p-4">
+                        <label for="productNotes" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                            <i data-lucide="sticky-note" class="w-4 h-4"></i>
+                            Note
+                        </label>
+                        <textarea id="productNotes" rows="2" placeholder="Note aggiuntive, fornitore, etc." 
+                                  class="w-full px-4 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
+                        <button type="button" onclick="closeProductModal()" 
+                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
                             Annulla
                         </button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <button type="submit" 
+                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
                             Salva Prodotto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
                         </button>
                     </div>
                 </form>

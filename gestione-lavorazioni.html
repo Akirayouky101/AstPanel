@@ -262,141 +262,175 @@
     </div>
 
     <!-- Task Modal -->
-    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
-                <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                    <h3 id="taskModalTitle" class="text-lg font-medium text-gray-900">Nuova Lavorazione</h3>
-                    <button onclick="closeTaskModal()" class="text-gray-400 hover:text-gray-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <h3 id="taskModalTitle" class="text-xl font-bold text-white text-center flex-1">Nuova Lavorazione</h3>
+                        <button onclick="closeTaskModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-3">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
                 </div>
-                <form id="taskForm" class="p-6">
-                    <div class="grid grid-cols-2 gap-6 mb-6">
-                        <div class="col-span-2">
-                            <label for="taskTitle" class="block text-sm font-medium text-gray-700 mb-2">Titolo Lavorazione</label>
-                            <input type="text" id="taskTitle" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                
+                <!-- Content scrollabile -->
+                <form id="taskForm" class="p-4 overflow-y-auto flex-1 space-y-3">
+                    <!-- Titolo - BLU -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label for="taskTitle" class="block text-sm font-bold text-blue-900 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
+                            Titolo Lavorazione
+                        </label>
+                        <input type="text" id="taskTitle" required class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    </div>
+                    
+                    <!-- Assegnazione - VIOLA -->
+                    <div class="bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-purple-900 mb-3">
+                            <i data-lucide="users" class="w-4 h-4 inline mr-1"></i>
+                            Assegnazione
+                        </label>
+                        <div class="flex gap-4 mb-3">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" id="assignSingle" name="assignType" value="single" checked 
+                                       onchange="toggleAssignmentType()" 
+                                       class="w-4 h-4 text-purple-600 focus:ring-purple-500 mr-2">
+                                <span class="text-sm text-purple-900 font-medium">Singolo Dipendente</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" id="assignTeam" name="assignType" value="team" 
+                                       onchange="toggleAssignmentType()" 
+                                       class="w-4 h-4 text-purple-600 focus:ring-purple-500 mr-2">
+                                <span class="text-sm text-purple-900 font-medium">Squadra</span>
+                            </label>
                         </div>
-                        <div class="col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-3">Assegnazione</label>
-                            <div class="flex gap-4 mb-3">
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" id="assignSingle" name="assignType" value="single" checked 
-                                           onchange="toggleAssignmentType()" 
-                                           class="w-4 h-4 text-blue-600 focus:ring-blue-500 mr-2">
-                                    <span class="text-sm text-gray-700">Singolo Dipendente</span>
-                                </label>
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" id="assignTeam" name="assignType" value="team" 
-                                           onchange="toggleAssignmentType()" 
-                                           class="w-4 h-4 text-blue-600 focus:ring-blue-500 mr-2">
-                                    <span class="text-sm text-gray-700">Squadra</span>
-                                </label>
-                            </div>
-                            
-                            <!-- Single Assignment -->
-                            <div id="singleAssignment" class="assignment-section">
-                                <select id="taskAssignee" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Seleziona dipendente</option>
-                                    <option value="mario">Mario Rossi</option>
-                                    <option value="anna">Anna Verdi</option>
-                                    <option value="giuseppe">Giuseppe Neri</option>
-                                    <option value="laura">Laura Blu</option>
-                                </select>
-                            </div>
-                            
-                            <!-- Team Assignment -->
-                            <div id="teamAssignment" class="assignment-section hidden">
-                                <select id="taskTeam" onchange="showTeamMembers()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Seleziona squadra</option>
-                                    <!-- Populated by JavaScript -->
-                                </select>
-                                <div id="teamMembersPreview" class="mt-3 p-3 bg-blue-50 rounded-lg hidden">
-                                    <p class="text-sm font-semibold text-blue-800 mb-2">
-                                        <i class="fas fa-users mr-2"></i>Membri della squadra:
-                                    </p>
-                                    <div id="teamMembersList" class="flex flex-wrap gap-2">
-                                        <!-- Team members will be shown here -->
-                                    </div>
+                        
+                        <!-- Single Assignment -->
+                        <div id="singleAssignment" class="assignment-section">
+                            <select id="taskAssignee" class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
+                                <option value="">Seleziona dipendente</option>
+                                <option value="mario">Mario Rossi</option>
+                                <option value="anna">Anna Verdi</option>
+                                <option value="giuseppe">Giuseppe Neri</option>
+                                <option value="laura">Laura Blu</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Team Assignment -->
+                        <div id="teamAssignment" class="assignment-section hidden">
+                            <select id="taskTeam" onchange="showTeamMembers()" class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
+                                <option value="">Seleziona squadra</option>
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <div id="teamMembersPreview" class="mt-3 p-3 bg-purple-100 border border-purple-200 rounded-lg hidden">
+                                <p class="text-sm font-bold text-purple-800 mb-2">
+                                    <i class="fas fa-users mr-2"></i>Membri della squadra:
+                                </p>
+                                <div id="teamMembersList" class="flex flex-wrap gap-2">
+                                    <!-- Team members will be shown here -->
                                 </div>
                             </div>
                         </div>
-                        <div>
-                            <label for="taskPriority" class="block text-sm font-medium text-gray-700 mb-2">Priorità</label>
-                            <select id="taskPriority" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <!-- Priorità e Scadenza - Grid -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Priorità - ROSA -->
+                        <div class="bg-gradient-to-br from-pink-50 to-rose-100 border-2 border-pink-200 rounded-xl p-4">
+                            <label for="taskPriority" class="block text-sm font-bold text-pink-900 mb-2">
+                                <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
+                                Priorità
+                            </label>
+                            <select id="taskPriority" required class="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:ring-2 focus:ring-pink-500 bg-white">
                                 <option value="bassa">Bassa</option>
                                 <option value="media" selected>Media</option>
                                 <option value="alta">Alta</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="taskDeadline" class="block text-sm font-medium text-gray-700 mb-2">Scadenza</label>
-                            <input type="date" id="taskDeadline" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="col-span-2">
-                            <label for="taskClient" class="block text-sm font-medium text-gray-700 mb-2">Cliente/Progetto</label>
-                            <select id="taskClient" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="">Seleziona cliente</option>
-                                <!-- Populated by JavaScript -->
-                            </select>
-                            <div class="flex gap-3 mt-2 items-center">
-                                <button type="button" onclick="window.open('gestione-clienti.html', '_blank')" 
-                                        class="text-green-600 hover:text-green-700 transition-colors" 
-                                        title="Crea nuovo cliente">
-                                    <i class="fas fa-plus-circle text-2xl"></i>
-                                </button>
-                                <button type="button" onclick="viewSelectedClient()" 
-                                        class="text-blue-600 hover:text-blue-700 transition-colors" 
-                                        title="Visualizza dettagli cliente">
-                                    <i class="fas fa-eye text-2xl"></i>
-                                </button>
-                                <p class="text-xs text-gray-500 ml-2">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Clicca <i class="fas fa-plus-circle text-green-600 mx-1"></i> per creare o <i class="fas fa-eye text-blue-600 mx-1"></i> per vedere dettagli
-                                </p>
-                            </div>
+                        
+                        <!-- Scadenza - ARANCIO -->
+                        <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
+                            <label for="taskDeadline" class="block text-sm font-bold text-orange-900 mb-2">
+                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
+                                Scadenza
+                            </label>
+                            <input type="date" id="taskDeadline" required class="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white">
                         </div>
                     </div>
                     
-                    <!-- Components Section -->
-                    <div class="mb-6 border-t pt-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <label class="block text-sm font-medium text-gray-700">
+                    <!-- Cliente - VERDE -->
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                        <label for="taskClient" class="block text-sm font-bold text-green-900 mb-2">
+                            <i data-lucide="building-2" class="w-4 h-4 inline mr-1"></i>
+                            Cliente/Progetto
+                        </label>
+                        <select id="taskClient" required class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white">
+                            <option value="">Seleziona cliente</option>
+                            <!-- Populated by JavaScript -->
+                        </select>
+                        <div class="flex gap-3 mt-2 items-center">
+                            <button type="button" onclick="window.open('gestione-clienti.html', '_blank')" 
+                                    class="text-green-600 hover:text-green-700 transition-colors" 
+                                    title="Crea nuovo cliente">
+                                <i class="fas fa-plus-circle text-2xl"></i>
+                            </button>
+                            <button type="button" onclick="viewSelectedClient()" 
+                                    class="text-blue-600 hover:text-blue-700 transition-colors" 
+                                    title="Visualizza dettagli cliente">
+                                <i class="fas fa-eye text-2xl"></i>
+                            </button>
+                            <p class="text-xs text-green-700 ml-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Clicca <i class="fas fa-plus-circle text-green-600 mx-1"></i> per creare o <i class="fas fa-eye text-blue-600 mx-1"></i> per vedere dettagli
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Components Section - VERDE CHIARO -->
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="block text-sm font-bold text-green-900">
                                 <i class="fas fa-box mr-2"></i>
                                 Componenti Necessari
                             </label>
                             <button type="button" onclick="openComponentSelector()" 
-                                    class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm transition-colors">
+                                    class="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 text-sm transition-colors font-medium">
                                 <i class="fas fa-plus mr-1"></i>
                                 Aggiungi Componente
                             </button>
                         </div>
                         <div id="taskComponentsList" class="space-y-2">
-                            <p class="text-sm text-gray-500 italic">Nessun componente selezionato</p>
+                            <p class="text-sm text-green-700 italic">Nessun componente selezionato</p>
                         </div>
                     </div>
                     
-                    <div class="mb-6">
-                        <label for="taskDescription" class="block text-sm font-medium text-gray-700 mb-2">Descrizione</label>
-                        <textarea id="taskDescription" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    <!-- Descrizione - GRIGIO -->
+                    <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                        <label for="taskDescription" class="block text-sm font-bold text-gray-700 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
+                            Descrizione
+                        </label>
+                        <textarea id="taskDescription" rows="4" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"></textarea>
                     </div>
                     
-                    <!-- Progresso Section (visible only in edit mode) -->
-                    <div id="progressSection" class="mb-6 hidden border-t pt-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <label class="block text-sm font-medium text-gray-700">
+                    <!-- Progresso Section (visible only in edit mode) - CELESTE -->
+                    <div id="progressSection" class="hidden bg-gradient-to-br from-cyan-50 to-sky-100 border-2 border-cyan-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-bold text-cyan-900">
                                 <i class="fas fa-tasks mr-2"></i>
                                 Progresso & Note Dipendente
                             </label>
-                            <span id="progressPercentage" class="text-lg font-bold text-blue-600">0%</span>
+                            <span id="progressPercentage" class="text-2xl font-bold text-cyan-600">0%</span>
                         </div>
                         <div class="mb-4">
-                            <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div id="progressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            <div class="w-full bg-cyan-200 rounded-full h-3">
+                                <div id="progressBar" class="bg-gradient-to-r from-cyan-500 to-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
                             </div>
                         </div>
-                        <div class="bg-blue-50 p-4 rounded-lg">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <div class="bg-white border-2 border-cyan-200 p-4 rounded-lg">
+                            <label class="block text-sm font-bold text-cyan-900 mb-2">
                                 <i class="fas fa-sticky-note mr-2"></i>
                                 Ultime Note sul Progresso
                             </label>
@@ -406,33 +440,34 @@
                         </div>
                     </div>
                     
-                    <!-- Lock/Unlock Toggle -->
-                    <div id="editLockSection" class="mb-4 hidden">
-                        <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <!-- Lock/Unlock Toggle - GIALLO -->
+                    <div id="editLockSection" class="hidden bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <i id="lockIcon" class="fas fa-lock text-yellow-600 mr-3 text-xl"></i>
                                 <div>
-                                    <p id="lockText" class="text-sm font-medium text-yellow-800">Campi bloccati per sicurezza</p>
-                                    <p class="text-xs text-yellow-600">Sblocca per modificare i dettagli della lavorazione</p>
+                                    <p id="lockText" class="text-sm font-bold text-yellow-900">Campi bloccati per sicurezza</p>
+                                    <p class="text-xs text-yellow-700">Sblocca per modificare i dettagli della lavorazione</p>
                                 </div>
                             </div>
                             <button type="button" id="toggleLockButton" onclick="toggleFieldsLock()" 
-                                    class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
+                                    class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-600 text-white rounded-lg hover:from-yellow-600 hover:to-amber-700 transition-colors text-sm font-bold">
                                 <i class="fas fa-unlock mr-2"></i>Sblocca
                             </button>
                         </div>
                     </div>
                     
-                    <div class="flex space-x-3">
-                        <button type="button" onclick="closeTaskModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-3 pt-2">
+                        <button type="button" onclick="closeTaskModal()" class="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 font-bold transition-colors">
                             Annulla
                         </button>
-                        <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <button type="submit" class="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 font-bold transition-all shadow-lg">
                             Salva Lavorazione
                         </button>
                     </div>
                     <div id="deleteTaskButton" class="mt-3 hidden">
-                        <button type="button" onclick="deleteTaskFromModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center">
+                        <button type="button" onclick="deleteTaskFromModal()" class="w-full px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 flex items-center justify-center font-bold transition-all shadow-lg">
                             <i class="fas fa-trash mr-2"></i>
                             Elimina Lavorazione
                         </button>
@@ -443,38 +478,44 @@
     </div>
 
     <!-- Component Selector Modal -->
-    <div id="componentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div id="componentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-                <div class="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-                    <h3 class="text-lg font-medium text-gray-900">
-                        <i class="fas fa-warehouse mr-2"></i>
-                        Seleziona Componenti da Magazzino
-                    </h3>
-                    <button onclick="closeComponentModal()" class="text-gray-400 hover:text-gray-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-white text-center flex-1">
+                            <i class="fas fa-warehouse mr-2"></i>
+                            Seleziona Componenti da Magazzino
+                        </h3>
+                        <button onclick="closeComponentModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-3" title="Chiudi">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
                 </div>
                 
-                <!-- Search and Filter -->
-                <div class="p-4 border-b bg-gray-50 space-y-3">
+                <!-- Search and Filter - GRIGIO CHIARO -->
+                <div class="p-4 bg-gray-50 border-b-2 border-gray-200 space-y-3">
                     <!-- Search Bar -->
-                    <div>
-                        <label for="componentSearch" class="block text-sm font-medium text-gray-700 mb-2">
+                    <div class="bg-white border-2 border-blue-200 rounded-xl p-3">
+                        <label for="componentSearch" class="block text-sm font-bold text-blue-900 mb-2">
                             <i class="fas fa-search mr-1"></i>
                             Cerca Componente
                         </label>
                         <input type="text" id="componentSearch" 
                                oninput="filterComponents()"
                                placeholder="Cerca per nome, codice o descrizione..."
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     
                     <!-- Category Filter -->
-                    <div>
-                        <label for="componentCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2">Filtra per Categoria</label>
+                    <div class="bg-white border-2 border-purple-200 rounded-xl p-3">
+                        <label for="componentCategoryFilter" class="block text-sm font-bold text-purple-900 mb-2">
+                            <i class="fas fa-filter mr-1"></i>
+                            Filtra per Categoria
+                        </label>
                         <select id="componentCategoryFilter" onchange="filterComponents()" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
                             <option value="">Tutte le categorie</option>
                             <option value="Antifurto">Antifurto</option>
                             <option value="Videosorveglianza">Videosorveglianza</option>
@@ -484,15 +525,17 @@
                     </div>
                 </div>
                 
-                <div class="p-6">
+                <!-- Components List -->
+                <div class="p-4 overflow-y-auto flex-1">
                     <div id="componentsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Components will be loaded here -->
                     </div>
                 </div>
                 
-                <div class="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+                <!-- Footer -->
+                <div class="flex justify-end p-4 border-t-2 border-gray-200 bg-gray-50">
                     <button type="button" onclick="closeComponentModal()" 
-                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            class="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 font-bold transition-colors">
                         Chiudi
                     </button>
                 </div>

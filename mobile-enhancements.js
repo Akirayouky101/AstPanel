@@ -29,12 +29,35 @@
             <button class="mobile-menu-btn" id="mobileMenuBtn">
                 <i class="fas fa-bars"></i>
             </button>
-            <h1>AST Panel</h1>
-            <button class="mobile-menu-btn" style="visibility: hidden;">
-                <i class="fas fa-bars"></i>
-            </button>
+            <h1 style="color: #10b981; font-weight: 700; font-size: 16px; white-space: nowrap;">⚡ ZG IMPIANTI S.R.L. ⚡</h1>
+            <div style="width: 40px;"></div>
         `;
         document.body.insertBefore(header, document.body.firstChild);
+        
+        // Add mobile badge to communications menu item
+        const commNavItem = document.getElementById('nav-communications');
+        if (commNavItem && !document.getElementById('mobile-comm-badge')) {
+            const badge = document.createElement('span');
+            badge.id = 'mobile-comm-badge';
+            badge.style.cssText = `
+                display: none;
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: #ef4444;
+                color: white;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 2px 6px;
+                border-radius: 10px;
+                min-width: 18px;
+                text-align: center;
+                align-items: center;
+                justify-content: center;
+            `;
+            commNavItem.style.position = 'relative';
+            commNavItem.appendChild(badge);
+        }
         
         // Bottom navigation REMOVED - using sidebar only
         
@@ -697,6 +720,243 @@
         if (modal) {
             modal.remove();
             document.body.style.overflow = '';
+        }
+    };
+    
+    // ============================================
+    // MOBILE COMMUNICATION CARD
+    // ============================================
+    
+    function createMobileCommunicationCard(comm, currentUser) {
+        const isRead = comm.letta_da?.includes(currentUser?.id);
+        const isArchived = comm.archiviata_da?.includes(currentUser?.id);
+        const isDeleted = comm.eliminata_da?.some(item => item.user_id === currentUser?.id);
+        
+        // Check if user has already responded to survey
+        const userResponse = comm.risposte_sondaggio?.find(r => r.user_id === currentUser?.id);
+        const hasResponded = !!userResponse;
+        
+        const card = document.createElement('div');
+        card.className = 'mobile-comm-card';
+        card.dataset.commId = comm.id;
+        card.dataset.read = isRead ? 'true' : 'false';
+        card.dataset.archived = isArchived ? 'true' : 'false';
+        card.dataset.deleted = isDeleted ? 'true' : 'false';
+        
+        const priorityColors = {
+            'alta': '#ef4444',
+            'media': '#f59e0b',
+            'bassa': '#10b981'
+        };
+        
+        const priorityBg = {
+            'alta': '#fef2f2',
+            'media': '#fff7ed',
+            'bassa': '#f0fdf4'
+        };
+        
+        // Extract plain text from HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = comm.contenuto || '';
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // Survey options HTML
+        let surveyHTML = '';
+        if (comm.tipo === 'sondaggio' && comm.opzioni_sondaggio) {
+            const opzioni = comm.opzioni_sondaggio.opzioni || [];
+            const multipla = comm.opzioni_sondaggio.multipla || false;
+            
+            surveyHTML = `
+                <div style="padding: 16px 0; border-top: 1px solid #e5e7eb;">
+                    <p style="font-weight: 600; color: #111827; margin-bottom: 12px;">
+                        📊 ${comm.opzioni_sondaggio.domanda}
+                    </p>
+                    ${hasResponded ? `
+                        <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                            <p style="color: #047857; font-size: 14px; font-weight: 600;">
+                                ✓ Hai già risposto: ${userResponse.risposta.join(', ')}
+                            </p>
+                        </div>
+                    ` : `
+                        <form id="survey-form-${comm.id}" onsubmit="submitSurveyResponse(event, '${comm.id}')" style="margin-bottom: 12px;">
+                            ${opzioni.map((opt, idx) => `
+                                <label style="display: flex; align-items: center; padding: 10px; background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; cursor: pointer;">
+                                    <input type="${multipla ? 'checkbox' : 'radio'}" name="survey-option-${comm.id}" value="${opt}" style="margin-right: 10px; width: 18px; height: 18px;">
+                                    <span style="font-size: 14px; color: #374151;">${opt}</span>
+                                </label>
+                            `).join('')}
+                            <button type="submit" style="width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 8px;">
+                                Invia Risposta
+                            </button>
+                        </form>
+                    `}
+                </div>
+            `;
+        }
+        
+        card.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            ${!isRead ? 'border-left: 4px solid #3b82f6;' : ''}
+        `;
+        
+        card.innerHTML = `
+            <div class="mobile-comm-header" style="padding: 16px; cursor: pointer; background: ${priorityBg[comm.priorita] || '#f9fafb'};" onclick="toggleMobileCommunication('${comm.id}')">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        ${!isRead ? '<div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>' : ''}
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: #111827;">${comm.titolo}</h3>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        ${isArchived ? '<span style="font-size: 16px;">📦</span>' : ''}
+                        ${isDeleted ? '<span style="font-size: 16px;">🗑️</span>' : ''}
+                        <i class="mobile-comm-chevron" style="font-size: 18px; color: #6b7280; transition: transform 0.3s;">▼</i>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: #6b7280;">
+                    <span>📅 ${new Date(comm.data_invio || comm.created_at).toLocaleDateString('it-IT')}</span>
+                    <span style="background: ${priorityColors[comm.priorita]}; color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 11px;">
+                        ${comm.priorita.toUpperCase()}
+                    </span>
+                    <span style="text-transform: capitalize;">${comm.tipo}</span>
+                </div>
+            </div>
+            
+            <div class="mobile-comm-content" style="display: none; padding: 0 16px 16px 16px; border-top: 1px solid #e5e7eb;">
+                <div style="padding: 16px 0; color: #374151; font-size: 14px; line-height: 1.6;">
+                    ${plainText}
+                </div>
+                
+                ${surveyHTML}
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
+                    ${!isRead ? `
+                    <button onclick="event.stopPropagation(); toggleReadMobile('${comm.id}', true)" 
+                            style="padding: 10px; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        ✓ Segna Letta
+                    </button>
+                    ` : `
+                    <button onclick="event.stopPropagation(); toggleReadMobile('${comm.id}', false)" 
+                            style="padding: 10px; background: #6b7280; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        ✉ Segna Non Letta
+                    </button>
+                    `}
+                    ${!isArchived ? `
+                    <button onclick="event.stopPropagation(); toggleArchiveMobile('${comm.id}', true)" 
+                            style="padding: 10px; background: #f59e0b; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        📦 Archivia
+                    </button>
+                    ` : `
+                    <button onclick="event.stopPropagation(); toggleArchiveMobile('${comm.id}', false)" 
+                            style="padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        ↩ Ripristina
+                    </button>
+                    `}
+                    ${!isDeleted ? `
+                    <button onclick="event.stopPropagation(); deleteCommunicationMobile('${comm.id}')" 
+                            style="padding: 10px; background: #ef4444; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; grid-column: 1 / -1;">
+                        🗑️ Elimina
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        return card;
+    }
+    
+    window.createMobileCommunicationCard = createMobileCommunicationCard;
+    
+    window.toggleMobileCommunication = function(commId) {
+        const card = document.querySelector(`[data-comm-id="${commId}"]`);
+        if (!card) return;
+        
+        const content = card.querySelector('.mobile-comm-content');
+        const chevron = card.querySelector('.mobile-comm-chevron');
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    };
+    
+    window.toggleReadMobile = function(commId, markAsRead) {
+        if (typeof window.toggleRead === 'function') {
+            window.toggleRead(commId, markAsRead);
+        }
+    };
+    
+    window.toggleArchiveMobile = function(commId, archive) {
+        if (typeof window.toggleArchive === 'function') {
+            window.toggleArchive(commId, archive);
+        }
+    };
+    
+    window.deleteCommunicationMobile = function(commId) {
+        if (typeof window.deleteCommunicationAsUser === 'function') {
+            window.deleteCommunicationAsUser(commId);
+        }
+    };
+    
+    window.submitSurveyResponse = async function(event, commId) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        const selectedOptions = [];
+        
+        // Get all selected options
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith('survey-option-')) {
+                selectedOptions.push(value);
+            }
+        }
+        
+        if (selectedOptions.length === 0) {
+            alert('Seleziona almeno un\'opzione');
+            return;
+        }
+        
+        try {
+            // Get current communication
+            const communications = await window.dataManager.getComunicazioni();
+            const comm = communications.find(c => c.id === commId);
+            
+            if (!comm) {
+                alert('Comunicazione non trovata');
+                return;
+            }
+            
+            const currentUser = window.AuthHelper.getCurrentUser();
+            
+            // Add user response
+            const risposte = comm.risposte_sondaggio || [];
+            risposte.push({
+                user_id: currentUser.id,
+                risposta: selectedOptions,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Update communication
+            await window.CommunicationsAPI.update(commId, {
+                risposte_sondaggio: risposte
+            });
+            
+            alert('✓ Risposta inviata con successo!');
+            
+            // Reload communications
+            if (typeof window.loadUserCommunications === 'function') {
+                await window.loadUserCommunications();
+            }
+        } catch (error) {
+            console.error('Error submitting survey:', error);
+            alert('Errore durante l\'invio della risposta');
         }
     };
     

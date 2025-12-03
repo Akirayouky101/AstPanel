@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        
+        /* Tab System */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in; }
+        .tab-btn { transition: all 0.2s; cursor: pointer; }
+        .tab-btn.active { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
+        <div class="flex items-center justify-center h-16 gradient-bg">
+            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
+                Gestione Utenti
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="calendario-admin.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
+                Calendario
+            </a>
+            <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="building" class="w-5 h-5 mr-3"></i>
+                Clienti
+            </a>
+            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
+                Gestione Richieste
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="package" class="w-5 h-5 mr-3"></i>
+                Magazzino
+            </a>
+            
+            <!-- Utility Section -->
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <p class="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Utility</p>
+                <a href="analytics-dashboard.html" class="flex items-center px-6 py-3 bg-gradient-to-r from-purple-50 to-blue-50 text-blue-600 border-r-4 border-blue-600">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 mr-3"></i>
+                    Analytics
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-3xl font-bold text-gray-800">📊 Analytics Dashboard</h2>
+                <div class="flex gap-3">
+                    <select id="periodFilter" onchange="refreshDashboard()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="7">Ultimi 7 giorni</option>
+                        <option value="30" selected>Ultimi 30 giorni</option>
+                        <option value="90">Ultimi 90 giorni</option>
+                        <option value="365">Ultimo anno</option>
+                    </select>
+                    <button onclick="refreshDashboard()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                        Aggiorna
+                    </button>
+                </div>
+            </div>
+            <p class="text-gray-600">Panoramica completa delle performance aziendali</p>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-xl shadow-lg p-2 mb-6 flex gap-2">
+            <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active flex-1 px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                <span>Overview</span>
+            </button>
+            <button onclick="switchTab('productivity')" id="tab-productivity" class="tab-btn flex-1 px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span>Produttività</span>
+            </button>
+            <button onclick="switchTab('geography')" id="tab-geography" class="tab-btn flex-1 px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100">
+                <i data-lucide="map" class="w-5 h-5"></i>
+                <span>Geografia</span>
+            </button>
+            <button onclick="switchTab('trends')" id="tab-trends" class="tab-btn flex-1 px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100">
+                <i data-lucide="trending-up" class="w-5 h-5"></i>
+                <span>Trend</span>
+            </button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div id="content-overview" class="tab-content active">
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 fade-in">
+            <!-- Lavorazioni Totali -->
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded-full">+12% vs mese scorso</span>
+                </div>
+                <h3 class="text-sm font-medium opacity-90 mb-1">Lavorazioni Completate</h3>
+                <p class="text-3xl font-bold" id="totalTasks">-</p>
+            </div>
+
+            <!-- Revenue Stimato -->
+            <div class="stat-card bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-lucide="euro" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded-full">+8% vs mese scorso</span>
+                </div>
+                <h3 class="text-sm font-medium opacity-90 mb-1">Revenue Stimato</h3>
+                <p class="text-3xl font-bold" id="totalRevenue">-</p>
+            </div>
+
+            <!-- Efficienza Media -->
+            <div class="stat-card bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-lucide="zap" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded-full">+5% vs mese scorso</span>
+                </div>
+                <h3 class="text-sm font-medium opacity-90 mb-1">Efficienza Media</h3>
+                <p class="text-3xl font-bold" id="avgEfficiency">-</p>
+            </div>
+
+            <!-- Clienti Serviti -->
+            <div class="stat-card bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded-full">+15% vs mese scorso</span>
+                </div>
+                <h3 class="text-sm font-medium opacity-90 mb-1">Clienti Serviti</h3>
+                <p class="text-3xl font-bold" id="uniqueClients">-</p>
+            </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Lavorazioni per Giorno -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">📅 Lavorazioni per Giorno</h3>
+                    <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="tasksPerDayChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Distribuzione per Tipo -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">🔧 Distribuzione per Tipo</h3>
+                    <i data-lucide="pie-chart" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="taskTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Performance Dipendenti -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">👷 Performance Dipendenti</h3>
+                    <i data-lucide="award" class="w-5 h-5 text-purple-600"></i>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="employeePerformanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Stati Lavorazioni -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">📊 Stati Lavorazioni</h3>
+                    <i data-lucide="activity" class="w-5 h-5 text-orange-600"></i>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="taskStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Top 5 Dipendenti -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">🏆 Top 5 Dipendenti</h3>
+                    <span class="text-xs text-gray-500">Per numero lavorazioni</span>
+                </div>
+                <div id="topEmployees" class="space-y-3">
+                    <!-- Will be populated -->
+                </div>
+            </div>
+
+            <!-- Top 5 Clienti -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">💼 Top 5 Clienti</h3>
+                    <span class="text-xs text-gray-500">Per numero interventi</span>
+                </div>
+                <div id="topClients" class="space-y-3">
+                    <!-- Will be populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-xl p-6 fade-in">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="clock" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800 mb-1">Tempo Medio Completamento</h4>
+                        <p class="text-2xl font-bold text-cyan-600" id="avgCompletionTime">-</p>
+                        <p class="text-xs text-gray-600 mt-1">Per lavorazione</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-pink-50 to-rose-50 border-2 border-pink-200 rounded-xl p-6 fade-in">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="star" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800 mb-1">Tasso di Completamento</h4>
+                        <p class="text-2xl font-bold text-pink-600" id="completionRate">-</p>
+                        <p class="text-xs text-gray-600 mt-1">Lavorazioni completate</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-xl p-6 fade-in">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800 mb-1">Zone Più Attive</h4>
+                        <p class="text-lg font-bold text-amber-600" id="topZone">-</p>
+                        <p class="text-xs text-gray-600 mt-1">Per numero interventi</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- END Tab: Overview -->
+
+        <!-- Tab: Productivity -->
+        <div id="content-productivity" class="tab-content">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <i data-lucide="users" class="w-6 h-6 text-purple-600"></i>
+            Produttività Dipendenti & Squadre
+        </h2>
+
+        <!-- Productivity Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Produttività Dipendenti (ore) -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">⏱️ Produttività Dipendenti</h3>
+                    <span class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">Ore lavorate</span>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="employeeProductivityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Produttività Squadre -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">👥 Performance Squadre</h3>
+                    <span class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">Lavorazioni completate</span>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="teamPerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- END Tab: Productivity -->
+
+        <!-- Tab: Geography -->
+        <div id="content-geography" class="tab-content">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <i data-lucide="map" class="w-6 h-6 text-red-600"></i>
+            Analisi Geografica
+        </h2>
+
+        <!-- Heatmap Zone -->
+        <div class="grid grid-cols-1 gap-6 mb-6">
+            <!-- Mappa Termica Zone -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">🗺️ Mappa Termica Zone</h3>
+                    <span class="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full">Top 10 città</span>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="heatmapChart"></canvas>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- END Tab: Geography -->
+
+        <!-- Tab: Trends -->
+        <div id="content-trends" class="tab-content">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <i data-lucide="trending-up" class="w-6 h-6 text-purple-600"></i>
+            Trend & Previsioni
+        </h2>
+
+        <!-- Trend Mensile -->
+        <div class="grid grid-cols-1 gap-6 mb-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">📈 Trend Mensile</h3>
+                    <span class="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">Ultimi 12 mesi</span>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seasonal Predictions -->
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl shadow-lg p-6 mb-6 fade-in">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="sparkles" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">🔮 Previsioni & Trend Stagionali</h3>
+                    <p class="text-sm text-gray-600">Analisi predittiva basata su storico</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-lg p-4 border-2 border-blue-200">
+                    <p class="text-xs text-gray-600 mb-1">Prossimo Mese</p>
+                    <p class="text-2xl font-bold text-blue-600" id="nextMonthPrediction">-</p>
+                    <p class="text-xs text-gray-500 mt-1">lavorazioni previste</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-2 border-green-200">
+                    <p class="text-xs text-gray-600 mb-1">Stagione Migliore</p>
+                    <p class="text-xl font-bold text-green-600" id="bestSeason">-</p>
+                    <p class="text-xs text-gray-500 mt-1">più richieste</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-2 border-orange-200">
+                    <p class="text-xs text-gray-600 mb-1">Media Giornaliera</p>
+                    <p class="text-2xl font-bold text-orange-600" id="dailyAverage">-</p>
+                    <p class="text-xs text-gray-500 mt-1">lavorazioni/giorno</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-2 border-purple-200">
+                    <p class="text-xs text-gray-600 mb-1">Trend Generale</p>
+                    <p class="text-xl font-bold text-purple-600" id="overallTrend">-</p>
+                    <p class="text-xs text-gray-500 mt-1">vs mese scorso</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Real-time Summary -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6 fade-in">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i data-lucide="activity" class="w-5 h-5 text-green-600"></i>
+                KPI in Tempo Reale
+            </h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-xs text-gray-600 mb-1">Completate Oggi</p>
+                    <p class="text-2xl font-bold text-blue-600" id="kpiTodayCompleted">0</p>
+                </div>
+                <div class="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p class="text-xs text-gray-600 mb-1">In Corso</p>
+                    <p class="text-2xl font-bold text-green-600" id="kpiInProgress">0</p>
+                </div>
+                <div class="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p class="text-xs text-gray-600 mb-1">Programmate</p>
+                    <p class="text-2xl font-bold text-orange-600" id="kpiScheduled">0</p>
+                </div>
+                <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <p class="text-xs text-gray-600 mb-1">Tempo Medio</p>
+                    <p class="text-xl font-bold text-purple-600" id="kpiAvgTime">0h</p>
+                </div>
+                <div class="text-center p-3 bg-cyan-50 rounded-lg border border-cyan-200">
+                    <p class="text-xs text-gray-600 mb-1">Revenue Oggi</p>
+                    <p class="text-xl font-bold text-cyan-600" id="kpiTodayRevenue">€0</p>
+                </div>
+                <div class="text-center p-3 bg-pink-50 rounded-lg border border-pink-200">
+                    <p class="text-xs text-gray-600 mb-1">Efficienza</p>
+                    <p class="text-2xl font-bold text-pink-600" id="kpiEfficiency">0%</p>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- END Tab: Trends -->
+
+    </div>
+
+    <script>
+        let chartsInstances = {};
+        let allTasks = [];
+        let allUsers = [];
+        let allClients = [];
+
+        // Tab Switching Function
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('bg-gray-50', 'text-gray-700', 'hover:bg-gray-100');
+            });
+            
+            // Show selected tab
+            document.getElementById('content-' + tabName).classList.add('active');
+            
+            // Activate selected button
+            const activeBtn = document.getElementById('tab-' + tabName);
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('bg-gray-50', 'text-gray-700', 'hover:bg-gray-100');
+            
+            // Refresh icons
+            lucide.createIcons();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            await loadData();
+            await refreshDashboard();
+        });
+
+        async function loadData() {
+            try {
+                // Load all data
+                allTasks = await window.dataManager.getLavorazioni();
+                allUsers = await window.UsersAPI.getAll();
+                allClients = await window.ClientsAPI.getAll();
+                
+                console.log('📊 Dati caricati:', {
+                    tasks: allTasks.length,
+                    users: allUsers.length,
+                    clients: allClients.length
+                });
+            } catch (error) {
+                console.error('Errore caricamento dati:', error);
+            }
+        }
+
+        async function refreshDashboard() {
+            const period = parseInt(document.getElementById('periodFilter').value);
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - period);
+
+            // Filter tasks by period
+            const filteredTasks = allTasks.filter(task => {
+                const taskDate = new Date(task.data_creazione || task.created_at);
+                return taskDate >= startDate;
+            });
+
+            // Calculate KPIs
+            calculateKPIs(filteredTasks);
+
+            // Update charts
+            updateTasksPerDayChart(filteredTasks, period);
+            updateTaskTypeChart(filteredTasks);
+            updateEmployeePerformanceChart(filteredTasks);
+            updateTaskStatusChart(filteredTasks);
+            updateTopPerformers(filteredTasks);
+            
+            // NEW: Advanced charts
+            updateEmployeeProductivityChart(filteredTasks);
+            updateTeamPerformanceChart(filteredTasks);
+            updateHeatmapChart(filteredTasks);
+            updateMonthlyTrendChart();
+            calculatePredictions();
+            updateRealTimeKPIs(filteredTasks);
+
+            lucide.createIcons();
+        }
+
+        function calculateKPIs(tasks) {
+            // Total tasks
+            const completedTasks = tasks.filter(t => t.stato === 'Completata');
+            document.getElementById('totalTasks').textContent = completedTasks.length;
+
+            // Revenue (assumendo costo medio di €150 per lavorazione)
+            const avgCost = 150;
+            const revenue = completedTasks.length * avgCost;
+            document.getElementById('totalRevenue').textContent = `€${revenue.toLocaleString()}`;
+
+            // Efficiency (percentuale completate)
+            const efficiency = tasks.length > 0 ? ((completedTasks.length / tasks.length) * 100).toFixed(1) : 0;
+            document.getElementById('avgEfficiency').textContent = `${efficiency}%`;
+
+            // Unique clients
+            const uniqueClients = new Set(tasks.map(t => t.cliente_id).filter(Boolean));
+            document.getElementById('uniqueClients').textContent = uniqueClients.size;
+
+            // Completion rate
+            document.getElementById('completionRate').textContent = `${efficiency}%`;
+
+            // Average completion time (in days)
+            const completedWithDates = completedTasks.filter(t => t.data_creazione && t.data_fine);
+            if (completedWithDates.length > 0) {
+                const totalDays = completedWithDates.reduce((sum, task) => {
+                    const start = new Date(task.data_creazione);
+                    const end = new Date(task.data_fine);
+                    const days = (end - start) / (1000 * 60 * 60 * 24);
+                    return sum + days;
+                }, 0);
+                const avgDays = (totalDays / completedWithDates.length).toFixed(1);
+                document.getElementById('avgCompletionTime').textContent = `${avgDays} giorni`;
+            } else {
+                document.getElementById('avgCompletionTime').textContent = 'N/A';
+            }
+
+            // Top zone
+            const zoneCounts = {};
+            tasks.forEach(task => {
+                const client = allClients.find(c => c.id === task.cliente_id);
+                if (client && client.citta) {
+                    zoneCounts[client.citta] = (zoneCounts[client.citta] || 0) + 1;
+                }
+            });
+            const topZone = Object.entries(zoneCounts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('topZone').textContent = topZone ? `${topZone[0]} (${topZone[1]})` : 'N/A';
+        }
+
+        function updateTasksPerDayChart(tasks, period) {
+            const ctx = document.getElementById('tasksPerDayChart');
+            
+            // Destroy existing chart
+            if (chartsInstances.tasksPerDay) {
+                chartsInstances.tasksPerDay.destroy();
+            }
+
+            // Group tasks by day
+            const dayLabels = [];
+            const dayCounts = [];
+            const today = new Date();
+            
+            for (let i = period - 1; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                dayLabels.push(date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }));
+                
+                const count = tasks.filter(t => {
+                    const taskDate = new Date(t.data_creazione || t.created_at);
+                    return taskDate.toISOString().split('T')[0] === dateStr;
+                }).length;
+                dayCounts.push(count);
+            }
+
+            chartsInstances.tasksPerDay = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'Lavorazioni',
+                        data: dayCounts,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        function updateTaskTypeChart(tasks) {
+            const ctx = document.getElementById('taskTypeChart');
+            
+            if (chartsInstances.taskType) {
+                chartsInstances.taskType.destroy();
+            }
+
+            // Count by type
+            const typeCounts = {};
+            tasks.forEach(task => {
+                const type = task.tipologia || 'Non specificato';
+                typeCounts[type] = (typeCounts[type] || 0) + 1;
+            });
+
+            const labels = Object.keys(typeCounts);
+            const data = Object.values(typeCounts);
+            const colors = [
+                'rgb(59, 130, 246)',
+                'rgb(16, 185, 129)',
+                'rgb(245, 158, 11)',
+                'rgb(239, 68, 68)',
+                'rgb(139, 92, 246)',
+                'rgb(236, 72, 153)'
+            ];
+
+            chartsInstances.taskType = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function updateEmployeePerformanceChart(tasks) {
+            const ctx = document.getElementById('employeePerformanceChart');
+            
+            if (chartsInstances.employeePerf) {
+                chartsInstances.employeePerf.destroy();
+            }
+
+            // Count tasks per employee
+            const employeeCounts = {};
+            tasks.forEach(task => {
+                const empId = task.assegnatario_id || task.dipendente_id;
+                if (empId) {
+                    employeeCounts[empId] = (employeeCounts[empId] || 0) + 1;
+                }
+            });
+
+            // Get top 5 employees
+            const topEmployees = Object.entries(employeeCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            const labels = topEmployees.map(([id]) => {
+                const user = allUsers.find(u => u.id === id);
+                return user ? `${user.nome} ${user.cognome}` : 'N/A';
+            });
+            const data = topEmployees.map(([, count]) => count);
+
+            chartsInstances.employeePerf = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Lavorazioni',
+                        data: data,
+                        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                        borderColor: 'rgb(139, 92, 246)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        function updateTaskStatusChart(tasks) {
+            const ctx = document.getElementById('taskStatusChart');
+            
+            if (chartsInstances.taskStatus) {
+                chartsInstances.taskStatus.destroy();
+            }
+
+            // Count by status
+            const statusCounts = {
+                'Programmata': 0,
+                'In Corso': 0,
+                'Completata': 0,
+                'Annullata': 0
+            };
+
+            tasks.forEach(task => {
+                const status = task.stato || 'Programmata';
+                if (statusCounts.hasOwnProperty(status)) {
+                    statusCounts[status]++;
+                }
+            });
+
+            chartsInstances.taskStatus = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(statusCounts),
+                    datasets: [{
+                        label: 'Lavorazioni',
+                        data: Object.values(statusCounts),
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(245, 158, 11)',
+                            'rgb(16, 185, 129)',
+                            'rgb(239, 68, 68)'
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        function updateTopPerformers(tasks) {
+            // Top Employees
+            const employeeCounts = {};
+            tasks.forEach(task => {
+                const empId = task.assegnatario_id || task.dipendente_id;
+                if (empId) {
+                    employeeCounts[empId] = (employeeCounts[empId] || 0) + 1;
+                }
+            });
+
+            const topEmployees = Object.entries(employeeCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            const employeesHTML = topEmployees.map(([id, count], index) => {
+                const user = allUsers.find(u => u.id === id);
+                const name = user ? `${user.nome} ${user.cognome}` : 'N/A';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '⭐';
+                
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${medal}</span>
+                            <div>
+                                <p class="font-bold text-gray-800">${name}</p>
+                                <p class="text-xs text-gray-600">${user?.ruolo || 'Dipendente'}</p>
+                            </div>
+                        </div>
+                        <span class="text-xl font-bold text-purple-600">${count}</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('topEmployees').innerHTML = employeesHTML || '<p class="text-gray-500 text-center py-4">Nessun dato disponibile</p>';
+
+            // Top Clients
+            const clientCounts = {};
+            tasks.forEach(task => {
+                if (task.cliente_id) {
+                    clientCounts[task.cliente_id] = (clientCounts[task.cliente_id] || 0) + 1;
+                }
+            });
+
+            const topClients = Object.entries(clientCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            const clientsHTML = topClients.map(([id, count], index) => {
+                const client = allClients.find(c => c.id === id);
+                const name = client?.ragione_sociale || client?.nome_completo || 'N/A';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '⭐';
+                
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-2 border-blue-200">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${medal}</span>
+                            <div>
+                                <p class="font-bold text-gray-800">${name}</p>
+                                <p class="text-xs text-gray-600">${client?.citta || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <span class="text-xl font-bold text-blue-600">${count}</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('topClients').innerHTML = clientsHTML || '<p class="text-gray-500 text-center py-4">Nessun dato disponibile</p>';
+        }
+
+        // ADVANCED CHARTS FUNCTIONS
+
+        function updateEmployeeProductivityChart(tasks) {
+            const ctx = document.getElementById('employeeProductivityChart');
+            if (chartsInstances.employeeProd) chartsInstances.employeeProd.destroy();
+
+            // Calculate hours per employee (assuming 4h average per task)
+            const employeeHours = {};
+            tasks.forEach(task => {
+                const empId = task.assegnatario_id || task.dipendente_id;
+                if (empId) {
+                    const hours = task.durata_stimata || 4; // default 4h
+                    employeeHours[empId] = (employeeHours[empId] || 0) + hours;
+                }
+            });
+
+            const sorted = Object.entries(employeeHours).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            const labels = sorted.map(([id]) => {
+                const user = allUsers.find(u => u.id === id);
+                return user ? `${user.nome} ${user.cognome}` : 'N/A';
+            });
+            const data = sorted.map(([, hours]) => hours);
+
+            chartsInstances.employeeProd = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ore Lavorate',
+                        data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+        }
+
+        async function updateTeamPerformanceChart(tasks) {
+            const ctx = document.getElementById('teamPerformanceChart');
+            if (chartsInstances.teamPerf) chartsInstances.teamPerf.destroy();
+
+            // Get teams using TeamsAPI
+            let teams = [];
+            try {
+                teams = await window.TeamsAPI.getAll();
+            } catch (e) {
+                console.error('Errore caricamento squadre:', e);
+            }
+
+            // Count tasks per team
+            const teamCounts = {};
+            teams.forEach(team => {
+                teamCounts[team.id] = { name: team.nome, count: 0 };
+            });
+
+            tasks.forEach(task => {
+                if (task.squadra_id && teamCounts[task.squadra_id]) {
+                    teamCounts[task.squadra_id].count++;
+                }
+            });
+
+            const sorted = Object.values(teamCounts).sort((a, b) => b.count - a.count).slice(0, 6);
+            const labels = sorted.map(t => t.name);
+            const data = sorted.map(t => t.count);
+            const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'];
+
+            chartsInstances.teamPerf = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function updateHeatmapChart(tasks) {
+            const ctx = document.getElementById('heatmapChart');
+            if (chartsInstances.heatmap) chartsInstances.heatmap.destroy();
+
+            // Count by city
+            const cityCounts = {};
+            tasks.forEach(task => {
+                const client = allClients.find(c => c.id === task.cliente_id);
+                if (client && client.citta) {
+                    cityCounts[client.citta] = (cityCounts[client.citta] || 0) + 1;
+                }
+            });
+
+            const sorted = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            const labels = sorted.map(([city]) => city);
+            const data = sorted.map(([, count]) => count);
+
+            chartsInstances.heatmap = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Interventi',
+                        data: data,
+                        backgroundColor: data.map((val, i) => {
+                            const intensity = (val / Math.max(...data));
+                            return `rgba(239, 68, 68, ${0.3 + intensity * 0.7})`;
+                        }),
+                        borderColor: 'rgb(239, 68, 68)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function updateMonthlyTrendChart() {
+            const ctx = document.getElementById('monthlyTrendChart');
+            if (chartsInstances.monthlyTrend) chartsInstances.monthlyTrend.destroy();
+
+            // Group by month for last 12 months
+            const monthCounts = {};
+            const monthLabels = [];
+            
+            for (let i = 11; i >= 0; i--) {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+                const label = date.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+                monthLabels.push(label);
+                monthCounts[monthKey] = 0;
+            }
+
+            allTasks.forEach(task => {
+                const taskDate = new Date(task.data_creazione || task.created_at);
+                const monthKey = taskDate.toISOString().slice(0, 7);
+                if (monthCounts.hasOwnProperty(monthKey)) {
+                    monthCounts[monthKey]++;
+                }
+            });
+
+            const data = Object.values(monthCounts);
+
+            chartsInstances.monthlyTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Lavorazioni',
+                        data: data,
+                        borderColor: 'rgb(139, 92, 246)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function calculatePredictions() {
+            // Simple prediction based on average
+            const last30Days = allTasks.filter(t => {
+                const taskDate = new Date(t.data_creazione || t.created_at);
+                const daysAgo = (new Date() - taskDate) / (1000 * 60 * 60 * 24);
+                return daysAgo <= 30;
+            });
+
+            // Next month prediction (same as last 30 days)
+            document.getElementById('nextMonthPrediction').textContent = last30Days.length;
+
+            // Best season (group by quarter)
+            const seasonCounts = { 'Inverno': 0, 'Primavera': 0, 'Estate': 0, 'Autunno': 0 };
+            allTasks.forEach(task => {
+                const month = new Date(task.data_creazione || task.created_at).getMonth();
+                if (month >= 0 && month <= 2) seasonCounts['Inverno']++;
+                else if (month >= 3 && month <= 5) seasonCounts['Primavera']++;
+                else if (month >= 6 && month <= 8) seasonCounts['Estate']++;
+                else seasonCounts['Autunno']++;
+            });
+            const bestSeason = Object.entries(seasonCounts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('bestSeason').textContent = bestSeason ? bestSeason[0] : 'N/A';
+
+            // Daily average
+            const avgDaily = last30Days.length > 0 ? (last30Days.length / 30).toFixed(1) : 0;
+            document.getElementById('dailyAverage').textContent = avgDaily;
+
+            // Overall trend
+            const prevMonth = allTasks.filter(t => {
+                const taskDate = new Date(t.data_creazione || t.created_at);
+                const daysAgo = (new Date() - taskDate) / (1000 * 60 * 60 * 24);
+                return daysAgo > 30 && daysAgo <= 60;
+            });
+            const trend = last30Days.length - prevMonth.length;
+            const trendText = trend > 0 ? `↗️ +${trend}` : trend < 0 ? `↘️ ${trend}` : '➡️ Stabile';
+            document.getElementById('overallTrend').textContent = trendText;
+        }
+
+        function updateRealTimeKPIs(tasks) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Today completed
+            const todayCompleted = tasks.filter(t => {
+                const taskDate = new Date(t.data_fine || t.updated_at);
+                return taskDate.toISOString().split('T')[0] === today && t.stato === 'Completata';
+            });
+            document.getElementById('kpiTodayCompleted').textContent = todayCompleted.length;
+
+            // In progress
+            const inProgress = allTasks.filter(t => t.stato === 'In Corso').length;
+            document.getElementById('kpiInProgress').textContent = inProgress;
+
+            // Scheduled
+            const scheduled = allTasks.filter(t => t.stato === 'Programmata').length;
+            document.getElementById('kpiScheduled').textContent = scheduled;
+
+            // Avg time in hours
+            const completedWithDates = tasks.filter(t => t.data_creazione && t.data_fine && t.stato === 'Completata');
+            if (completedWithDates.length > 0) {
+                const totalHours = completedWithDates.reduce((sum, task) => {
+                    const start = new Date(task.data_creazione);
+                    const end = new Date(task.data_fine);
+                    const hours = (end - start) / (1000 * 60 * 60);
+                    return sum + hours;
+                }, 0);
+                const avgHours = (totalHours / completedWithDates.length).toFixed(1);
+                document.getElementById('kpiAvgTime').textContent = `${avgHours}h`;
+            } else {
+                document.getElementById('kpiAvgTime').textContent = '0h';
+            }
+
+            // Today revenue
+            const todayRevenue = todayCompleted.length * 150; // €150 avg
+            document.getElementById('kpiTodayRevenue').textContent = `€${todayRevenue}`;
+
+            // Efficiency
+            const efficiency = tasks.length > 0 ? ((tasks.filter(t => t.stato === 'Completata').length / tasks.length) * 100).toFixed(0) : 0;
+            document.getElementById('kpiEfficiency').textContent = `${efficiency}%`;
+        }
+    </script>
+</body>
+</html>

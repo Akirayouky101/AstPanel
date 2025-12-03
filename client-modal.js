@@ -41,157 +41,130 @@ window.ClientModal = {
 
         // Create modal HTML
         const modalHTML = `
-            <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] fade-in p-4" onclick="if(event.target === this) window.ClientModal.close()">
-                <div class="bg-white rounded-xl shadow-2xl w-[90vw] max-w-6xl h-[90vh] flex flex-col">
-                    <!-- Header -->
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 flex justify-between items-center flex-shrink-0 rounded-t-xl">
-                        <div class="flex items-center gap-3">
-                            <i class="fas fa-building text-xl"></i>
-                            <h3 class="font-bold text-xl">${client.ragioneSociale}</h3>
+            <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] fade-in p-4 overflow-y-auto" onclick="if(event.target === this) window.ClientModal.close()">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                    <!-- Header con gradiente -->
+                    <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-xl text-white text-center flex-1">${client.ragioneSociale}</h3>
+                            <button onclick="window.ClientModal.close()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-3">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
                         </div>
-                        <button onclick="window.ClientModal.close()" class="text-white/90 hover:text-white transition-colors text-xl">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </div>
 
-                    <!-- Content: Split Layout -->
-                    <div class="flex-1 flex overflow-hidden">
-                        <!-- LEFT: Information Panel -->
-                        <div class="w-1/2 overflow-y-auto p-6 space-y-4 border-r border-gray-200">
-                            <!-- Contact Information -->
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-address-book text-blue-600 mr-2"></i>
-                                    Contatti
-                                </h3>
-                                <div class="space-y-3">
-                                    <div class="flex items-start">
-                                        <i class="fas fa-phone text-gray-400 mt-1 mr-3 w-5"></i>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs text-gray-500">Telefono</p>
-                                            <a href="tel:${client.telefono}" class="text-sm text-gray-900 hover:text-blue-600 font-medium">
-                                                ${client.telefono}
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-start">
-                                        <i class="fas fa-envelope text-gray-400 mt-1 mr-3 w-5"></i>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs text-gray-500">Email</p>
-                                            <a href="mailto:${client.email}" class="text-sm text-gray-900 hover:text-blue-600 font-medium break-all">
-                                                ${client.email}
-                                            </a>
-                                        </div>
-                                    </div>
-                                    ${client.pec ? `
-                                    <div class="flex items-start">
-                                        <i class="fas fa-certificate text-gray-400 mt-1 mr-3 w-5"></i>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs text-gray-500">PEC</p>
-                                            <a href="mailto:${client.pec}" class="text-sm text-gray-900 hover:text-blue-600 font-medium break-all">
-                                                ${client.pec}
-                                            </a>
-                                        </div>
-                                    </div>
-                                    ` : ''}
+                    <!-- Content scrollabile -->
+                    <div class="p-4 overflow-y-auto flex-1 space-y-3">
+                        <!-- Contact Information - AZZURRO -->
+                        <div class="bg-gradient-to-br from-sky-50 to-blue-100 border-2 border-sky-200 rounded-xl p-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-address-book text-white"></i>
                                 </div>
+                                <p class="font-bold text-gray-900">Contatti</p>
                             </div>
-
-                            <!-- Business Information -->
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-building text-blue-600 mr-2"></i>
-                                    Informazioni Aziendali
-                                </h3>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <p class="text-xs text-gray-500 mb-1">Partita IVA</p>
-                                        <p class="text-sm text-gray-900 font-medium">${client.partitaIva || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-xs text-gray-500 mb-1">Codice Fiscale</p>
-                                        <p class="text-sm text-gray-900 font-medium">${client.codiceFiscale || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Location Info -->
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-map-marker-alt text-blue-600 mr-2"></i>
-                                    Ubicazione
-                                </h3>
-                                <div class="flex items-start">
-                                    <i class="fas fa-location-dot text-gray-400 mt-1 mr-3 w-5"></i>
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-sm text-gray-900 font-medium break-words">${client.indirizzo}</p>
-                                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}" 
-                                           target="_blank"
-                                           class="text-blue-600 hover:text-blue-700 text-xs mt-1 inline-flex items-center">
-                                            Apri in Google Maps
-                                            <i class="fas fa-external-link-alt ml-1"></i>
+                            <div class="space-y-3">
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-phone text-sky-600 mt-0.5 w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-sky-700 font-medium">Telefono</p>
+                                        <a href="tel:${client.telefono}" class="text-sm text-gray-900 hover:text-sky-700 font-bold break-all">
+                                            ${client.telefono}
                                         </a>
                                     </div>
                                 </div>
-                                
-                                <!-- Mobile Maps Button (hidden on desktop) -->
-                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}" 
-                                   target="_blank"
-                                   class="mobile-open-maps-btn"
-                                   style="display: none;">
-                                    <i class="fas fa-map-marked-alt mr-2"></i>
-                                    Apri in Google Maps
-                                </a>
-                            </div>
-
-                            <!-- Notes -->
-                            ${client.note ? `
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <h3 class="text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                                    <i class="fas fa-sticky-note text-yellow-600 mr-2"></i>
-                                    Note
-                                </h3>
-                                <p class="text-sm text-gray-700 break-words">${client.note}</p>
-                            </div>
-                            ` : ''}
-
-                            <!-- Tasks List -->
-                            <div class="bg-gray-50 rounded-lg p-4" id="clientTasksSection">
-                                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                                    <i class="fas fa-tasks text-blue-600 mr-2"></i>
-                                    Lavorazioni Associate
-                                    <span id="clientTasksCount" class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">0</span>
-                                </h3>
-                                <div id="clientTasksList" class="space-y-2">
-                                    <div class="text-center py-4 text-gray-500 text-sm">
-                                        <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-envelope text-sky-600 mt-0.5 w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-sky-700 font-medium">Email</p>
+                                        <a href="mailto:${client.email}" class="text-sm text-gray-900 hover:text-sky-700 font-bold break-all">
+                                            ${client.email}
+                                        </a>
                                     </div>
+                                </div>
+                                ${client.pec ? `
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-certificate text-sky-600 mt-0.5 w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-sky-700 font-medium">PEC</p>
+                                        <a href="mailto:${client.pec}" class="text-sm text-gray-900 hover:text-sky-700 font-bold break-all">
+                                            ${client.pec}
+                                        </a>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Business Information - GIALLO -->
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-building text-white"></i>
+                                </div>
+                                <p class="font-bold text-gray-900">Informazioni Aziendali</p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p class="text-xs text-yellow-700 font-medium mb-1">Partita IVA</p>
+                                    <p class="text-sm text-gray-900 font-bold">${client.partitaIva || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-yellow-700 font-medium mb-1">Codice Fiscale</p>
+                                    <p class="text-sm text-gray-900 font-bold">${client.codiceFiscale || 'N/A'}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- RIGHT: Map Panel -->
-                        <div class="w-1/2 flex flex-col bg-gray-100">
-                            <div id="clientMap" class="w-full h-full">
-                                <!-- Map will be loaded here -->
+                        <!-- Location - BLU CHIARO -->
+                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-sky-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-map-marker-alt text-white"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-xs text-blue-700 font-medium mb-1">Ubicazione</p>
+                                    <p class="text-sm text-gray-900 font-bold break-words">${client.indirizzo}</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Pulsante Apri Google Maps a TUTTO SCHERMO -->
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}" 
+                               target="_blank"
+                               class="w-full mt-3 py-3 px-4 bg-white border-2 border-blue-300 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-blue-700 font-bold">
+                                <i class="fas fa-map text-lg"></i>
+                                Visualizza su Mappa
+                            </a>
+                        </div>
+
+                        <!-- Notes - GIALLO CHIARO -->
+                        ${client.note ? `
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-sticky-note text-white"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-xs text-yellow-700 font-medium mb-2">Note</p>
+                                    <p class="text-sm text-gray-700 break-words">${client.note}</p>
+                                </div>
                             </div>
                         </div>
+                        ` : ''}
                     </div>
 
                     <!-- Footer Actions -->
-                    <div class="px-6 py-4 bg-gray-50 border-t flex-shrink-0 rounded-b-xl">
-                        <div class="flex gap-3 justify-between items-center">
-                            <div class="flex gap-2">
-                                <a href="tel:${client.telefono}" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">
-                                    <i class="fas fa-phone mr-2"></i>Chiama
-                                </a>
-                                <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.indirizzo)}" 
-                                   target="_blank"
-                                   class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
-                                    <i class="fas fa-route mr-2"></i>Indicazioni
-                                </a>
-                            </div>
-                            <button onclick="window.ClientModal.close()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium">
+                    <div class="p-4 bg-gray-50 border-t flex-shrink-0 rounded-b-xl">
+                        <div class="flex gap-3">
+                            <a href="tel:${client.telefono}" class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg font-bold text-center">
+                                <i class="fas fa-phone mr-2"></i>Chiama
+                            </a>
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.indirizzo)}" 
+                               target="_blank"
+                               class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-xl hover:from-purple-600 hover:to-violet-700 transition-all shadow-lg font-bold text-center">
+                                <i class="fas fa-route mr-2"></i>Indicazioni
+                            </a>
+                            <button onclick="window.ClientModal.close()" class="px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 transition-colors font-bold">
                                 Chiudi
                             </button>
                         </div>
@@ -204,12 +177,7 @@ window.ClientModal = {
         const modalContainer = document.createElement('div');
         modalContainer.innerHTML = modalHTML;
         document.body.appendChild(modalContainer.firstElementChild);
-
-        // Load map
-        this.loadMap(client.ubicazione);
         
-        // Load tasks
-        this.loadTasks(client.id);
         } catch (error) {
             console.error('Errore apertura modal cliente:', error);
         }

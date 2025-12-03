@@ -348,13 +348,14 @@
                         </div>
                         <div>
                             <label for="commType" class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                            <select id="commType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <select id="commType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="toggleSurveyOptions()">
                                 <option value="">Seleziona tipo</option>
                                 <option value="annuncio">Annuncio</option>
                                 <option value="newsletter">Newsletter</option>
                                 <option value="evento">Evento</option>
                                 <option value="formazione">Formazione</option>
                                 <option value="procedura">Procedura</option>
+                                <option value="sondaggio">📊 Sondaggio / Richiesta Partecipazione</option>
                             </select>
                         </div>
                         <div>
@@ -431,6 +432,54 @@
                             </button>
                         </div>
                         <div id="commContent" contenteditable="true" class="wysiwyg-editor" placeholder="Scrivi qui il contenuto della comunicazione..."></div>
+                    </div>
+
+                    <!-- Survey Options (shown only when type is sondaggio) -->
+                    <div id="surveyOptionsContainer" class="mb-6 hidden">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+                                <div class="text-sm text-blue-800">
+                                    <strong>Sondaggio / Richiesta Partecipazione:</strong> Gli utenti potranno votare una delle opzioni. I risultati saranno visibili solo agli admin.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="surveyQuestion" class="block text-sm font-medium text-gray-700 mb-2">Domanda del Sondaggio</label>
+                            <input type="text" id="surveyQuestion" placeholder="Es: Quale giorno preferisci per la riunione?" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="flex items-center gap-2 mb-3">
+                                <input type="checkbox" id="surveyMultiple" class="rounded">
+                                <span class="text-sm font-medium text-gray-700">Consenti risposte multiple</span>
+                            </label>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Opzioni di Risposta</label>
+                        </div>
+                        
+                        <div id="surveyOptionsList" class="space-y-2 mb-3">
+                            <div class="flex gap-2">
+                                <input type="text" placeholder="Opzione 1" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg survey-option">
+                                <button type="button" onclick="removeSurveyOption(this)" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg" style="display:none;">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" placeholder="Opzione 2" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg survey-option">
+                                <button type="button" onclick="removeSurveyOption(this)" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="button" onclick="addSurveyOption()" class="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600">
+                            <i data-lucide="plus" class="w-4 h-4 inline mr-2"></i>
+                            Aggiungi Opzione
+                        </button>
                     </div>
 
                     <div class="mb-6">
@@ -597,16 +646,16 @@
                             </div>
                             ${comm.stato !== 'bozza' ? `
                             <div class="flex items-center mt-3 space-x-3 text-xs">
-                                <span class="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded" title="Lette">
+                                <span class="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded cursor-pointer hover:bg-green-100" title="Clicca per vedere chi ha letto" onclick="toggleReadDetails('${comm.id}')">
                                     <i data-lucide="eye" class="w-3 h-3"></i>
                                     <span class="font-medium">${lettaCount}</span>
                                 </span>
-                                <span class="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded" title="Archiviate">
+                                <span class="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded cursor-pointer hover:bg-blue-100" title="Clicca per vedere chi ha archiviato" onclick="toggleArchivedDetails('${comm.id}')">
                                     <i data-lucide="archive" class="w-3 h-3"></i>
                                     <span class="font-medium">${archiviataCount}</span>
                                 </span>
                                 ${eliminataCount > 0 ? `
-                                <span class="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 rounded" title="Eliminate">
+                                <span class="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 rounded cursor-pointer hover:bg-red-100" title="Clicca per vedere chi ha eliminato" onclick="toggleDeletedDetails('${comm.id}')">
                                     <i data-lucide="trash-2" class="w-3 h-3"></i>
                                     <span class="font-medium">${eliminataCount}</span>
                                 </span>
@@ -615,6 +664,46 @@
                                 <span class="text-gray-500">•</span>
                                 <span class="text-gray-600">Engagement: <span class="font-semibold">${totalEngagement}</span> interazioni</span>
                                 ` : ''}
+                            </div>
+                            
+                            <!-- Dettagli espandibili -->
+                            <div id="details-${comm.id}" class="mt-3 hidden">
+                                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                                    <!-- Lette da -->
+                                    <div id="read-details-${comm.id}" class="hidden">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i data-lucide="eye" class="w-4 h-4 text-green-600"></i>
+                                            <h5 class="font-semibold text-sm text-gray-700">Letta da (${lettaCount}):</h5>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${comm.letta_da?.map(userId => `<span class="px-2 py-1 bg-white border border-green-200 text-green-700 rounded text-xs user-badge" data-user-id="${userId}">Caricamento...</span>`).join('') || '<span class="text-gray-500 text-xs">Nessuno</span>'}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Archiviate da -->
+                                    <div id="archived-details-${comm.id}" class="hidden">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i data-lucide="archive" class="w-4 h-4 text-blue-600"></i>
+                                            <h5 class="font-semibold text-sm text-gray-700">Archiviata da (${archiviataCount}):</h5>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${comm.archiviata_da?.map(userId => `<span class="px-2 py-1 bg-white border border-blue-200 text-blue-700 rounded text-xs user-badge" data-user-id="${userId}">Caricamento...</span>`).join('') || '<span class="text-gray-500 text-xs">Nessuno</span>'}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Eliminate da -->
+                                    ${eliminataCount > 0 ? `
+                                    <div id="deleted-details-${comm.id}" class="hidden">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
+                                            <h5 class="font-semibold text-sm text-gray-700">Eliminata da (${eliminataCount}):</h5>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${comm.eliminata_da?.map(item => `<span class="px-2 py-1 bg-white border border-red-200 text-red-700 rounded text-xs user-badge" data-user-id="${item.user_id}">Caricamento...</span>`).join('') || '<span class="text-gray-500 text-xs">Nessuno</span>'}
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                </div>
                             </div>
                             ` : ''}
                         </div>
@@ -752,6 +841,69 @@
             const count = checkboxes.length;
             const countEl = document.getElementById('selectedUsersCount');
             countEl.textContent = `${count} utente${count !== 1 ? 'i' : ''} selezionato${count !== 1 ? 'i' : ''}`;
+        }
+        
+        // ============================================
+        // SURVEY OPTIONS MANAGEMENT
+        // ============================================
+        
+        function toggleSurveyOptions() {
+            const typeSelect = document.getElementById('commType');
+            const surveyContainer = document.getElementById('surveyOptionsContainer');
+            
+            if (typeSelect.value === 'sondaggio') {
+                surveyContainer.classList.remove('hidden');
+            } else {
+                surveyContainer.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+        
+        function addSurveyOption() {
+            const optionsList = document.getElementById('surveyOptionsList');
+            const optionCount = optionsList.children.length + 1;
+            
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'flex gap-2';
+            optionDiv.innerHTML = `
+                <input type="text" placeholder="Opzione ${optionCount}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg survey-option">
+                <button type="button" onclick="removeSurveyOption(this)" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+            
+            optionsList.appendChild(optionDiv);
+            lucide.createIcons();
+        }
+        
+        function removeSurveyOption(button) {
+            const optionDiv = button.parentElement;
+            const optionsList = document.getElementById('surveyOptionsList');
+            
+            // Keep at least 2 options
+            if (optionsList.children.length > 2) {
+                optionDiv.remove();
+            }
+        }
+        
+        function getSurveyData() {
+            const question = document.getElementById('surveyQuestion').value.trim();
+            const multiple = document.getElementById('surveyMultiple').checked;
+            const optionInputs = document.querySelectorAll('.survey-option');
+            const options = Array.from(optionInputs)
+                .map(input => input.value.trim())
+                .filter(opt => opt.length > 0);
+            
+            if (options.length < 2) {
+                return null;
+            }
+            
+            return {
+                domanda: question || 'Fai la tua scelta:',
+                opzioni: options,
+                multipla: multiple
+            };
         }
 
         function closeCommunicationModal() {
@@ -1114,6 +1266,85 @@
                         </div>
                     </div>
                     
+                    <!-- Survey Results (if type is sondaggio) -->
+                    ${comm.tipo === 'sondaggio' && comm.opzioni_sondaggio ? `
+                    <div class="border-t pt-4">
+                        <h5 class="text-sm font-medium text-gray-700 mb-3">📊 Risultati Sondaggio:</h5>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <p class="font-medium text-gray-900 mb-1">${comm.opzioni_sondaggio.domanda}</p>
+                            <p class="text-xs text-gray-600">${comm.opzioni_sondaggio.multipla ? 'Risposta multipla consentita' : 'Singola risposta'}</p>
+                        </div>
+                        ${(() => {
+                            const risposte = comm.risposte_sondaggio || [];
+                            const totalResponses = risposte.length;
+                            const opzioni = comm.opzioni_sondaggio.opzioni || [];
+                            
+                            // Count votes for each option and track who voted
+                            const voteCounts = {};
+                            const voteUsers = {}; // Track user IDs per option
+                            opzioni.forEach(opt => {
+                                voteCounts[opt] = 0;
+                                voteUsers[opt] = [];
+                            });
+                            
+                            risposte.forEach(r => {
+                                if (Array.isArray(r.risposta)) {
+                                    r.risposta.forEach(ans => {
+                                        if (voteCounts[ans] !== undefined) {
+                                            voteCounts[ans]++;
+                                            voteUsers[ans].push(r.user_id);
+                                        }
+                                    });
+                                }
+                            });
+                            
+                            const maxVotes = Math.max(...Object.values(voteCounts), 1);
+                            
+                            return `
+                                <div class="space-y-4 mb-4">
+                                    ${opzioni.map(opt => {
+                                        const votes = voteCounts[opt];
+                                        const percentage = totalResponses > 0 ? Math.round((votes / totalResponses) * 100) : 0;
+                                        const barWidth = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+                                        const userIds = voteUsers[opt];
+                                        
+                                        return `
+                                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <span class="text-sm font-medium text-gray-700">${opt}</span>
+                                                <span class="text-sm text-gray-600 font-semibold">${votes} voti (${percentage}%)</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+                                                <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${barWidth}%"></div>
+                                            </div>
+                                            ${votes > 0 ? `
+                                            <div class="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+                                                <div class="flex items-center gap-1 text-xs text-gray-500">
+                                                    <i data-lucide="users" class="w-3 h-3"></i>
+                                                    <span>Hanno votato:</span>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1">
+                                                    ${userIds.map(userId => `
+                                                        <span class="survey-voter-badge inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-xs" data-user-id="${userId}">
+                                                            <i data-lucide="user" class="w-3 h-3"></i>
+                                                            <span class="voter-name">Caricamento...</span>
+                                                        </span>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                                    <strong>Totale risposte:</strong> ${totalResponses} su ${comm.letta_da?.length || 0} visualizzazioni
+                                </div>
+                            `;
+                        })()}
+                    </div>
+                    ` : ''}
+                    
                     <!-- Recipients -->
                     <div class="border-t pt-4">
                         <h5 class="text-sm font-medium text-gray-700 mb-2">Destinatari:</h5>
@@ -1160,6 +1391,27 @@
             
             document.getElementById('viewCommunicationContent').innerHTML = content;
             document.getElementById('viewCommunicationModal').classList.remove('hidden');
+            lucide.createIcons();
+            
+            // Load voter names for survey results
+            if (comm.tipo === 'sondaggio' && comm.risposte_sondaggio?.length > 0) {
+                await loadSurveyVoterNames();
+            }
+        }
+        
+        async function loadSurveyVoterNames() {
+            const voterBadges = document.querySelectorAll('.survey-voter-badge');
+            
+            for (const badge of voterBadges) {
+                const userId = badge.dataset.userId;
+                const nameSpan = badge.querySelector('.voter-name');
+                
+                if (userId && nameSpan) {
+                    const userName = await loadUserName(userId);
+                    nameSpan.textContent = userName;
+                }
+            }
+            
             lucide.createIcons();
         }
         
@@ -1355,6 +1607,18 @@
                     data_invio: formData.stato === 'inviata' ? new Date().toISOString() : null
                 };
                 
+                // Add survey data if type is sondaggio
+                if (formData.tipo === 'sondaggio') {
+                    const surveyData = getSurveyData();
+                    if (!surveyData || surveyData.opzioni.length < 2) {
+                        showNotification('Aggiungi almeno 2 opzioni al sondaggio', 'error');
+                        isSaving = false;
+                        return;
+                    }
+                    commData.opzioni_sondaggio = surveyData;
+                    commData.risposte_sondaggio = [];
+                }
+                
                 // If editing, update existing communication
                 if (editingCommunicationId) {
                     await window.CommunicationsAPI.update(editingCommunicationId, commData);
@@ -1428,6 +1692,7 @@
                 case 'evento': return 'calendar';
                 case 'formazione': return 'graduation-cap';
                 case 'procedura': return 'file-text';
+                case 'sondaggio': return 'bar-chart-2';
                 default: return 'message-circle';
             }
         }
@@ -1824,6 +2089,141 @@
                 deletionsList.appendChild(deletionEl);
             });
 
+            lucide.createIcons();
+        }
+        
+        // ============================================
+        // TOGGLE ENGAGEMENT DETAILS
+        // ============================================
+        
+        let loadedUserNames = {};
+        
+        async function loadUserName(userId) {
+            if (loadedUserNames[userId]) {
+                return loadedUserNames[userId];
+            }
+            
+            try {
+                const users = await window.dataManager.getUtenti();
+                const user = users.find(u => u.id === userId);
+                const name = user ? `${user.nome || ''} ${user.cognome || ''}`.trim() || user.email : 'Utente Sconosciuto';
+                loadedUserNames[userId] = name;
+                return name;
+            } catch (error) {
+                console.error('Error loading user:', error);
+                return 'Utente';
+            }
+        }
+        
+        async function toggleReadDetails(commId) {
+            const detailsContainer = document.getElementById(`details-${commId}`);
+            const readDetails = document.getElementById(`read-details-${commId}`);
+            const archivedDetails = document.getElementById(`archived-details-${commId}`);
+            const deletedDetails = document.getElementById(`deleted-details-${commId}`);
+            
+            // Show main container
+            detailsContainer.classList.remove('hidden');
+            
+            // Toggle read details
+            if (readDetails.classList.contains('hidden')) {
+                readDetails.classList.remove('hidden');
+                // Load user names
+                const badges = readDetails.querySelectorAll('.user-badge');
+                
+                for (const badge of badges) {
+                    const userId = badge.dataset.userId;
+                    const userName = await loadUserName(userId);
+                    badge.textContent = userName;
+                }
+            } else {
+                readDetails.classList.add('hidden');
+            }
+            
+            // Hide others
+            if (archivedDetails) archivedDetails.classList.add('hidden');
+            if (deletedDetails) deletedDetails.classList.add('hidden');
+            
+            // If all hidden, hide container
+            if (readDetails.classList.contains('hidden') && 
+                (archivedDetails?.classList.contains('hidden') ?? true) && 
+                (deletedDetails?.classList.contains('hidden') ?? true)) {
+                detailsContainer.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+        
+        async function toggleArchivedDetails(commId) {
+            const detailsContainer = document.getElementById(`details-${commId}`);
+            const readDetails = document.getElementById(`read-details-${commId}`);
+            const archivedDetails = document.getElementById(`archived-details-${commId}`);
+            const deletedDetails = document.getElementById(`deleted-details-${commId}`);
+            
+            // Show main container
+            detailsContainer.classList.remove('hidden');
+            
+            // Toggle archived details
+            if (archivedDetails.classList.contains('hidden')) {
+                archivedDetails.classList.remove('hidden');
+                // Load user names
+                const badges = archivedDetails.querySelectorAll('.user-badge');
+                for (const badge of badges) {
+                    const userId = badge.dataset.userId;
+                    const userName = await loadUserName(userId);
+                    badge.textContent = userName;
+                }
+            } else {
+                archivedDetails.classList.add('hidden');
+            }
+            
+            // Hide others
+            readDetails.classList.add('hidden');
+            if (deletedDetails) deletedDetails.classList.add('hidden');
+            
+            // If all hidden, hide container
+            if (readDetails.classList.contains('hidden') && 
+                archivedDetails.classList.contains('hidden') && 
+                (deletedDetails?.classList.contains('hidden') ?? true)) {
+                detailsContainer.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+        
+        async function toggleDeletedDetails(commId) {
+            const detailsContainer = document.getElementById(`details-${commId}`);
+            const readDetails = document.getElementById(`read-details-${commId}`);
+            const archivedDetails = document.getElementById(`archived-details-${commId}`);
+            const deletedDetails = document.getElementById(`deleted-details-${commId}`);
+            
+            // Show main container
+            detailsContainer.classList.remove('hidden');
+            
+            // Toggle deleted details
+            if (deletedDetails.classList.contains('hidden')) {
+                deletedDetails.classList.remove('hidden');
+                // Load user names
+                const badges = deletedDetails.querySelectorAll('.user-badge');
+                for (const badge of badges) {
+                    const userId = badge.dataset.userId;
+                    const userName = await loadUserName(userId);
+                    badge.textContent = userName;
+                }
+            } else {
+                deletedDetails.classList.add('hidden');
+            }
+            
+            // Hide others
+            readDetails.classList.add('hidden');
+            archivedDetails.classList.add('hidden');
+            
+            // If all hidden, hide container
+            if (readDetails.classList.contains('hidden') && 
+                archivedDetails.classList.contains('hidden') && 
+                deletedDetails.classList.contains('hidden')) {
+                detailsContainer.classList.add('hidden');
+            }
+            
             lucide.createIcons();
         }
     </script>
