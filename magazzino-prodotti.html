@@ -744,14 +744,32 @@
         async function onScanSuccess(decodedText, decodedResult) {
             console.log(`📷 Code scanned: ${decodedText}`);
             
-            // Stop scanner
-            if (html5QrcodeScanner) {
+            // If scanning for product form, just insert the barcode - NO DATABASE SEARCH
+            if (scannerMode === 'product') {
+                document.getElementById('productCode').value = decodedText;
+                
+                // Stop scanner safely
+                if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.SCANNING) {
+                    html5QrcodeScanner.stop().catch(err => {
+                        console.log("Scanner stop info:", err);
+                    });
+                }
+                
+                setTimeout(() => {
+                    closeBarcodeScanner();
+                    showNotification(`🔢 Codice prodotto inserito: ${decodedText}`, 'success');
+                }, 100);
+                return;
+            }
+            
+            // For movement mode: search component by barcode
+            // Stop scanner first
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.SCANNING) {
                 html5QrcodeScanner.stop().catch(err => {
                     console.log("Scanner already stopped or paused");
                 });
             }
 
-            // Search component by barcode
             try {
                 const { data, error } = await window.supabaseClient
                     .rpc('find_component_by_barcode', { p_barcode: decodedText });
@@ -761,15 +779,7 @@
                 if (data && data.length > 0) {
                     scannedComponentData = data[0];
                     
-                    // If scanning for product form, fill the form directly
-                    if (scannerMode === 'product') {
-                        fillProductFormFromBarcode(scannedComponentData);
-                        closeBarcodeScanner();
-                        showNotification(`📦 Dati prodotto caricati da barcode!`, 'success');
-                        return;
-                    }
-                    
-                    // Otherwise show result for movement (existing behavior)
+                    // Show result for movement
                     document.getElementById('scanError').classList.add('hidden');
                     document.getElementById('scanResult').classList.remove('hidden');
                     
@@ -785,16 +795,9 @@
                     lucide.createIcons();
                 } else {
                     // Not found
-                    if (scannerMode === 'product') {
-                        // For product mode, just set the barcode in the form
-                        document.getElementById('productCode').value = decodedText;
-                        closeBarcodeScanner();
-                        showNotification(`🔢 Barcode inserito: ${decodedText}`, 'info');
-                    } else {
-                        document.getElementById('scanResult').classList.add('hidden');
-                        document.getElementById('scanError').classList.remove('hidden');
-                        scannedComponentData = null;
-                    }
+                    document.getElementById('scanResult').classList.add('hidden');
+                    document.getElementById('scanError').classList.remove('hidden');
+                    scannedComponentData = null;
                 }
             } catch (error) {
                 console.error('Error searching component:', error);
@@ -802,24 +805,6 @@
                 document.getElementById('scanResult').classList.add('hidden');
                 document.getElementById('scanError').classList.remove('hidden');
             }
-        }
-
-        function fillProductFormFromBarcode(component) {
-            // Fill form with scanned component data
-            document.getElementById('productName').value = component.nome || '';
-            document.getElementById('productCode').value = component.codice || '';
-            document.getElementById('productCategory').value = component.categoria || '';
-            document.getElementById('productQuantity').value = component.quantita_magazzino || 0;
-            document.getElementById('productUnit').value = component.unita_misura || 'pz';
-            document.getElementById('productMinStock').value = component.quantita_minima || '';
-            document.getElementById('productPrice').value = component.prezzo_acquisto || '';
-            document.getElementById('productDescription').value = component.descrizione || '';
-            document.getElementById('productNotes').value = component.note_magazzino || '';
-            
-            // Set editing mode to update existing product
-            editingProductId = component.id;
-            document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
-            document.getElementById('generateQRBtn').classList.remove('hidden');
         }
 
         function onScanError(errorMessage) {
