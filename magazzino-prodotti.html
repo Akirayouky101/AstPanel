@@ -233,9 +233,16 @@
                             </div>
                             <h3 id="modalTitle" class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
                         </div>
-                        <button onclick="closeProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="openBarcodeScannerForProduct()" 
+                                    class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-bold transition-all flex items-center gap-2 border border-white border-opacity-30">
+                                <i data-lucide="scan" class="w-5 h-5"></i>
+                                Scan Barcode
+                            </button>
+                            <button onclick="closeProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -682,6 +689,12 @@
         // === BARCODE SCANNER FUNCTIONS ===
         let html5QrcodeScanner = null;
         let scannedComponentData = null;
+        let scannerMode = 'movement'; // 'movement' or 'product'
+
+        function openBarcodeScannerForProduct() {
+            scannerMode = 'product';
+            openBarcodeScanner();
+        }
 
         function openBarcodeScanner() {
             document.getElementById('barcodeScannerModal').classList.remove('hidden');
@@ -725,6 +738,7 @@
             }
             document.getElementById('barcodeScannerModal').classList.add('hidden');
             scannedComponentData = null;
+            scannerMode = 'movement'; // Reset to default
         }
 
         async function onScanSuccess(decodedText, decodedResult) {
@@ -747,7 +761,15 @@
                 if (data && data.length > 0) {
                     scannedComponentData = data[0];
                     
-                    // Show result
+                    // If scanning for product form, fill the form directly
+                    if (scannerMode === 'product') {
+                        fillProductFormFromBarcode(scannedComponentData);
+                        closeBarcodeScanner();
+                        showNotification(`📦 Dati prodotto caricati da barcode!`, 'success');
+                        return;
+                    }
+                    
+                    // Otherwise show result for movement (existing behavior)
                     document.getElementById('scanError').classList.add('hidden');
                     document.getElementById('scanResult').classList.remove('hidden');
                     
@@ -763,9 +785,16 @@
                     lucide.createIcons();
                 } else {
                     // Not found
-                    document.getElementById('scanResult').classList.add('hidden');
-                    document.getElementById('scanError').classList.remove('hidden');
-                    scannedComponentData = null;
+                    if (scannerMode === 'product') {
+                        // For product mode, just set the barcode in the form
+                        document.getElementById('productCode').value = decodedText;
+                        closeBarcodeScanner();
+                        showNotification(`🔢 Barcode inserito: ${decodedText}`, 'info');
+                    } else {
+                        document.getElementById('scanResult').classList.add('hidden');
+                        document.getElementById('scanError').classList.remove('hidden');
+                        scannedComponentData = null;
+                    }
                 }
             } catch (error) {
                 console.error('Error searching component:', error);
@@ -773,6 +802,24 @@
                 document.getElementById('scanResult').classList.add('hidden');
                 document.getElementById('scanError').classList.remove('hidden');
             }
+        }
+
+        function fillProductFormFromBarcode(component) {
+            // Fill form with scanned component data
+            document.getElementById('productName').value = component.nome || '';
+            document.getElementById('productCode').value = component.codice || '';
+            document.getElementById('productCategory').value = component.categoria || '';
+            document.getElementById('productQuantity').value = component.quantita_magazzino || 0;
+            document.getElementById('productUnit').value = component.unita_misura || 'pz';
+            document.getElementById('productMinStock').value = component.quantita_minima || '';
+            document.getElementById('productPrice').value = component.prezzo_acquisto || '';
+            document.getElementById('productDescription').value = component.descrizione || '';
+            document.getElementById('productNotes').value = component.note_magazzino || '';
+            
+            // Set editing mode to update existing product
+            editingProductId = component.id;
+            document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
+            document.getElementById('generateQRBtn').classList.remove('hidden');
         }
 
         function onScanError(errorMessage) {
