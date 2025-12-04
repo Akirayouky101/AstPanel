@@ -3234,44 +3234,26 @@
                 
                 let components = [];
                 
-                // If searching or filtering, show all matching components
-                if (searchTerm || category) {
-                    components = allComponents.filter(c => {
-                        const matchesCategory = !category || c.categoria === category;
-                        const matchesSearch = !searchTerm || 
-                            c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            c.codice.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm.toLowerCase()));
-                        return matchesCategory && matchesSearch;
-                    });
-                } else {
-                    // No search/filter: show ONLY components already added to task
-                    components = allComponents.filter(c => addedComponentIds.includes(c.id));
-                }
+                // Mostra TUTTI i componenti disponibili, filtrando per categoria/ricerca se specificato
+                components = allComponents.filter(c => {
+                    const matchesCategory = !category || c.categoria === category;
+                    const matchesSearch = !searchTerm || 
+                        c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        c.codice.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (c.descrizione && c.descrizione.toLowerCase().includes(searchTerm.toLowerCase()));
+                    return matchesCategory && matchesSearch;
+                });
                 
                 const container = document.getElementById('userComponentsList');
                 
                 if (components.length === 0) {
-                    if (searchTerm || category) {
-                        container.innerHTML = `
-                            <div class="col-span-2 text-center text-gray-500 py-12">
-                                <i class="fas fa-inbox text-5xl mb-4 opacity-30"></i>
-                                <p class="text-lg font-medium">Nessun componente trovato</p>
-                                <p class="text-sm mt-2">Prova con altri termini di ricerca</p>
-                            </div>
-                        `;
-                    } else {
-                        container.innerHTML = `
-                            <div class="col-span-2 text-center text-gray-500 py-12">
-                                <i class="fas fa-box-open text-5xl mb-4 opacity-30"></i>
-                                <p class="text-lg font-medium mb-2">Nessun componente aggiunto</p>
-                                <p class="text-sm text-gray-400">
-                                    <i class="fas fa-search mr-1"></i>
-                                    Usa la barra di ricerca qui sopra per trovare e aggiungere componenti
-                                </p>
-                            </div>
-                        `;
-                    }
+                    container.innerHTML = `
+                        <div class="col-span-2 text-center text-gray-500 py-12">
+                            <i class="fas fa-inbox text-5xl mb-4 opacity-30"></i>
+                            <p class="text-lg font-medium">Nessun componente trovato</p>
+                            <p class="text-sm mt-2">Prova con altri termini di ricerca o cambia categoria</p>
+                        </div>
+                    `;
                     return;
                 }
                 
@@ -3280,6 +3262,27 @@
                 components.forEach(component => {
                     const isAdded = addedComponentIds.includes(component.id);
                     const currentQty = isAdded ? taskComponents.find(tc => tc.id === component.id)?.quantita || 1 : 1;
+                    
+                    // Stock info con quantita_magazzino
+                    const stock = component.quantita_magazzino || component.quantita_disponibile || 0;
+                    const minStock = component.quantita_minima || component.scorta_minima || 0;
+                    
+                    // Determina stato stock e colore badge
+                    let stockBadge = '';
+                    let stockStatus = '';
+                    let canAdd = true;
+                    
+                    if (stock === 0) {
+                        stockBadge = 'bg-red-100 text-red-800 border-2 border-red-300';
+                        stockStatus = '❌ Esaurito';
+                        canAdd = false;
+                    } else if (minStock > 0 && stock <= minStock) {
+                        stockBadge = 'bg-yellow-100 text-yellow-800 border-2 border-yellow-300';
+                        stockStatus = '⚠️ Scorta Bassa';
+                    } else {
+                        stockBadge = 'bg-green-100 text-green-800 border-2 border-green-300';
+                        stockStatus = '✅ Disponibile';
+                    }
                 
                 const card = document.createElement('div');
                 card.className = `bg-gray-50 rounded-lg p-4 border ${isAdded ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
@@ -3294,16 +3297,38 @@
                         </span>
                     </div>
                     <p class="text-sm text-gray-600 mb-3">${component.descrizione}</p>
+                    
+                    <!-- Stock Badge Colorato -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between px-3 py-2 rounded-lg ${stockBadge}">
+                            <span class="font-bold text-sm">
+                                📦 Stock: ${stock} ${component.unita_misura || 'pz'}
+                            </span>
+                            <span class="text-xs font-bold">${stockStatus}</span>
+                        </div>
+                        ${minStock > 0 && stock <= minStock && stock > 0 ? `
+                            <div class="mt-1 text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
+                                ⚠️ Scorta minima: ${minStock} ${component.unita_misura || 'pz'}
+                            </div>
+                        ` : ''}
+                    </div>
+                    
                     <div class="flex justify-between items-center text-sm mb-3">
-                        <span class="text-gray-600">
-                            <i class="fas fa-warehouse mr-1"></i>
-                            Disponibili: <strong>${component.quantita_disponibile || 0} ${component.unita_misura || 'pz'}</strong>
-                        </span>
                         <span class="text-gray-600">
                             €${(component.prezzo_unitario || 0).toFixed(2)}/${component.unita_misura || 'pz'}
                         </span>
                     </div>
-                    ${isAdded ? `
+                    
+                    ${!canAdd ? `
+                        <div class="bg-red-100 border-2 border-red-300 rounded-lg p-3 text-center">
+                            <p class="text-red-800 font-bold text-sm">
+                                ❌ Stock Insufficiente
+                            </p>
+                            <p class="text-red-700 text-xs mt-1">
+                                Effettua un carico magazzino prima di utilizzare questo componente
+                            </p>
+                        </div>
+                    ` : isAdded ? `
                         <div class="space-y-2">
                             <div class="bg-blue-100 border border-blue-300 rounded p-2 text-sm text-blue-800 flex items-center justify-between">
                                 <span>
@@ -3398,6 +3423,36 @@
             }
             
             const qty = parseInt(quantita);
+            
+            // ✅ VALIDAZIONE STOCK - Controlla disponibilità magazzino
+            const stock = pendingComponent.quantita_magazzino || pendingComponent.quantita_disponibile || 0;
+            const minStock = pendingComponent.quantita_minima || pendingComponent.scorta_minima || 0;
+            
+            if (qty > stock) {
+                showNotification(
+                    `❌ Stock Insufficiente!\n\n` +
+                    `Richiesti: ${qty} ${pendingComponent.unita_misura || 'pz'}\n` +
+                    `Disponibili: ${stock} ${pendingComponent.unita_misura || 'pz'}\n\n` +
+                    `Mancano ${qty - stock} ${pendingComponent.unita_misura || 'pz'}.\n` +
+                    `Effettua un carico magazzino prima di procedere.`,
+                    'error'
+                );
+                return;
+            }
+            
+            // ⚠️ WARNING se stock basso dopo l'assegnazione
+            const stockRimanente = stock - qty;
+            if (minStock > 0 && stockRimanente <= minStock && stockRimanente > 0) {
+                const proceed = confirm(
+                    `⚠️ ATTENZIONE: Scorta Bassa!\n\n` +
+                    `Dopo questa assegnazione rimarranno solo ${stockRimanente} ${pendingComponent.unita_misura || 'pz'} in magazzino.\n` +
+                    `Scorta minima consigliata: ${minStock} ${pendingComponent.unita_misura || 'pz'}\n\n` +
+                    `Vuoi procedere comunque?`
+                );
+                if (!proceed) {
+                    return;
+                }
+            }
             
             // Close quantity modal
             document.getElementById('quantityModal').classList.add('hidden');

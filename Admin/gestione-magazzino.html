@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Magazzino - AST Panel</title>
+    <title>Gestione Magazzino - ZG IMPIANTI</title>
     <link rel="stylesheet" href="/output.css">
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../supabase-client.js"></script>
-    <script src="auth-helper.js"></script>
-    <script src="../data-migration.js"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/data-migration.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -18,708 +17,797 @@
         .hover-scale:hover { transform: scale(1.02); }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <div id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 sidebar-hidden lg:sidebar-visible">
-            <!-- Header -->
-            <div class="flex h-16 items-center justify-between px-6 border-b">
-                <h1 class="text-xl font-bold text-gray-900">AST Admin</h1>
-                <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+        <div class="flex items-center justify-center h-16 border-b border-gray-200 bg-gradient-to-r from-green-600 to-emerald-700">
+            <h1 class="text-xl font-bold text-white">⚡ ZG IMPIANTI ⚡</h1>
+        </div>
+        <nav class="mt-6">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
+                Dashboard
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="briefcase" class="w-5 h-5 mr-3"></i>
+                Gestione Lavorazioni
+            </a>
+            <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
+                <i data-lucide="package" class="w-5 h-5 mr-3"></i>
+                Magazzino Prodotti
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="bell" class="w-5 h-5 mr-3"></i>
+                Comunicazioni
+            </a>
+            <a href="index.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors mt-8">
+                <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                Esci
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">Gestione Magazzino Intelligente</h1>
+                    <p class="text-gray-600 mt-1">Gestisci componenti e movimenti di magazzino</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="openMovementModal()" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2">
+                        <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
+                        Nuovo Movimento
+                    </button>
+                    <button onclick="openNewProductModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Nuovo Componente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards con gradiente -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-2xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-blue-700 mb-1">Prodotti Totali</p>
+                        <p id="totalProducts" class="text-3xl font-bold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="package" class="w-7 h-7 text-white"></i>
+                    </div>
+                </div>
             </div>
 
-            <!-- Navigation -->
-            <nav class="flex-1 px-4 py-6 space-y-2">
-                <a href="admin-functional.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-chart-line mr-3 text-lg"></i>
-                    Dashboard
-                </a>
-                <a href="gestione-utenti.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-users mr-3 text-lg"></i>
-                    Gestione Utenti
-                </a>
-                <a href="gestione-lavorazioni.html" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-tasks mr-3 text-lg"></i>
-                    Lavorazioni
-                </a>
-                <a href="#" class="bg-red-50 text-red-700 border-red-200 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-warehouse mr-3 text-lg"></i>
-                    Magazzino
-                </a>
-                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-comments mr-3 text-lg"></i>
-                    Richieste
-                </a>
-                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-calendar mr-3 text-lg"></i>
-                    Calendario
-                </a>
-                <a href="#" class="text-gray-700 hover:bg-gray-50 group flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors">
-                    <i class="fas fa-cog mr-3 text-lg"></i>
-                    Impostazioni
-                </a>
-            </nav>
-
-            <!-- User Profile -->
-            <div class="border-t p-4">
-                <div class="flex items-center">
-                    <div class="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
-                        <span class="text-sm font-medium text-white">AD</span>
+            <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-2xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-green-700 mb-1">In Stock</p>
+                        <p id="inStockProducts" class="text-3xl font-bold text-green-600">0</p>
                     </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-700">Admin</p>
-                        <p class="text-xs text-gray-500">Amministratore</p>
+                    <div class="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="check-circle" class="w-7 h-7 text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-2xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-orange-700 mb-1">Scorta Bassa</p>
+                        <p id="lowStockProducts" class="text-3xl font-bold text-orange-600">0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="alert-triangle" class="w-7 h-7 text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-red-50 to-rose-100 border-2 border-red-200 rounded-2xl shadow-lg p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-red-700 mb-1">Esauriti</p>
+                        <p id="outOfStockProducts" class="text-3xl font-bold text-red-600">0</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-red-500 to-rose-600 p-3 rounded-xl shadow-md">
+                        <i data-lucide="x-circle" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Top Bar -->
-            <header class="bg-white shadow-sm border-b">
-                <div class="flex h-16 items-center justify-between px-6">
-                    <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h2 class="text-lg font-semibold text-gray-900">Gestione Magazzino</h2>
-                    <div class="flex items-center space-x-3">
-                        <button onclick="openCategoryModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-folder-plus mr-2"></i>Nuova Categoria
-                        </button>
-                        <button onclick="openProductModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            <i class="fas fa-plus mr-2"></i>Nuovo Prodotto
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Content -->
-            <main class="flex-1 overflow-auto p-6">
-                <!-- Statistics Cards con gradiente -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 fade-in">
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-2xl shadow-lg p-6 hover-scale">
-                        <div class="flex items-center gap-4">
-                            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-                                <i data-lucide="folder" class="w-8 h-8 text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-blue-700">Categorie Totali</p>
-                                <p id="totalCategories" class="text-3xl font-bold text-gray-900">0</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-2xl shadow-lg p-6 hover-scale">
-                        <div class="flex items-center gap-4">
-                            <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
-                                <i data-lucide="package" class="w-8 h-8 text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-green-700">Prodotti Totali</p>
-                                <p id="totalProducts" class="text-3xl font-bold text-gray-900">0</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gradient-to-br from-orange-50 to-red-100 border-2 border-orange-200 rounded-2xl shadow-lg p-6 hover-scale">
-                        <div class="flex items-center gap-4">
-                            <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-md">
-                                <i data-lucide="alert-triangle" class="w-8 h-8 text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-orange-700">Scorte Basse</p>
-                                <p id="lowStockCount" class="text-3xl font-bold text-gray-900">0</p>
-                            </div>
-                        </div>
+        <!-- Search and Filters -->
+        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-2xl shadow-lg p-6 mb-6 fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="🔍 Cerca per nome, codice o descrizione..."
+                               oninput="applyFilters()"
+                               class="w-full pl-12 pr-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
+                        <i data-lucide="search" class="w-6 h-6 absolute left-3 top-3 text-purple-600"></i>
                     </div>
                 </div>
 
-                <!-- Main Content Grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
-                    <!-- Categories List -->
-                    <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-2xl shadow-lg overflow-hidden">
-                        <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
-                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                                <i data-lucide="folder" class="w-6 h-6"></i>
-                                Categorie
-                            </h3>
-                        </div>
-                        <div id="categoriesList" class="p-4 space-y-2 max-h-[600px] overflow-y-auto bg-white">
-                            <!-- Categories will be loaded here -->
-                        </div>
-                    </div>
+                <select id="categoryFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
+                    <option value="all">📁 Tutte le categorie</option>
+                    <option value="Componentistica">Componentistica</option>
+                    <option value="Materiali">Materiali</option>
+                    <option value="Accessori">Accessori</option>
+                    <option value="Antifurto">Antifurto</option>
+                    <option value="Videosorveglianza">Videosorveglianza</option>
+                    <option value="Rete">Rete</option>
+```
+                    <option value="altro">Altro</option>
+                </select>
 
-                    <!-- Products List -->
-                    <div class="lg:col-span-2 bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-2xl shadow-lg overflow-hidden">
-                        <div class="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4">
-                            <div class="flex justify-between items-center">
-                                <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                                    <i data-lucide="package" class="w-6 h-6"></i>
-                                    Prodotti
-                                </h3>
-                                <div class="flex space-x-2">
-                                    <select id="categoryFilter" class="px-3 py-2 border-2 border-white rounded-lg text-sm bg-white text-gray-700 font-medium">
-                                        <option value="">Tutte le categorie</option>
-                                    </select>
-                                    <input type="text" id="searchProducts" placeholder="🔍 Cerca prodotti..." 
-                                           class="px-4 py-2 border-2 border-white rounded-lg text-sm w-64 font-medium">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="overflow-x-auto bg-white">
-                            <table class="w-full">
-                                <thead class="bg-gradient-to-r from-cyan-100 to-blue-100">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">Prodotto</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">Categoria</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">SKU</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">Quantità</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">Prezzo</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-900 uppercase tracking-wider">Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Products will be loaded here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </main>
+                <select id="stockFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
+                    <option value="all">📊 Tutti gli stock</option>
+                    <option value="instock">✅ In Stock</option>
+                    <option value="lowstock">⚠️ Scorta Bassa</option>
+                    <option value="outofstock">❌ Esaurito</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Products Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodotto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantità</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unità</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Products will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Category Modal -->
-    <div id="categoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-hidden transition-all duration-300">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
-            <div class="px-6 py-4 border-b">
-                <h3 id="categoryModalTitle" class="text-lg font-semibold text-gray-900">Nuova Categoria</h3>
-            </div>
-            <form id="categoryForm" class="px-6 py-4 space-y-4">
-                <input type="hidden" id="categoryId">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome Categoria</label>
-                    <input type="text" id="categoryName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-                    <textarea id="categoryDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Icona (Font Awesome)</label>
-                    <input type="text" id="categoryIcon" placeholder="es: fa-shield-alt" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Cerca su <a href="https://fontawesome.com/icons" target="_blank" class="text-blue-600 hover:underline">FontAwesome</a></p>
-                </div>
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" onclick="closeCategoryModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                        Annulla
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Salva Categoria
-                    </button>
-                </div>
-                <div id="deleteCategoryButton" class="mt-3 hidden">
-                    <button type="button" onclick="deleteCategory()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                        <i class="fas fa-trash mr-2"></i>Elimina Categoria
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Product Modal -->
-    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-hidden transition-all duration-300">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4 max-h-screen overflow-y-auto">
-            <div class="px-6 py-4 border-b">
-                <h3 id="productModalTitle" class="text-lg font-semibold text-gray-900">Nuovo Prodotto</h3>
-            </div>
-            <form id="productForm" class="px-6 py-4 space-y-4">
-                <input type="hidden" id="productId">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome Prodotto</label>
-                        <input type="text" id="productName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                        <select id="productCategory" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                            <option value="">Seleziona categoria</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">SKU / Codice</label>
-                        <input type="text" id="productSKU" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Quantità Disponibile</label>
-                        <input type="number" id="productQuantity" min="0" value="0" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Scorta Minima</label>
-                        <input type="number" id="productMinStock" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prezzo Unitario (€)</label>
-                        <input type="number" id="productPrice" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Unità di Misura</label>
-                        <select id="productUnit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                            <option value="pz">Pezzi (pz)</option>
-                            <option value="mt">Metri (mt)</option>
-                            <option value="kg">Kilogrammi (kg)</option>
-                            <option value="lt">Litri (lt)</option>
-                            <option value="conf">Confezione (conf)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-                        <textarea id="productDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"></textarea>
-                    </div>
-                    
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                        <textarea id="productNotes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"></textarea>
+    <!-- New/Edit Product Modal -->
+    <!-- Modal Nuovo Prodotto -->
+    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="package" class="w-7 h-7 text-green-600"></i>
+                            </div>
+                            <h3 id="modalTitle" class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
+                        </div>
+                        <button onclick="closeProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
                     </div>
                 </div>
                 
-                <div class="flex justify-end space-x-3 pt-4 border-t">
-                    <button type="button" onclick="closeProductModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                        Annulla
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        Salva Prodotto
-                    </button>
-                </div>
-                <div id="deleteProductButton" class="mt-3 hidden">
-                    <button type="button" onclick="deleteProduct()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                        <i class="fas fa-trash mr-2"></i>Elimina Prodotto
-                    </button>
-                </div>
-            </form>
+                <!-- Content scrollabile -->
+                <form id="productForm" class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <!-- Nome Prodotto -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label for="productName" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                            Nome Prodotto *
+                        </label>
+                        <input type="text" id="productName" required placeholder="Es: Connettori RJ45" 
+                               class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
+                    </div>
+
+                    <!-- Codice e Categoria -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-xl p-4">
+                            <label for="productCode" class="flex items-center gap-2 text-sm font-bold text-purple-700 mb-2">
+                                <i data-lucide="hash" class="w-4 h-4"></i>
+                                Codice Prodotto *
+                            </label>
+                            <input type="text" id="productCode" required placeholder="Es: 180.811" 
+                                   class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
+                        </div>
+
+                        <div class="bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-xl p-4">
+                            <label for="productCategory" class="flex items-center gap-2 text-sm font-bold text-cyan-700 mb-2">
+                                <i data-lucide="folder" class="w-4 h-4"></i>
+                                Categoria *
+                            </label>
+                            <select id="productCategory" required class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium bg-white">
+                                <option value="">Seleziona categoria</option>
+                                <option value="Componentistica">Componentistica</option>
+                                <option value="Materiali">Materiali</option>
+                                <option value="Accessori">Accessori</option>
+                                <option value="Antifurto">Antifurto</option>
+                                <option value="Videosorveglianza">Videosorveglianza</option>
+                                <option value="Rete">Rete</option>
+                                <option value="altro">Altro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quantità e Unità -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                            <label for="productQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
+                                <i data-lucide="package-2" class="w-4 h-4"></i>
+                                Quantità *
+                            </label>
+                            <input type="number" id="productQuantity" min="0" step="0.01" required placeholder="400" 
+                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
+                        </div>
+
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <label for="productUnit" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
+                                <i data-lucide="ruler" class="w-4 h-4"></i>
+                                Unità di Misura *
+                            </label>
+                            <select id="productUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
+                                <option value="pz">Pezzi (pz)</option>
+                                <option value="kg">Kilogrammi (kg)</option>
+                                <option value="g">Grammi (g)</option>
+                                <option value="l">Litri (l)</option>
+                                <option value="ml">Millilitri (ml)</option>
+                                <option value="m">Metri (m)</option>
+                                <option value="cm">Centimetri (cm)</option>
+                                <option value="m²">Metri quadrati (m²)</option>
+                                <option value="confezione">Confezione</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Scorta Minima e Prezzo -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-orange-50 to-red-100 border-2 border-orange-200 rounded-xl p-4">
+                            <label for="productMinStock" class="flex items-center gap-2 text-sm font-bold text-orange-700 mb-2">
+                                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                Scorta Minima
+                            </label>
+                            <input type="number" id="productMinStock" min="0" step="0.01" placeholder="10" 
+                                   class="w-full px-4 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium">
+                            <p class="text-xs text-orange-600 mt-1 font-medium">⚠️ Avviso se scende sotto questo valore</p>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-emerald-200 rounded-xl p-4">
+                            <label for="productPrice" class="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-2">
+                                <i data-lucide="euro" class="w-4 h-4"></i>
+                                Prezzo Unitario (€)
+                            </label>
+                            <input type="number" id="productPrice" min="0" step="0.01" placeholder="12.50" 
+                                   class="w-full px-4 py-2 border-2 border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
+                        </div>
+                    </div>
+
+                    <!-- Descrizione -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <label for="productDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Descrizione
+                        </label>
+                        <textarea id="productDescription" rows="3" placeholder="Descrizione dettagliata del prodotto..." 
+                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Note -->
+                    <div class="bg-gradient-to-br from-gray-50 to-slate-100 border-2 border-gray-300 rounded-xl p-4">
+                        <label for="productNotes" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                            <i data-lucide="sticky-note" class="w-4 h-4"></i>
+                            Note
+                        </label>
+                        <textarea id="productNotes" rows="2" placeholder="Note aggiuntive, fornitore, etc." 
+                                  class="w-full px-4 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
+                        <button type="button" onclick="closeProductModal()" 
+                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
+                            Annulla
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            Salva Prodotto
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-
-    <!-- Supabase Client -->
-    <script src="../supabase-client.js"></script>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // Global variables
-        let categories = [];
-        let products = [];
-        let currentEditingCategoryId = null;
-        let currentEditingProductId = null;
+        let allProducts = [];
+        let editingProductId = null;
 
-        // Sidebar toggle
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('sidebar-hidden');
-            sidebar.classList.toggle('sidebar-visible');
-        }
-
-        // Load data on page load
-        document.addEventListener('DOMContentLoaded', async function() {
-            await loadCategories();
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
             await loadProducts();
             updateStats();
         });
 
-        // Load categories
-        async function loadCategories() {
-            try {
-                const { data, error } = await window.supabase
-                    .from('warehouse_categories')
-                    .select('*')
-                    .order('name', { ascending: true });
-                
-                if (error) throw error;
-                
-                categories = data || [];
-                renderCategories();
-                updateCategorySelects();
-            } catch (error) {
-                console.error('Errore caricamento categorie:', error);
-            }
-        }
-
-        // Render categories list
-        function renderCategories() {
-            const list = document.getElementById('categoriesList');
-            
-            if (categories.length === 0) {
-                list.innerHTML = `
-                    <div class="text-center py-8 text-gray-400">
-                        <i class="fas fa-folder-open text-4xl mb-2"></i>
-                        <p class="text-sm">Nessuna categoria</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            list.innerHTML = categories.map(cat => `
-                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="filterByCategory('${cat.id}')">
-                    <div class="flex items-center">
-                        <i class="fas ${cat.icon || 'fa-folder'} text-blue-600 mr-3"></i>
-                        <div>
-                            <p class="font-medium text-gray-900">${cat.name}</p>
-                            ${cat.description ? `<p class="text-xs text-gray-500">${cat.description}</p>` : ''}
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
-                            ${products.filter(p => p.category_id === cat.id).length}
-                        </span>
-                        <button onclick="event.stopPropagation(); editCategory('${cat.id}')" class="text-gray-400 hover:text-blue-600">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Load products
+        // Load products from database
         async function loadProducts() {
             try {
-                const { data, error } = await window.supabase
-                    .from('warehouse_products')
-                    .select('*, category:warehouse_categories(name)')
-                    .order('name', { ascending: true });
-                
-                if (error) throw error;
-                
-                products = data || [];
-                renderProducts();
+                allProducts = await window.dataManager.getComponenti() || [];
+                renderProducts(allProducts);
+                updateStats();
             } catch (error) {
-                console.error('Errore caricamento prodotti:', error);
+                console.error('Error loading products:', error);
+                showNotification('Errore nel caricamento dei prodotti', 'error');
             }
         }
 
         // Render products table
-        function renderProducts(filteredProducts = null) {
-            const productsToRender = filteredProducts || products;
+        function renderProducts(products) {
             const tbody = document.getElementById('productsTableBody');
             
-            if (productsToRender.length === 0) {
+            if (!products || products.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-400">
-                            <i class="fas fa-box-open text-4xl mb-2"></i>
-                            <p>Nessun prodotto trovato</p>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                            <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 text-gray-400"></i>
+                            <p>Nessun prodotto in magazzino</p>
+                            <p class="text-sm">Clicca su "Nuovo Prodotto" per iniziare</p>
                         </td>
                     </tr>
                 `;
+                lucide.createIcons();
                 return;
             }
-            
-            tbody.innerHTML = productsToRender.map(product => {
-                const isLowStock = product.quantity <= product.min_stock;
+
+            tbody.innerHTML = products.map(product => {
+                const quantity = parseFloat(product.quantita_disponibile || 0);
+                const minStock = parseFloat(product.scorta_minima || 0);
+                
+                let statusBadge, statusText;
+                if (quantity === 0) {
+                    statusBadge = 'bg-red-100 text-red-800';
+                    statusText = 'Esaurito';
+                } else if (minStock > 0 && quantity <= minStock) {
+                    statusBadge = 'bg-orange-100 text-orange-800';
+                    statusText = 'Scorta Bassa';
+                } else {
+                    statusBadge = 'bg-green-100 text-green-800';
+                    statusText = 'Disponibile';
+                }
+
                 return `
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="editProduct('${product.id}')">
+                    <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4">
-                            <div>
-                                <p class="font-medium text-gray-900">${product.name}</p>
-                                ${product.description ? `<p class="text-xs text-gray-500">${product.description}</p>` : ''}
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                    <i data-lucide="package" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">${product.nome}</div>
+                                    ${product.descrizione ? `<div class="text-xs text-gray-500">${product.descrizione.substring(0, 50)}${product.descrizione.length > 50 ? '...' : ''}</div>` : ''}
+                                </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            ${product.category?.name || 'Senza categoria'}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            ${product.sku || '-'}
-                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${product.codice || '-'}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs rounded-full ${isLowStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
-                                ${product.quantity} ${product.unit || 'pz'}
-                                ${isLowStock ? '<i class="fas fa-exclamation-triangle ml-1"></i>' : ''}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize">
+                                ${product.categoria || 'N/D'}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">
-                            ${product.price ? `€ ${parseFloat(product.price).toFixed(2)}` : '-'}
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${quantity}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${product.unita_misura || 'pz'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${statusBadge}">
+                                ${statusText}
+                            </span>
                         </td>
-                        <td class="px-6 py-4 text-sm">
-                            <button onclick="event.stopPropagation(); editProduct('${product.id}')" class="text-blue-600 hover:text-blue-900 mr-3">
-                                <i class="fas fa-edit"></i>
-                            </button>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <button onclick="editProduct('${product.id}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Modifica">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteProduct('${product.id}')" class="p-1 text-red-600 hover:bg-red-50 rounded" title="Elimina">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+
+            lucide.createIcons();
         }
 
-        // Update statistics
+        // Update stats
         function updateStats() {
-            document.getElementById('totalCategories').textContent = categories.length;
-            document.getElementById('totalProducts').textContent = products.length;
-            document.getElementById('lowStockCount').textContent = products.filter(p => p.quantity <= p.min_stock).length;
+            const total = allProducts.length;
+            const inStock = allProducts.filter(p => parseFloat(p.quantita_disponibile || 0) > parseFloat(p.scorta_minima || 0)).length;
+            const lowStock = allProducts.filter(p => {
+                const qty = parseFloat(p.quantita_disponibile || 0);
+                const min = parseFloat(p.scorta_minima || 0);
+                return qty > 0 && min > 0 && qty <= min;
+            }).length;
+            const outOfStock = allProducts.filter(p => parseFloat(p.quantita_disponibile || 0) === 0).length;
+
+            document.getElementById('totalProducts').textContent = total;
+            document.getElementById('inStockProducts').textContent = inStock;
+            document.getElementById('lowStockProducts').textContent = lowStock;
+            document.getElementById('outOfStockProducts').textContent = outOfStock;
         }
 
-        // Update category selects
-        function updateCategorySelects() {
-            const selects = [document.getElementById('productCategory'), document.getElementById('categoryFilter')];
-            
-            selects.forEach((select, index) => {
-                const currentValue = select.value;
-                const options = categories.map(cat => 
-                    `<option value="${cat.id}">${cat.name}</option>`
-                ).join('');
-                
-                if (index === 0) {
-                    select.innerHTML = '<option value="">Seleziona categoria</option>' + options;
-                } else {
-                    select.innerHTML = '<option value="">Tutte le categorie</option>' + options;
+        // Apply filters
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const stock = document.getElementById('stockFilter').value;
+
+            const filtered = allProducts.filter(product => {
+                const matchSearch = !search || 
+                    (product.nome || '').toLowerCase().includes(search) ||
+                    (product.codice || '').toLowerCase().includes(search) ||
+                    (product.descrizione || '').toLowerCase().includes(search);
+
+                const matchCategory = category === 'all' || product.categoria === category;
+
+                let matchStock = true;
+                if (stock !== 'all') {
+                    const qty = parseFloat(product.quantita_disponibile || 0);
+                    const min = parseFloat(product.scorta_minima || 0);
+                    
+                    if (stock === 'outofstock') matchStock = qty === 0;
+                    else if (stock === 'lowstock') matchStock = qty > 0 && min > 0 && qty <= min;
+                    else if (stock === 'instock') matchStock = qty > min || (qty > 0 && min === 0);
                 }
-                
-                select.value = currentValue;
+
+                return matchSearch && matchCategory && matchStock;
             });
-        }
 
-        // Category Modal
-        function openCategoryModal() {
-            currentEditingCategoryId = null;
-            document.getElementById('categoryModalTitle').textContent = 'Nuova Categoria';
-            document.getElementById('categoryForm').reset();
-            document.getElementById('categoryId').value = '';
-            document.getElementById('deleteCategoryButton').classList.add('hidden');
-            document.getElementById('categoryModal').classList.remove('modal-hidden');
-            document.getElementById('categoryModal').classList.add('modal-visible');
-        }
-
-        function closeCategoryModal() {
-            document.getElementById('categoryModal').classList.add('modal-hidden');
-            document.getElementById('categoryModal').classList.remove('modal-visible');
-        }
-
-        function editCategory(id) {
-            const category = categories.find(c => c.id === id);
-            if (!category) return;
-            
-            currentEditingCategoryId = id;
-            document.getElementById('categoryModalTitle').textContent = 'Modifica Categoria';
-            document.getElementById('categoryId').value = category.id;
-            document.getElementById('categoryName').value = category.name;
-            document.getElementById('categoryDescription').value = category.description || '';
-            document.getElementById('categoryIcon').value = category.icon || '';
-            document.getElementById('deleteCategoryButton').classList.remove('hidden');
-            document.getElementById('categoryModal').classList.remove('modal-hidden');
-            document.getElementById('categoryModal').classList.add('modal-visible');
-        }
-
-        // Save category
-        document.getElementById('categoryForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const categoryData = {
-                name: document.getElementById('categoryName').value,
-                description: document.getElementById('categoryDescription').value,
-                icon: document.getElementById('categoryIcon').value
-            };
-            
-            try {
-                if (currentEditingCategoryId) {
-                    // Update
-                    const { error } = await window.supabase
-                        .from('warehouse_categories')
-                        .update(categoryData)
-                        .eq('id', currentEditingCategoryId);
-                    
-                    if (error) throw error;
-                } else {
-                    // Create
-                    const { error } = await window.supabase
-                        .from('warehouse_categories')
-                        .insert([categoryData]);
-                    
-                    if (error) throw error;
-                }
-                
-                await loadCategories();
-                updateStats();
-                closeCategoryModal();
-            } catch (error) {
-                console.error('Errore salvataggio categoria:', error);
-                alert('Errore durante il salvataggio della categoria');
-            }
-        });
-
-        // Delete category
-        async function deleteCategory() {
-            if (!currentEditingCategoryId) return;
-            
-            if (!confirm('Sei sicuro di voler eliminare questa categoria? I prodotti associati non verranno eliminati.')) {
-                return;
-            }
-            
-            try {
-                const { error } = await window.supabase
-                    .from('warehouse_categories')
-                    .delete()
-                    .eq('id', currentEditingCategoryId);
-                
-                if (error) throw error;
-                
-                await loadCategories();
-                await loadProducts();
-                updateStats();
-                closeCategoryModal();
-            } catch (error) {
-                console.error('Errore eliminazione categoria:', error);
-                alert('Errore durante l\'eliminazione della categoria');
-            }
-        }
-
-        // Product Modal
-        function openProductModal() {
-            currentEditingProductId = null;
-            document.getElementById('productModalTitle').textContent = 'Nuovo Prodotto';
-            document.getElementById('productForm').reset();
-            document.getElementById('productId').value = '';
-            document.getElementById('deleteProductButton').classList.add('hidden');
-            document.getElementById('productModal').classList.remove('modal-hidden');
-            document.getElementById('productModal').classList.add('modal-visible');
-        }
-
-        function closeProductModal() {
-            document.getElementById('productModal').classList.add('modal-hidden');
-            document.getElementById('productModal').classList.remove('modal-visible');
-        }
-
-        function editProduct(id) {
-            const product = products.find(p => p.id === id);
-            if (!product) return;
-            
-            currentEditingProductId = id;
-            document.getElementById('productModalTitle').textContent = 'Modifica Prodotto';
-            document.getElementById('productId').value = product.id;
-            document.getElementById('productName').value = product.name;
-            document.getElementById('productCategory').value = product.category_id || '';
-            document.getElementById('productSKU').value = product.sku || '';
-            document.getElementById('productQuantity').value = product.quantity || 0;
-            document.getElementById('productMinStock').value = product.min_stock || 0;
-            document.getElementById('productPrice').value = product.price || '';
-            document.getElementById('productUnit').value = product.unit || 'pz';
-            document.getElementById('productDescription').value = product.description || '';
-            document.getElementById('productNotes').value = product.notes || '';
-            document.getElementById('deleteProductButton').classList.remove('hidden');
-            document.getElementById('productModal').classList.remove('modal-hidden');
-            document.getElementById('productModal').classList.add('modal-visible');
-        }
-
-        // Save product
-        document.getElementById('productForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const productData = {
-                name: document.getElementById('productName').value,
-                category_id: document.getElementById('productCategory').value || null,
-                sku: document.getElementById('productSKU').value || null,
-                quantity: parseInt(document.getElementById('productQuantity').value) || 0,
-                min_stock: parseInt(document.getElementById('productMinStock').value) || 0,
-                price: parseFloat(document.getElementById('productPrice').value) || null,
-                unit: document.getElementById('productUnit').value,
-                description: document.getElementById('productDescription').value || null,
-                notes: document.getElementById('productNotes').value || null
-            };
-            
-            try {
-                if (currentEditingProductId) {
-                    // Update
-                    const { error } = await window.supabase
-                        .from('warehouse_products')
-                        .update(productData)
-                        .eq('id', currentEditingProductId);
-                    
-                    if (error) throw error;
-                } else {
-                    // Create
-                    const { error } = await window.supabase
-                        .from('warehouse_products')
-                        .insert([productData]);
-                    
-                    if (error) throw error;
-                }
-                
-                await loadProducts();
-                updateStats();
-                closeProductModal();
-            } catch (error) {
-                console.error('Errore salvataggio prodotto:', error);
-                alert('Errore durante il salvataggio del prodotto');
-            }
-        });
-
-        // Delete product
-        async function deleteProduct() {
-            if (!currentEditingProductId) return;
-            
-            if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) {
-                return;
-            }
-            
-            try {
-                const { error } = await window.supabase
-                    .from('warehouse_products')
-                    .delete()
-                    .eq('id', currentEditingProductId);
-                
-                if (error) throw error;
-                
-                await loadProducts();
-                updateStats();
-                closeProductModal();
-            } catch (error) {
-                console.error('Errore eliminazione prodotto:', error);
-                alert('Errore durante l\'eliminazione del prodotto');
-            }
-        }
-
-        // Filter by category
-        function filterByCategory(categoryId) {
-            document.getElementById('categoryFilter').value = categoryId;
-            filterProducts();
-        }
-
-        // Filter products
-        document.getElementById('categoryFilter').addEventListener('change', filterProducts);
-        document.getElementById('searchProducts').addEventListener('input', filterProducts);
-
-        function filterProducts() {
-            const categoryId = document.getElementById('categoryFilter').value;
-            const searchText = document.getElementById('searchProducts').value.toLowerCase();
-            
-            let filtered = products;
-            
-            if (categoryId) {
-                filtered = filtered.filter(p => p.category_id === categoryId);
-            }
-            
-            if (searchText) {
-                filtered = filtered.filter(p => 
-                    p.name.toLowerCase().includes(searchText) ||
-                    (p.description && p.description.toLowerCase().includes(searchText)) ||
-                    (p.sku && p.sku.toLowerCase().includes(searchText))
-                );
-            }
-            
             renderProducts(filtered);
         }
 
-        // Initialize Lucide icons
-        document.addEventListener('DOMContentLoaded', function() {
+        // Open modal
+        function openNewProductModal() {
+            editingProductId = null;
+            document.getElementById('modalTitle').textContent = 'Nuovo Prodotto';
+            document.getElementById('productForm').reset();
+            document.getElementById('productModal').classList.remove('hidden');
             lucide.createIcons();
-            loadCategories();
-            loadProducts();
+        }
+
+        // Close modal
+        function closeProductModal() {
+            editingProductId = null;
+            document.getElementById('productModal').classList.add('hidden');
+            document.getElementById('productForm').reset();
+        }
+
+        // Edit product
+        async function editProduct(id) {
+            const product = allProducts.find(p => p.id === id);
+            if (!product) return;
+
+            editingProductId = id;
+            document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
+            document.getElementById('productName').value = product.nome || '';
+            document.getElementById('productCode').value = product.codice || '';
+            document.getElementById('productCategory').value = product.categoria || '';
+            document.getElementById('productQuantity').value = product.quantita_disponibile || 0;
+            document.getElementById('productUnit').value = product.unita_misura || 'pz';
+            document.getElementById('productMinStock').value = product.scorta_minima || 0;
+            document.getElementById('productPrice').value = product.prezzo_unitario || '';
+            document.getElementById('productDescription').value = product.descrizione || '';
+            document.getElementById('productNotes').value = product.note || '';
+
+            document.getElementById('productModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Delete product
+        async function deleteProduct(id) {
+            if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) return;
+
+            try {
+                await window.dataManager.deleteComponente(id);
+                showNotification('Prodotto eliminato con successo', 'success');
+                await loadProducts();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                showNotification('Errore durante l\'eliminazione', 'error');
+            }
+        }
+
+        // Form submit
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const productData = {
+                nome: document.getElementById('productName').value,
+                codice: document.getElementById('productCode').value,
+                categoria: document.getElementById('productCategory').value,
+                quantita_disponibile: parseFloat(document.getElementById('productQuantity').value),
+                unita_misura: document.getElementById('productUnit').value,
+                scorta_minima: parseFloat(document.getElementById('productMinStock').value) || 0,
+                prezzo_unitario: parseFloat(document.getElementById('productPrice').value) || null,
+                descrizione: document.getElementById('productDescription').value,
+                note: document.getElementById('productNotes').value
+            };
+
+            try {
+                if (editingProductId) {
+                    await window.dataManager.updateComponente(editingProductId, productData);
+                    showNotification('Prodotto aggiornato con successo', 'success');
+                } else {
+                    await window.dataManager.saveComponente(productData);
+                    showNotification('Prodotto creato con successo', 'success');
+                }
+
+                closeProductModal();
+                await loadProducts();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                showNotification('Errore durante il salvataggio', 'error');
+            }
         });
+
+        // Notification helper
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Movement Modal Functions
+        let selectedMovementType = null;
+
+        function openMovementModal() {
+            document.getElementById('movementForm').reset();
+            selectedMovementType = null;
+            document.querySelectorAll('.movement-type-btn').forEach(btn => {
+                btn.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50', 
+                                     'border-yellow-500', 'bg-yellow-50', 'border-blue-500', 'bg-blue-50');
+                btn.classList.add('border-gray-300');
+            });
+            document.getElementById('currentStockInfo').classList.add('hidden');
+            
+            // Popola select componenti
+            const select = document.getElementById('movementComponent');
+            select.innerHTML = '<option value="">Seleziona componente...</option>';
+            allProducts.forEach(p => {
+                const stock = p.quantita_magazzino || p.quantita_disponibile || 0;
+                const unit = p.unita_misura || 'pz';
+                select.innerHTML += `<option value="${p.id}" data-stock="${stock}" data-unit="${unit}">${p.nome} - Stock: ${stock} ${unit}</option>`;
+            });
+            
+            document.getElementById('movementModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeMovementModal() {
+            document.getElementById('movementModal').classList.add('hidden');
+        }
+
+        function selectMovementType(type) {
+            selectedMovementType = type;
+            document.getElementById('movementType').value = type;
+            
+            // Reset all buttons
+            document.querySelectorAll('.movement-type-btn').forEach(btn => {
+                btn.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50',
+                                     'border-yellow-500', 'bg-yellow-50', 'border-blue-500', 'bg-blue-50');
+                btn.classList.add('border-gray-300');
+            });
+            
+            // Highlight selected
+            const btn = document.getElementById(`btn-${type}`);
+            btn.classList.remove('border-gray-300');
+            if (type === 'carico') {
+                btn.classList.add('border-green-500', 'bg-green-50');
+            } else if (type === 'scarico') {
+                btn.classList.add('border-red-500', 'bg-red-50');
+            } else if (type === 'rettifica') {
+                btn.classList.add('border-yellow-500', 'bg-yellow-50');
+            } else if (type === 'inventario') {
+                btn.classList.add('border-blue-500', 'bg-blue-50');
+            }
+        }
+
+        function showCurrentStock() {
+            const select = document.getElementById('movementComponent');
+            const option = select.selectedOptions[0];
+            if (option && option.value) {
+                const stock = option.dataset.stock;
+                const unit = option.dataset.unit;
+                document.getElementById('currentStockValue').textContent = `${stock} ${unit}`;
+                document.getElementById('currentStockInfo').classList.remove('hidden');
+            } else {
+                document.getElementById('currentStockInfo').classList.add('hidden');
+            }
+        }
+
+        async function saveMovement(event) {
+            event.preventDefault();
+            
+            if (!selectedMovementType) {
+                showNotification('Seleziona il tipo di movimento', 'error');
+                return;
+            }
+
+            const componentId = document.getElementById('movementComponent').value;
+            const quantity = parseInt(document.getElementById('movementQuantity').value);
+            const reason = document.getElementById('movementReason').value;
+            const notes = document.getElementById('movementNotes').value;
+            const document_ref = document.getElementById('movementDocument').value;
+
+            try {
+                // Chiama la funzione database
+                const { data, error } = await window.supabaseClient
+                    .rpc('registra_movimento_magazzino', {
+                        p_component_id: componentId,
+                        p_tipo: selectedMovementType,
+                        p_quantita: quantity,
+                        p_task_id: null,
+                        p_user_id: null,
+                        p_motivo: reason || null,
+                        p_note: notes || null
+                    });
+
+                if (error) throw error;
+
+                showNotification('✅ Movimento registrato con successo!', 'success');
+                closeMovementModal();
+                await loadProducts();
+            } catch (error) {
+                console.error('Errore registrazione movimento:', error);
+                showNotification('❌ Errore: ' + error.message, 'error');
+            }
+        }
     </script>
+
+    <!-- Movement Modal HTML (posizionato prima di </body>) -->
+    <div id="movementModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="arrow-right-left" class="w-7 h-7 text-purple-600"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">Registra Movimento Magazzino</h3>
+                        </div>
+                        <button onclick="closeMovementModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <form id="movementForm" onsubmit="saveMovement(event)" class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <!-- Tipo Movimento -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
+                        <label class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-3">
+                            <i data-lucide="zap" class="w-4 h-4"></i>
+                            Tipo Movimento *
+                        </label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button type="button" onclick="selectMovementType('carico')" id="btn-carico" 
+                                    class="movement-type-btn px-3 py-3 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all flex flex-col items-center gap-1">
+                                <i data-lucide="arrow-down" class="w-6 h-6 text-green-600"></i>
+                                <span class="text-xs font-bold">Carico</span>
+                            </button>
+                            <button type="button" onclick="selectMovementType('scarico')" id="btn-scarico"
+                                    class="movement-type-btn px-3 py-3 border-2 border-gray-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all flex flex-col items-center gap-1">
+                                <i data-lucide="arrow-up" class="w-6 h-6 text-red-600"></i>
+                                <span class="text-xs font-bold">Scarico</span>
+                            </button>
+                            <button type="button" onclick="selectMovementType('rettifica')" id="btn-rettifica"
+                                    class="movement-type-btn px-3 py-3 border-2 border-gray-300 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition-all flex flex-col items-center gap-1">
+                                <i data-lucide="edit" class="w-6 h-6 text-yellow-600"></i>
+                                <span class="text-xs font-bold">Rettifica</span>
+                            </button>
+                            <button type="button" onclick="selectMovementType('inventario')" id="btn-inventario"
+                                    class="movement-type-btn px-3 py-3 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all flex flex-col items-center gap-1">
+                                <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-600"></i>
+                                <span class="text-xs font-bold">Inventario</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="movementType" required>
+                    </div>
+
+                    <!-- Componente -->
+                    <div class="bg-gradient-to-br from-blue-50 to-cyan-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label for="movementComponent" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
+                            <i data-lucide="box" class="w-4 h-4"></i>
+                            Componente *
+                        </label>
+                        <select id="movementComponent" required onchange="showCurrentStock()" 
+                                class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium bg-white">
+                            <option value="">Seleziona componente...</option>
+                        </select>
+                        <div id="currentStockInfo" class="hidden mt-3 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                            <p class="text-sm font-bold text-blue-800">
+                                Stock attuale: <span id="currentStockValue" class="text-blue-600"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Quantità e Documento -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                            <label for="movementQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
+                                <i data-lucide="hash" class="w-4 h-4"></i>
+                                Quantità *
+                            </label>
+                            <input type="number" id="movementQuantity" min="1" required 
+                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 font-bold text-lg">
+                        </div>
+
+                        <div class="bg-gradient-to-br from-yellow-50 to-orange-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <label for="movementDocument" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                                Documento
+                            </label>
+                            <input type="text" id="movementDocument" placeholder="DDT, Fattura..."
+                                   class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium">
+                        </div>
+                    </div>
+
+                    <!-- Motivo -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <label for="movementReason" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
+                            <i data-lucide="message-square" class="w-4 h-4"></i>
+                            Motivo
+                        </label>
+                        <input type="text" id="movementReason" placeholder="es: Acquisto da fornitore, Uso per lavorazione..."
+                               class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-medium">
+                    </div>
+
+                    <!-- Note -->
+                    <div class="bg-gradient-to-br from-gray-50 to-slate-100 border-2 border-gray-300 rounded-xl p-4">
+                        <label for="movementNotes" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                            <i data-lucide="sticky-note" class="w-4 h-4"></i>
+                            Note
+                        </label>
+                        <textarea id="movementNotes" rows="2" placeholder="Note aggiuntive..."
+                                  class="w-full px-4 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
+                        <button type="button" onclick="closeMovementModal()" 
+                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
+                            Annulla
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white rounded-xl hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            Registra Movimento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
