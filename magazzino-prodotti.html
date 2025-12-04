@@ -747,9 +747,9 @@
                     
                     const detailsDiv = document.getElementById('scanResultDetails');
                     detailsDiv.innerHTML = `
-                        <p><strong>Nome:</strong> ${scannedComponentData.name}</p>
-                        <p><strong>Codice:</strong> ${scannedComponentData.code || 'N/A'}</p>
-                        <p><strong>Categoria:</strong> ${scannedComponentData.category || 'N/A'}</p>
+                        <p><strong>Nome:</strong> ${scannedComponentData.nome}</p>
+                        <p><strong>Codice:</strong> ${scannedComponentData.codice || 'N/A'}</p>
+                        <p><strong>Categoria:</strong> ${scannedComponentData.categoria || 'N/A'}</p>
                         <p><strong>Stock:</strong> ${scannedComponentData.quantita_magazzino} ${scannedComponentData.unita_misura}</p>
                         <p><strong>Barcode:</strong> <code class="bg-gray-100 px-2 py-1 rounded">${scannedComponentData.barcode}</code></p>
                     `;
@@ -786,7 +786,7 @@
                 closeBarcodeScanner();
                 
                 // Show success
-                showNotification(`Componente "${scannedComponentData.name}" selezionato!`, 'success');
+                showNotification(`Componente "${scannedComponentData.nome}" selezionato!`, 'success');
             }
         }
 
@@ -806,20 +806,20 @@
             try {
                 const { data, error } = await window.supabaseClient
                     .from('components')
-                    .select('barcode, code, name, category')
+                    .select('barcode, codice, nome, categoria')
                     .eq('id', editingProductId)
                     .single();
 
                 if (error) throw error;
 
-                const barcode = data.barcode || `COMP-${data.code || editingProductId.substring(0, 8)}`;
+                const barcode = data.barcode || `COMP-${data.codice || editingProductId.substring(0, 8)}`;
 
                 // Show QR modal
                 document.getElementById('qrCodeModal').classList.remove('hidden');
                 
                 // Set component info
-                document.getElementById('qrComponentName').textContent = data.name;
-                document.getElementById('qrComponentCode').textContent = `Codice: ${data.code || 'N/A'}`;
+                document.getElementById('qrComponentName').textContent = data.nome;
+                document.getElementById('qrComponentCode').textContent = `Codice: ${data.codice || 'N/A'}`;
                 document.getElementById('qrComponentBarcode').textContent = barcode;
 
                 // Clear previous QR code

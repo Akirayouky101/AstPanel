@@ -18,8 +18,8 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Se non ha barcode, genera uno basato su codice prodotto o ID
     IF NEW.barcode IS NULL THEN
-        IF NEW.code IS NOT NULL AND NEW.code != '' THEN
-            NEW.barcode := 'COMP-' || NEW.code;
+        IF NEW.codice IS NOT NULL AND NEW.codice != '' THEN
+            NEW.barcode := 'COMP-' || NEW.codice;
         ELSE
             NEW.barcode := 'COMP-' || SUBSTRING(NEW.id::TEXT FROM 1 FOR 8);
         END IF;
@@ -28,10 +28,10 @@ BEGIN
     -- Genera QR code data (JSON con info componente)
     NEW.qr_code_data := json_build_object(
         'id', NEW.id,
-        'code', NEW.code,
-        'name', NEW.name,
+        'codice', NEW.codice,
+        'nome', NEW.nome,
         'barcode', NEW.barcode,
-        'category', NEW.category
+        'categoria', NEW.categoria
     )::TEXT;
     
     RETURN NEW;
@@ -49,9 +49,9 @@ CREATE TRIGGER trigger_generate_barcode
 CREATE OR REPLACE FUNCTION find_component_by_barcode(p_barcode VARCHAR)
 RETURNS TABLE (
     id UUID,
-    code VARCHAR,
-    name VARCHAR,
-    category VARCHAR,
+    codice VARCHAR,
+    nome VARCHAR,
+    categoria VARCHAR,
     quantita_magazzino INTEGER,
     quantita_minima INTEGER,
     unita_misura VARCHAR,
@@ -61,9 +61,9 @@ BEGIN
     RETURN QUERY
     SELECT 
         c.id,
-        c.code,
-        c.name,
-        c.category,
+        c.codice,
+        c.nome,
+        c.categoria,
         c.quantita_magazzino,
         c.quantita_minima,
         c.unita_misura,
@@ -77,7 +77,7 @@ $$ LANGUAGE plpgsql;
 -- 6. Genera barcode per componenti esistenti
 UPDATE components 
 SET barcode = CASE 
-    WHEN code IS NOT NULL AND code != '' THEN 'COMP-' || code
+    WHEN codice IS NOT NULL AND codice != '' THEN 'COMP-' || codice
     ELSE 'COMP-' || SUBSTRING(id::TEXT FROM 1 FOR 8)
 END
 WHERE barcode IS NULL;
@@ -90,4 +90,4 @@ COMMENT ON FUNCTION find_component_by_barcode IS 'Ricerca componente tramite sca
 -- ================================================
 -- VERIFICA
 -- ================================================
--- SELECT barcode, code, name FROM components LIMIT 10;
+-- SELECT barcode, codice, nome FROM components LIMIT 10;
