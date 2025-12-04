@@ -716,8 +716,12 @@
         function closeBarcodeScanner() {
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.stop().then(() => {
+                    console.log('📷 Scanner stopped successfully');
                     html5QrcodeScanner = null;
-                }).catch(err => console.error("Stop scanner error:", err));
+                }).catch(err => {
+                    console.log("Scanner stop info:", err);
+                    html5QrcodeScanner = null;
+                });
             }
             document.getElementById('barcodeScannerModal').classList.add('hidden');
             scannedComponentData = null;
@@ -728,7 +732,9 @@
             
             // Stop scanner
             if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop();
+                html5QrcodeScanner.stop().catch(err => {
+                    console.log("Scanner already stopped or paused");
+                });
             }
 
             // Search component by barcode
