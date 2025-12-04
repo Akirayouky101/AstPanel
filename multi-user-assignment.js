@@ -381,10 +381,6 @@ class MultiUserAssignment {
         `;
         lucide.createIcons();
     }
-            </div>
-        `;
-        lucide.createIcons();
-    }
 
     updateUserRole(userId, ruolo) {
         if (window.taskWizard && window.taskWizard.wizardData.assigned_users) {
