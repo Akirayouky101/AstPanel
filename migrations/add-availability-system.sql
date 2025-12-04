@@ -59,7 +59,7 @@ CREATE OR REPLACE FUNCTION trova_dipendente_disponibile(
     p_ruolo VARCHAR DEFAULT NULL
 ) RETURNS TABLE(
     user_id UUID,
-    nome_completo VARCHAR,
+    nome_completo TEXT,
     email VARCHAR,
     ruolo VARCHAR,
     task_attivi INTEGER,
@@ -103,7 +103,7 @@ BEGIN
     )
     SELECT 
         ac.id,
-        ac.nome_completo,
+        ac.nome_completo::TEXT,
         ac.email,
         ac.ruolo,
         ac.task_count::INTEGER,
@@ -173,7 +173,7 @@ ORDER BY priorita DESC, ore_disponibili DESC;
 CREATE OR REPLACE FUNCTION check_urgenza_veloce()
 RETURNS TABLE(
     consigliato_user_id UUID,
-    consigliato_nome VARCHAR,
+    consigliato_nome TEXT,
     motivo TEXT,
     ore_disponibili DECIMAL,
     task_attivi INTEGER
@@ -182,7 +182,7 @@ BEGIN
     RETURN QUERY
     SELECT 
         dv.user_id,
-        dv.nome_completo,
+        dv.nome_completo::TEXT,
         CASE 
             WHEN dv.stato_disponibilita = 'molto_disponibile' 
                 THEN '✅ MOLTO DISPONIBILE - ' || dv.ore_disponibili || ' ore libere'
@@ -193,7 +193,7 @@ BEGIN
             ELSE '🔴 Occupato - ' || dv.ore_disponibili || ' ore libere'
         END as motivo,
         dv.ore_disponibili,
-        dv.task_attivi
+        dv.task_attivi::INTEGER
     FROM dashboard_disponibilita dv
     WHERE dv.ore_disponibili > 0
     ORDER BY dv.priorita DESC, dv.ore_disponibili DESC
