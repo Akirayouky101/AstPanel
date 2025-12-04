@@ -255,7 +255,7 @@ class TaskWizard {
             const { data, error } = await supabaseClient
                 .from('clients')
                 .select('*')
-                .order('nome');
+                .order('ragione_sociale');
             
             if (error) throw error;
             
@@ -265,12 +265,20 @@ class TaskWizard {
                 data.forEach(cliente => {
                     const option = document.createElement('option');
                     option.value = cliente.id;
-                    option.textContent = cliente.nome;
+                    // Mostra ragione_sociale o nome+cognome se privato
+                    const displayName = cliente.ragione_sociale || 
+                                      (cliente.nome && cliente.cognome ? `${cliente.nome} ${cliente.cognome}` : cliente.nome || 'Cliente senza nome');
+                    option.textContent = displayName;
                     select.appendChild(option);
                 });
             }
         } catch (error) {
             console.error('Errore caricamento clienti:', error);
+            // Mostra errore all'utente
+            const select = document.getElementById('wizard-cliente-select');
+            if (select) {
+                select.innerHTML = '<option value="">⚠️ Errore caricamento clienti</option>';
+            }
         }
     }
 
