@@ -690,6 +690,7 @@
         let html5QrcodeScanner = null;
         let scannedComponentData = null;
         let scannerMode = 'movement'; // 'movement' or 'product'
+        let isScanning = false; // Track scanner state
 
         function openBarcodeScannerForProduct() {
             scannerMode = 'product';
@@ -717,8 +718,12 @@
                 config,
                 onScanSuccess,
                 onScanError
-            ).catch(err => {
+            ).then(() => {
+                isScanning = true;
+                console.log('📷 Scanner started');
+            }).catch(err => {
                 console.error("Camera error:", err);
+                isScanning = false;
                 showNotification('Impossibile accedere alla camera. Controlla i permessi.', 'error');
             });
 
@@ -727,12 +732,14 @@
         }
 
         function closeBarcodeScanner() {
-            if (html5QrcodeScanner) {
+            if (html5QrcodeScanner && isScanning) {
                 html5QrcodeScanner.stop().then(() => {
                     console.log('📷 Scanner stopped successfully');
+                    isScanning = false;
                     html5QrcodeScanner = null;
                 }).catch(err => {
                     console.log("Scanner stop info:", err);
+                    isScanning = false;
                     html5QrcodeScanner = null;
                 });
             }
@@ -744,32 +751,28 @@
         async function onScanSuccess(decodedText, decodedResult) {
             console.log(`📷 Code scanned: ${decodedText}`);
             
+            // Stop scanner immediately
+            if (html5QrcodeScanner && isScanning) {
+                isScanning = false; // Prevent multiple stops
+                html5QrcodeScanner.stop().catch(err => {
+                    console.log("Scanner stop info:", err);
+                });
+            }
+            
             // If scanning for product form, just insert the barcode - NO DATABASE SEARCH
             if (scannerMode === 'product') {
                 document.getElementById('productCode').value = decodedText;
                 
-                // Stop scanner safely
-                if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.SCANNING) {
-                    html5QrcodeScanner.stop().catch(err => {
-                        console.log("Scanner stop info:", err);
-                    });
-                }
-                
                 setTimeout(() => {
-                    closeBarcodeScanner();
+                    document.getElementById('barcodeScannerModal').classList.add('hidden');
+                    scannerMode = 'movement'; // Reset
+                    html5QrcodeScanner = null;
                     showNotification(`🔢 Codice prodotto inserito: ${decodedText}`, 'success');
-                }, 100);
+                }, 200);
                 return;
             }
             
             // For movement mode: search component by barcode
-            // Stop scanner first
-            if (html5QrcodeScanner && html5QrcodeScanner.getState() === Html5QrcodeScannerState.SCANNING) {
-                html5QrcodeScanner.stop().catch(err => {
-                    console.log("Scanner already stopped or paused");
-                });
-            }
-
             try {
                 const { data, error } = await window.supabaseClient
                     .rpc('find_component_by_barcode', { p_barcode: decodedText });
