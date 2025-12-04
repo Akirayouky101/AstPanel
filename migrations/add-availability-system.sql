@@ -73,7 +73,7 @@ BEGIN
     WITH carico_utenti AS (
         SELECT 
             u.id,
-            u.nome_completo,
+            (u.nome || ' ' || u.cognome) as nome_completo,
             u.email,
             u.ruolo,
             COUNT(t.id) as task_count,
@@ -89,7 +89,7 @@ BEGIN
             )
         WHERE u.ruolo IN ('dipendente', 'admin')
         AND (p_ruolo IS NULL OR u.ruolo = p_ruolo)
-        GROUP BY u.id, u.nome_completo, u.email, u.ruolo
+        GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
     ),
     availability_check AS (
         SELECT 
@@ -128,7 +128,7 @@ WITH next_week AS (
 carico_corrente AS (
     SELECT 
         u.id,
-        u.nome_completo,
+        (u.nome || ' ' || u.cognome) as nome_completo,
         u.email,
         u.ruolo,
         COUNT(t.id) as task_attivi,
@@ -149,7 +149,7 @@ carico_corrente AS (
             OR (t.data_inizio >= nw.data_inizio AND t.data_inizio <= nw.data_fine)
         )
     WHERE u.ruolo IN ('dipendente', 'admin')
-    GROUP BY u.id, u.nome_completo, u.email, u.ruolo
+    GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
 )
 SELECT 
     id as user_id,
