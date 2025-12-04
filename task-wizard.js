@@ -331,9 +331,19 @@ class TaskWizard {
         try {
             const { data, error } = await supabaseClient
                 .from('warehouse_products')
-                .select('*')
-                .gt('quantita_disponibile', 0)
-                .order('nome');
+                .select(`
+                    id,
+                    name,
+                    sku,
+                    description,
+                    quantity,
+                    unit,
+                    price,
+                    category_id,
+                    warehouse_categories(name)
+                `)
+                .gt('quantity', 0)
+                .order('name');
             
             if (error) throw error;
 
@@ -356,8 +366,9 @@ class TaskWizard {
             const categoriaSuggerimenti = this.getSuggerimentiPerCategoria();
             const prodottiSuggeriti = data.filter(p => 
                 categoriaSuggerimenti.some(s => 
-                    p.nome.toLowerCase().includes(s.toLowerCase()) ||
-                    (p.categoria && p.categoria.toLowerCase().includes(s.toLowerCase()))
+                    p.name.toLowerCase().includes(s.toLowerCase()) ||
+                    (p.warehouse_categories && p.warehouse_categories.name && 
+                     p.warehouse_categories.name.toLowerCase().includes(s.toLowerCase()))
                 )
             );
 
@@ -396,6 +407,7 @@ class TaskWizard {
     }
 
     renderProdottoCard(prod, isSuggerito) {
+        const categoryName = prod.warehouse_categories ? prod.warehouse_categories.name : '';
         return `
             <div class="flex items-center gap-3 p-3 ${isSuggerito ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'} rounded border hover:shadow-md transition-shadow">
                 <input type="checkbox" 
@@ -404,18 +416,19 @@ class TaskWizard {
                        onchange="window.taskWizard.toggleProdotto('${prod.id}')">
                 <label for="prod-${prod.id}" class="flex-1 cursor-pointer">
                     <div class="flex items-center gap-2">
-                        <span class="font-medium">${prod.nome}</span>
+                        <span class="font-medium">${prod.name}</span>
                         ${isSuggerito ? '<span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">SUGGERITO</span>' : ''}
+                        ${categoryName ? `<span class="text-xs text-gray-500">${categoryName}</span>` : ''}
                     </div>
                     <div class="text-sm text-gray-600">
-                        Disponibili: ${prod.quantita_disponibile} ${prod.unita_misura || 'pz'}
-                        ${prod.prezzo_unitario ? ` • €${prod.prezzo_unitario}/${prod.unita_misura || 'pz'}` : ''}
+                        Disponibili: ${prod.quantity} ${prod.unit || 'pz'}
+                        ${prod.price ? ` • €${prod.price}/${prod.unit || 'pz'}` : ''}
                     </div>
                 </label>
                 <input type="number" 
                        id="qta-${prod.id}" 
                        min="1" 
-                       max="${prod.quantita_disponibile}"
+                       max="${prod.quantity}"
                        value="1"
                        class="w-20 px-2 py-1 border rounded"
                        disabled>
@@ -477,20 +490,23 @@ class TaskWizard {
                 this.wizardData.ore_stimate || 8
             );
 
-            if (result.success && result.dipendenti.length > 0) {
+            if (result.success && result.candidati && result.candidati.length > 0) {
                 container.innerHTML = `
                     <div class="space-y-4">
                         <h4 class="font-semibold text-lg">✅ Dipendenti disponibili trovati</h4>
-                        ${result.dipendenti.map((dip, index) => `
+                        ${result.candidati.map((dip, index) => `
                             <div class="p-4 border rounded ${index === 0 ? 'bg-green-50 border-green-300' : 'bg-gray-50'}">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <div class="font-medium">${dip.nome_completo}</div>
+                                        <div class="font-medium">${dip.nome}</div>
                                         <div class="text-sm text-gray-600">
-                                            ${dip.task_attivi} task attivi • ${dip.ore_disponibili} ore libere
+                                            ${dip.taskAttivi} task attivi • ${dip.oreDisponibili}h libere
+                                        </div>
+                                        <div class="text-xs text-green-600 font-medium mt-1">
+                                            Score: ${dip.score}% ${dip.raccomandato ? '⭐' : ''}
                                         </div>
                                     </div>
-                                    <button onclick="window.taskWizard.applicaSuggerimentoDisponibilita('${dip.user_id}')"
+                                    <button onclick="window.taskWizard.applicaSuggerimentoDisponibilita('${dip.userId}')"
                                             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                                         ${index === 0 ? '⭐ Consigliato' : 'Seleziona'}
                                     </button>
