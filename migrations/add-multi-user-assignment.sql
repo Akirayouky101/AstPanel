@@ -65,6 +65,7 @@ CREATE OR REPLACE FUNCTION trova_n_dipendenti_disponibili(
     nome_completo TEXT,
     email VARCHAR,
     ruolo VARCHAR,
+    costo_orario DECIMAL,
     task_attivi INTEGER,
     ore_impegnate DECIMAL,
     ore_disponibili DECIMAL,
@@ -80,6 +81,7 @@ BEGIN
             (u.nome || ' ' || u.cognome) as nome_completo,
             u.email,
             u.ruolo,
+            COALESCE(u.costo_orario, 0) as costo_ora,
             COUNT(t.id) as task_count,
             COALESCE(SUM(t.ore_stimate), 0) as ore_task,
             (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_libere,
@@ -92,7 +94,7 @@ BEGIN
                 OR (t.data_inizio >= p_data_inizio AND t.data_inizio <= p_data_fine)
             )
         WHERE u.ruolo IN ('Dipendente', 'Tecnico', 'Titolare', 'dipendente', 'admin', 'tecnico')
-        GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
+        GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo, u.costo_orario
     ),
     availability_check AS (
         SELECT 
@@ -116,6 +118,7 @@ BEGIN
         ac.nome_completo::TEXT,
         ac.email,
         ac.ruolo,
+        ac.costo_ora::DECIMAL,
         ac.task_count::INTEGER,
         ac.ore_task::DECIMAL,
         ac.ore_libere::DECIMAL,

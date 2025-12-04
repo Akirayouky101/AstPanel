@@ -179,6 +179,7 @@ class MultiUserAssignment {
             const isConsigliato = index < numeroConsigliato;
             const badgeColor = isConsigliato ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600';
             const borderColor = isConsigliato ? 'border-green-300 bg-green-50' : 'border-gray-200';
+            const costoOrario = user.costo_orario || 0;
 
             return `
                 <div class="border-2 ${borderColor} rounded-xl p-4 hover:shadow-lg transition-all cursor-pointer user-suggestion-card"
@@ -207,6 +208,7 @@ class MultiUserAssignment {
                                 ${isConsigliato ? '<span class="' + badgeColor + ' text-xs font-semibold px-2 py-1 rounded-full">⭐ CONSIGLIATO</span>' : ''}
                             </div>
                             <p class="text-sm text-gray-600">${user.email} • ${user.ruolo}</p>
+                            ${costoOrario > 0 ? `<p class="text-xs text-green-600 font-semibold mt-1">💰 €${costoOrario}/h</p>` : ''}
                         </div>
 
                         <!-- Stats -->
@@ -226,6 +228,13 @@ class MultiUserAssignment {
                             <div class="text-lg font-bold text-gray-600">${user.task_attivi}</div>
                             <div class="text-xs text-gray-500">Task attivi</div>
                         </div>
+
+                        ${costoOrario > 0 ? `
+                        <div class="text-right">
+                            <div class="text-lg font-bold text-green-600">€${(costoOrario * user.ore_disponibili).toFixed(0)}</div>
+                            <div class="text-xs text-gray-500">Costo max</div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -313,42 +322,65 @@ class MultiUserAssignment {
     renderListaUtenti(container, users) {
         if (!container) return;
 
+        // Calcola costo totale stimato
+        const oreTask = window.taskWizard?.wizardData?.ore_stimate || 8;
+        const costoTotale = users.reduce((sum, u) => sum + ((u.costo_orario || 0) * oreTask), 0);
+
         container.innerHTML = `
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="font-semibold text-blue-900">👥 ${users.length} Membri Assegnati</h4>
+                    <div>
+                        <h4 class="font-semibold text-blue-900">👥 ${users.length} Membri Assegnati</h4>
+                        ${costoTotale > 0 ? `<p class="text-sm text-green-700 font-medium">💰 Costo stimato: €${costoTotale.toFixed(2)} (${oreTask}h ciascuno)</p>` : ''}
+                    </div>
                     <button onclick="window.multiUserAssignment.mostraSuggerimentoMultiUtente()"
                             class="text-sm text-blue-600 hover:text-blue-800 font-medium">
                         🔄 Modifica
                     </button>
                 </div>
                 <div class="space-y-2">
-                    ${users.map((user, index) => `
-                        <div class="bg-white rounded-lg p-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-                                    ${index + 1}
+                    ${users.map((user, index) => {
+                        const costoUtente = (user.costo_orario || 0) * oreTask;
+                        return `
+                        <div class="bg-white rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                                        ${index + 1}
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium">${user.nome_completo}</div>
+                                        <div class="text-xs text-gray-500">${user.email}</div>
+                                        ${user.costo_orario > 0 ? `<div class="text-xs text-green-600 font-semibold">€${user.costo_orario}/h → €${costoUtente.toFixed(2)} totale</div>` : ''}
+                                    </div>
                                 </div>
-                                <div>
-                                    <div class="font-medium">${user.nome_completo}</div>
-                                    <div class="text-xs text-gray-500">${user.email}</div>
+                                <div class="flex items-center gap-2">
+                                    <select class="text-sm border rounded px-2 py-1" 
+                                            onchange="window.multiUserAssignment.updateUserRole('${user.user_id}', this.value)">
+                                        <option value="membro">Membro</option>
+                                        <option value="responsabile">Responsabile</option>
+                                        <option value="supporto">Supporto</option>
+                                    </select>
+                                    <input type="number" 
+                                           value="${oreTask}"
+                                           min="0.5"
+                                           step="0.5"
+                                           class="w-16 text-sm border rounded px-2 py-1"
+                                           onchange="window.multiUserAssignment.updateUserHours('${user.user_id}', this.value)"
+                                           placeholder="Ore">
+                                    <button onclick="window.multiUserAssignment.rimuoviUtente('${user.user_id}')"
+                                            class="text-red-600 hover:text-red-800">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <select class="text-sm border rounded px-2 py-1" 
-                                        onchange="window.multiUserAssignment.updateUserRole('${user.user_id}', this.value)">
-                                    <option value="membro">Membro</option>
-                                    <option value="responsabile">Responsabile</option>
-                                    <option value="supporto">Supporto</option>
-                                </select>
-                                <button onclick="window.multiUserAssignment.rimuoviUtente('${user.user_id}')"
-                                        class="text-red-600 hover:text-red-800">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
-                                </button>
                             </div>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
+            </div>
+        `;
+        lucide.createIcons();
+    }
             </div>
         `;
         lucide.createIcons();
@@ -359,6 +391,20 @@ class MultiUserAssignment {
             const user = window.taskWizard.wizardData.assigned_users.find(u => u.user_id === userId);
             if (user) {
                 user.ruolo_assegnazione = ruolo;
+            }
+        }
+    }
+
+    updateUserHours(userId, ore) {
+        if (window.taskWizard && window.taskWizard.wizardData.assigned_users) {
+            const user = window.taskWizard.wizardData.assigned_users.find(u => u.user_id === userId);
+            if (user) {
+                user.ore_assegnate = parseFloat(ore) || 0;
+                // Ricarica la lista per aggiornare i costi
+                const wizardContainer = document.getElementById('wizard-multi-users-container');
+                if (wizardContainer) {
+                    this.renderListaUtenti(wizardContainer, window.taskWizard.wizardData.assigned_users);
+                }
             }
         }
     }

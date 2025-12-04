@@ -338,30 +338,109 @@ class TaskWizard {
             if (error) throw error;
 
             const container = document.getElementById('wizard-prodotti-container');
-            if (container) {
-                container.innerHTML = data.map(prod => `
-                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded border">
-                        <input type="checkbox" 
-                               id="prod-${prod.id}" 
-                               class="w-4 h-4"
-                               onchange="window.taskWizard.toggleProdotto('${prod.id}')">
-                        <label for="prod-${prod.id}" class="flex-1">
-                            <div class="font-medium">${prod.nome}</div>
-                            <div class="text-sm text-gray-600">Disponibili: ${prod.quantita_disponibile}</div>
-                        </label>
-                        <input type="number" 
-                               id="qta-${prod.id}" 
-                               min="1" 
-                               max="${prod.quantita_disponibile}"
-                               value="1"
-                               class="w-20 px-2 py-1 border rounded"
-                               disabled>
+            if (!container) return;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i data-lucide="package-x" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                        <p class="font-medium">Nessun prodotto disponibile in magazzino</p>
+                        <p class="text-sm mt-1">Aggiungi prodotti dalla sezione Magazzino</p>
                     </div>
-                `).join('');
+                `;
+                lucide.createIcons();
+                return;
             }
+
+            // Suggerimenti intelligenti basati su categoria
+            const categoriaSuggerimenti = this.getSuggerimentiPerCategoria();
+            const prodottiSuggeriti = data.filter(p => 
+                categoriaSuggerimenti.some(s => 
+                    p.nome.toLowerCase().includes(s.toLowerCase()) ||
+                    (p.categoria && p.categoria.toLowerCase().includes(s.toLowerCase()))
+                )
+            );
+
+            container.innerHTML = `
+                ${prodottiSuggeriti.length > 0 ? `
+                    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-blue-600"></i>
+                            <span class="text-sm font-semibold text-blue-900">Componenti Suggeriti per "${this.wizardData.categoria || 'questa categoria'}"</span>
+                        </div>
+                        <div class="space-y-2">
+                            ${prodottiSuggeriti.map(prod => this.renderProdottoCard(prod, true)).join('')}
+                        </div>
+                    </div>
+                    <div class="mb-2 text-sm font-medium text-gray-700">Altri Prodotti Disponibili:</div>
+                ` : ''}
+                <div class="space-y-2 max-h-60 overflow-y-auto">
+                    ${data.filter(p => !prodottiSuggeriti.includes(p)).map(prod => this.renderProdottoCard(prod, false)).join('')}
+                </div>
+            `;
+            lucide.createIcons();
         } catch (error) {
             console.error('Errore caricamento prodotti:', error);
+            const container = document.getElementById('wizard-prodotti-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-2"></i>
+                        <p class="font-medium">Errore caricamento prodotti</p>
+                        <p class="text-sm mt-1">${error.message}</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
         }
+    }
+
+    renderProdottoCard(prod, isSuggerito) {
+        return `
+            <div class="flex items-center gap-3 p-3 ${isSuggerito ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'} rounded border hover:shadow-md transition-shadow">
+                <input type="checkbox" 
+                       id="prod-${prod.id}" 
+                       class="w-4 h-4"
+                       onchange="window.taskWizard.toggleProdotto('${prod.id}')">
+                <label for="prod-${prod.id}" class="flex-1 cursor-pointer">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium">${prod.nome}</span>
+                        ${isSuggerito ? '<span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">SUGGERITO</span>' : ''}
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        Disponibili: ${prod.quantita_disponibile} ${prod.unita_misura || 'pz'}
+                        ${prod.prezzo_unitario ? ` • €${prod.prezzo_unitario}/${prod.unita_misura || 'pz'}` : ''}
+                    </div>
+                </label>
+                <input type="number" 
+                       id="qta-${prod.id}" 
+                       min="1" 
+                       max="${prod.quantita_disponibile}"
+                       value="1"
+                       class="w-20 px-2 py-1 border rounded"
+                       disabled>
+            </div>
+        `;
+    }
+
+    getSuggerimentiPerCategoria() {
+        const categoria = (this.wizardData.categoria || '').toLowerCase();
+        const mappingSuggerimenti = {
+            'elettrico': ['cavo', 'filo', 'interruttore', 'presa', 'lampada', 'led', 'quadro'],
+            'idraulico': ['tubo', 'raccordo', 'valvola', 'rubinetto', 'sifone', 'guarnizione'],
+            'manutenzione': ['olio', 'filtro', 'cinghia', 'bullone', 'vite'],
+            'termoidraulico': ['caldaia', 'radiatore', 'termostato', 'valvola'],
+            'climatizzazione': ['condizionatore', 'filtro aria', 'gas refrigerante'],
+            'edile': ['cemento', 'malta', 'mattone', 'intonaco', 'pittura'],
+            'falegnameria': ['legno', 'compensato', 'vite', 'colla', 'vernice']
+        };
+
+        for (const [key, suggerimenti] of Object.entries(mappingSuggerimenti)) {
+            if (categoria.includes(key)) {
+                return suggerimenti;
+            }
+        }
+        return [];
     }
 
     toggleProdotto(prodottoId) {
