@@ -134,7 +134,7 @@ class AvailabilityChecker {
      * 📈 CALCOLA CARICO LAVORO
      * Per un singolo dipendente
      */
-    async calcolaCarico Lavoro(userId, dataInizio, dataFine) {
+    async calcolaCaricοLavoro(userId, dataInizio, dataFine) {
         try {
             const { data, error } = await this.supabase
                 .rpc('calcola_carico_lavoro', {
