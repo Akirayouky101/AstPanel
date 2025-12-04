@@ -15,6 +15,7 @@
     <script src="client-modal.js"></script>
     <script src="availability-checker.js"></script>
     <script src="task-wizard.js"></script>
+    <script src="multi-user-assignment.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -30,6 +31,8 @@
         .priority-media { border-left: 4px solid #f59e0b; }
         .priority-bassa { border-left: 4px solid #10b981; }
         .drag-over { background-color: #f3f4f6; border: 2px dashed #d1d5db; }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -2045,18 +2048,25 @@
                 <div id="wizard-step-2" class="hidden space-y-6">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">👤 Assegnazione Lavorazione</h3>
                     
-                    <div class="flex gap-4 mb-6">
+                    <div class="flex flex-wrap gap-4 mb-6">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="tipo-assegnazione" id="wizard-tipo-user" value="user" checked
-                                   onchange="document.getElementById('wizard-dipendente-container').classList.remove('hidden'); document.getElementById('wizard-squadra-container').classList.add('hidden');"
+                                   onchange="document.getElementById('wizard-dipendente-container').classList.remove('hidden'); document.getElementById('wizard-squadra-container').classList.add('hidden'); document.getElementById('wizard-multi-container').classList.add('hidden');"
                                    class="w-4 h-4 text-blue-600">
                             <span class="font-medium">Dipendente Singolo</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-team" value="team"
-                                   onchange="document.getElementById('wizard-dipendente-container').classList.add('hidden'); document.getElementById('wizard-squadra-container').classList.remove('hidden');"
+                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-multi" value="multi"
+                                   onchange="document.getElementById('wizard-dipendente-container').classList.add('hidden'); document.getElementById('wizard-squadra-container').classList.add('hidden'); document.getElementById('wizard-multi-container').classList.remove('hidden');"
                                    class="w-4 h-4 text-blue-600">
-                            <span class="font-medium">Squadra</span>
+                            <span class="font-medium">🆕 Più Utenti</span>
+                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">NUOVO</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-team" value="team"
+                                   onchange="document.getElementById('wizard-dipendente-container').classList.add('hidden'); document.getElementById('wizard-squadra-container').classList.remove('hidden'); document.getElementById('wizard-multi-container').classList.add('hidden');"
+                                   class="w-4 h-4 text-blue-600">
+                            <span class="font-medium">Squadra Esistente</span>
                         </label>
                     </div>
 
@@ -2066,6 +2076,33 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="">Seleziona dipendente...</option>
                         </select>
+                    </div>
+
+                    <div id="wizard-multi-container" class="hidden">
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+                            <div class="flex items-center gap-3 mb-4">
+                                <i data-lucide="users-2" class="w-8 h-8 text-purple-600"></i>
+                                <div>
+                                    <h4 class="font-bold text-lg">Assegnazione Multipla</h4>
+                                    <p class="text-sm text-gray-600">Seleziona più utenti senza creare una squadra</p>
+                                </div>
+                            </div>
+
+                            <button onclick="window.multiUserAssignment.mostraSuggerimentoMultiUtente()" 
+                                    class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-xl hover:shadow-xl transition-all flex items-center justify-center gap-2 font-semibold mb-4">
+                                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                                Suggerisci Automatico
+                                <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                            </button>
+
+                            <div id="wizard-multi-users-container">
+                                <div class="text-center text-gray-500 py-6">
+                                    <i data-lucide="user-plus" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                                    <p class="text-sm">Nessun utente selezionato</p>
+                                    <p class="text-xs mt-1">Clicca "Suggerisci Automatico" per iniziare</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="wizard-squadra-container" class="hidden">
@@ -2078,7 +2115,7 @@
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
                         <p class="text-sm text-blue-800">
-                            💡 <strong>Suggerimento:</strong> Procedi al prossimo step per verificare automaticamente la disponibilità!
+                            💡 <strong>Suggerimento:</strong> Con "Più Utenti" puoi assegnare la lavorazione a membri indipendenti senza creare una squadra permanente!
                         </p>
                     </div>
                 </div>

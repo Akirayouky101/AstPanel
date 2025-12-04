@@ -22,7 +22,8 @@ class TaskWizard {
             // Step 2: Assegnazione
             assigned_user_id: null,
             assigned_team_id: null,
-            tipo_assegnazione: 'user', // 'user' o 'team'
+            assigned_users: [], // NUOVO: Array per multi-utente
+            tipo_assegnazione: 'user', // 'user', 'multi' o 'team'
             
             // Step 3: Dettagli e Componenti
             ore_stimate: 0,
@@ -196,6 +197,10 @@ class TaskWizard {
     validateStep2() {
         if (this.wizardData.tipo_assegnazione === 'user' && !this.wizardData.assigned_user_id) {
             alert('⚠️ Seleziona un dipendente');
+            return false;
+        }
+        if (this.wizardData.tipo_assegnazione === 'multi' && (!this.wizardData.assigned_users || this.wizardData.assigned_users.length === 0)) {
+            alert('⚠️ Seleziona almeno un membro per la lavorazione');
             return false;
         }
         if (this.wizardData.tipo_assegnazione === 'team' && !this.wizardData.assigned_team_id) {
@@ -583,6 +588,18 @@ class TaskWizard {
                 .single();
 
             if (taskError) throw taskError;
+
+            // Salva assegnazioni multiple se tipo 'multi'
+            if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
+                const assignResult = await window.multiUserAssignment.salvaAssegnazioni(
+                    task.id,
+                    this.wizardData.assigned_users
+                );
+                
+                if (!assignResult.success) {
+                    console.error('Errore salvataggio assegnazioni:', assignResult.error);
+                }
+            }
 
             // Associa componenti se presenti
             if (this.wizardData.componenti.length > 0) {
