@@ -472,6 +472,16 @@
                                 ${statusText}
                             </span>
                         </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            <div class="flex gap-2">
+                                <button onclick="editProduct('${product.id}')" class="text-blue-600 hover:text-blue-800 transition-colors" title="Modifica">
+                                    <i data-lucide="edit" class="w-5 h-5"></i>
+                                </button>
+                                <button onclick="deleteProduct('${product.id}')" class="text-red-600 hover:text-red-800 transition-colors" title="Elimina">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -559,14 +569,14 @@
             editingProductId = id;
             document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
             document.getElementById('productName').value = product.nome || '';
-            document.getElementById('productCode').value = product.codice || '';
-            document.getElementById('productCategory').value = product.categoria || '';
-            document.getElementById('productQuantity').value = product.quantita_disponibile || 0;
+            document.getElementById('productCode').value = product.codice || product.code || '';
+            document.getElementById('productCategory').value = product.categoria || product.category || '';
+            document.getElementById('productQuantity').value = product.quantita_magazzino || 0;
             document.getElementById('productUnit').value = product.unita_misura || 'pz';
-            document.getElementById('productMinStock').value = product.scorta_minima || 0;
-            document.getElementById('productPrice').value = product.prezzo_unitario || '';
+            document.getElementById('productMinStock').value = product.quantita_minima || 5;
+            document.getElementById('productPrice').value = product.prezzo_acquisto || '';
             document.getElementById('productDescription').value = product.descrizione || '';
-            document.getElementById('productNotes').value = product.note || '';
+            document.getElementById('productNotes').value = product.note_magazzino || product.note || '';
 
             document.getElementById('productModal').classList.remove('hidden');
             lucide.createIcons();
@@ -597,12 +607,12 @@
                 nome: document.getElementById('productName').value,
                 codice: document.getElementById('productCode').value,
                 categoria: document.getElementById('productCategory').value,
-                quantita_disponibile: parseFloat(document.getElementById('productQuantity').value),
+                quantita_magazzino: parseFloat(document.getElementById('productQuantity').value) || 0,
+                quantita_minima: parseFloat(document.getElementById('productMinStock').value) || 5,
                 unita_misura: document.getElementById('productUnit').value,
-                scorta_minima: parseFloat(document.getElementById('productMinStock').value) || 0,
-                prezzo_unitario: parseFloat(document.getElementById('productPrice').value) || null,
+                prezzo_acquisto: parseFloat(document.getElementById('productPrice').value) || null,
                 descrizione: document.getElementById('productDescription').value,
-                note: document.getElementById('productNotes').value
+                note_magazzino: document.getElementById('productNotes').value
             };
 
             try {
