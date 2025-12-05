@@ -687,12 +687,12 @@ class TaskWizard {
                                         <i data-lucide="package" class="w-4 h-4 text-green-600"></i>
                                     </div>
                                     <div>
-                                        <div class="font-medium text-sm">${product.nome}</div>
+                                        <div class="font-medium text-sm">${product.name}</div>
                                         <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
                                     </div>
                                 </div>
                                 <div class="text-sm font-semibold text-green-700">
-                                    x${comp.quantita} ${product.unita_misura || 'pz'}
+                                    x${comp.quantita} ${product.unit || 'pz'}
                                 </div>
                             </div>
                         `;
@@ -1009,12 +1009,12 @@ class TaskWizard {
                                         <i data-lucide="package" class="w-4 h-4 text-blue-600"></i>
                                     </div>
                                     <div>
-                                        <div class="font-medium text-sm">${product.nome}</div>
+                                        <div class="font-medium text-sm">${product.name}</div>
                                         <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
                                     </div>
                                 </div>
                                 <div class="text-sm font-semibold text-green-700">
-                                    x${comp.quantita} ${product.unita_misura || 'pz'}
+                                    x${comp.quantita} ${product.unit || 'pz'}
                                 </div>
                             </div>
                         `;
