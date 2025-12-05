@@ -926,8 +926,8 @@ class TaskWizard {
             if (this.wizardData.componenti.length > 0) {
                 const componentiData = this.wizardData.componenti.map(c => ({
                     task_id: task.id,
-                    prodotto_id: c.prodotto_id,
-                    quantita_richiesta: c.quantita
+                    component_id: c.prodotto_id,
+                    quantita: c.quantita
                 }));
 
                 const { error: compError } = await supabaseClient
