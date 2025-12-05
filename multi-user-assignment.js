@@ -464,8 +464,8 @@ class MultiUserAssignment {
     getRuoloIcon(ruolo) {
         const icons = {
             'Dipendente': '🥇',
-            'Tecnico': '🥈',
-            'Titolare': '🥉',
+            'Titolare': '�',
+            'Tecnico': '�',
             'Segreteria': '🏅'
         };
         return icons[ruolo] || '👤';

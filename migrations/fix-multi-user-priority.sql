@@ -1,0 +1,103 @@
+-- ================================================
+-- FIX: Aggiungi priorità ruolo a trova_n_dipendenti_disponibili
+-- Ordine: Dipendente > Titolare > Tecnico > Segreteria
+-- ================================================
+
+DROP FUNCTION IF EXISTS trova_n_dipendenti_disponibili(DATE, DATE, DECIMAL, INTEGER);
+
+CREATE FUNCTION trova_n_dipendenti_disponibili(
+    p_data_inizio DATE,
+    p_data_fine DATE,
+    p_ore_necessarie DECIMAL DEFAULT 8,
+    p_numero_dipendenti INTEGER DEFAULT 3
+) RETURNS TABLE(
+    user_id UUID,
+    nome_completo TEXT,
+    email VARCHAR,
+    ruolo VARCHAR,
+    costo_orario DECIMAL,
+    task_attivi INTEGER,
+    ore_impegnate DECIMAL,
+    ore_disponibili DECIMAL,
+    percentuale_disponibilita INTEGER,
+    score INTEGER,
+    posizione INTEGER
+)
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH carico_utenti AS (
+        SELECT 
+            u.id,
+            (u.nome || ' ' || u.cognome) as nome_completo,
+            u.email,
+            u.ruolo,
+            COALESCE(u.costo_orario, 0) as costo_ora,
+            COUNT(t.id) as task_count,
+            COALESCE(SUM(t.ore_stimate), 0) as ore_task,
+            (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_libere,
+            (100 - LEAST(100, (COALESCE(SUM(t.ore_stimate), 0) / 40 * 100))) as disponibilita,
+            -- Priorità ruolo: Dipendente > Titolare > Tecnico > Segreteria
+            CASE u.ruolo
+                WHEN 'Dipendente' THEN 4
+                WHEN 'Titolare' THEN 3
+                WHEN 'Tecnico' THEN 2
+                WHEN 'Segreteria' THEN 1
+                ELSE 0
+            END as prio_ruolo
+        FROM users u
+        LEFT JOIN tasks t ON t.assigned_user_id = u.id 
+            AND t.stato NOT IN ('completata', 'annullata')
+            AND (
+                (t.scadenza >= p_data_inizio AND t.scadenza <= p_data_fine)
+                OR (t.data_inizio >= p_data_inizio AND t.data_inizio <= p_data_fine)
+            )
+        WHERE u.ruolo IN ('Dipendente', 'Tecnico', 'Titolare', 'Segreteria', 'dipendente', 'admin', 'tecnico')
+        GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo, u.costo_orario
+    ),
+    availability_check AS (
+        SELECT 
+            cu.*,
+            CASE 
+                WHEN cu.ore_libere >= p_ore_necessarie THEN 100
+                WHEN cu.ore_libere > 0 THEN (cu.ore_libere / p_ore_necessarie * 100)
+                ELSE 0
+            END as score_disponibilita,
+            -- ORDINA: Prima per ruolo, poi per score, poi per task count
+            ROW_NUMBER() OVER (ORDER BY 
+                cu.prio_ruolo DESC,
+                CASE 
+                    WHEN cu.ore_libere >= p_ore_necessarie THEN 100
+                    WHEN cu.ore_libere > 0 THEN (cu.ore_libere / p_ore_necessarie * 100)
+                    ELSE 0
+                END DESC, 
+                cu.task_count ASC
+            ) as pos
+        FROM carico_utenti cu
+    )
+    SELECT 
+        ac.id,
+        ac.nome_completo::TEXT,
+        ac.email,
+        ac.ruolo,
+        ac.costo_ora::DECIMAL,
+        ac.task_count::INTEGER,
+        ac.ore_task::DECIMAL,
+        ac.ore_libere::DECIMAL,
+        ac.disponibilita::INTEGER,
+        ac.score_disponibilita::INTEGER,
+        ac.pos::INTEGER
+    FROM availability_check ac
+    WHERE ac.ore_libere > 0
+    ORDER BY ac.pos ASC
+    LIMIT p_numero_dipendenti;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Permissions
+ALTER FUNCTION trova_n_dipendenti_disponibili(DATE, DATE, DECIMAL, INTEGER) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION trova_n_dipendenti_disponibili(DATE, DATE, DECIMAL, INTEGER) TO authenticated;
+
+SELECT '✅ trova_n_dipendenti_disponibili aggiornata con priorità ruoli' as status;

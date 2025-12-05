@@ -1,14 +1,14 @@
 -- ================================================
--- UPDATE: Priorità per ruolo nel sistema availability
+-- UPDATE: Cambia ordine priorità ruoli
+-- Dipendente > Titolare > Tecnico > Segreteria
 -- ================================================
 
--- DROP delle funzioni esistenti per permettere cambio signature
+-- DROP solo delle funzioni
 DROP FUNCTION IF EXISTS get_dashboard_disponibilita();
-DROP FUNCTION IF EXISTS check_urgenza_veloce();
 DROP FUNCTION IF EXISTS trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR);
 
--- Modifica la funzione get_dashboard_disponibilita per includere priorità ruolo
-CREATE OR REPLACE FUNCTION get_dashboard_disponibilita()
+-- Ricrea get_dashboard_disponibilita con nuovo ordine priorità
+CREATE FUNCTION get_dashboard_disponibilita()
 RETURNS TABLE(
     user_id UUID,
     nome_completo TEXT,
@@ -46,7 +46,6 @@ BEGIN
                 WHEN COALESCE(SUM(t.ore_stimate), 0) >= 15 THEN 'disponibile'
                 ELSE 'molto_disponibile'
             END as stato_disponibilita,
-            -- Priorità per RUOLO: Dipendente > Titolare > Tecnico > Segreteria
             CASE u.ruolo
                 WHEN 'Dipendente' THEN 4
                 WHEN 'Titolare' THEN 3
@@ -81,57 +80,12 @@ BEGIN
         END as priorita,
         cc.prio_ruolo::INTEGER as priorita_ruolo
     FROM carico_corrente cc
-    -- ORDINA: Prima per ruolo, poi per disponibilità, poi per ore libere
     ORDER BY cc.prio_ruolo DESC, priorita DESC, cc.ore_disponibili DESC;
 END;
 $$ LANGUAGE plpgsql;
 
--- Aggiorna check_urgenza_veloce per usare la nuova logica
-CREATE OR REPLACE FUNCTION check_urgenza_veloce()
-RETURNS TABLE(
-    consigliato_user_id UUID,
-    consigliato_nome TEXT,
-    motivo TEXT,
-    ore_disponibili DECIMAL,
-    task_attivi BIGINT,
-    ruolo VARCHAR
-)
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    user_count INTEGER;
-BEGIN
-    SELECT COUNT(*) INTO user_count FROM users;
-    
-    IF user_count = 0 THEN
-        RETURN;
-    END IF;
-
-    RETURN QUERY
-    SELECT 
-        dv.user_id,
-        dv.nome_completo::TEXT,
-        CASE 
-            WHEN dv.stato_disponibilita = 'molto_disponibile' 
-                THEN '✅ MOLTO DISPONIBILE - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
-            WHEN dv.stato_disponibilita = 'disponibile' 
-                THEN '⚠️ Disponibile - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
-            WHEN dv.stato_disponibilita = 'quasi_pieno' 
-                THEN '🔸 Quasi pieno - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
-            ELSE '🔴 Occupato - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
-        END as motivo,
-        dv.ore_disponibili,
-        dv.task_attivi,
-        dv.ruolo
-    FROM get_dashboard_disponibilita() dv
-    -- Già ordinato per priorita_ruolo DESC dalla funzione
-    LIMIT 1;
-END;
-$$ LANGUAGE plpgsql;
-
--- Aggiorna trova_dipendente_disponibile con priorità ruolo
-CREATE OR REPLACE FUNCTION trova_dipendente_disponibile(
+-- Ricrea trova_dipendente_disponibile con nuovo ordine
+CREATE FUNCTION trova_dipendente_disponibile(
     p_data_inizio DATE,
     p_data_fine DATE,
     p_ore_necessarie DECIMAL DEFAULT 8,
@@ -163,7 +117,6 @@ BEGIN
             COALESCE(SUM(t.ore_stimate), 0) as ore_task,
             (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_libere,
             (100 - LEAST(100, (COALESCE(SUM(t.ore_stimate), 0) / 40 * 100))) as disponibilita,
-            -- Priorità ruolo: Dipendente > Titolare > Tecnico > Segreteria
             CASE u.ruolo
                 WHEN 'Dipendente' THEN 4
                 WHEN 'Titolare' THEN 3
@@ -203,24 +156,15 @@ BEGIN
         ac.score_disponibilita::INTEGER,
         ac.prio_ruolo::INTEGER
     FROM availability_check ac
-    -- ORDINA: Prima per ruolo, poi per score disponibilità
     ORDER BY ac.prio_ruolo DESC, ac.score_disponibilita DESC, ac.task_count ASC
     LIMIT 5;
 END;
 $$ LANGUAGE plpgsql;
 
--- Aggiorna owner e permissions
+-- Permissions
 ALTER FUNCTION get_dashboard_disponibilita() OWNER TO postgres;
-ALTER FUNCTION check_urgenza_veloce() OWNER TO postgres;
 ALTER FUNCTION trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR) OWNER TO postgres;
-
 GRANT EXECUTE ON FUNCTION get_dashboard_disponibilita() TO authenticated;
-GRANT EXECUTE ON FUNCTION check_urgenza_veloce() TO authenticated;
 GRANT EXECUTE ON FUNCTION trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR) TO authenticated;
 
--- Test
-SELECT '✅ Priorità ruoli aggiornate' as status;
-SELECT '🥇 1° Dipendenti, � 2° Titolare, � 3° Tecnici, 🏅 4° Segreteria' as ordine;
-
--- Test check urgenza con nuovo sistema
-SELECT * FROM check_urgenza_veloce();
+SELECT '✅ Priorità aggiornate: 🥇 Dipendente, 🥉 Titolare, 🥈 Tecnico, 🏅 Segreteria' as status;
