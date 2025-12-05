@@ -112,7 +112,6 @@ BEGIN
         ac.disponibilita::INTEGER,
         ac.score_disponibilita::INTEGER
     FROM availability_check ac
-    WHERE ac.ore_libere > 0
     ORDER BY ac.score_disponibilita DESC, ac.task_count ASC
     LIMIT 5;
 END;
@@ -195,7 +194,6 @@ BEGIN
         dv.ore_disponibili,
         dv.task_attivi::INTEGER
     FROM dashboard_disponibilita dv
-    WHERE dv.ore_disponibili > 0
     ORDER BY dv.priorita DESC, dv.ore_disponibili DESC
     LIMIT 1;
 END;
