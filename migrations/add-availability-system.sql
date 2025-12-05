@@ -210,6 +210,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_availability_timestamp ON user_availability;
 CREATE TRIGGER trigger_update_availability_timestamp
     BEFORE UPDATE ON user_availability
     FOR EACH ROW
