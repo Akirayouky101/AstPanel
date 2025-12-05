@@ -881,7 +881,9 @@ class TaskWizard {
                 assignedTeamId = this.wizardData.assigned_team_id;
             } else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
                 // Per multi-user, assegna al primo utente (required dal constraint)
-                assignedUserId = this.wizardData.assigned_users[0];
+                // assigned_users può contenere oggetti o solo IDs
+                const firstUser = this.wizardData.assigned_users[0];
+                assignedUserId = typeof firstUser === 'object' ? firstUser.user_id : firstUser;
             }
             
             const taskData = {
