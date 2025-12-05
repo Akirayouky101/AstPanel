@@ -256,6 +256,12 @@ GRANT EXECUTE ON FUNCTION trova_dipendente_disponibile TO authenticated;
 GRANT EXECUTE ON FUNCTION get_dashboard_disponibilita TO authenticated;
 GRANT EXECUTE ON FUNCTION check_urgenza_veloce TO authenticated;
 
+-- Cambia owner a postgres per garantire pieno accesso
+ALTER FUNCTION calcola_carico_lavoro(UUID, DATE, DATE) OWNER TO postgres;
+ALTER FUNCTION trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR) OWNER TO postgres;
+ALTER FUNCTION get_dashboard_disponibilita() OWNER TO postgres;
+ALTER FUNCTION check_urgenza_veloce() OWNER TO postgres;
+
 -- ================================================
 -- VERIFICA
 -- ================================================
