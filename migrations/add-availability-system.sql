@@ -33,7 +33,10 @@ CREATE OR REPLACE FUNCTION calcola_carico_lavoro(
     task_attivi INTEGER,
     ore_impegnate DECIMAL,
     percentuale_carico INTEGER
-) AS $$
+)
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -67,7 +70,10 @@ CREATE OR REPLACE FUNCTION trova_dipendente_disponibile(
     ore_disponibili DECIMAL,
     percentuale_disponibilita INTEGER,
     score INTEGER
-) AS $$
+)
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     RETURN QUERY
     WITH carico_utenti AS (
@@ -176,7 +182,10 @@ RETURNS TABLE(
     motivo TEXT,
     ore_disponibili DECIMAL,
     task_attivi INTEGER
-) AS $$
+)
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -220,6 +229,15 @@ COMMENT ON FUNCTION calcola_carico_lavoro IS 'Calcola il carico di lavoro attual
 COMMENT ON FUNCTION trova_dipendente_disponibile IS 'Trova i dipendenti più disponibili per un periodo con score intelligente';
 COMMENT ON VIEW dashboard_disponibilita IS 'Dashboard rapida disponibilità dipendenti prossima settimana';
 COMMENT ON FUNCTION check_urgenza_veloce IS 'Check veloce per urgenze: restituisce il dipendente più disponibile ADESSO';
+
+-- ================================================
+-- GRANT PERMISSIONS
+-- ================================================
+GRANT EXECUTE ON FUNCTION calcola_carico_lavoro TO authenticated;
+GRANT EXECUTE ON FUNCTION trova_dipendente_disponibile TO authenticated;
+GRANT EXECUTE ON FUNCTION check_urgenza_veloce TO authenticated;
+
+GRANT SELECT ON dashboard_disponibilita TO authenticated;
 
 -- ================================================
 -- VERIFICA
