@@ -881,12 +881,25 @@ class TaskWizard {
             this.saveCurrentStepData();
 
             // Crea la lavorazione
+            // Per tipo_assegnazione === 'multi', assegniamo al primo utente della lista
+            let assignedUserId = null;
+            let assignedTeamId = null;
+            
+            if (this.wizardData.tipo_assegnazione === 'user') {
+                assignedUserId = this.wizardData.assigned_user_id;
+            } else if (this.wizardData.tipo_assegnazione === 'team') {
+                assignedTeamId = this.wizardData.assigned_team_id;
+            } else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
+                // Per multi-user, assegna al primo utente (required dal constraint)
+                assignedUserId = this.wizardData.assigned_users[0];
+            }
+            
             const taskData = {
                 titolo: this.wizardData.titolo,
                 descrizione: this.wizardData.descrizione,
                 client_id: this.wizardData.cliente_id,  // ✅ FIX: client_id non cliente_id
-                assigned_user_id: this.wizardData.tipo_assegnazione === 'user' ? this.wizardData.assigned_user_id : null,
-                assigned_team_id: this.wizardData.tipo_assegnazione === 'team' ? this.wizardData.assigned_team_id : null,
+                assigned_user_id: assignedUserId,
+                assigned_team_id: assignedTeamId,
                 priorita: this.wizardData.priorita,
                 scadenza: this.wizardData.scadenza,
                 categoria: this.wizardData.categoria,
