@@ -4,6 +4,12 @@
 -- Descrizione: Sistema intelligente assegnazione lavorazioni
 -- ================================================
 
+-- 0. DROP funzioni esistenti per evitare conflitti
+DROP FUNCTION IF EXISTS check_urgenza_veloce();
+DROP FUNCTION IF EXISTS get_dashboard_disponibilita();
+DROP FUNCTION IF EXISTS trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR);
+DROP FUNCTION IF EXISTS calcola_carico_lavoro(UUID, DATE, DATE);
+
 -- 1. Tabella disponibilità dipendenti
 CREATE TABLE IF NOT EXISTS user_availability (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
