@@ -543,46 +543,263 @@ class TaskWizard {
         this.nextStep();
     }
 
-    generaRiepilogo() {
+    async generaRiepilogo() {
         const container = document.getElementById('wizard-riepilogo-container');
         if (!container) return;
 
+        // Carica dati cliente, utenti e team
         const clienteNome = document.getElementById('wizard-cliente-select')?.selectedOptions[0]?.text || 'N/D';
-        const dipendenteNome = document.getElementById('wizard-dipendente-select')?.selectedOptions[0]?.text || 'N/D';
+        
+        let assegnazioneHTML = '';
+        
+        // ASSEGNAZIONE SINGOLA
+        if (this.wizardData.tipo_assegnazione === 'user' && this.wizardData.assigned_user_id) {
+            const { data: user } = await supabaseClient
+                .from('users')
+                .select('nome, cognome, ruolo, email')
+                .eq('id', this.wizardData.assigned_user_id)
+                .single();
+            
+            if (user) {
+                assegnazioneHTML = `
+                    <div class="bg-white border border-green-300 rounded-lg p-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                                ${user.nome[0]}${user.cognome[0]}
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-semibold">${user.nome} ${user.cognome}</div>
+                                <div class="text-xs text-gray-500">${user.email}</div>
+                                <div class="text-xs font-medium text-green-700">${user.ruolo}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // ASSEGNAZIONE MULTIPLA
+        else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users?.length > 0) {
+            const userIds = this.wizardData.assigned_users.map(u => u.user_id);
+            const { data: users } = await supabaseClient
+                .from('users')
+                .select('id, nome, cognome, ruolo, email')
+                .in('id', userIds);
+            
+            assegnazioneHTML = `
+                <div class="space-y-2">
+                    ${this.wizardData.assigned_users.map(assignment => {
+                        const user = users?.find(u => u.id === assignment.user_id);
+                        if (!user) return '';
+                        return `
+                            <div class="bg-white border border-blue-300 rounded-lg p-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 flex-1">
+                                        <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                                            ${user.nome[0]}${user.cognome[0]}
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold">${user.nome} ${user.cognome}</div>
+                                            <div class="text-xs text-gray-500">${user.email}</div>
+                                            <div class="text-xs font-medium text-blue-700">${user.ruolo}</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-sm text-gray-600">
+                                        ${assignment.ore_assegnate || 0}h
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+        
+        // ASSEGNAZIONE SQUADRA
+        else if (this.wizardData.tipo_assegnazione === 'team' && this.wizardData.assigned_team_id) {
+            const { data: team } = await supabaseClient
+                .from('teams')
+                .select('nome, descrizione')
+                .eq('id', this.wizardData.assigned_team_id)
+                .single();
+            
+            const { data: members } = await supabaseClient
+                .from('team_members')
+                .select(`
+                    ruolo_team,
+                    users:user_id (
+                        nome,
+                        cognome,
+                        ruolo,
+                        email
+                    )
+                `)
+                .eq('team_id', this.wizardData.assigned_team_id);
+            
+            assegnazioneHTML = `
+                <div class="bg-purple-50 border border-purple-300 rounded-lg p-4 mb-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i data-lucide="users" class="w-5 h-5 text-purple-600"></i>
+                        <span class="font-bold text-purple-900">${team?.nome || 'Squadra'}</span>
+                    </div>
+                    ${team?.descrizione ? `<p class="text-sm text-gray-600 mb-3">${team.descrizione}</p>` : ''}
+                </div>
+                <div class="space-y-2">
+                    ${members?.map(member => {
+                        const user = member.users;
+                        return `
+                            <div class="bg-white border border-purple-200 rounded-lg p-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
+                                        ${user.nome[0]}${user.cognome[0]}
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold">${user.nome} ${user.cognome}</div>
+                                        <div class="text-xs text-gray-500">${user.email}</div>
+                                        <div class="text-xs font-medium text-purple-700">${user.ruolo} • ${member.ruolo_team}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') || '<p class="text-gray-500 text-sm">Nessun membro</p>'}
+                </div>
+            `;
+        }
+
+        // COMPONENTI/PRODOTTI
+        let prodottiHTML = '';
+        if (this.wizardData.componenti?.length > 0) {
+            const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
+            const { data: products } = await supabaseClient
+                .from('products')
+                .select('*')
+                .in('id', productIds);
+            
+            prodottiHTML = `
+                <div class="space-y-2">
+                    ${this.wizardData.componenti.map(comp => {
+                        const product = products?.find(p => p.id === comp.prodotto_id);
+                        if (!product) return '';
+                        return `
+                            <div class="bg-white border border-green-200 rounded-lg p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-green-100 rounded flex items-center justify-center">
+                                        <i data-lucide="package" class="w-4 h-4 text-green-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-sm">${product.nome}</div>
+                                        <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-semibold text-green-700">
+                                    x${comp.quantita} ${product.unita_misura || 'pz'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
 
         container.innerHTML = `
             <div class="space-y-6">
+                <!-- Dati Base -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 class="font-semibold text-lg mb-3">📋 Dati Lavorazione</h4>
+                    <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                        Dati Lavorazione
+                    </h4>
                     <div class="space-y-2 text-sm">
-                        <div><span class="font-medium">Titolo:</span> ${this.wizardData.titolo}</div>
-                        <div><span class="font-medium">Cliente:</span> ${clienteNome}</div>
-                        <div><span class="font-medium">Priorità:</span> ${this.wizardData.priorita}</div>
-                        <div><span class="font-medium">Scadenza:</span> ${new Date(this.wizardData.scadenza).toLocaleDateString('it-IT')}</div>
-                        ${this.wizardData.categoria ? `<div><span class="font-medium">Categoria:</span> ${this.wizardData.categoria}</div>` : ''}
+                        <div class="flex justify-between">
+                            <span class="font-medium">Titolo:</span> 
+                            <span class="text-gray-700">${this.wizardData.titolo}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Cliente:</span> 
+                            <span class="text-gray-700">${clienteNome}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Priorità:</span> 
+                            <span class="text-gray-700">${this.getPrioritaIcon(this.wizardData.priorita)} ${this.wizardData.priorita.toUpperCase()}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Scadenza:</span> 
+                            <span class="text-gray-700">${new Date(this.wizardData.scadenza).toLocaleDateString('it-IT')}</span>
+                        </div>
+                        ${this.wizardData.categoria ? `
+                            <div class="flex justify-between">
+                                <span class="font-medium">Categoria:</span> 
+                                <span class="text-gray-700">${this.wizardData.categoria}</span>
+                            </div>
+                        ` : ''}
+                        ${this.wizardData.descrizione ? `
+                            <div class="mt-2 pt-2 border-t">
+                                <span class="font-medium block mb-1">Descrizione:</span>
+                                <p class="text-gray-600 text-xs">${this.wizardData.descrizione}</p>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
 
+                <!-- Assegnazione -->
                 <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h4 class="font-semibold text-lg mb-3">👤 Assegnazione</h4>
+                    <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        Assegnazione
+                        ${this.wizardData.tipo_assegnazione === 'multi' ? 
+                            `<span class="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">${this.wizardData.assigned_users?.length || 0} membri</span>` : ''}
+                    </h4>
+                    ${assegnazioneHTML || '<p class="text-gray-500 text-sm">Nessuna assegnazione</p>'}
+                </div>
+
+                <!-- Dettagli Tecnici -->
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <i data-lucide="wrench" class="w-5 h-5"></i>
+                        Dettagli Tecnici
+                    </h4>
                     <div class="space-y-2 text-sm">
-                        <div><span class="font-medium">Tipo:</span> ${this.wizardData.tipo_assegnazione === 'user' ? 'Dipendente' : 'Squadra'}</div>
-                        <div><span class="font-medium">Assegnato a:</span> ${dipendenteNome}</div>
-                        ${this.wizardData.suggerimento_accettato ? '<div class="text-green-600">✅ Suggerimento automatico applicato</div>' : ''}
+                        <div class="flex justify-between">
+                            <span class="font-medium">Ore stimate:</span> 
+                            <span class="text-gray-700">${this.wizardData.ore_stimate || 0} h</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Costo stimato:</span> 
+                            <span class="text-gray-700">€${this.wizardData.costo_stimato || 0}</span>
+                        </div>
+                        ${this.wizardData.indirizzo_lavoro ? `
+                            <div class="flex justify-between">
+                                <span class="font-medium">Indirizzo:</span> 
+                                <span class="text-gray-700">${this.wizardData.indirizzo_lavoro}</span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
 
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <h4 class="font-semibold text-lg mb-3">⚙️ Dettagli Tecnici</h4>
-                    <div class="space-y-2 text-sm">
-                        <div><span class="font-medium">Ore stimate:</span> ${this.wizardData.ore_stimate} h</div>
-                        <div><span class="font-medium">Costo stimato:</span> €${this.wizardData.costo_stimato}</div>
-                        ${this.wizardData.indirizzo_lavoro ? `<div><span class="font-medium">Indirizzo:</span> ${this.wizardData.indirizzo_lavoro}</div>` : ''}
-                        ${this.wizardData.componenti.length > 0 ? `<div><span class="font-medium">Componenti:</span> ${this.wizardData.componenti.length} prodotti</div>` : ''}
+                <!-- Componenti/Prodotti -->
+                ${this.wizardData.componenti?.length > 0 ? `
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+                            <i data-lucide="package" class="w-5 h-5"></i>
+                            Materiali Necessari
+                            <span class="text-xs bg-amber-500 text-white px-2 py-1 rounded-full">${this.wizardData.componenti.length}</span>
+                        </h4>
+                        ${prodottiHTML}
                     </div>
-                </div>
+                ` : ''}
             </div>
         `;
+
+        lucide.createIcons();
+    }
+
+    getPrioritaIcon(priorita) {
+        const icons = {
+            'bassa': '🟢',
+            'media': '🟡',
+            'alta': '🔴'
+        };
+        return icons[priorita] || '⚪';
     }
 
     // ===================================
