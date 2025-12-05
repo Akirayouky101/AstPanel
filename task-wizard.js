@@ -898,7 +898,7 @@ class TaskWizard {
                 ore_stimate: this.wizardData.ore_stimate,
                 costo_stimato: this.wizardData.costo_stimato,
                 indirizzo_lavoro: this.wizardData.indirizzo_lavoro,
-                stato: 'da_iniziare',
+                stato: 'da_fare',
                 wizard_completed: true
             };
 
