@@ -671,7 +671,7 @@ class TaskWizard {
         if (this.wizardData.componenti?.length > 0) {
             const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
             const { data: products } = await supabaseClient
-                .from('products')
+                .from('warehouse_products')
                 .select('*')
                 .in('id', productIds);
             
@@ -977,7 +977,7 @@ class TaskWizard {
         // Carica dettagli prodotti
         const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
         const { data: products, error } = await supabaseClient
-            .from('products')
+            .from('warehouse_products')
             .select('*')
             .in('id', productIds);
 

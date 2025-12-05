@@ -22,7 +22,7 @@ class ProductScanner {
     async loadProducts() {
         try {
             const { data, error } = await supabaseClient
-                .from('products')
+                .from('warehouse_products')
                 .select('*')
                 .order('nome');
 
