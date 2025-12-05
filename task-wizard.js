@@ -737,6 +737,78 @@ class TaskWizard {
         this.resetData();
     }
 
+    // ===================================
+    // RENDER COMPONENTI SELEZIONATI
+    // ===================================
+
+    async renderComponentiSelezionati() {
+        const container = document.getElementById('wizard-componenti-selezionati');
+        if (!container) return;
+
+        if (!this.wizardData.componenti || this.wizardData.componenti.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                    <p class="text-sm">Nessun prodotto selezionato</p>
+                    <p class="text-xs mt-1">Clicca il bottone sopra per aggiungere materiali</p>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
+
+        // Carica dettagli prodotti
+        const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
+        const { data: products, error } = await supabaseClient
+            .from('products')
+            .select('*')
+            .in('id', productIds);
+
+        if (error) {
+            console.error('Errore caricamento dettagli prodotti:', error);
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-semibold text-green-900 flex items-center gap-2">
+                        <i data-lucide="check-circle" class="w-5 h-5"></i>
+                        ${this.wizardData.componenti.length} Prodotti Selezionati
+                    </h4>
+                    <button onclick="window.productScanner.mostraSelezioneProdotti()"
+                            class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        Modifica
+                    </button>
+                </div>
+                <div class="space-y-2">
+                    ${this.wizardData.componenti.map(comp => {
+                        const product = products.find(p => p.id === comp.prodotto_id);
+                        if (!product) return '';
+                        return `
+                            <div class="bg-white rounded-lg p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                                        <i data-lucide="package" class="w-4 h-4 text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-sm">${product.nome}</div>
+                                        <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-semibold text-green-700">
+                                    x${comp.quantita} ${product.unita_misura || 'pz'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        lucide.createIcons();
+    }
+
     resetData() {
         this.wizardData = {
             titolo: '',
@@ -748,15 +820,19 @@ class TaskWizard {
             tags: [],
             assigned_user_id: null,
             assigned_team_id: null,
+            assigned_users: [],
             tipo_assegnazione: 'user',
             ore_stimate: 0,
             costo_stimato: 0,
             indirizzo_lavoro: '',
             coordinate_gps: null,
-            componenti: [],
-            disponibilita_verificata: false,
-            suggerimento_accettato: false
+            componenti: []
         };
+        
+        // Reset product scanner
+        if (window.productScanner) {
+            window.productScanner.reset();
+        }
     }
 
     async renderWizard() {
