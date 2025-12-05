@@ -671,7 +671,7 @@ class TaskWizard {
             const taskData = {
                 titolo: this.wizardData.titolo,
                 descrizione: this.wizardData.descrizione,
-                cliente_id: this.wizardData.cliente_id,
+                client_id: this.wizardData.cliente_id,  // ✅ FIX: client_id non cliente_id
                 assigned_user_id: this.wizardData.tipo_assegnazione === 'user' ? this.wizardData.assigned_user_id : null,
                 assigned_team_id: this.wizardData.tipo_assegnazione === 'team' ? this.wizardData.assigned_team_id : null,
                 priorita: this.wizardData.priorita,

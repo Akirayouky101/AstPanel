@@ -351,16 +351,13 @@ class MultiUserAssignment {
                                     <div class="flex-1">
                                         <div class="font-medium">${user.nome_completo}</div>
                                         <div class="text-xs text-gray-500">${user.email}</div>
+                                        <div class="text-xs font-semibold ${this.getRuoloBadgeClass(user.ruolo)} px-2 py-0.5 rounded inline-block mt-1">
+                                            ${this.getRuoloIcon(user.ruolo)} ${user.ruolo}
+                                        </div>
                                         ${user.costo_orario > 0 ? `<div class="text-xs text-green-600 font-semibold">€${user.costo_orario}/h → €${costoUtente.toFixed(2)} totale</div>` : ''}
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <select class="text-sm border rounded px-2 py-1" 
-                                            onchange="window.multiUserAssignment.updateUserRole('${user.user_id}', this.value)">
-                                        <option value="membro">Membro</option>
-                                        <option value="responsabile">Responsabile</option>
-                                        <option value="supporto">Supporto</option>
-                                    </select>
                                     <input type="number" 
                                            value="${oreTask}"
                                            min="0.5"
@@ -448,6 +445,30 @@ class MultiUserAssignment {
             console.error('Errore salvataggio assegnazioni:', error);
             return { success: false, error };
         }
+    }
+
+    // ===================================
+    // HELPER per badge e icone ruoli
+    // ===================================
+
+    getRuoloBadgeClass(ruolo) {
+        const classes = {
+            'Dipendente': 'bg-green-100 text-green-800',
+            'Tecnico': 'bg-blue-100 text-blue-800',
+            'Titolare': 'bg-purple-100 text-purple-800',
+            'Segreteria': 'bg-gray-100 text-gray-800'
+        };
+        return classes[ruolo] || 'bg-gray-100 text-gray-800';
+    }
+
+    getRuoloIcon(ruolo) {
+        const icons = {
+            'Dipendente': '🥇',
+            'Tecnico': '🥈',
+            'Titolare': '🥉',
+            'Segreteria': '🏅'
+        };
+        return icons[ruolo] || '👤';
     }
 }
 
