@@ -123,56 +123,74 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 5. View per dashboard disponibilità rapida
-CREATE OR REPLACE VIEW dashboard_disponibilita AS
-WITH next_week AS (
-    SELECT 
-        CURRENT_DATE as data_inizio,
-        CURRENT_DATE + INTERVAL '7 days' as data_fine
-),
-carico_corrente AS (
-    SELECT 
-        u.id,
-        (u.nome || ' ' || u.cognome) as nome_completo,
-        u.email,
-        u.ruolo,
-        COUNT(t.id) as task_attivi,
-        COALESCE(SUM(t.ore_stimate), 0) as ore_impegnate,
-        (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_disponibili,
-        CASE 
-            WHEN COALESCE(SUM(t.ore_stimate), 0) >= 40 THEN 'occupato'
-            WHEN COALESCE(SUM(t.ore_stimate), 0) >= 30 THEN 'quasi_pieno'
-            WHEN COALESCE(SUM(t.ore_stimate), 0) >= 15 THEN 'disponibile'
-            ELSE 'molto_disponibile'
-        END as stato_disponibilita
-    FROM users u
-    CROSS JOIN next_week nw
-    LEFT JOIN tasks t ON t.assigned_user_id = u.id 
-        AND t.stato NOT IN ('completata', 'annullata')
-        AND (
-            (t.scadenza >= nw.data_inizio AND t.scadenza <= nw.data_fine)
-            OR (t.data_inizio >= nw.data_inizio AND t.data_inizio <= nw.data_fine)
-        )
-    WHERE u.ruolo IN ('dipendente', 'admin')
-    GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
+-- 5. Funzione per dashboard disponibilità rapida (SOSTITUISCE LA VIEW)
+CREATE OR REPLACE FUNCTION get_dashboard_disponibilita()
+RETURNS TABLE(
+    user_id UUID,
+    nome_completo TEXT,
+    email VARCHAR,
+    ruolo VARCHAR,
+    task_attivi BIGINT,
+    ore_impegnate DECIMAL,
+    ore_disponibili DECIMAL,
+    stato_disponibilita TEXT,
+    priorita INTEGER
 )
-SELECT 
-    id as user_id,
-    nome_completo,
-    email,
-    ruolo,
-    task_attivi,
-    ore_impegnate,
-    ore_disponibili,
-    stato_disponibilita,
-    CASE stato_disponibilita
-        WHEN 'molto_disponibile' THEN 4
-        WHEN 'disponibile' THEN 3
-        WHEN 'quasi_pieno' THEN 2
-        WHEN 'occupato' THEN 1
-    END as priorita
-FROM carico_corrente
-ORDER BY priorita DESC, ore_disponibili DESC;
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH next_week AS (
+        SELECT 
+            CURRENT_DATE as data_inizio,
+            CURRENT_DATE + INTERVAL '7 days' as data_fine
+    ),
+    carico_corrente AS (
+        SELECT 
+            u.id,
+            (u.nome || ' ' || u.cognome) as nome_completo,
+            u.email,
+            u.ruolo,
+            COUNT(t.id) as task_attivi,
+            COALESCE(SUM(t.ore_stimate), 0) as ore_impegnate,
+            (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_disponibili,
+            CASE 
+                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 40 THEN 'occupato'
+                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 30 THEN 'quasi_pieno'
+                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 15 THEN 'disponibile'
+                ELSE 'molto_disponibile'
+            END as stato_disponibilita
+        FROM users u
+        CROSS JOIN next_week nw
+        LEFT JOIN tasks t ON t.assigned_user_id = u.id 
+            AND t.stato NOT IN ('completata', 'annullata')
+            AND (
+                (t.scadenza >= nw.data_inizio AND t.scadenza <= nw.data_fine)
+                OR (t.data_inizio >= nw.data_inizio AND t.data_inizio <= nw.data_fine)
+            )
+        WHERE u.ruolo IN ('dipendente', 'admin')
+        GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
+    )
+    SELECT 
+        cc.id,
+        cc.nome_completo::TEXT,
+        cc.email,
+        cc.ruolo,
+        cc.task_attivi,
+        cc.ore_impegnate::DECIMAL,
+        cc.ore_disponibili::DECIMAL,
+        cc.stato_disponibilita::TEXT,
+        CASE cc.stato_disponibilita
+            WHEN 'molto_disponibile' THEN 4
+            WHEN 'disponibile' THEN 3
+            WHEN 'quasi_pieno' THEN 2
+            WHEN 'occupato' THEN 1
+        END as priorita
+    FROM carico_corrente cc
+    ORDER BY priorita DESC, cc.ore_disponibili DESC;
+END;
+$$ LANGUAGE plpgsql;
 
 -- 6. Funzione per check veloce urgenze
 CREATE OR REPLACE FUNCTION check_urgenza_veloce()
@@ -181,7 +199,7 @@ RETURNS TABLE(
     consigliato_nome TEXT,
     motivo TEXT,
     ore_disponibili DECIMAL,
-    task_attivi INTEGER
+    task_attivi BIGINT
 )
 SECURITY DEFINER
 SET search_path = public
@@ -201,8 +219,8 @@ BEGIN
             ELSE '🔴 Occupato - ' || dv.ore_disponibili || ' ore libere'
         END as motivo,
         dv.ore_disponibili,
-        dv.task_attivi::INTEGER
-    FROM dashboard_disponibilita dv
+        dv.task_attivi
+    FROM get_dashboard_disponibilita() dv
     ORDER BY dv.priorita DESC, dv.ore_disponibili DESC
     LIMIT 1;
 END;
@@ -227,7 +245,7 @@ CREATE TRIGGER trigger_update_availability_timestamp
 COMMENT ON TABLE user_availability IS 'Gestione disponibilità e indisponibilità dipendenti';
 COMMENT ON FUNCTION calcola_carico_lavoro IS 'Calcola il carico di lavoro attuale di un dipendente';
 COMMENT ON FUNCTION trova_dipendente_disponibile IS 'Trova i dipendenti più disponibili per un periodo con score intelligente';
-COMMENT ON VIEW dashboard_disponibilita IS 'Dashboard rapida disponibilità dipendenti prossima settimana';
+COMMENT ON FUNCTION get_dashboard_disponibilita IS 'Dashboard rapida disponibilità dipendenti prossima settimana (FUNCTION con SECURITY DEFINER)';
 COMMENT ON FUNCTION check_urgenza_veloce IS 'Check veloce per urgenze: restituisce il dipendente più disponibile ADESSO';
 
 -- ================================================
@@ -235,13 +253,12 @@ COMMENT ON FUNCTION check_urgenza_veloce IS 'Check veloce per urgenze: restituis
 -- ================================================
 GRANT EXECUTE ON FUNCTION calcola_carico_lavoro TO authenticated;
 GRANT EXECUTE ON FUNCTION trova_dipendente_disponibile TO authenticated;
+GRANT EXECUTE ON FUNCTION get_dashboard_disponibilita TO authenticated;
 GRANT EXECUTE ON FUNCTION check_urgenza_veloce TO authenticated;
-
-GRANT SELECT ON dashboard_disponibilita TO authenticated;
 
 -- ================================================
 -- VERIFICA
 -- ================================================
--- SELECT * FROM dashboard_disponibilita;
+-- SELECT * FROM get_dashboard_disponibilita();
 -- SELECT * FROM check_urgenza_veloce();
 -- SELECT * FROM trova_dipendente_disponibile(CURRENT_DATE, CURRENT_DATE + 7, 8);

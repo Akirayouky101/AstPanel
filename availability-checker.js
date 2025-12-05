@@ -57,11 +57,9 @@ class AvailabilityChecker {
      */
     async getDashboardDisponibilita() {
         try {
+            // Usa la funzione invece della VIEW per bypassare RLS
             const { data, error } = await this.supabase
-                .from('dashboard_disponibilita')
-                .select('*')
-                .order('priorita', { ascending: false })
-                .order('ore_disponibili', { ascending: false });
+                .rpc('get_dashboard_disponibilita');
 
             if (error) throw error;
 
