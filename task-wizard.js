@@ -326,20 +326,10 @@ class TaskWizard {
     async loadProdottiMagazzino() {
         try {
             const { data, error } = await supabaseClient
-                .from('warehouse_products')
-                .select(`
-                    id,
-                    name,
-                    sku,
-                    description,
-                    quantity,
-                    unit,
-                    price,
-                    category_id,
-                    warehouse_categories(name)
-                `)
-                .gt('quantity', 0)
-                .order('name');
+                .from('components')
+                .select('*')
+                .gt('quantita_disponibile', 0)
+                .order('nome');
             
             if (error) throw error;
 
@@ -671,7 +661,7 @@ class TaskWizard {
         if (this.wizardData.componenti?.length > 0) {
             const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
             const { data: products } = await supabaseClient
-                .from('warehouse_products')
+                .from('components')
                 .select('*')
                 .in('id', productIds);
             
@@ -687,12 +677,12 @@ class TaskWizard {
                                         <i data-lucide="package" class="w-4 h-4 text-green-600"></i>
                                     </div>
                                     <div>
-                                        <div class="font-medium text-sm">${product.name}</div>
+                                        <div class="font-medium text-sm">${product.nome}</div>
                                         <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
                                     </div>
                                 </div>
                                 <div class="text-sm font-semibold text-green-700">
-                                    x${comp.quantita} ${product.unit || 'pz'}
+                                    x${comp.quantita} ${product.unita_misura || 'pz'}
                                 </div>
                             </div>
                         `;
@@ -990,7 +980,7 @@ class TaskWizard {
         // Carica dettagli prodotti
         const productIds = this.wizardData.componenti.map(c => c.prodotto_id);
         const { data: products, error } = await supabaseClient
-            .from('warehouse_products')
+            .from('components')
             .select('*')
             .in('id', productIds);
 
@@ -1022,12 +1012,12 @@ class TaskWizard {
                                         <i data-lucide="package" class="w-4 h-4 text-blue-600"></i>
                                     </div>
                                     <div>
-                                        <div class="font-medium text-sm">${product.name}</div>
+                                        <div class="font-medium text-sm">${product.nome}</div>
                                         <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
                                     </div>
                                 </div>
                                 <div class="text-sm font-semibold text-green-700">
-                                    x${comp.quantita} ${product.unit || 'pz'}
+                                    x${comp.quantita} ${product.unita_misura || 'pz'}
                                 </div>
                             </div>
                         `;

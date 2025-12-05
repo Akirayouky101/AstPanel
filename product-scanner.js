@@ -22,9 +22,9 @@ class ProductScanner {
     async loadProducts() {
         try {
             const { data, error } = await supabaseClient
-                .from('warehouse_products')
+                .from('components')
                 .select('*')
-                .order('name');
+                .order('nome');
 
             if (error) throw error;
             this.allProducts = data || [];
@@ -158,13 +158,13 @@ class ProductScanner {
                                 <i data-lucide="package" class="w-5 h-5 text-blue-600"></i>
                             </div>
                             <div class="flex-1">
-                                <div class="font-semibold text-gray-800">${product.name}</div>
+                                <div class="font-semibold text-gray-800">${product.nome}</div>
                                 <div class="text-xs text-gray-500">
                                     ${product.sku ? `SKU: ${product.sku}` : ''}
                                     ${product.codice ? ` • Codice: ${product.codice}` : ''}
                                 </div>
-                                <div class="text-xs ${product.quantity > 0 ? 'text-green-600' : 'text-red-600'}">
-                                    Disponibili: ${product.quantity || 0} ${product.unit || 'pz'}
+                                <div class="text-xs ${product.quantita_disponibile > 0 ? 'text-green-600' : 'text-red-600'}">
+                                    Disponibili: ${product.quantita_disponibile || 0} ${product.unita_misura || 'pz'}
                                 </div>
                             </div>
                         </div>
@@ -190,7 +190,7 @@ class ProductScanner {
                 <div class="bg-white border border-green-300 rounded-lg p-3">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
-                            <div class="font-medium text-gray-800">${product.name}</div>
+                            <div class="font-medium text-gray-800">${product.nome}</div>
                             <div class="text-xs text-gray-500">${product.sku || product.codice || ''}</div>
                         </div>
                         <div class="flex items-center gap-3">
@@ -199,10 +199,10 @@ class ProductScanner {
                                 <input type="number" 
                                        value="${item.quantita}"
                                        min="1"
-                                       max="${product.quantity}"
+                                       max="${product.quantita_disponibile}"
                                        class="w-20 px-2 py-1 border border-gray-300 rounded text-center"
                                        onchange="window.productScanner.updateQuantita('${product.id}', this.value)">
-                                <span class="text-xs text-gray-500">${product.unit || 'pz'}</span>
+                                <span class="text-xs text-gray-500">${product.unita_misura || 'pz'}</span>
                             </div>
                             <button onclick="window.productScanner.rimuoviProdotto('${product.id}')"
                                     class="text-red-600 hover:text-red-800">
@@ -292,10 +292,10 @@ class ProductScanner {
         query = query.toLowerCase().trim();
         
         const filteredProducts = this.allProducts.filter(product => {
-            return product.name.toLowerCase().includes(query) ||
+            return product.nome.toLowerCase().includes(query) ||
                    (product.sku && product.sku.toLowerCase().includes(query)) ||
                    (product.codice && product.codice.toLowerCase().includes(query)) ||
-                   (product.description && product.description.toLowerCase().includes(query));
+                   (product.descrizione && product.descrizione.toLowerCase().includes(query));
         });
 
         const listContainer = document.getElementById('products-list-container');
