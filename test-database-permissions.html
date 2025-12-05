@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Database Permissions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">🔍 Test Database Permissions</h1>
+        
+        <div id="results" class="space-y-4"></div>
+        
+        <button onclick="runTests()" 
+                class="mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+            🚀 Esegui Test Completi
+        </button>
+    </div>
+
+    <script>
+        async function addResult(title, status, message, data = null) {
+            const resultsDiv = document.getElementById('results');
+            const statusColor = status === 'success' ? 'green' : status === 'error' ? 'red' : 'yellow';
+            const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⚠️';
+            
+            const resultHTML = `
+                <div class="bg-white p-4 rounded-lg border-l-4 border-${statusColor}-500">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">${statusIcon}</span>
+                        <h3 class="font-bold text-lg">${title}</h3>
+                    </div>
+                    <p class="text-gray-700 mb-2">${message}</p>
+                    ${data ? `<pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${JSON.stringify(data, null, 2)}</pre>` : ''}
+                </div>
+            `;
+            resultsDiv.innerHTML += resultHTML;
+        }
+
+        async function runTests() {
+            document.getElementById('results').innerHTML = '<p class="text-gray-600">Esecuzione test in corso...</p>';
+            
+            // TEST 1: Verifica connessione Supabase
+            try {
+                if (window.supabaseClient) {
+                    await addResult('Test 1: Connessione Supabase', 'success', 'Client Supabase inizializzato correttamente');
+                } else {
+                    await addResult('Test 1: Connessione Supabase', 'error', 'Client Supabase NON trovato!');
+                    return;
+                }
+            } catch (error) {
+                await addResult('Test 1: Connessione Supabase', 'error', error.message);
+                return;
+            }
+
+            // TEST 2: Verifica sessione utente
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                if (error) throw error;
+                
+                if (session) {
+                    await addResult('Test 2: Sessione Utente', 'success', `Utente autenticato: ${session.user.email}`, {
+                        user_id: session.user.id,
+                        role: session.user.role,
+                        email: session.user.email
+                    });
+                } else {
+                    await addResult('Test 2: Sessione Utente', 'error', 'Nessuna sessione attiva! Devi fare login.');
+                    return;
+                }
+            } catch (error) {
+                await addResult('Test 2: Sessione Utente', 'error', error.message);
+                return;
+            }
+
+            // TEST 3: Lettura warehouse_products
+            try {
+                const { data, error, count } = await supabaseClient
+                    .from('warehouse_products')
+                    .select('*', { count: 'exact' });
+                
+                if (error) throw error;
+                
+                await addResult('Test 3: Lettura warehouse_products', 'success', 
+                    `Trovati ${count} prodotti nel magazzino`, 
+                    data?.slice(0, 2) // Mostra solo i primi 2 per brevità
+                );
+            } catch (error) {
+                await addResult('Test 3: Lettura warehouse_products', 'error', 
+                    `Errore lettura prodotti: ${error.message}`, 
+                    error
+                );
+            }
+
+            // TEST 4: Lettura tasks
+            try {
+                const { data, error, count } = await supabaseClient
+                    .from('tasks')
+                    .select('*', { count: 'exact' })
+                    .limit(5);
+                
+                if (error) throw error;
+                
+                await addResult('Test 4: Lettura tasks', 'success', 
+                    `Trovate ${count} lavorazioni totali`, 
+                    data?.slice(0, 2)
+                );
+            } catch (error) {
+                await addResult('Test 4: Lettura tasks', 'error', 
+                    `Errore lettura tasks: ${error.message}`, 
+                    error
+                );
+            }
+
+            // TEST 5: INSERT in tasks (il test critico!)
+            try {
+                const testTask = {
+                    titolo: 'TEST - Lavorazione di prova',
+                    descrizione: 'Test creazione da script diagnostico',
+                    stato: 'da_fare',
+                    priorita: 'media',
+                    data_inizio: new Date().toISOString(),
+                    tipo_assegnazione: 'singolo'
+                };
+
+                const { data, error } = await supabaseClient
+                    .from('tasks')
+                    .insert(testTask)
+                    .select();
+                
+                if (error) throw error;
+                
+                await addResult('Test 5: INSERT tasks (CRITICO)', 'success', 
+                    '✅ SUCCESSO! La lavorazione di test è stata creata!', 
+                    data
+                );
+
+                // Cleanup: elimina il test
+                if (data && data[0]) {
+                    await supabaseClient.from('tasks').delete().eq('id', data[0].id);
+                }
+            } catch (error) {
+                await addResult('Test 5: INSERT tasks (CRITICO)', 'error', 
+                    `❌ ERRORE INSERT: ${error.message} (Codice: ${error.code})`, 
+                    error
+                );
+            }
+
+            // TEST 6: Verifica RLS policies su tasks
+            try {
+                const { data, error } = await supabaseClient
+                    .rpc('exec_sql', { 
+                        query: `SELECT schemaname, tablename, policyname, cmd 
+                                FROM pg_policies 
+                                WHERE tablename = 'tasks';` 
+                    });
+                
+                if (error) {
+                    // RPC potrebbe non esistere, proviamo metodo alternativo
+                    await addResult('Test 6: RLS Policies', 'warning', 
+                        'Non posso verificare le policy da frontend. Verifica manualmente su Supabase SQL Editor.'
+                    );
+                } else {
+                    await addResult('Test 6: RLS Policies', 'success', 
+                        `Trovate ${data?.length || 0} policy su tasks`, 
+                        data
+                    );
+                }
+            } catch (error) {
+                await addResult('Test 6: RLS Policies', 'warning', 
+                    'Verifica manuale necessaria su Supabase SQL Editor'
+                );
+            }
+
+            // TEST 7: Verifica utente nel database
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const { data, error } = await supabaseClient
+                    .from('utenti')
+                    .select('*')
+                    .eq('auth_id', session.user.id)
+                    .single();
+                
+                if (error) throw error;
+                
+                await addResult('Test 7: Utente in database', 'success', 
+                    `Utente trovato: ${data.nome} ${data.cognome} (${data.ruolo})`, 
+                    data
+                );
+            } catch (error) {
+                await addResult('Test 7: Utente in database', 'error', 
+                    `Errore recupero utente: ${error.message}`, 
+                    error
+                );
+            }
+
+            await addResult('🎯 Test Completati', 'success', 
+                'Tutti i test sono stati eseguiti. Controlla i risultati sopra.'
+            );
+        }
+
+        // Auto-run dopo 1 secondo
+        setTimeout(() => {
+            runTests();
+        }, 1000);
+    </script>
+</body>
+</html>
