@@ -2,13 +2,13 @@
  * ================================================
  * TASK CREATION WIZARD - Sistema Guidato Creazione Lavorazioni
  * ================================================
- * 5 Step workflow per creare lavorazioni complete
+ * 4 Step workflow per creare lavorazioni complete
  */
 
 class TaskWizard {
     constructor() {
         this.currentStep = 1;
-        this.totalSteps = 5;
+        this.totalSteps = 4;
         this.wizardData = {
             // Step 1: Dati Base
             titolo: '',
@@ -22,7 +22,7 @@ class TaskWizard {
             // Step 2: Assegnazione
             assigned_user_id: null,
             assigned_team_id: null,
-            assigned_users: [], // NUOVO: Array per multi-utente
+            assigned_users: [], // Array per multi-utente
             tipo_assegnazione: 'user', // 'user', 'multi' o 'team'
             
             // Step 3: Dettagli e Componenti
@@ -32,11 +32,7 @@ class TaskWizard {
             coordinate_gps: null,
             componenti: [], // {prodotto_id, quantita, note}
             
-            // Step 4: Disponibilità verificata
-            disponibilita_verificata: false,
-            suggerimento_accettato: false,
-            
-            // Step 5: Conferma (autogenerata)
+            // Step 4: Conferma (autogenerata)
         };
     }
 
