@@ -306,34 +306,8 @@
             console.log('🔄 [REDIRECT] Incremento contatore:', count, '→', newCount);
             sessionStorage.setItem('orariRedirectCount', newCount.toString());
             
-            console.log('⏸️  [REDIRECT] *** ATTENDERE 10 SECONDI PRIMA DEL REDIRECT ***');
-            console.log('⏸️  [REDIRECT] *** COPIA I LOG ADESSO! ***');
-            console.log('⏸️  [REDIRECT] Per bloccare il redirect, digita nella console: STOP_REDIRECT = true');
-            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html tra 10 secondi...');
-            
-            // Mostra alert con tempo per copiare
-            const userChoice = confirm('ERRORE DI AUTENTICAZIONE\n\nVuoi essere reindirizzato al login?\n\n✅ OK = Vai al login (10 secondi)\n❌ ANNULLA = Resta qui per debug');
-            
-            if (!userChoice) {
-                console.log('🛑 [REDIRECT] BLOCCATO dall\'utente per debug');
-                console.log('📋 [DEBUG] Copia i log sopra e invia al supporto');
-                return; // Non redirige
-            }
-            
-            let countdown = 10;
-            const timer = setInterval(() => {
-                if (window.STOP_REDIRECT === true) {
-                    clearInterval(timer);
-                    console.log('🛑 [REDIRECT] ANNULLATO - STOP_REDIRECT attivato');
-                    return;
-                }
-                countdown--;
-                console.log(`⏳ [REDIRECT] Redirect in ${countdown} secondi...`);
-                if (countdown <= 0) {
-                    clearInterval(timer);
-                    window.location.href = '/Admin/index.html';
-                }
-            }, 1000);
+            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html...');
+            window.location.href = '/Admin/index.html';
         }
 
         // Aggiorna data e ora
@@ -429,16 +403,35 @@
 
         // Gestisci timbratura
         async function handleTimbratura() {
+            console.log('🕐 [TIMBRATURA] Inizio processo timbratura...');
             const btn = document.getElementById('timbraBtn');
+            
+            if (!btn) {
+                console.error('❌ [TIMBRATURA] Bottone non trovato!');
+                return;
+            }
+            
+            console.log('🔘 [TIMBRATURA] Bottone trovato, disabilitazione...');
             btn.disabled = true;
 
             try {
+                console.log('📍 [GPS] Richiesta geolocalizzazione...');
                 // Richiedi geolocalizzazione
                 const position = await new Promise((resolve, reject) => {
                     if (!navigator.geolocation) {
+                        console.warn('⚠️ [GPS] Geolocalizzazione non disponibile');
                         resolve(null);
                     } else {
-                        navigator.geolocation.getCurrentPosition(resolve, () => resolve(null));
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                console.log('✅ [GPS] Posizione ottenuta:', pos.coords.latitude, pos.coords.longitude);
+                                resolve(pos);
+                            },
+                            (err) => {
+                                console.warn('⚠️ [GPS] Errore geolocalizzazione:', err.message);
+                                resolve(null);
+                            }
+                        );
                     }
                 });
 
@@ -448,11 +441,18 @@
                     accuracy: position.coords.accuracy
                 } : null;
 
+                console.log('📍 [GPS] Dati GPS:', gpsData);
+
                 const today = new Date().toISOString().split('T')[0];
                 const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
+                console.log('📅 [DATA] Data:', today, '- Ora:', now);
+                console.log('👤 [USER] User ID:', currentUser?.id);
+                console.log('🕐 [STATO] Timbratura esistente:', todayTimbratura);
+
                 if (!todayTimbratura || !todayTimbratura.ora_ingresso) {
                     // Timbra ingresso
+                    console.log('➡️ [INSERT] Inserimento nuovo ingresso...');
                     const { data, error } = await window.supabaseClient
                         .from('timbrature')
                         .insert({
@@ -466,13 +466,18 @@
                         .select()
                         .single();
 
-                    if (error) throw error;
+                    if (error) {
+                        console.error('❌ [INSERT] Errore:', error);
+                        throw error;
+                    }
 
+                    console.log('✅ [INSERT] Ingresso registrato:', data);
                     todayTimbratura = data;
                     updateTodayUI();
                     showNotification('✅ Ingresso registrato con successo!', 'success');
                 } else {
                     // Timbra uscita
+                    console.log('➡️ [UPDATE] Aggiornamento con uscita...');
                     const { data, error } = await window.supabaseClient
                         .from('timbrature')
                         .update({
@@ -482,8 +487,12 @@
                         .select()
                         .single();
 
-                    if (error) throw error;
+                    if (error) {
+                        console.error('❌ [UPDATE] Errore:', error);
+                        throw error;
+                    }
 
+                    console.log('✅ [UPDATE] Uscita registrata:', data);
                     todayTimbratura = data;
                     updateTodayUI();
                     showNotification('✅ Uscita registrata con successo!', 'success');
@@ -491,10 +500,13 @@
                     await loadMonthDetails();
                 }
             } catch (error) {
-                console.error('Errore timbratura:', error);
-                showNotification('❌ Errore durante la timbratura', 'error');
+                console.error('❌ [TIMBRATURA] Errore:', error);
+                console.error('❌ [TIMBRATURA] Stack:', error.stack);
+                showNotification('❌ Errore durante la timbratura: ' + error.message, 'error');
             } finally {
+                console.log('🔘 [TIMBRATURA] Riabilitazione bottone...');
                 btn.disabled = false;
+                console.log('✅ [TIMBRATURA] Processo completato');
             }
         }
 
