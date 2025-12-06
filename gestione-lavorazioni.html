@@ -2002,37 +2002,111 @@
 
         async function suggerisciDipendenteSingolo() {
             try {
-                const result = await window.availabilityChecker.checkUrgenzaVeloce();
-                
-                if (result.success) {
-                    const c = result.consigliato;
-                    suggestedUser = c;
-                    
-                    document.getElementById('suggestionAlert').classList.remove('hidden');
-                    document.getElementById('suggestionTitle').textContent = 'Suggerimento Singolo Dipendente';
-                    document.getElementById('suggestionText').innerHTML = `
-                        <strong>${c.nome}</strong> è il più disponibile con 
-                        <strong>${c.oreDisponibili} ore libere</strong> e 
-                        <strong>${c.taskAttivi} task attivi</strong>.
-                    `;
-                    
-                    showNotification('Suggerimento automatico generato! ✨', 'success');
-                } else {
+                // Get all available users (including Titolare)
+                const { data: users, error } = await window.supabaseClient
+                    .from('users')
+                    .select('id, nome, cognome, ruolo')
+                    .in('ruolo', ['Dipendente', 'Titolare', 'Tecnico', 'Segreteria'])
+                    .order('nome');
+
+                if (error) throw error;
+
+                if (!users || users.length === 0) {
                     showNotification('Nessun dipendente disponibile al momento', 'warning');
+                    return;
                 }
+
+                // Role priority: Dipendente=1, Titolare=2, Tecnico=3, Segreteria=4
+                const rolePriority = {
+                    'Dipendente': 1,
+                    'Titolare': 2,
+                    'Tecnico': 3,
+                    'Segreteria': 4
+                };
+
+                // Get task count for each user
+                const availability = [];
+                for (const user of users) {
+                    try {
+                        // Count active tasks for this user
+                        const { data: tasks, error: taskError } = await window.supabaseClient
+                            .from('tasks')
+                            .select('id, ore_stimate')
+                            .or(`assegnatario_id.eq.${user.id},utenti_assegnati.cs.{${user.id}}`)
+                            .in('stato', ['in-attesa', 'in-corso']);
+
+                        if (taskError) {
+                            console.warn('Errore conteggio task per', user.nome, taskError);
+                        }
+
+                        const taskAttivi = tasks ? tasks.length : 0;
+                        const oreTotali = tasks ? tasks.reduce((sum, t) => sum + (parseFloat(t.ore_stimate) || 0), 0) : 0;
+                        const oreDisponibili = Math.max(0, 40 - oreTotali);
+
+                        availability.push({
+                            userId: user.id,
+                            nome: `${user.nome} ${user.cognome}`,
+                            ruolo: user.ruolo,
+                            priority: rolePriority[user.ruolo] || 99,
+                            oreDisponibili: oreDisponibili,
+                            taskAttivi: taskAttivi
+                        });
+                    } catch (e) {
+                        console.warn('Errore check disponibilità per', user.nome, e);
+                        availability.push({
+                            userId: user.id,
+                            nome: `${user.nome} ${user.cognome}`,
+                            ruolo: user.ruolo,
+                            priority: rolePriority[user.ruolo] || 99,
+                            oreDisponibili: 40,
+                            taskAttivi: 0
+                        });
+                    }
+                }
+
+                // Sort by: 1) Role priority, 2) Available hours, 3) Active tasks
+                availability.sort((a, b) => {
+                    if (a.priority !== b.priority) {
+                        return a.priority - b.priority;
+                    }
+                    if (b.oreDisponibili !== a.oreDisponibili) {
+                        return b.oreDisponibili - a.oreDisponibili;
+                    }
+                    return a.taskAttivi - b.taskAttivi;
+                });
+
+                // Get the top user
+                const bestUser = availability[0];
+                
+                if (!bestUser) {
+                    showNotification('Nessun dipendente disponibile al momento', 'warning');
+                    return;
+                }
+
+                suggestedUser = bestUser;
+                
+                document.getElementById('suggestionAlert').classList.remove('hidden');
+                document.getElementById('suggestionTitle').textContent = 'Suggerimento Singolo Dipendente';
+                document.getElementById('suggestionText').innerHTML = `
+                    <strong>${bestUser.nome}</strong> (${bestUser.ruolo}) è il più disponibile con 
+                    <strong>${bestUser.oreDisponibili.toFixed(0)} ore libere</strong> e 
+                    <strong>${bestUser.taskAttivi} task attivi</strong>.
+                `;
+                
+                showNotification('Suggerimento automatico generato! ✨', 'success');
             } catch (error) {
                 console.error('Errore suggerimento:', error);
-                showNotification('Errore nel calcolo suggerimento', 'error');
+                showNotification('Errore nel calcolo suggerimento: ' + error.message, 'error');
             }
         }
 
         async function suggerisciDipendentiMulti() {
             try {
-                // Get all available users
+                // Get all available users (including Titolare)
                 const { data: users, error } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
-                    .in('ruolo', ['Dipendente', 'Tecnico', 'Segreteria'])
+                    .in('ruolo', ['Dipendente', 'Titolare', 'Tecnico', 'Segreteria'])
                     .order('nome');
 
                 if (error) throw error;
@@ -2041,6 +2115,14 @@
                     showNotification('Nessun dipendente disponibile', 'warning');
                     return;
                 }
+
+                // Role priority: Dipendente=1, Titolare=2, Tecnico=3, Segreteria=4
+                const rolePriority = {
+                    'Dipendente': 1,
+                    'Titolare': 2,
+                    'Tecnico': 3,
+                    'Segreteria': 4
+                };
 
                 // Get task count for each user
                 const availability = [];
@@ -2065,6 +2147,8 @@
                         availability.push({
                             userId: user.id,
                             nome: `${user.nome} ${user.cognome}`,
+                            ruolo: user.ruolo,
+                            priority: rolePriority[user.ruolo] || 99,
                             oreDisponibili: oreDisponibili,
                             taskAttivi: taskAttivi
                         });
@@ -2074,17 +2158,25 @@
                         availability.push({
                             userId: user.id,
                             nome: `${user.nome} ${user.cognome}`,
+                            ruolo: user.ruolo,
+                            priority: rolePriority[user.ruolo] || 99,
                             oreDisponibili: 40,
                             taskAttivi: 0
                         });
                     }
                 }
 
-                // Sort by availability (more available hours first, less active tasks)
+                // Sort by: 1) Role priority, 2) Available hours, 3) Active tasks
                 availability.sort((a, b) => {
+                    // First by role priority (lower number = higher priority)
+                    if (a.priority !== b.priority) {
+                        return a.priority - b.priority;
+                    }
+                    // Then by available hours (more is better)
                     if (b.oreDisponibili !== a.oreDisponibili) {
                         return b.oreDisponibili - a.oreDisponibili;
                     }
+                    // Finally by active tasks (less is better)
                     return a.taskAttivi - b.taskAttivi;
                 });
 
@@ -2101,9 +2193,9 @@
                 document.getElementById('suggestionAlert').classList.remove('hidden');
                 document.getElementById('suggestionTitle').textContent = 'Suggerimento Multi Dipendente';
                 document.getElementById('suggestionText').innerHTML = `
-                    <strong>Top ${top3.length} dipendenti più disponibili:</strong><br>
+                    <strong>Top ${top3.length} dipendenti più disponibili (per priorità ruolo):</strong><br>
                     ${top3.map((u, i) => `
-                        ${i + 1}. <strong>${u.nome}</strong> - ${u.oreDisponibili.toFixed(0)}h libere, ${u.taskAttivi} task attivi
+                        ${i + 1}. <strong>${u.nome}</strong> (${u.ruolo}) - ${u.oreDisponibili.toFixed(0)}h libere, ${u.taskAttivi} task attivi
                     `).join('<br>')}
                 `;
                 
