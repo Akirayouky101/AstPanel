@@ -42,7 +42,7 @@ window.ClientModal = {
         // Create modal HTML
         const modalHTML = `
             <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] fade-in p-4 overflow-y-auto" onclick="if(event.target === this) window.ClientModal.close()">
-                <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
                     <!-- Header con gradiente -->
                     <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
                         <div class="flex items-center justify-between">
