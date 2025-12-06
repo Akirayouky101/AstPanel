@@ -177,6 +177,7 @@
         let currentUser = null;
         let todayTimbratura = null;
         let updateInterval = null;
+        let authCheckInProgress = false; // Flag anti-loop
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', async () => {
@@ -191,9 +192,24 @@
             
             console.log('✅ [CHECK] Supabase Client disponibile');
             
+            // Verifica se siamo in un loop di redirect
+            const redirectCount = parseInt(sessionStorage.getItem('orariRedirectCount') || '0');
+            console.log('🔄 [LOOP-CHECK] Contatore redirect:', redirectCount);
+            
+            if (redirectCount > 3) {
+                console.error('❌ [FATAL] Loop di redirect rilevato! Blocco ulteriori tentativi.');
+                alert('Errore: Loop di autenticazione rilevato. Contatta il supporto.');
+                sessionStorage.removeItem('orariRedirectCount');
+                return;
+            }
+            
             try {
                 console.log('🔐 [AUTH] Verifica autenticazione...');
                 await checkAuth();
+                
+                // Reset contatore se auth OK
+                sessionStorage.removeItem('orariRedirectCount');
+                
                 console.log('✅ [AUTH] Autenticazione completata, utente:', currentUser?.nome);
                 
                 console.log('⏰ [INIT] Avvio caricamento dati...');
@@ -228,48 +244,72 @@
 
         // Verifica autenticazione
         async function checkAuth() {
+            if (authCheckInProgress) {
+                console.warn('⚠️ [AUTH] Verifica già in corso, skip...');
+                return;
+            }
+            
+            authCheckInProgress = true;
             console.log('🔍 [AUTH] Controllo sessione Supabase...');
-            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
             
-            if (sessionError) {
-                console.error('❌ [AUTH] Errore recupero sessione:', sessionError);
-                alert('Errore di autenticazione');
-                window.location.href = '/Admin/index.html';
-                return;
+            try {
+                const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+                
+                if (sessionError) {
+                    console.error('❌ [AUTH] Errore recupero sessione:', sessionError);
+                    alert('Errore di autenticazione');
+                    incrementRedirectAndGo();
+                    return;
+                }
+                
+                if (!session) {
+                    console.warn('⚠️ [AUTH] Nessuna sessione attiva, redirect al login...');
+                    incrementRedirectAndGo();
+                    return;
+                }
+
+                console.log('✅ [AUTH] Sessione trovata, user ID:', session.user.id);
+                console.log('👤 [DB] Caricamento dati utente dal database...');
+                
+                const { data: user, error: userError } = await window.supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (userError) {
+                    console.error('❌ [DB] Errore caricamento utente:', userError);
+                    alert('Errore nel caricamento dei dati utente');
+                    incrementRedirectAndGo();
+                    return;
+                }
+
+                if (!user) {
+                    console.error('❌ [DB] Utente non trovato nel database');
+                    alert('Utente non trovato');
+                    incrementRedirectAndGo();
+                    return;
+                }
+
+                console.log('✅ [DB] Utente caricato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
+                currentUser = user;
+                document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
+            } finally {
+                authCheckInProgress = false;
             }
+        }
+        
+        // Funzione helper per tracciare redirect
+        function incrementRedirectAndGo() {
+            const count = parseInt(sessionStorage.getItem('orariRedirectCount') || '0');
+            const newCount = count + 1;
+            console.log('🔄 [REDIRECT] Incremento contatore:', count, '→', newCount);
+            sessionStorage.setItem('orariRedirectCount', newCount.toString());
             
-            if (!session) {
-                console.warn('⚠️ [AUTH] Nessuna sessione attiva, redirect al login...');
+            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html tra 1 secondo...');
+            setTimeout(() => {
                 window.location.href = '/Admin/index.html';
-                return;
-            }
-
-            console.log('✅ [AUTH] Sessione trovata, user ID:', session.user.id);
-            console.log('👤 [DB] Caricamento dati utente dal database...');
-            
-            const { data: user, error: userError } = await window.supabaseClient
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-            if (userError) {
-                console.error('❌ [DB] Errore caricamento utente:', userError);
-                alert('Errore nel caricamento dei dati utente');
-                window.location.href = '/Admin/index.html';
-                return;
-            }
-
-            if (!user) {
-                console.error('❌ [DB] Utente non trovato nel database');
-                alert('Utente non trovato');
-                window.location.href = '/Admin/index.html';
-                return;
-            }
-
-            console.log('✅ [DB] Utente caricato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
-            currentUser = user;
-            document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
+            }, 1000); // Delay per vedere i log
         }
 
         // Aggiorna data e ora

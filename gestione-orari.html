@@ -157,6 +157,7 @@
         let currentUser = null;
         let allEmployees = [];
         let allTimbrature = [];
+        let authCheckInProgress = false; // Flag anti-loop
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', async () => {
@@ -170,9 +171,24 @@
             }
             
             console.log('✅ [CHECK] Supabase Client OK');
+            
+            // Verifica loop redirect
+            const redirectCount = parseInt(sessionStorage.getItem('adminOrariRedirectCount') || '0');
+            console.log('🔄 [LOOP-CHECK] Contatore redirect admin:', redirectCount);
+            
+            if (redirectCount > 3) {
+                console.error('❌ [FATAL] Loop di redirect rilevato!');
+                alert('Errore: Loop di autenticazione. Contatta supporto.');
+                sessionStorage.removeItem('adminOrariRedirectCount');
+                return;
+            }
+            
             console.log('🔐 [AUTH] Verifica autenticazione admin...');
             
             await checkAuth();
+            
+            // Reset contatore se OK
+            sessionStorage.removeItem('adminOrariRedirectCount');
             
             console.log('👥 [DATA] Caricamento lista dipendenti...');
             await loadEmployees();
@@ -196,46 +212,70 @@
 
         // Verifica autenticazione admin
         async function checkAuth() {
+            if (authCheckInProgress) {
+                console.warn('⚠️ [AUTH] Verifica già in corso, skip...');
+                return;
+            }
+            
+            authCheckInProgress = true;
             console.log('🔍 [AUTH] Controllo sessione...');
-            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
             
-            if (sessionError) {
-                console.error('❌ [AUTH] Errore sessione:', sessionError);
-                window.location.href = '/Admin/index.html';
-                return;
-            }
-            
-            if (!session) {
-                console.warn('⚠️ [AUTH] Nessuna sessione, redirect login...');
-                window.location.href = '/Admin/index.html';
-                return;
-            }
-            
-            console.log('✅ [AUTH] Sessione OK, user:', session.user.id);
-            console.log('👤 [DB] Caricamento dati utente...');
-            
-            const { data: user, error: userError } = await window.supabaseClient
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+            try {
+                const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+                
+                if (sessionError) {
+                    console.error('❌ [AUTH] Errore sessione:', sessionError);
+                    incrementAdminRedirectAndGo();
+                    return;
+                }
+                
+                if (!session) {
+                    console.warn('⚠️ [AUTH] Nessuna sessione, redirect login...');
+                    incrementAdminRedirectAndGo();
+                    return;
+                }
+                
+                console.log('✅ [AUTH] Sessione OK, user:', session.user.id);
+                console.log('👤 [DB] Caricamento dati utente...');
+                
+                const { data: user, error: userError } = await window.supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
 
-            if (userError) {
-                console.error('❌ [DB] Errore caricamento utente:', userError);
-                alert('Errore caricamento dati');
-                window.location.href = '/Admin/index.html';
-                return;
-            }
+                if (userError) {
+                    console.error('❌ [DB] Errore caricamento utente:', userError);
+                    alert('Errore caricamento dati');
+                    incrementAdminRedirectAndGo();
+                    return;
+                }
 
-            if (!user || (user.ruolo !== 'Titolare' && user.ruolo !== 'Amministratore')) {
-                console.error('❌ [AUTH] Accesso negato. Ruolo:', user?.ruolo);
-                alert('Accesso non autorizzato');
-                window.location.href = '/Admin/index.html';
-                return;
-            }
+                if (!user || (user.ruolo !== 'Titolare' && user.ruolo !== 'Amministratore')) {
+                    console.error('❌ [AUTH] Accesso negato. Ruolo:', user?.ruolo);
+                    alert('Accesso non autorizzato');
+                    incrementAdminRedirectAndGo();
+                    return;
+                }
 
-            console.log('✅ [AUTH] Admin verificato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
-            currentUser = user;
+                console.log('✅ [AUTH] Admin verificato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
+                currentUser = user;
+            } finally {
+                authCheckInProgress = false;
+            }
+        }
+        
+        // Helper redirect admin
+        function incrementAdminRedirectAndGo() {
+            const count = parseInt(sessionStorage.getItem('adminOrariRedirectCount') || '0');
+            const newCount = count + 1;
+            console.log('🔄 [ADMIN-REDIRECT] Incremento:', count, '→', newCount);
+            sessionStorage.setItem('adminOrariRedirectCount', newCount.toString());
+            
+            console.log('↩️ [REDIRECT] Redirect a login tra 1 secondo...');
+            setTimeout(() => {
+                window.location.href = '/Admin/index.html';
+            }, 1000);
         }
 
         // Carica lista dipendenti
