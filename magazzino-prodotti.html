@@ -20,6 +20,11 @@
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .brand-filter-btn.active { 
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); 
+            color: white; 
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -103,6 +108,10 @@
                         <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
                         Nuovo Movimento
                     </button>
+                    <button onclick="openImportCSVModal()" class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        Importa Listino
+                    </button>
                     <button onclick="openBulkAddModal()" class="bg-gradient-to-r from-orange-600 via-orange-700 to-orange-800 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
                         <i data-lucide="layers" class="w-5 h-5"></i>
                         Carico Multiplo
@@ -163,6 +172,28 @@
                         <i data-lucide="x-circle" class="w-7 h-7 text-white"></i>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Brand Quick Filters -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-sm font-bold text-gray-700">Filtra per Brand:</span>
+                <button onclick="filterByBrand('all')" id="filter-all" class="brand-filter-btn active px-4 py-2 rounded-lg font-medium transition-all">
+                    Tutti
+                </button>
+                <button onclick="filterByBrand('Dahua')" id="filter-Dahua" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-blue-100 text-gray-700 rounded-lg font-medium transition-all">
+                    📹 Dahua
+                </button>
+                <button onclick="filterByBrand('Tecnoalarm')" id="filter-Tecnoalarm" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-red-100 text-gray-700 rounded-lg font-medium transition-all">
+                    🔐 Tecnoalarm
+                </button>
+                <button onclick="filterByBrand('Daikin')" id="filter-Daikin" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-green-100 text-gray-700 rounded-lg font-medium transition-all">
+                    ❄️ Climatizzatori
+                </button>
+                <button onclick="filterByBrand('Materiale Elettrico')" id="filter-Materiale Elettrico" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-yellow-100 text-gray-700 rounded-lg font-medium transition-all">
+                    ⚡ Materiale Elettrico
+                </button>
             </div>
         </div>
 
@@ -289,6 +320,27 @@
                                 <option value="altro">Altro</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Brand -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
+                        <label for="productBrand" class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-2">
+                            <i data-lucide="award" class="w-4 h-4"></i>
+                            Brand / Fornitore
+                        </label>
+                        <input type="text" id="productBrand" placeholder="Es: Dahua, Tecnoalarm, Daikin..." 
+                               list="brandSuggestions"
+                               class="w-full px-4 py-2 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium">
+                        <datalist id="brandSuggestions">
+                            <option value="Dahua">
+                            <option value="Tecnoalarm">
+                            <option value="Daikin">
+                            <option value="Bticino">
+                            <option value="Vimar">
+                            <option value="Gewiss">
+                            <option value="Hikvision">
+                            <option value="Mitsubishi">
+                        </datalist>
                     </div>
 
                     <!-- Quantità e Unità -->
@@ -537,9 +589,15 @@
                 const matchSearch = !search || 
                     (product.nome || '').toLowerCase().includes(search) ||
                     (product.codice || '').toLowerCase().includes(search) ||
-                    (product.descrizione || '').toLowerCase().includes(search);
+                    (product.descrizione || '').toLowerCase().includes(search) ||
+                    (product.brand || '').toLowerCase().includes(search);
 
                 const matchCategory = category === 'all' || product.categoria === category;
+
+                // Brand filter
+                const matchBrand = currentBrandFilter === 'all' || 
+                    (product.brand && product.brand.toLowerCase().includes(currentBrandFilter.toLowerCase())) ||
+                    (product.categoria && product.categoria.toLowerCase().includes(currentBrandFilter.toLowerCase()));
 
                 let matchStock = true;
                 if (stock !== 'all') {
@@ -551,7 +609,7 @@
                     else if (stock === 'instock') matchStock = qty > min || (qty > 0 && min === 0);
                 }
 
-                return matchSearch && matchCategory && matchStock;
+                return matchSearch && matchCategory && matchBrand && matchStock;
             });
 
             renderProducts(filtered);
@@ -585,6 +643,7 @@
             document.getElementById('productName').value = product.nome || '';
             document.getElementById('productCode').value = product.codice || product.code || '';
             document.getElementById('productCategory').value = product.categoria || product.category || '';
+            document.getElementById('productBrand').value = product.brand || '';
             document.getElementById('productQuantity').value = product.quantita_magazzino || 0;
             document.getElementById('productUnit').value = product.unita_misura || 'pz';
             document.getElementById('productMinStock').value = product.quantita_minima || 5;
@@ -766,6 +825,200 @@
             }
         }
 
+        // 🆕 IMPORT CSV FUNCTIONALITY
+        let csvParsedData = [];
+        let currentBrandFilter = 'all';
+
+        function openImportCSVModal() {
+            document.getElementById('importCSVModal').classList.remove('hidden');
+            document.getElementById('csvFileInput').value = '';
+            document.getElementById('csvPreview').classList.add('hidden');
+            csvParsedData = [];
+            lucide.createIcons();
+        }
+
+        function closeImportCSVModal() {
+            document.getElementById('importCSVModal').classList.add('hidden');
+        }
+
+        function downloadCSVTemplate() {
+            const template = `codice,nome,categoria,brand,prezzo,quantita,unita_misura,scorta_minima,descrizione
+DHI-IPC-HDBW1431E,Telecamera Dome 4MP,Videosorveglianza,Dahua,89.90,10,pz,5,Dome IR 30m WDR
+TN-TG168,Centrale Antifurto 8Z,Antifurti,Tecnoalarm,245.00,3,pz,2,8 zone espandibile a 168
+FTXM35R,Climatizzatore 12000 BTU,Climatizzatori,Daikin,650.00,5,pz,1,Split inverter A+++
+BTI-380,Cavo UTP Cat6,Materiale Elettrico,Bticino,120.00,50,mt,10,Cavo rete certificato
+DHI-NVR4104HS,NVR 4 Canali,Videosorveglianza,Dahua,180.00,4,pz,2,Registratore 4 canali 4K`;
+
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'template_listino_prodotti.csv';
+            link.click();
+            showNotification('Template scaricato!', 'success');
+        }
+
+        function previewCSV() {
+            const fileInput = document.getElementById('csvFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSVData(text);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVData(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) {
+                showNotification('File CSV vuoto o non valido', 'error');
+                return;
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            csvParsedData = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                
+                if (values.length < headers.length) continue; // Skip incomplete rows
+
+                const product = {
+                    codice: values[0] || '',
+                    nome: values[1] || '',
+                    categoria: values[2] || '',
+                    brand: values[3] || '',
+                    prezzo_acquisto: parseFloat(values[4]) || 0,
+                    quantita_magazzino: parseFloat(values[5]) || 0,
+                    unita_misura: values[6] || 'pz',
+                    quantita_minima: parseFloat(values[7]) || 0,
+                    descrizione: values[8] || ''
+                };
+
+                if (product.codice && product.nome) {
+                    csvParsedData.push(product);
+                }
+            }
+
+            displayCSVPreview();
+        }
+
+        function displayCSVPreview() {
+            if (csvParsedData.length === 0) {
+                showNotification('Nessun prodotto valido nel file CSV', 'warning');
+                return;
+            }
+
+            const preview = document.getElementById('csvPreview');
+            const tableBody = document.getElementById('csvPreviewTable');
+            const rowCount = document.getElementById('csvRowCount');
+            const importBtn = document.getElementById('importCSVBtn');
+
+            preview.classList.remove('hidden');
+            rowCount.textContent = csvParsedData.length;
+            importBtn.disabled = false;
+
+            tableBody.innerHTML = csvParsedData.slice(0, 20).map(product => `
+                <tr class="border-b border-gray-200">
+                    <td class="p-2 font-mono text-xs">${product.codice}</td>
+                    <td class="p-2">${product.nome}</td>
+                    <td class="p-2"><span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">${product.brand || 'N/D'}</span></td>
+                    <td class="p-2">${product.categoria}</td>
+                    <td class="p-2 font-bold">${product.quantita_magazzino} ${product.unita_misura}</td>
+                </tr>
+            `).join('');
+
+            if (csvParsedData.length > 20) {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td colspan="5" class="p-2 text-center text-gray-500 text-sm">
+                            ... e altri ${csvParsedData.length - 20} prodotti
+                        </td>
+                    </tr>
+                `;
+            }
+
+            lucide.createIcons();
+            showNotification(`${csvParsedData.length} prodotti pronti per l'importazione!`, 'success');
+        }
+
+        async function importCSVData() {
+            if (csvParsedData.length === 0) {
+                showNotification('Nessun dato da importare', 'warning');
+                return;
+            }
+
+            const importBtn = document.getElementById('importCSVBtn');
+            importBtn.disabled = true;
+            importBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Importazione in corso...';
+            lucide.createIcons();
+
+            try {
+                let successCount = 0;
+                let errorCount = 0;
+                let duplicateCount = 0;
+
+                for (const product of csvParsedData) {
+                    try {
+                        // Check if product already exists by code
+                        const existing = allProducts.find(p => p.codice === product.codice);
+                        if (existing) {
+                            duplicateCount++;
+                            continue;
+                        }
+
+                        await window.dataManager.saveComponente(product);
+                        successCount++;
+                    } catch (error) {
+                        console.error('Error importing product:', product.nome, error);
+                        errorCount++;
+                    }
+                }
+
+                if (successCount > 0) {
+                    showNotification(`✅ ${successCount} prodotti importati con successo!`, 'success');
+                }
+                if (duplicateCount > 0) {
+                    showNotification(`⚠️ ${duplicateCount} prodotti già esistenti (saltati)`, 'warning');
+                }
+                if (errorCount > 0) {
+                    showNotification(`❌ ${errorCount} prodotti non importati`, 'error');
+                }
+
+                closeImportCSVModal();
+                await loadProducts();
+            } catch (error) {
+                console.error('Error in CSV import:', error);
+                showNotification('Errore durante l\'importazione', 'error');
+            } finally {
+                importBtn.disabled = false;
+                importBtn.innerHTML = '<i data-lucide="upload" class="w-5 h-5"></i> Importa Prodotti';
+                lucide.createIcons();
+            }
+        }
+
+        // 🆕 BRAND FILTER FUNCTIONALITY
+        function filterByBrand(brand) {
+            currentBrandFilter = brand;
+
+            // Update button styles
+            document.querySelectorAll('.brand-filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-700');
+            });
+
+            const activeBtn = document.getElementById(`filter-${brand}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-100', 'text-gray-700');
+                activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
+            }
+
+            applyFilters();
+        }
+
         // Form submit
         document.getElementById('productForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -774,6 +1027,7 @@
                 nome: document.getElementById('productName').value,
                 codice: document.getElementById('productCode').value,
                 categoria: document.getElementById('productCategory').value,
+                brand: document.getElementById('productBrand').value || null,
                 quantita_magazzino: parseFloat(document.getElementById('productQuantity').value) || 0,
                 quantita_minima: parseFloat(document.getElementById('productMinStock').value) || 5,
                 unita_misura: document.getElementById('productUnit').value,
@@ -1401,6 +1655,110 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV Modal -->
+    <div id="importCSVModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 via-indigo-700 to-indigo-800 p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="file-spreadsheet" class="w-7 h-7 text-blue-600"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">Importa Listino CSV</h3>
+                        </div>
+                        <button onclick="closeImportCSVModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 overflow-y-auto flex-1">
+                    <!-- Info Box -->
+                    <div class="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                        <div class="flex items-start gap-3">
+                            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-blue-900 mb-2">Formato CSV Richiesto</p>
+                                <p class="text-sm text-blue-700 mb-2">Il file CSV deve avere queste colonne (con intestazione nella prima riga):</p>
+                                <div class="bg-white border border-blue-300 rounded-lg p-3 font-mono text-xs mb-2">
+                                    codice,nome,categoria,brand,prezzo,quantita,unita_misura,scorta_minima,descrizione
+                                </div>
+                                <p class="text-sm text-blue-700 mb-2"><strong>Esempio:</strong></p>
+                                <div class="bg-white border border-blue-300 rounded-lg p-3 font-mono text-xs">
+                                    DHI-123,Telecamera Dome 4MP,Videosorveglianza,Dahua,89.90,10,pz,5,Dome IR 30m<br>
+                                    TN-456,Centrale Antifurto 8Z,Antifurti,Tecnoalarm,245.00,3,pz,2,8 zone espandibile<br>
+                                    CLM-789,Climatizzatore 12000 BTU,Climatizzatori,Daikin,650.00,5,pz,1,Split A+++
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Download Template -->
+                    <div class="mb-6">
+                        <button onclick="downloadCSVTemplate()" class="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+                            <i data-lucide="download" class="w-5 h-5"></i>
+                            Scarica Template CSV Vuoto
+                        </button>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i data-lucide="upload-cloud" class="w-4 h-4 inline mr-1"></i>
+                            Seleziona File CSV
+                        </label>
+                        <input type="file" 
+                               id="csvFileInput" 
+                               accept=".csv,.txt" 
+                               onchange="previewCSV()"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold hover:file:bg-blue-700">
+                    </div>
+
+                    <!-- Preview Area -->
+                    <div id="csvPreview" class="hidden">
+                        <h4 class="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <i data-lucide="eye" class="w-5 h-5"></i>
+                            Anteprima Importazione
+                        </h4>
+                        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 max-h-96 overflow-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-300">
+                                        <th class="text-left p-2 font-bold">Codice</th>
+                                        <th class="text-left p-2 font-bold">Nome</th>
+                                        <th class="text-left p-2 font-bold">Brand</th>
+                                        <th class="text-left p-2 font-bold">Categoria</th>
+                                        <th class="text-left p-2 font-bold">Quantità</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="csvPreviewTable">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">
+                            <span id="csvRowCount" class="font-bold text-blue-600">0</span> prodotti pronti per l'importazione
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-6 bg-gray-50 border-t flex justify-between">
+                    <button onclick="closeImportCSVModal()" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 font-medium transition-colors">
+                        Annulla
+                    </button>
+                    <button onclick="importCSVData()" id="importCSVBtn" disabled class="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg font-bold transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        Importa Prodotti
+                    </button>
+                </div>
             </div>
         </div>
     </div>
