@@ -329,7 +329,7 @@
         async function loadPendingApprovals() {
             const { data, error } = await window.supabaseClient
                 .from('timbrature')
-                .select('*, users(nome, cognome)')
+                .select('*, user:users!user_id(nome, cognome)')
                 .eq('stato', 'pending')
                 .order('created_at', { ascending: false });
 
@@ -367,7 +367,7 @@
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
-                            <div class="font-bold text-lg text-gray-800">${t.users.nome} ${t.users.cognome}</div>
+                            <div class="font-bold text-lg text-gray-800">${t.user.nome} ${t.user.cognome}</div>
                             <div class="text-sm text-gray-600 mt-1">
                                 ${tipoEmoji[t.tipo] || '💼'} ${t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1)} - ${new Date(t.data).toLocaleDateString('it-IT')}
                             </div>
@@ -451,7 +451,7 @@
 
             let query = window.supabaseClient
                 .from('timbrature')
-                .select('*, users(nome, cognome, ruolo)')
+                .select('*, user:users!user_id(nome, cognome, ruolo)')
                 .order('data', { ascending: false });
 
             if (employeeFilter) query = query.eq('user_id', employeeFilter);
@@ -481,9 +481,9 @@
                 const empId = t.user_id;
                 if (!employeeStats[empId]) {
                     employeeStats[empId] = {
-                        nome: t.users.nome,
-                        cognome: t.users.cognome,
-                        ruolo: t.users.ruolo,
+                        nome: t.user.nome,
+                        cognome: t.user.cognome,
+                        ruolo: t.user.ruolo,
                         oreOrdinarie: 0,
                         oreStraordinarie: 0,
                         permessi: 0,
@@ -581,8 +581,8 @@
 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">${t.users.nome} ${t.users.cognome}</div>
-                        <div class="text-xs text-gray-500">${t.users.ruolo}</div>
+                        <div class="text-sm font-medium text-gray-900">${t.user.nome} ${t.user.cognome}</div>
+                        <div class="text-xs text-gray-500">${t.user.ruolo}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(t.data).toLocaleDateString('it-IT')}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">${tipoEmoji[t.tipo] || '💼'} ${t.tipo}</td>
@@ -649,7 +649,7 @@
 
             allTimbrature.forEach(t => {
                 const hours = t.ore_lavorate ? t.ore_lavorate.toFixed(2) : '0.00';
-                csv += `"${t.users.nome} ${t.users.cognome}","${t.users.ruolo}","${t.data}","${t.tipo}","${t.ora_ingresso || ''}","${t.ora_uscita || ''}","${hours}","${t.stato}","${t.note || ''}"\n`;
+                csv += `"${t.user.nome} ${t.user.cognome}","${t.user.ruolo}","${t.data}","${t.tipo}","${t.ora_ingresso || ''}","${t.ora_uscita || ''}","${hours}","${t.stato}","${t.note || ''}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
