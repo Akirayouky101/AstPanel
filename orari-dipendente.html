@@ -268,15 +268,12 @@
                 
                 if (sessionError) {
                     console.error('❌ [AUTH] Errore recupero sessione:', sessionError);
-                    alert('Errore di autenticazione');
-                    incrementRedirectAndGo();
-                    return;
+                    throw new Error('Errore di autenticazione: ' + sessionError.message);
                 }
                 
                 if (!session) {
-                    console.warn('⚠️ [AUTH] Nessuna sessione attiva, redirect al login...');
-                    incrementRedirectAndGo();
-                    return;
+                    console.warn('⚠️ [AUTH] Nessuna sessione attiva');
+                    throw new Error('Sessione non attiva. Effettua il login.');
                 }
 
                 console.log('✅ [AUTH] Sessione trovata, user ID:', session.user.id);
@@ -290,35 +287,55 @@
 
                 if (userError) {
                     console.error('❌ [DB] Errore caricamento utente:', userError);
-                    alert('Errore nel caricamento dei dati utente');
-                    incrementRedirectAndGo();
-                    return;
+                    throw new Error('Errore nel caricamento dati utente: ' + userError.message);
                 }
 
                 if (!user) {
                     console.error('❌ [DB] Utente non trovato nel database');
-                    alert('Utente non trovato');
-                    incrementRedirectAndGo();
-                    return;
+                    throw new Error('Utente non trovato nel database');
                 }
 
                 console.log('✅ [DB] Utente caricato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
                 currentUser = user;
                 document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
+                
+                // Reset contatore se auth OK
+                sessionStorage.removeItem('orariRedirectCount');
+                
+            } catch (error) {
+                // Gestione errore senza redirect automatico
+                console.error('❌ [AUTH-ERROR]', error.message);
+                
+                // Mostra messaggio all'utente
+                const mainContent = document.querySelector('main') || document.body;
+                mainContent.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center bg-gray-50">
+                        <div class="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
+                            <div class="text-center">
+                                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                                    <i data-lucide="alert-circle" class="h-6 w-6 text-red-600"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">Errore di Autenticazione</h3>
+                                <p class="text-sm text-gray-500 mb-6">${error.message}</p>
+                                <div class="space-y-3">
+                                    <a href="/Admin/index.html" 
+                                       class="block w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                        Torna alla Dashboard
+                                    </a>
+                                    <button onclick="location.reload()" 
+                                            class="block w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">
+                                        Riprova
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                throw error; // Re-throw per fermare l'inizializzazione
             } finally {
                 authCheckInProgress = false;
             }
-        }
-        
-        // Funzione helper per tracciare redirect
-        function incrementRedirectAndGo() {
-            const count = parseInt(sessionStorage.getItem('orariRedirectCount') || '0');
-            const newCount = count + 1;
-            console.log('🔄 [REDIRECT] Incremento contatore:', count, '→', newCount);
-            sessionStorage.setItem('orariRedirectCount', newCount.toString());
-            
-            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html...');
-            window.location.href = '/Admin/index.html';
         }
 
         // Aggiorna data e ora
