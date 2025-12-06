@@ -306,10 +306,34 @@
             console.log('🔄 [REDIRECT] Incremento contatore:', count, '→', newCount);
             sessionStorage.setItem('orariRedirectCount', newCount.toString());
             
-            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html tra 1 secondo...');
-            setTimeout(() => {
-                window.location.href = '/Admin/index.html';
-            }, 1000); // Delay per vedere i log
+            console.log('⏸️  [REDIRECT] *** ATTENDERE 10 SECONDI PRIMA DEL REDIRECT ***');
+            console.log('⏸️  [REDIRECT] *** COPIA I LOG ADESSO! ***');
+            console.log('⏸️  [REDIRECT] Per bloccare il redirect, digita nella console: STOP_REDIRECT = true');
+            console.log('↩️ [REDIRECT] Redirect a /Admin/index.html tra 10 secondi...');
+            
+            // Mostra alert con tempo per copiare
+            const userChoice = confirm('ERRORE DI AUTENTICAZIONE\n\nVuoi essere reindirizzato al login?\n\n✅ OK = Vai al login (10 secondi)\n❌ ANNULLA = Resta qui per debug');
+            
+            if (!userChoice) {
+                console.log('🛑 [REDIRECT] BLOCCATO dall\'utente per debug');
+                console.log('📋 [DEBUG] Copia i log sopra e invia al supporto');
+                return; // Non redirige
+            }
+            
+            let countdown = 10;
+            const timer = setInterval(() => {
+                if (window.STOP_REDIRECT === true) {
+                    clearInterval(timer);
+                    console.log('🛑 [REDIRECT] ANNULLATO - STOP_REDIRECT attivato');
+                    return;
+                }
+                countdown--;
+                console.log(`⏳ [REDIRECT] Redirect in ${countdown} secondi...`);
+                if (countdown <= 0) {
+                    clearInterval(timer);
+                    window.location.href = '/Admin/index.html';
+                }
+            }, 1000);
         }
 
         // Aggiorna data e ora
