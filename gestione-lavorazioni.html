@@ -311,10 +311,10 @@
                                 <i data-lucide="users" class="w-4 h-4 inline mr-1"></i>
                                 Assegnazione
                             </label>
-                            <button type="button" onclick="suggerisciDipendenteAutomatico()" 
+                            <button type="button" id="autoSuggestBtn" onclick="suggerisciAutomatico()" 
                                     class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
                                 <i data-lucide="sparkles" class="w-3 h-3"></i>
-                                Suggerisci Automatico
+                                <span id="autoSuggestBtnText">Suggerisci Singolo</span>
                             </button>
                         </div>
                         
@@ -322,7 +322,7 @@
                         <div id="suggestionAlert" class="hidden mb-3 bg-green-100 border-2 border-green-300 rounded-lg p-3">
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-2xl">✅</span>
-                                <span class="font-bold text-green-900">Suggerimento Automatico</span>
+                                <span class="font-bold text-green-900" id="suggestionTitle">Suggerimento Automatico</span>
                             </div>
                             <p id="suggestionText" class="text-sm text-green-800 mb-2"></p>
                             <button type="button" onclick="applicaSuggerimento()" 
@@ -1146,6 +1146,16 @@
             multiAssignment.classList.add('hidden');
             teamAssignment.classList.add('hidden');
             document.getElementById('teamMembersPreview').classList.add('hidden');
+            
+            // Update suggest button text based on assignment type
+            const suggestBtnText = document.getElementById('autoSuggestBtnText');
+            if (assignType === 'single') {
+                suggestBtnText.textContent = 'Suggerisci Singolo';
+            } else if (assignType === 'multi') {
+                suggestBtnText.textContent = 'Suggerisci Multi';
+            } else if (assignType === 'team') {
+                suggestBtnText.textContent = 'Suggerisci Squadra';
+            }
             
             // Show selected section
             if (assignType === 'single') {
@@ -1976,8 +1986,21 @@
         // ============================================
         
         let suggestedUser = null;
+        let suggestedUsers = []; // For multi-user suggestions
 
-        async function suggerisciDipendenteAutomatico() {
+        async function suggerisciAutomatico() {
+            const assignType = document.querySelector('input[name="assignType"]:checked').value;
+            
+            if (assignType === 'single') {
+                await suggerisciDipendenteSingolo();
+            } else if (assignType === 'multi') {
+                await suggerisciDipendentiMulti();
+            } else if (assignType === 'team') {
+                await suggerisciSquadra();
+            }
+        }
+
+        async function suggerisciDipendenteSingolo() {
             try {
                 const result = await window.availabilityChecker.checkUrgenzaVeloce();
                 
@@ -1986,6 +2009,7 @@
                     suggestedUser = c;
                     
                     document.getElementById('suggestionAlert').classList.remove('hidden');
+                    document.getElementById('suggestionTitle').textContent = 'Suggerimento Singolo Dipendente';
                     document.getElementById('suggestionText').innerHTML = `
                         <strong>${c.nome}</strong> è il più disponibile con 
                         <strong>${c.oreDisponibili} ore libere</strong> e 
@@ -2002,24 +2026,123 @@
             }
         }
 
-        function applicaSuggerimento() {
-            if (!suggestedUser) {
-                showNotification('Nessun suggerimento disponibile', 'error');
-                return;
+        async function suggerisciDipendentiMulti() {
+            try {
+                // Get top 3 available users
+                const { data: users, error } = await window.supabaseClient
+                    .from('users')
+                    .select('id, nome, cognome, ruolo')
+                    .in('ruolo', ['Dipendente', 'Tecnico', 'Segreteria'])
+                    .order('nome');
+
+                if (error) throw error;
+
+                if (!users || users.length === 0) {
+                    showNotification('Nessun dipendente disponibile', 'warning');
+                    return;
+                }
+
+                // Get availability for all users
+                const availability = [];
+                for (const user of users) {
+                    try {
+                        const result = await window.availabilityChecker.checkUserAvailability(user.id);
+                        if (result.success) {
+                            availability.push({
+                                userId: user.id,
+                                nome: `${user.nome} ${user.cognome}`,
+                                oreDisponibili: result.oreDisponibili || 0,
+                                taskAttivi: result.taskAttivi || 0
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('Errore check disponibilità per', user.nome, e);
+                    }
+                }
+
+                // Sort by availability (more available hours first, less active tasks)
+                availability.sort((a, b) => {
+                    if (b.oreDisponibili !== a.oreDisponibili) {
+                        return b.oreDisponibili - a.oreDisponibili;
+                    }
+                    return a.taskAttivi - b.taskAttivi;
+                });
+
+                // Get top 3
+                const top3 = availability.slice(0, 3);
+                
+                if (top3.length === 0) {
+                    showNotification('Nessun dipendente disponibile', 'warning');
+                    return;
+                }
+
+                suggestedUsers = top3; // Store for applying later
+
+                document.getElementById('suggestionAlert').classList.remove('hidden');
+                document.getElementById('suggestionTitle').textContent = 'Suggerimento Multi Dipendente';
+                document.getElementById('suggestionText').innerHTML = `
+                    <strong>Top ${top3.length} dipendenti più disponibili:</strong><br>
+                    ${top3.map((u, i) => `
+                        ${i + 1}. <strong>${u.nome}</strong> - ${u.oreDisponibili}h libere, ${u.taskAttivi} task attivi
+                    `).join('<br>')}
+                `;
+                
+                showNotification('Suggerimento multi-dipendente generato! ✨', 'success');
+            } catch (error) {
+                console.error('Errore suggerimento multi:', error);
+                showNotification('Errore nel calcolo suggerimento', 'error');
             }
+        }
 
-            // Set single assignment mode
-            document.getElementById('assignSingle').checked = true;
-            toggleAssignmentType();
+        async function suggerisciSquadra() {
+            showNotification('Funzionalità in sviluppo', 'info');
+        }
 
-            // Select the suggested user
-            const select = document.getElementById('taskAssignee');
-            select.value = suggestedUser.userId;
+        // Keep old function name for compatibility
+        async function suggerisciDipendenteAutomatico() {
+            await suggerisciAutomatico();
+        }
+
+        function applicaSuggerimento() {
+            const assignType = document.querySelector('input[name="assignType"]:checked').value;
+            
+            if (assignType === 'single') {
+                if (!suggestedUser) {
+                    showNotification('Nessun suggerimento disponibile', 'error');
+                    return;
+                }
+
+                // Select the suggested user
+                const select = document.getElementById('taskAssignee');
+                select.value = suggestedUser.userId;
+
+                showNotification(`✓ Assegnato a ${suggestedUser.nome}!`, 'success');
+                
+            } else if (assignType === 'multi') {
+                if (!suggestedUsers || suggestedUsers.length === 0) {
+                    showNotification('Nessun suggerimento disponibile', 'error');
+                    return;
+                }
+
+                // Select all suggested users
+                selectedMultiUsers = suggestedUsers.map(u => u.userId);
+                
+                // Update checkboxes
+                const checkboxes = document.querySelectorAll('#multiUsersList input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    if (selectedMultiUsers.includes(cb.value)) {
+                        cb.checked = true;
+                    }
+                });
+
+                // Update preview
+                updateSelectedUsersPreview();
+
+                showNotification(`✓ Selezionati ${suggestedUsers.length} dipendenti!`, 'success');
+            }
 
             // Hide suggestion
             document.getElementById('suggestionAlert').classList.add('hidden');
-
-            showNotification(`✓ Assegnato a ${suggestedUser.nome}!`, 'success');
             lucide.createIcons();
         }
     </script>
