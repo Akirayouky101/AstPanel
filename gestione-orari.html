@@ -160,11 +160,31 @@
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 [GESTIONE-ORARI] Pagina admin caricata...');
+            console.log('🔍 [CHECK] Verifica Supabase Client...');
+            
+            if (!window.supabaseClient) {
+                console.error('❌ [FATAL] window.supabaseClient non disponibile!');
+                alert('Errore: Database non inizializzato');
+                return;
+            }
+            
+            console.log('✅ [CHECK] Supabase Client OK');
+            console.log('🔐 [AUTH] Verifica autenticazione admin...');
+            
             await checkAuth();
+            
+            console.log('👥 [DATA] Caricamento lista dipendenti...');
             await loadEmployees();
+            
+            console.log('⏳ [DATA] Caricamento approvazioni pending...');
             await loadPendingApprovals();
+            
+            console.log('📊 [DATA] Caricamento dati orari...');
             await loadData();
+            
             lucide.createIcons();
+            console.log('✅ [INIT] Inizializzazione admin completata!');
 
             // Imposta date filtro al mese corrente
             const now = new Date();
@@ -176,24 +196,45 @@
 
         // Verifica autenticazione admin
         async function checkAuth() {
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            if (!session) {
+            console.log('🔍 [AUTH] Controllo sessione...');
+            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+            
+            if (sessionError) {
+                console.error('❌ [AUTH] Errore sessione:', sessionError);
                 window.location.href = '/Admin/index.html';
                 return;
             }
-
-            const { data: user } = await window.supabaseClient
+            
+            if (!session) {
+                console.warn('⚠️ [AUTH] Nessuna sessione, redirect login...');
+                window.location.href = '/Admin/index.html';
+                return;
+            }
+            
+            console.log('✅ [AUTH] Sessione OK, user:', session.user.id);
+            console.log('👤 [DB] Caricamento dati utente...');
+            
+            const { data: user, error: userError } = await window.supabaseClient
                 .from('users')
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
 
+            if (userError) {
+                console.error('❌ [DB] Errore caricamento utente:', userError);
+                alert('Errore caricamento dati');
+                window.location.href = '/Admin/index.html';
+                return;
+            }
+
             if (!user || (user.ruolo !== 'Titolare' && user.ruolo !== 'Amministratore')) {
+                console.error('❌ [AUTH] Accesso negato. Ruolo:', user?.ruolo);
                 alert('Accesso non autorizzato');
                 window.location.href = '/Admin/index.html';
                 return;
             }
 
+            console.log('✅ [AUTH] Admin verificato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
             currentUser = user;
         }
 

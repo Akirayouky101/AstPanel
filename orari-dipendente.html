@@ -180,46 +180,94 @@
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', async () => {
-            await checkAuth();
-            updateDateTime();
-            setInterval(updateDateTime, 1000);
-            await loadTodayTimbratura();
-            await loadMonthSummary();
-            await loadMonthDetails();
+            console.log('🚀 [ORARI-DIPENDENTE] Pagina caricata, inizio inizializzazione...');
+            console.log('🔍 [CHECK] Verifica disponibilità Supabase Client...');
             
-            // Aggiorna ore lavorate ogni minuto se c'è una sessione attiva
-            updateInterval = setInterval(async () => {
-                if (todayTimbratura && todayTimbratura.ora_ingresso && !todayTimbratura.ora_uscita) {
-                    updateLiveHours();
-                }
-            }, 60000); // Ogni minuto
+            if (!window.supabaseClient) {
+                console.error('❌ [FATAL] window.supabaseClient non disponibile!');
+                alert('Errore critico: Client database non inizializzato. Ricarica la pagina.');
+                return;
+            }
+            
+            console.log('✅ [CHECK] Supabase Client disponibile');
+            
+            try {
+                console.log('🔐 [AUTH] Verifica autenticazione...');
+                await checkAuth();
+                console.log('✅ [AUTH] Autenticazione completata, utente:', currentUser?.nome);
+                
+                console.log('⏰ [INIT] Avvio caricamento dati...');
+                updateDateTime();
+                setInterval(updateDateTime, 1000);
+                
+                console.log('📅 [DATA] Caricamento timbratura di oggi...');
+                await loadTodayTimbratura();
+                
+                console.log('📊 [DATA] Caricamento riepilogo mensile...');
+                await loadMonthSummary();
+                
+                console.log('📋 [DATA] Caricamento dettaglio mensile...');
+                await loadMonthDetails();
+                
+                // Aggiorna ore lavorate ogni minuto se c'è una sessione attiva
+                updateInterval = setInterval(async () => {
+                    if (todayTimbratura && todayTimbratura.ora_ingresso && !todayTimbratura.ora_uscita) {
+                        updateLiveHours();
+                    }
+                }, 60000); // Ogni minuto
 
-            document.getElementById('timbraBtn').addEventListener('click', handleTimbratura);
-            document.getElementById('variazioneForm').addEventListener('submit', handleVariazioneSubmit);
-            
-            lucide.createIcons();
+                document.getElementById('timbraBtn').addEventListener('click', handleTimbratura);
+                document.getElementById('variazioneForm').addEventListener('submit', handleVariazioneSubmit);
+                
+                lucide.createIcons();
+                console.log('✅ [INIT] Inizializzazione completata con successo!');
+            } catch (error) {
+                console.error('❌ [ERROR] Errore durante inizializzazione:', error);
+            }
         });
 
         // Verifica autenticazione
         async function checkAuth() {
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            console.log('🔍 [AUTH] Controllo sessione Supabase...');
+            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+            
+            if (sessionError) {
+                console.error('❌ [AUTH] Errore recupero sessione:', sessionError);
+                alert('Errore di autenticazione');
+                window.location.href = '/Admin/index.html';
+                return;
+            }
+            
             if (!session) {
+                console.warn('⚠️ [AUTH] Nessuna sessione attiva, redirect al login...');
                 window.location.href = '/Admin/index.html';
                 return;
             }
 
-            const { data: user } = await window.supabaseClient
+            console.log('✅ [AUTH] Sessione trovata, user ID:', session.user.id);
+            console.log('👤 [DB] Caricamento dati utente dal database...');
+            
+            const { data: user, error: userError } = await window.supabaseClient
                 .from('users')
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
 
+            if (userError) {
+                console.error('❌ [DB] Errore caricamento utente:', userError);
+                alert('Errore nel caricamento dei dati utente');
+                window.location.href = '/Admin/index.html';
+                return;
+            }
+
             if (!user) {
+                console.error('❌ [DB] Utente non trovato nel database');
                 alert('Utente non trovato');
                 window.location.href = '/Admin/index.html';
                 return;
             }
 
+            console.log('✅ [DB] Utente caricato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
             currentUser = user;
             document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
         }
