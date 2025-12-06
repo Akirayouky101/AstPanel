@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Miei Orari - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="./supabase-client.js"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <i data-lucide="clock" class="w-8 h-8 text-blue-600"></i>
+                        I Miei Orari
+                    </h1>
+                    <p class="text-gray-600 mt-2" id="welcomeText">Bentornato</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-500">Oggi</div>
+                    <div class="text-2xl font-bold text-gray-800" id="currentDate"></div>
+                    <div class="text-lg text-blue-600 font-semibold" id="currentTime"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timbratura Veloce -->
+        <div class="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-6 text-white">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold mb-2">Timbratura Rapida</h2>
+                <p class="text-blue-100 mb-6" id="statusText">Clicca per timbrare l'ingresso</p>
+                
+                <button id="timbraBtn" 
+                    class="bg-white text-blue-600 hover:bg-blue-50 font-bold text-xl py-6 px-12 rounded-full shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center gap-3 mx-auto">
+                    <i data-lucide="log-in" class="w-8 h-8"></i>
+                    <span id="timbraBtnText">Timbra Ingresso</span>
+                </button>
+
+                <div id="currentSessionInfo" class="mt-6 hidden">
+                    <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4 inline-block">
+                        <div class="text-sm text-blue-100">Ingresso: <span id="ingressoTime" class="font-bold text-white"></span></div>
+                        <div class="text-sm text-blue-100 mt-1">Ore lavorate: <span id="oreLavorate" class="font-bold text-white">0:00</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Riepilogo Oggi e Mese Corrente -->
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <!-- Oggi -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="calendar-days" class="w-6 h-6 text-blue-600"></i>
+                    Oggi
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Ingresso</span>
+                        <span class="font-semibold text-gray-800" id="todayIngresso">--:--</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Uscita</span>
+                        <span class="font-semibold text-gray-800" id="todayUscita">--:--</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-gray-600">Ore Lavorate</span>
+                        <span class="font-bold text-2xl text-blue-600" id="todayOre">0h 0m</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mese Corrente -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
+                    Mese Corrente
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Ore Ordinarie</span>
+                        <span class="font-semibold text-gray-800" id="monthOrdinary">0h</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Ore Straordinarie</span>
+                        <span class="font-semibold text-orange-600" id="monthExtra">0h</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Permessi/Ferie</span>
+                        <span class="font-semibold text-green-600" id="monthLeave">0 giorni</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="text-gray-600 font-bold">Totale Ore</span>
+                        <span class="font-bold text-2xl text-purple-600" id="monthTotal">0h</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Richiesta Variazione -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i data-lucide="file-edit" class="w-6 h-6 text-orange-600"></i>
+                Richiesta Variazione Orario
+            </h3>
+            <form id="variazioneForm" class="space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Variazione</label>
+                        <select id="tipoVariazione" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleziona tipo...</option>
+                            <option value="straordinario">🕐 Straordinario</option>
+                            <option value="permesso">🚪 Permesso</option>
+                            <option value="ferie">🏖️ Ferie</option>
+                            <option value="malattia">🤒 Malattia</option>
+                            <option value="trasferta">🚗 Trasferta</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data</label>
+                        <input type="date" id="dataVariazione" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ora Ingresso (opzionale)</label>
+                        <input type="time" id="oraIngressoVariazione" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ora Uscita (opzionale)</label>
+                        <input type="time" id="oraUscitaVariazione" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                    <textarea id="noteVariazione" rows="3" placeholder="Motivazione della richiesta..." class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center gap-2">
+                    <i data-lucide="send" class="w-5 h-5"></i>
+                    Invia Richiesta Approvazione
+                </button>
+            </form>
+        </div>
+
+        <!-- Storico Timbrature Mensili -->
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i data-lucide="list" class="w-6 h-6 text-green-600"></i>
+                Dettaglio Mensile
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingresso</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uscita</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ore</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody id="storicoBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Popolato dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let todayTimbratura = null;
+        let updateInterval = null;
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            await loadTodayTimbratura();
+            await loadMonthSummary();
+            await loadMonthDetails();
+            
+            // Aggiorna ore lavorate ogni minuto se c'è una sessione attiva
+            updateInterval = setInterval(async () => {
+                if (todayTimbratura && todayTimbratura.ora_ingresso && !todayTimbratura.ora_uscita) {
+                    updateLiveHours();
+                }
+            }, 60000); // Ogni minuto
+
+            document.getElementById('timbraBtn').addEventListener('click', handleTimbratura);
+            document.getElementById('variazioneForm').addEventListener('submit', handleVariazioneSubmit);
+            
+            lucide.createIcons();
+        });
+
+        // Verifica autenticazione
+        async function checkAuth() {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = './index.html';
+                return;
+            }
+
+            const { data: user } = await window.supabaseClient
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+            if (!user) {
+                alert('Utente non trovato');
+                window.location.href = './index.html';
+                return;
+            }
+
+            currentUser = user;
+            document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
+        }
+
+        // Aggiorna data e ora
+        function updateDateTime() {
+            const now = new Date();
+            const dateOptions = { weekday: 'short', day: '2-digit', month: 'short' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('it-IT', dateOptions);
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString('it-IT', timeOptions);
+        }
+
+        // Carica timbratura di oggi
+        async function loadTodayTimbratura() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const { data, error } = await window.supabaseClient
+                .from('timbrature')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('data', today)
+                .single();
+
+            if (data) {
+                todayTimbratura = data;
+                updateTodayUI();
+            } else {
+                todayTimbratura = null;
+                resetTodayUI();
+            }
+        }
+
+        // Aggiorna UI oggi
+        function updateTodayUI() {
+            if (!todayTimbratura) return;
+
+            document.getElementById('todayIngresso').textContent = todayTimbratura.ora_ingresso || '--:--';
+            document.getElementById('todayUscita').textContent = todayTimbratura.ora_uscita || '--:--';
+
+            if (todayTimbratura.ora_ingresso && !todayTimbratura.ora_uscita) {
+                // Sessione attiva
+                document.getElementById('timbraBtnText').textContent = 'Timbra Uscita';
+                document.querySelector('#timbraBtn i').setAttribute('data-lucide', 'log-out');
+                document.getElementById('statusText').textContent = 'Sessione di lavoro attiva';
+                document.getElementById('currentSessionInfo').classList.remove('hidden');
+                document.getElementById('ingressoTime').textContent = todayTimbratura.ora_ingresso;
+                updateLiveHours();
+                lucide.createIcons();
+            } else if (todayTimbratura.ora_uscita) {
+                // Sessione completata
+                document.getElementById('timbraBtnText').textContent = 'Già timbrato';
+                document.querySelector('#timbraBtn').disabled = true;
+                document.querySelector('#timbraBtn').classList.add('opacity-50', 'cursor-not-allowed');
+                document.getElementById('statusText').textContent = 'Timbratura completata per oggi';
+                document.getElementById('currentSessionInfo').classList.add('hidden');
+                
+                const hours = Math.floor(todayTimbratura.ore_lavorate);
+                const minutes = Math.round((todayTimbratura.ore_lavorate - hours) * 60);
+                document.getElementById('todayOre').textContent = `${hours}h ${minutes}m`;
+            }
+        }
+
+        // Reset UI oggi
+        function resetTodayUI() {
+            document.getElementById('todayIngresso').textContent = '--:--';
+            document.getElementById('todayUscita').textContent = '--:--';
+            document.getElementById('todayOre').textContent = '0h 0m';
+            document.getElementById('timbraBtnText').textContent = 'Timbra Ingresso';
+            document.querySelector('#timbraBtn i').setAttribute('data-lucide', 'log-in');
+            document.getElementById('statusText').textContent = 'Clicca per timbrare l\'ingresso';
+            document.getElementById('currentSessionInfo').classList.add('hidden');
+            document.querySelector('#timbraBtn').disabled = false;
+            document.querySelector('#timbraBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            lucide.createIcons();
+        }
+
+        // Aggiorna ore in tempo reale
+        function updateLiveHours() {
+            if (!todayTimbratura || !todayTimbratura.ora_ingresso) return;
+
+            const now = new Date();
+            const [hours, minutes] = todayTimbratura.ora_ingresso.split(':');
+            const ingressoTime = new Date();
+            ingressoTime.setHours(parseInt(hours), parseInt(minutes), 0);
+
+            const diffMs = now - ingressoTime;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+            document.getElementById('oreLavorate').textContent = `${diffHours}:${diffMinutes.toString().padStart(2, '0')}`;
+            document.getElementById('todayOre').textContent = `${diffHours}h ${diffMinutes}m`;
+        }
+
+        // Gestisci timbratura
+        async function handleTimbratura() {
+            const btn = document.getElementById('timbraBtn');
+            btn.disabled = true;
+
+            try {
+                // Richiedi geolocalizzazione
+                const position = await new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        resolve(null);
+                    } else {
+                        navigator.geolocation.getCurrentPosition(resolve, () => resolve(null));
+                    }
+                });
+
+                const gpsData = position ? {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                } : null;
+
+                const today = new Date().toISOString().split('T')[0];
+                const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
+
+                if (!todayTimbratura || !todayTimbratura.ora_ingresso) {
+                    // Timbra ingresso
+                    const { data, error } = await window.supabaseClient
+                        .from('timbrature')
+                        .insert({
+                            user_id: currentUser.id,
+                            data: today,
+                            ora_ingresso: now,
+                            tipo: 'normale',
+                            posizione_gps: gpsData,
+                            stato: 'approved'
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    todayTimbratura = data;
+                    updateTodayUI();
+                    showNotification('✅ Ingresso registrato con successo!', 'success');
+                } else {
+                    // Timbra uscita
+                    const { data, error } = await window.supabaseClient
+                        .from('timbrature')
+                        .update({
+                            ora_uscita: now
+                        })
+                        .eq('id', todayTimbratura.id)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    todayTimbratura = data;
+                    updateTodayUI();
+                    showNotification('✅ Uscita registrata con successo!', 'success');
+                    await loadMonthSummary();
+                    await loadMonthDetails();
+                }
+            } catch (error) {
+                console.error('Errore timbratura:', error);
+                showNotification('❌ Errore durante la timbratura', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Carica riepilogo mensile
+        async function loadMonthSummary() {
+            const year = new Date().getFullYear();
+            const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
+            const startDate = `${year}-${month}-01`;
+            const endDate = `${year}-${month}-31`;
+
+            const { data, error } = await window.supabaseClient
+                .from('timbrature')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .gte('data', startDate)
+                .lte('data', endDate)
+                .eq('stato', 'approved');
+
+            if (error) {
+                console.error('Errore caricamento riepilogo:', error);
+                return;
+            }
+
+            let totalOrdinary = 0;
+            let totalExtra = 0;
+            let totalLeave = 0;
+
+            data.forEach(t => {
+                const hours = t.ore_lavorate || 0;
+                if (t.tipo === 'straordinario') {
+                    totalExtra += hours;
+                } else if (t.tipo === 'permesso' || t.tipo === 'ferie') {
+                    totalLeave += 1;
+                } else if (t.tipo === 'normale') {
+                    totalOrdinary += hours;
+                }
+            });
+
+            document.getElementById('monthOrdinary').textContent = `${Math.round(totalOrdinary)}h`;
+            document.getElementById('monthExtra').textContent = `${Math.round(totalExtra)}h`;
+            document.getElementById('monthLeave').textContent = `${totalLeave} giorni`;
+            document.getElementById('monthTotal').textContent = `${Math.round(totalOrdinary + totalExtra)}h`;
+        }
+
+        // Carica dettaglio mensile
+        async function loadMonthDetails() {
+            const year = new Date().getFullYear();
+            const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
+            const startDate = `${year}-${month}-01`;
+            const endDate = `${year}-${month}-31`;
+
+            const { data, error } = await window.supabaseClient
+                .from('timbrature')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .gte('data', startDate)
+                .lte('data', endDate)
+                .order('data', { ascending: false });
+
+            if (error) {
+                console.error('Errore caricamento dettaglio:', error);
+                return;
+            }
+
+            const tbody = document.getElementById('storicoBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Nessuna timbratura questo mese</td></tr>';
+                return;
+            }
+
+            data.forEach(t => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                const tipoEmoji = {
+                    'normale': '💼',
+                    'straordinario': '🕐',
+                    'permesso': '🚪',
+                    'ferie': '🏖️',
+                    'malattia': '🤒',
+                    'trasferta': '🚗'
+                };
+
+                const statoColors = {
+                    'approved': 'bg-green-100 text-green-800',
+                    'pending': 'bg-yellow-100 text-yellow-800',
+                    'rejected': 'bg-red-100 text-red-800'
+                };
+
+                const statoText = {
+                    'approved': 'Approvato',
+                    'pending': 'In Attesa',
+                    'rejected': 'Rifiutato'
+                };
+
+                const hours = t.ore_lavorate ? Math.floor(t.ore_lavorate) : 0;
+                const minutes = t.ore_lavorate ? Math.round((t.ore_lavorate - hours) * 60) : 0;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(t.data).toLocaleDateString('it-IT')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${tipoEmoji[t.tipo] || '💼'} ${t.tipo}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${t.ora_ingresso || '--:--'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${t.ora_uscita || '--:--'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${hours}h ${minutes}m</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statoColors[t.stato]}">${statoText[t.stato]}</span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Gestisci submit variazione
+        async function handleVariazioneSubmit(e) {
+            e.preventDefault();
+
+            const tipo = document.getElementById('tipoVariazione').value;
+            const data = document.getElementById('dataVariazione').value;
+            const oraIngresso = document.getElementById('oraIngressoVariazione').value;
+            const oraUscita = document.getElementById('oraUscitaVariazione').value;
+            const note = document.getElementById('noteVariazione').value;
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('timbrature')
+                    .insert({
+                        user_id: currentUser.id,
+                        data: data,
+                        ora_ingresso: oraIngresso || null,
+                        ora_uscita: oraUscita || null,
+                        tipo: tipo,
+                        note: note,
+                        stato: 'pending'
+                    });
+
+                if (error) throw error;
+
+                showNotification('✅ Richiesta inviata! In attesa di approvazione.', 'success');
+                document.getElementById('variazioneForm').reset();
+                await loadMonthDetails();
+            } catch (error) {
+                console.error('Errore invio richiesta:', error);
+                showNotification('❌ Errore durante l\'invio della richiesta', 'error');
+            }
+        }
+
+        // Mostra notifica
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-semibold z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
