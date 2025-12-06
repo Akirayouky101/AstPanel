@@ -6,8 +6,11 @@
 const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODczNjUsImV4cCI6MjA3Njg2MzM2NX0.EyJc6p88SDxDt07g4sytrrqqnoA6EOvpKmoZFNCaqvA';
 
-// Inizializza client Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Salva riferimento alla libreria globale
+const supabaseLib = window.supabase;
+
+// Inizializza client Supabase 
+const supabase = supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Esporta client come variabile globale
 window.supabaseClient = supabase;
