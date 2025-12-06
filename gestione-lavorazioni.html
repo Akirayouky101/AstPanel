@@ -1199,13 +1199,18 @@
             
             try {
                 // Carica utenti dal database
-                const { data: users, error } = await supabaseClient
+                const { data: users, error } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo, email')
                     .in('ruolo', ['dipendente', 'admin'])
                     .order('nome');
                 
                 if (error) throw error;
+                
+                if (!users || users.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-sm italic">Nessun dipendente disponibile</p>';
+                    return;
+                }
                 
                 container.innerHTML = users.map(user => `
                     <label class="flex items-center p-2 hover:bg-purple-50 rounded cursor-pointer">
