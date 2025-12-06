@@ -2028,7 +2028,7 @@
 
         async function suggerisciDipendentiMulti() {
             try {
-                // Get top 3 available users
+                // Get all available users
                 const { data: users, error } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
@@ -2042,21 +2042,41 @@
                     return;
                 }
 
-                // Get availability for all users
+                // Get task count for each user
                 const availability = [];
                 for (const user of users) {
                     try {
-                        const result = await window.availabilityChecker.checkUserAvailability(user.id);
-                        if (result.success) {
-                            availability.push({
-                                userId: user.id,
-                                nome: `${user.nome} ${user.cognome}`,
-                                oreDisponibili: result.oreDisponibili || 0,
-                                taskAttivi: result.taskAttivi || 0
-                            });
+                        // Count active tasks for this user
+                        const { data: tasks, error: taskError } = await window.supabaseClient
+                            .from('tasks')
+                            .select('id, ore_stimate')
+                            .or(`assegnatario_id.eq.${user.id},utenti_assegnati.cs.{${user.id}}`)
+                            .in('stato', ['in-attesa', 'in-corso']);
+
+                        if (taskError) {
+                            console.warn('Errore conteggio task per', user.nome, taskError);
                         }
+
+                        const taskAttivi = tasks ? tasks.length : 0;
+                        const oreTotali = tasks ? tasks.reduce((sum, t) => sum + (parseFloat(t.ore_stimate) || 0), 0) : 0;
+                        // Assume 40 ore settimanali disponibili
+                        const oreDisponibili = Math.max(0, 40 - oreTotali);
+
+                        availability.push({
+                            userId: user.id,
+                            nome: `${user.nome} ${user.cognome}`,
+                            oreDisponibili: oreDisponibili,
+                            taskAttivi: taskAttivi
+                        });
                     } catch (e) {
                         console.warn('Errore check disponibilità per', user.nome, e);
+                        // Include user anyway with default values
+                        availability.push({
+                            userId: user.id,
+                            nome: `${user.nome} ${user.cognome}`,
+                            oreDisponibili: 40,
+                            taskAttivi: 0
+                        });
                     }
                 }
 
@@ -2083,14 +2103,14 @@
                 document.getElementById('suggestionText').innerHTML = `
                     <strong>Top ${top3.length} dipendenti più disponibili:</strong><br>
                     ${top3.map((u, i) => `
-                        ${i + 1}. <strong>${u.nome}</strong> - ${u.oreDisponibili}h libere, ${u.taskAttivi} task attivi
+                        ${i + 1}. <strong>${u.nome}</strong> - ${u.oreDisponibili.toFixed(0)}h libere, ${u.taskAttivi} task attivi
                     `).join('<br>')}
                 `;
                 
                 showNotification('Suggerimento multi-dipendente generato! ✨', 'success');
             } catch (error) {
                 console.error('Errore suggerimento multi:', error);
-                showNotification('Errore nel calcolo suggerimento', 'error');
+                showNotification('Errore nel calcolo suggerimento: ' + error.message, 'error');
             }
         }
 
