@@ -261,9 +261,27 @@
             }
             
             authCheckInProgress = true;
-            console.log('🔍 [AUTH] Controllo sessione Supabase...');
+            console.log('🔍 [AUTH] Controllo autenticazione...');
             
             try {
+                // PRIORITÀ 1: Prova AuthHelper (login semplificato)
+                if (window.AuthHelper && window.AuthHelper.isLoggedIn()) {
+                    console.log('✅ [AUTH] Utente trovato in AuthHelper (login semplificato)');
+                    const user = window.AuthHelper.getCurrentUser();
+                    
+                    if (!user || !user.id) {
+                        throw new Error('Dati utente non validi in AuthHelper');
+                    }
+                    
+                    console.log('✅ [AUTH] Utente:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
+                    currentUser = user;
+                    document.getElementById('welcomeText').textContent = `Bentornato, ${user.nome} ${user.cognome}`;
+                    sessionStorage.removeItem('orariRedirectCount');
+                    return;
+                }
+                
+                // PRIORITÀ 2: Prova Supabase Auth (login completo)
+                console.log('🔍 [AUTH] AuthHelper vuoto, provo Supabase Auth...');
                 const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
                 
                 if (sessionError) {
@@ -272,11 +290,11 @@
                 }
                 
                 if (!session) {
-                    console.warn('⚠️ [AUTH] Nessuna sessione attiva');
+                    console.warn('⚠️ [AUTH] Nessuna sessione attiva (né AuthHelper né Supabase)');
                     throw new Error('Sessione non attiva. Effettua il login.');
                 }
 
-                console.log('✅ [AUTH] Sessione trovata, user ID:', session.user.id);
+                console.log('✅ [AUTH] Sessione Supabase trovata, user ID:', session.user.id);
                 console.log('👤 [DB] Caricamento dati utente dal database...');
                 
                 const { data: user, error: userError } = await window.supabaseClient
