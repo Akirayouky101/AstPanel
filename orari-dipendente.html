@@ -730,6 +730,13 @@
                     updateTodayUI();
                     showNotification('✅ Ingresso registrato con successo!', 'success');
                 } else {
+                    // ✅ VALIDAZIONE: Controlla se è in pausa pranzo
+                    if (todayTimbratura.pausa_inizio && !todayTimbratura.pausa_fine) {
+                        showNotification('⚠️ Devi prima chiudere la pausa pranzo!', 'error');
+                        btn.disabled = false;
+                        return;
+                    }
+                    
                     // Timbra uscita usando il servizio
                     console.log('➡️ [UPDATE] Timbratura uscita con servizio...');
                     const data = await window.timbratureService.timbraUscita(todayTimbratura.id);
@@ -755,6 +762,18 @@
         // Gestione Pausa Inizio
         async function handlePausaInizio() {
             try {
+                // ✅ VALIDAZIONE: Controlla se ha timbrato ingresso
+                if (!todayTimbratura || !todayTimbratura.ora_ingresso) {
+                    showNotification('⚠️ Devi prima timbrare l\'ingresso!', 'error');
+                    return;
+                }
+                
+                // ✅ VALIDAZIONE: Controlla se ha già timbrato l'uscita
+                if (todayTimbratura.ora_uscita) {
+                    showNotification('⚠️ Hai già timbrato l\'uscita!', 'error');
+                    return;
+                }
+                
                 const now = new Date();
                 const pausaInizio = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
                 

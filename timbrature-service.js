@@ -312,20 +312,41 @@ class TimbratureService {
     async getGPS() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
+                console.warn('⚠️ Geolocation API non disponibile');
                 resolve(null);
                 return;
             }
 
+            console.log('📍 Richiesta posizione GPS...');
+            
+            // Opzioni ottimizzate per iOS
+            const options = {
+                enableHighAccuracy: true,  // ✅ Forza GPS invece di WiFi/Cell
+                timeout: 10000,            // ✅ 10s timeout (iOS a volte è lento)
+                maximumAge: 0              // ✅ Non usare cache, posizione fresca
+            };
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    console.log('✅ GPS ottenuto:', position.coords);
                     resolve({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                         accuracy: position.coords.accuracy
                     });
                 },
-                () => resolve(null),
-                { timeout: 5000, maximumAge: 0 }
+                (error) => {
+                    console.error('❌ Errore GPS:', error.code, error.message);
+                    // Codici errore:
+                    // 1 = PERMISSION_DENIED
+                    // 2 = POSITION_UNAVAILABLE  
+                    // 3 = TIMEOUT
+                    if (error.code === 1) {
+                        alert('⚠️ Permesso GPS negato. Vai in Impostazioni > Safari > Posizione e abilita.');
+                    }
+                    resolve(null);
+                },
+                options
             );
         });
     }
