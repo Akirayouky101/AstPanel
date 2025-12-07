@@ -319,8 +319,8 @@ class TimbratureService {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     resolve({
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
                         accuracy: position.coords.accuracy
                     });
                 },
