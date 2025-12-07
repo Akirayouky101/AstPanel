@@ -50,12 +50,19 @@
         <!-- Header con Glassmorphism -->
         <div class="glass-effect rounded-3xl shadow-2xl p-8 mb-8 animate-slideup">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="text-center md:text-left">
-                    <h1 class="text-4xl md:text-5xl font-black gradient-text flex items-center justify-center md:justify-start gap-4 mb-2">
-                        <i data-lucide="clock" class="w-12 h-12"></i>
-                        I Miei Orari
-                    </h1>
-                    <p class="text-gray-600 text-lg" id="welcomeText">Bentornato</p>
+                <!-- Bottone Indietro + Titolo -->
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <button onclick="window.location.href='./pannello-utente.html'" 
+                        class="group bg-white/80 hover:bg-white p-3 rounded-xl shadow-lg transition-all duration-300 hover:scale-110">
+                        <i data-lucide="arrow-left" class="w-6 h-6 text-purple-600 group-hover:text-purple-700"></i>
+                    </button>
+                    <div class="text-center md:text-left">
+                        <h1 class="text-4xl md:text-5xl font-black gradient-text flex items-center justify-center md:justify-start gap-4 mb-2">
+                            <i data-lucide="clock" class="w-12 h-12"></i>
+                            I Miei Orari
+                        </h1>
+                        <p class="text-gray-600 text-lg" id="welcomeText">Bentornato</p>
+                    </div>
                 </div>
                 <div class="text-center bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-2xl p-6 shadow-xl">
                     <div class="text-sm font-medium opacity-90">Oggi</div>
@@ -422,32 +429,39 @@
         async function checkAutoTimbratura() {
             console.log('🔔 [AUTO-TIMBRA] Controllo se mostrare prompt...');
             
+            // IMPORTANTE: Verifica che abbiamo currentUser
+            if (!currentUser || !currentUser.id) {
+                console.warn('⚠️ [AUTO-TIMBRA] currentUser non disponibile, skip modal');
+                return;
+            }
+            
             // Verifica se utente ha già timbrato oggi
             if (todayTimbratura && todayTimbratura.ora_ingresso) {
                 console.log('✅ [AUTO-TIMBRA] Già timbrato oggi, skip modal');
                 return;
             }
 
-            // Verifica localStorage: ha scelto "Timbra Dopo" oggi?
-            const skipKey = 'ast_skip_autotimbra';
+            // Verifica localStorage PER QUESTO UTENTE SPECIFICO
+            const skipKey = `ast_skip_autotimbra_${currentUser.id}`;
             const skipData = localStorage.getItem(skipKey);
             
             if (skipData) {
-                const { date } = JSON.parse(skipData);
+                const { date, userId } = JSON.parse(skipData);
                 const today = new Date().toISOString().split('T')[0];
                 
-                if (date === today) {
-                    console.log('⏭️ [AUTO-TIMBRA] Utente ha scelto "Timbra Dopo" oggi, skip modal');
+                // Verifica che sia lo stesso utente E la stessa data
+                if (date === today && userId === currentUser.id) {
+                    console.log(`⏭️ [AUTO-TIMBRA] Utente ${currentUser.nome} ha scelto "Timbra Dopo" oggi, skip modal`);
                     return;
                 }
                 
-                // Data diversa, rimuovi vecchio record
-                console.log('🗑️ [AUTO-TIMBRA] Record vecchio rimosso, nuova giornata');
+                // Data diversa o utente diverso, rimuovi vecchio record
+                console.log('🗑️ [AUTO-TIMBRA] Record vecchio rimosso, nuova giornata o nuovo utente');
                 localStorage.removeItem(skipKey);
             }
 
             // Mostra modal
-            console.log('🎯 [AUTO-TIMBRA] Mostro modal automatico');
+            console.log(`🎯 [AUTO-TIMBRA] Mostro modal automatico per utente ${currentUser.nome}`);
             showAutoTimbratureModal();
         }
 
@@ -501,17 +515,21 @@
         }
 
         function handleTimbraDopo() {
-            console.log('⏭️ [AUTO-TIMBRA] Utente ha scelto "Timbra Dopo"');
+            console.log(`⏭️ [AUTO-TIMBRA] Utente ${currentUser.nome} ha scelto "Timbra Dopo"`);
             
-            // Salva scelta in localStorage con data di oggi
+            // Salva scelta in localStorage PER QUESTO UTENTE SPECIFICO
             const today = new Date().toISOString().split('T')[0];
-            localStorage.setItem('ast_skip_autotimbra', JSON.stringify({
+            const skipKey = `ast_skip_autotimbra_${currentUser.id}`;
+            
+            localStorage.setItem(skipKey, JSON.stringify({
+                userId: currentUser.id,
+                userName: currentUser.nome,
                 date: today,
                 timestamp: new Date().toISOString()
             }));
             
             hideAutoTimbratureModal();
-            showNotification('📌 Potrai timbrare manualmente quando vuoi. Domani ti chiederò di nuovo!', 'info');
+            showNotification(`📌 Ciao ${currentUser.nome}! Potrai timbrare manualmente quando vuoi. Domani ti chiederò di nuovo!`, 'info');
         }
 
         // ================================================
