@@ -96,6 +96,17 @@
                 display: none !important;
             }
         }
+        
+        /* Auto-Timbratura Modal Styles */
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -990,6 +1001,10 @@
                 updateNotificationToggleState();
                 
                 console.log('🎉 User panel fully loaded!');
+                
+                // Mostra modal auto-timbratura se necessario
+                await checkAutoTimbraturaDashboard();
+                console.log('✅ Auto-timbratura check completed');
             } catch (error) {
                 console.error('❌ Error during initialization:', error);
                 alert('Errore nel caricamento del pannello. Verrai reindirizzato al login.');
@@ -4658,6 +4673,176 @@
             }
             return outputArray;
         }
+    </script>
+    
+    <!-- Modal Auto-Timbratura al Login Dashboard -->
+    <div id="autoTimbratureModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-3xl shadow-2xl max-w-md w-full animate-slide-up overflow-hidden">
+            <!-- Header con Gradient -->
+            <div class="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-8 text-center relative overflow-hidden">
+                <div class="absolute inset-0 shimmer opacity-30"></div>
+                <div class="relative z-10">
+                    <div class="bg-white/20 backdrop-blur-sm rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="clock-3" class="w-12 h-12 text-white"></i>
+                    </div>
+                    <h3 class="text-3xl font-black text-white mb-2">Buongiorno! 👋</h3>
+                    <p class="text-white/90 font-medium text-lg">Vuoi timbrare l'ingresso?</p>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <div class="text-6xl mb-4 font-bold text-gray-800" id="modalCurrentTime">--:--</div>
+                    <div class="text-gray-600 text-lg font-medium" id="modalCurrentDate">-- --- ----</div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="space-y-3">
+                    <button id="timbraOraBtn" 
+                        class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold text-lg py-5 px-6 rounded-2xl shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                        <span>Timbra Ora</span>
+                    </button>
+                    <button id="timbraDopoBtn" 
+                        class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                        <span>Timbra Dopo</span>
+                    </button>
+                </div>
+
+                <p class="text-xs text-gray-500 text-center mt-6">
+                    💡 Se scegli "Timbra Dopo", questo messaggio non riapparirà fino a domani
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================================================
+        // SISTEMA AUTO-TIMBRATURA AL LOGIN - DASHBOARD
+        // ================================================
+        
+        async function checkAutoTimbraturaDashboard() {
+            console.log('🔔 [DASHBOARD-AUTO] Controllo se mostrare prompt timbratura...');
+            
+            const currentUser = await window.AuthHelper.getCurrentUser();
+            if (!currentUser || !currentUser.id) {
+                console.warn('⚠️ [DASHBOARD-AUTO] currentUser non disponibile');
+                return;
+            }
+            
+            // Verifica se utente ha già timbrato oggi
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const { data: todayTimbratura } = await window.supabaseClient
+                    .from('timbrature')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('data', today)
+                    .maybeSingle();
+                
+                if (todayTimbratura && todayTimbratura.ora_ingresso) {
+                    console.log('✅ [DASHBOARD-AUTO] Già timbrato oggi, skip modal');
+                    return;
+                }
+            } catch (error) {
+                console.error('❌ [DASHBOARD-AUTO] Errore verifica timbratura:', error);
+            }
+
+            // Verifica localStorage PER QUESTO UTENTE
+            const skipKey = `ast_skip_autotimbra_${currentUser.id}`;
+            const skipData = localStorage.getItem(skipKey);
+            
+            if (skipData) {
+                const { date, userId } = JSON.parse(skipData);
+                const today = new Date().toISOString().split('T')[0];
+                
+                if (date === today && userId === currentUser.id) {
+                    console.log(`⏭️ [DASHBOARD-AUTO] ${currentUser.nome} ha scelto "Timbra Dopo" oggi`);
+                    return;
+                }
+                
+                console.log('🗑️ [DASHBOARD-AUTO] Record vecchio rimosso');
+                localStorage.removeItem(skipKey);
+            }
+
+            // Mostra modal
+            console.log(`🎯 [DASHBOARD-AUTO] Mostro modal per ${currentUser.nome}`);
+            showAutoTimbratureModalDashboard();
+        }
+
+        function showAutoTimbratureModalDashboard() {
+            const modal = document.getElementById('autoTimbratureModal');
+            modal.classList.remove('hidden');
+            
+            // Aggiorna clock nel modal
+            updateModalClock();
+            const modalClockInterval = setInterval(updateModalClock, 1000);
+            modal.dataset.intervalId = modalClockInterval;
+            
+            // Event listeners
+            document.getElementById('timbraOraBtn').onclick = handleTimbraOraDashboard;
+            document.getElementById('timbraDopoBtn').onclick = handleTimbraDopoDashboard;
+            
+            lucide.createIcons();
+        }
+
+        function hideAutoTimbratureModalDashboard() {
+            const modal = document.getElementById('autoTimbratureModal');
+            const intervalId = modal.dataset.intervalId;
+            if (intervalId) clearInterval(parseInt(intervalId));
+            modal.classList.add('hidden');
+        }
+
+        function updateModalClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('modalCurrentTime').textContent = `${hours}:${minutes}`;
+            
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            const dateStr = now.toLocaleDateString('it-IT', options);
+            document.getElementById('modalCurrentDate').textContent = 
+                dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+        }
+
+        async function handleTimbraOraDashboard() {
+            console.log('✅ [DASHBOARD-AUTO] Utente ha scelto "Timbra Ora" → redirect a orari');
+            hideAutoTimbratureModalDashboard();
+            
+            // Salva flag per auto-timbratura immediata
+            sessionStorage.setItem('ast_auto_timbra_now', 'true');
+            
+            // Redirect a pagina orari
+            window.location.href = 'orari-dipendente.html';
+        }
+
+        async function handleTimbraDopoDashboard() {
+            const currentUser = await window.AuthHelper.getCurrentUser();
+            console.log(`⏭️ [DASHBOARD-AUTO] ${currentUser.nome} ha scelto "Timbra Dopo"`);
+            
+            const today = new Date().toISOString().split('T')[0];
+            const skipKey = `ast_skip_autotimbra_${currentUser.id}`;
+            
+            localStorage.setItem(skipKey, JSON.stringify({
+                userId: currentUser.id,
+                userName: currentUser.nome,
+                date: today,
+                timestamp: new Date().toISOString()
+            }));
+            
+            hideAutoTimbratureModalDashboard();
+            
+            // Mostra notifica
+            if (window.showNotification) {
+                window.showNotification(`📌 Ciao ${currentUser.nome}! Potrai timbrare manualmente quando vuoi. Domani ti chiederò di nuovo!`);
+            }
+        }
+        
+        // ================================================
+        // FINE SISTEMA AUTO-TIMBRATURA DASHBOARD
+        // ================================================
     </script>
     
     <!-- MOBILE ENHANCEMENTS - Funzionalità touch e gestures (solo mobile) -->
