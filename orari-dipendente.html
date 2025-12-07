@@ -71,7 +71,14 @@
                         <span class="font-semibold text-gray-800" id="todayUscita">--:--</span>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b">
-                        <span class="text-gray-600">Ore Lavorate</span>
+                        <span class="text-gray-600 flex items-center gap-1">
+                            <i data-lucide="coffee" class="w-4 h-4"></i>
+                            Pausa
+                        </span>
+                        <span class="font-semibold text-gray-800" id="todayPausa">60 min</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span class="text-gray-600">Ore Lavorate (nette)</span>
                         <span class="font-bold text-2xl text-blue-600" id="todayOre">0h 0m</span>
                     </div>
                     <div class="flex justify-between items-center py-2 bg-green-50 rounded-lg px-3 -mx-3">
@@ -227,6 +234,10 @@
                 sessionStorage.removeItem('orariRedirectCount');
                 
                 console.log('✅ [AUTH] Autenticazione completata, utente:', currentUser?.nome);
+                
+                // Mostra pausa dell'utente
+                const pausaMinuti = currentUser?.pausa_pranzo_minuti || 60;
+                document.getElementById('todayPausa').textContent = pausaMinuti === 0 ? 'Nessuna' : `${pausaMinuti} min`;
                 
                 console.log('⏰ [INIT] Avvio caricamento dati...');
                 updateDateTime();
@@ -404,12 +415,22 @@
                 window.liveTimerInterval = window.timbratureService.startLiveTimer(
                     todayTimbratura.ora_ingresso,
                     (liveData) => {
+                        // Mostra ore LORDE nel timer live (senza pausa)
                         document.getElementById('oreLavorate').textContent = `${liveData.hours}:${liveData.minutes.toString().padStart(2, '0')}:${liveData.seconds.toString().padStart(2, '0')}`;
-                        document.getElementById('todayOre').textContent = liveData.formatted;
                         
-                        // Calcola e mostra guadagno in tempo reale
+                        // Calcola ore NETTE (sottrai pausa)
+                        const pausaMinuti = currentUser?.pausa_pranzo_minuti || 60;
+                        const pausaOre = pausaMinuti / 60;
+                        const oreNette = Math.max(0, liveData.total - pausaOre);
+                        
+                        // Mostra ore nette formattate
+                        const netteHours = Math.floor(oreNette);
+                        const netteMinutes = Math.round((oreNette - netteHours) * 60);
+                        document.getElementById('todayOre').textContent = `${netteHours}h ${netteMinutes}m`;
+                        
+                        // Calcola guadagno su ore NETTE
                         const costoOrario = todayTimbratura.user?.costo_orario || 0;
-                        const guadagno = window.timbratureService.calculateLiveCost(liveData.total, costoOrario);
+                        const guadagno = window.timbratureService.calculateLiveCost(oreNette, costoOrario);
                         document.getElementById('todayCost').textContent = `€${guadagno}`;
                         
                         // Controlla alert straordinari
