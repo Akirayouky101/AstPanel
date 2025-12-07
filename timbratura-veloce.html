@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timbratura - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 text-center">
+        <h1 class="text-2xl font-bold mb-2">👋 Buongiorno!</h1>
+        <p class="text-sm opacity-90">Vuoi timbrare l'ingresso?</p>
+    </div>
+
+    <!-- Content -->
+    <div class="max-w-md mx-auto p-6">
+        
+        <!-- Clock Card -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 text-center mb-6">
+            <div class="text-5xl font-bold text-purple-600 mb-2" id="currentTime">--:--</div>
+            <div class="text-gray-600" id="currentDate">-- --- ----</div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="space-y-4">
+            <button id="timbraOraBtn" 
+                class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all text-lg">
+                ✓ Timbra Ora
+            </button>
+            
+            <button id="timbraDopoBtn" 
+                class="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-xl shadow-md transition-all border-2 border-gray-300">
+                ⏰ Timbra Dopo
+            </button>
+        </div>
+
+        <!-- Info -->
+        <div class="mt-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <div class="text-2xl">💡</div>
+                <p class="text-sm text-blue-900 leading-relaxed">
+                    Se scegli <span class="font-bold">"Timbra Dopo"</span>, questo messaggio non riapparirà fino a domani
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="./supabase-client.js"></script>
+    <script src="./Admin/auth-helper.js"></script>
+    
+    <script>
+        // Update clock
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+            
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            const dateStr = now.toLocaleDateString('it-IT', options);
+            document.getElementById('currentDate').textContent = 
+                dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+        }
+        
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // Timbra Ora
+        document.getElementById('timbraOraBtn').onclick = async () => {
+            sessionStorage.setItem('ast_auto_timbra_now', 'true');
+            window.location.href = 'orari-dipendente.html';
+        };
+
+        // Timbra Dopo
+        document.getElementById('timbraDopoBtn').onclick = async () => {
+            const currentUser = await window.AuthHelper.getCurrentUser();
+            const today = new Date().toISOString().split('T')[0];
+            const skipKey = `ast_skip_autotimbra_${currentUser.id}`;
+            
+            localStorage.setItem(skipKey, JSON.stringify({
+                userId: currentUser.id,
+                userName: currentUser.nome,
+                date: today,
+                timestamp: new Date().toISOString()
+            }));
+            
+            window.location.href = 'pannello-utente.html';
+        };
+    </script>
+</body>
+</html>
