@@ -96,6 +96,7 @@ class GPSMapModal {
         // Dati uscita (se presente)
         const gpsUscita = timbratura.posizione_gps_uscita || null;
         const hasUscita = gpsUscita && gpsUscita.latitude && gpsUscita.longitude;
+        const hasOraUscita = timbratura.ora_uscita !== null && timbratura.ora_uscita !== undefined;
         
         const dataFormatted = new Date(timbratura.data).toLocaleDateString('it-IT', {
             day: '2-digit',
@@ -135,6 +136,11 @@ class GPSMapModal {
                                     class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
                                 <span class="w-3 h-3 rounded-full bg-gray-600"></span>
                                 🔴 Uscita ${timbratura.ora_uscita || ''}
+                            </button>
+                        ` : hasOraUscita ? `
+                            <button disabled class="flex-1 bg-orange-100 text-orange-700 font-bold py-3 px-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2 border-2 border-orange-300">
+                                <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+                                🔴 Uscita ${timbratura.ora_uscita} (GPS non disponibile)
                             </button>
                         ` : `
                             <button disabled class="flex-1 bg-gray-200 text-gray-400 font-bold py-3 px-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2">
