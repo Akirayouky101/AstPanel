@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Applicazione Migration - Fix Email Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-client.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 4px solid #22c55e;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button.danger {
+            background: #ef4444;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .step {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #3b82f6;
+            background: #eff6ff;
+        }
+        .log {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .log-success { color: #22c55e; }
+        .log-error { color: #ef4444; }
+        .log-info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Fix Function get_email_report_data</h1>
+
+    <div class="card">
+        <h2>📋 Cosa farà questa migrazione:</h2>
+        <div class="step">
+            <strong>Step 1:</strong> Elimina la function esistente (con problema di tipo)
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Ricrea la function con struttura corretta
+        </div>
+        <div class="step">
+            <strong>Step 3:</strong> Testa la function con dati dicembre 2025
+        </div>
+        <div class="step">
+            <strong>Step 4:</strong> Verifica che tutto funzioni
+        </div>
+
+        <div class="warning">
+            ⚠️ <strong>ATTENZIONE:</strong> Questa operazione eliminerà temporaneamente la function.<br>
+            Se hai altri processi che la usano, potrebbero fallire per qualche secondo.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🚀 Esecuzione</h2>
+        <button id="btnApply" onclick="applyMigration()">
+            ▶️ Applica Migration
+        </button>
+        <button onclick="testFunction()">
+            🧪 Test Function (dopo migrazione)
+        </button>
+        <button onclick="location.href='test-email-system-db.html'">
+            🔍 Vai al Test Completo
+        </button>
+    </div>
+
+    <div class="card">
+        <h2>📊 Log Esecuzione</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const resultsDiv = document.getElementById('results');
+        const btnApply = document.getElementById('btnApply');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString('it-IT');
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function applyMigration() {
+            btnApply.disabled = true;
+            resultsDiv.innerHTML = '';
+            addLog('🚀 Inizio applicazione migration...', 'info');
+
+            try {
+                // Step 1: Drop vecchia function
+                addLog('Step 1: Eliminazione function esistente...', 'info');
+                const { error: dropError } = await window.supabaseClient.rpc('exec_sql', {
+                    sql: 'DROP FUNCTION IF EXISTS get_email_report_data(INTEGER, INTEGER);'
+                }).catch(() => {
+                    // Se exec_sql non esiste, proviamo direttamente
+                    return { error: null };
+                });
+
+                if (dropError) {
+                    addLog(`⚠️ Impossibile droppare via RPC (normale se exec_sql non esiste)`, 'info');
+                    addLog(`📋 Copia e incolla questo SQL nel SQL Editor di Supabase:`, 'info');
+                    showManualSQL();
+                    return;
+                }
+
+                addLog('✅ Step 1 completato', 'success');
+
+                // Step 2: Ricrea function
+                addLog('Step 2: Ricreazione function corretta...', 'info');
+                
+                const createSQL = `
+CREATE OR REPLACE FUNCTION get_email_report_data(
+    p_anno INTEGER,
+    p_mese INTEGER
+)
+RETURNS TABLE (
+    dipendente_nome TEXT,
+    dipendente_cognome TEXT,
+    dipendente_ruolo VARCHAR(50),
+    costo_orario DECIMAL(10,2),
+    totale_ore DECIMAL(10,2),
+    totale_costo DECIMAL(10,2),
+    giorni_lavorati INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.nome::TEXT,
+        u.cognome::TEXT,
+        u.ruolo::VARCHAR(50),
+        COALESCE(u.costo_orario, 0)::DECIMAL(10,2),
+        COALESCE(SUM(t.ore_lavorate), 0)::DECIMAL(10,2) AS totale_ore,
+        COALESCE(SUM(t.ore_lavorate * COALESCE(u.costo_orario, 0)), 0)::DECIMAL(10,2) AS totale_costo,
+        COUNT(DISTINCT t.data)::INTEGER AS giorni_lavorati
+    FROM users u
+    LEFT JOIN timbrature t ON t.user_id = u.id
+        AND EXTRACT(YEAR FROM t.data) = p_anno
+        AND EXTRACT(MONTH FROM t.data) = p_mese
+        AND t.stato = 'approved'
+    WHERE u.ruolo NOT IN ('Titolare', 'Amministratore')
+    GROUP BY u.id, u.nome, u.cognome, u.ruolo, u.costo_orario
+    HAVING COALESCE(SUM(t.ore_lavorate), 0) > 0
+    ORDER BY u.cognome, u.nome;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+                `.trim();
+
+                addLog('📋 SQL generato, applicazione manuale necessaria', 'info');
+                showManualSQL(createSQL);
+
+            } catch (err) {
+                addLog(`❌ Errore: ${err.message}`, 'error');
+                resultsDiv.innerHTML = `
+                    <div class="card">
+                        <div class="error">
+                            <h3>❌ Errore durante migrazione</h3>
+                            <p>${err.message}</p>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                btnApply.disabled = false;
+            }
+        }
+
+        function showManualSQL(sql = null) {
+            const fullSQL = sql || `
+-- FIX Function get_email_report_data
+DROP FUNCTION IF EXISTS get_email_report_data(INTEGER, INTEGER);
+
+CREATE OR REPLACE FUNCTION get_email_report_data(
+    p_anno INTEGER,
+    p_mese INTEGER
+)
+RETURNS TABLE (
+    dipendente_nome TEXT,
+    dipendente_cognome TEXT,
+    dipendente_ruolo VARCHAR(50),
+    costo_orario DECIMAL(10,2),
+    totale_ore DECIMAL(10,2),
+    totale_costo DECIMAL(10,2),
+    giorni_lavorati INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.nome::TEXT,
+        u.cognome::TEXT,
+        u.ruolo::VARCHAR(50),
+        COALESCE(u.costo_orario, 0)::DECIMAL(10,2),
+        COALESCE(SUM(t.ore_lavorate), 0)::DECIMAL(10,2) AS totale_ore,
+        COALESCE(SUM(t.ore_lavorate * COALESCE(u.costo_orario, 0)), 0)::DECIMAL(10,2) AS totale_costo,
+        COUNT(DISTINCT t.data)::INTEGER AS giorni_lavorati
+    FROM users u
+    LEFT JOIN timbrature t ON t.user_id = u.id
+        AND EXTRACT(YEAR FROM t.data) = p_anno
+        AND EXTRACT(MONTH FROM t.data) = p_mese
+        AND t.stato = 'approved'
+    WHERE u.ruolo NOT IN ('Titolare', 'Amministratore')
+    GROUP BY u.id, u.nome, u.cognome, u.ruolo, u.costo_orario
+    HAVING COALESCE(SUM(t.ore_lavorate), 0) > 0
+    ORDER BY u.cognome, u.nome;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_email_report_data(INTEGER, INTEGER) TO authenticated;
+            `.trim();
+
+            resultsDiv.innerHTML = `
+                <div class="card">
+                    <div class="warning">
+                        <h3>📋 Applicazione Manuale Necessaria</h3>
+                        <p>Copia il seguente SQL e incollalo nel <strong>SQL Editor di Supabase</strong>:</p>
+                        <ol>
+                            <li>Vai su Supabase Dashboard</li>
+                            <li>Apri <strong>SQL Editor</strong></li>
+                            <li>Crea una nuova query</li>
+                            <li>Incolla il codice qui sotto</li>
+                            <li>Clicca <strong>Run</strong></li>
+                        </ol>
+                        <pre>${fullSQL}</pre>
+                        <button onclick="copySQL()">📋 Copia SQL</button>
+                    </div>
+                </div>
+            `;
+
+            addLog('📋 SQL pronto per copia/incolla manuale', 'info');
+        }
+
+        function copySQL() {
+            const sql = document.querySelector('pre').textContent;
+            navigator.clipboard.writeText(sql);
+            addLog('✅ SQL copiato negli appunti!', 'success');
+            alert('✅ SQL copiato! Ora incollalo nel SQL Editor di Supabase');
+        }
+
+        async function testFunction() {
+            addLog('🧪 Test function in corso...', 'info');
+            
+            try {
+                const { data, error } = await window.supabaseClient
+                    .rpc('get_email_report_data', {
+                        p_anno: 2025,
+                        p_mese: 12
+                    });
+
+                if (error) {
+                    addLog(`❌ Test fallito: ${error.message}`, 'error');
+                    resultsDiv.innerHTML = `
+                        <div class="card">
+                            <div class="error">
+                                <h3>❌ Function ancora non funzionante</h3>
+                                <p>${error.message}</p>
+                                <p><strong>Hai applicato la migration nel SQL Editor?</strong></p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                addLog(`✅ Test riuscito! Dipendenti trovati: ${data.length}`, 'success');
+                resultsDiv.innerHTML = `
+                    <div class="card">
+                        <div class="success">
+                            <h3>✅ Function funzionante!</h3>
+                            <p>Dipendenti con ore registrate a dicembre 2025: <strong>${data.length}</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+
+            } catch (err) {
+                addLog(`❌ Eccezione: ${err.message}`, 'error');
+            }
+        }
+
+        // Auto-log on load
+        window.addEventListener('load', () => {
+            addLog('✅ Pagina caricata', 'success');
+            addLog('📋 Pronto per applicare la migration', 'info');
+        });
+    </script>
+</body>
+</html>

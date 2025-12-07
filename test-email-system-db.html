@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Test Database - Sistema Email</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-client.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: #22c55e; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        .info { color: #3b82f6; }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ok { background: #22c55e; }
+        .status-error { background: #ef4444; }
+        .status-missing { background: #f59e0b; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test Database - Sistema Email Commercialista</h1>
+
+    <div class="card">
+        <h2>📋 Controlli Automatici</h2>
+        <button onclick="runAllTests()">▶️ Esegui Tutti i Test</button>
+        <button onclick="location.reload()">🔄 Refresh</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        async function runAllTests() {
+            results.innerHTML = '<div class="card"><h3>⏳ Test in corso...</h3></div>';
+            
+            const tests = [
+                { name: 'Tabella users.costo_orario', fn: testUsersTable },
+                { name: 'Tabella timbrature', fn: testTimbratureTable },
+                { name: 'Tabella email_destinatari', fn: testEmailDestinatariTable },
+                { name: 'Tabella email_log', fn: testEmailLogTable },
+                { name: 'Function get_email_report_data', fn: testGetEmailReportData },
+                { name: 'Function check_email_already_sent', fn: testCheckEmailAlreadySent },
+                { name: 'RLS Policies email_destinatari', fn: testEmailDestinatariRLS },
+                { name: 'RLS Policies email_log', fn: testEmailLogRLS },
+            ];
+
+            let html = '';
+
+            for (const test of tests) {
+                const result = await test.fn();
+                const statusClass = result.success ? 'status-ok' : (result.warning ? 'status-missing' : 'status-error');
+                const statusText = result.success ? '✅' : (result.warning ? '⚠️' : '❌');
+                
+                html += `
+                    <div class="card">
+                        <h3>
+                            <span class="status-dot ${statusClass}"></span>
+                            ${statusText} ${test.name}
+                        </h3>
+                        <p class="${result.success ? 'success' : (result.warning ? 'warning' : 'error')}">
+                            ${result.message}
+                        </p>
+                        ${result.details ? `<pre>${JSON.stringify(result.details, null, 2)}</pre>` : ''}
+                        ${result.action ? `<div class="info">📌 Azione: ${result.action}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            results.innerHTML = html;
+        }
+
+        // ============================================
+        // TEST FUNCTIONS
+        // ============================================
+
+        async function testUsersTable() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('users')
+                    .select('id, nome, cognome, ruolo, costo_orario')
+                    .limit(1);
+
+                if (error) {
+                    return {
+                        success: false,
+                        message: `Errore query: ${error.message}`,
+                        action: 'Verificare che la tabella users esista e abbia i permessi corretti'
+                    };
+                }
+
+                if (data && data.length > 0) {
+                    if (data[0].costo_orario !== undefined) {
+                        return {
+                            success: true,
+                            message: `Campo costo_orario presente! Valore esempio: €${data[0].costo_orario || 0}/h`,
+                            details: data[0]
+                        };
+                    } else {
+                        return {
+                            success: false,
+                            message: 'Campo costo_orario NON presente nella tabella users',
+                            action: 'Eseguire migrazione: add-costo-orario-users.sql'
+                        };
+                    }
+                } else {
+                    return {
+                        warning: true,
+                        message: 'Tabella users vuota - nessun utente presente',
+                        action: 'Creare almeno un utente di test'
+                    };
+                }
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`,
+                    details: err
+                };
+            }
+        }
+
+        async function testTimbratureTable() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('timbrature')
+                    .select('id, user_id, data, ore_lavorate')
+                    .limit(1);
+
+                if (error) {
+                    if (error.code === '42P01') {
+                        return {
+                            success: false,
+                            message: 'Tabella timbrature NON esiste',
+                            action: 'Eseguire migrazione: create-timbrature-table.sql'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Errore query: ${error.message}`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `Tabella timbrature OK! Record trovati: ${data ? data.length : 0}`,
+                    details: data && data.length > 0 ? data[0] : null
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testEmailDestinatariTable() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .select('*')
+                    .limit(1);
+
+                if (error) {
+                    if (error.code === '42P01') {
+                        return {
+                            warning: true,
+                            message: 'Tabella email_destinatari NON esiste',
+                            action: 'Eseguire migrazione: create-email-system.sql'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Errore query: ${error.message}`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `Tabella email_destinatari OK! Destinatari attivi: ${data ? data.filter(d => d.attivo).length : 0}`,
+                    details: data
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testEmailLogTable() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('email_log')
+                    .select('*')
+                    .limit(1);
+
+                if (error) {
+                    if (error.code === '42P01') {
+                        return {
+                            warning: true,
+                            message: 'Tabella email_log NON esiste',
+                            action: 'Eseguire migrazione: create-email-system.sql'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Errore query: ${error.message}`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `Tabella email_log OK! Invii registrati: ${data ? data.length : 0}`,
+                    details: data
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testGetEmailReportData() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .rpc('get_email_report_data', { 
+                        p_anno: 2024, 
+                        p_mese: 12 
+                    });
+
+                if (error) {
+                    if (error.code === '42883') {
+                        return {
+                            warning: true,
+                            message: 'Function get_email_report_data NON esiste',
+                            action: 'Eseguire migrazione: create-email-system.sql'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Errore RPC: ${error.message}`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `Function OK! Dipendenti con ore nel mese: ${data ? data.length : 0}`,
+                    details: data && data.length > 0 ? data.slice(0, 3) : data
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testCheckEmailAlreadySent() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .rpc('check_email_already_sent', { 
+                        p_anno: 2024, 
+                        p_mese: 12,
+                        p_email: 'test@example.com'
+                    });
+
+                if (error) {
+                    if (error.code === '42883') {
+                        return {
+                            warning: true,
+                            message: 'Function check_email_already_sent NON esiste',
+                            action: 'Eseguire migrazione: create-email-system.sql'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Errore RPC: ${error.message}`
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: `Function OK! Email già inviata: ${data ? 'Sì' : 'No'}`,
+                    details: { result: data }
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testEmailDestinatariRLS() {
+            try {
+                // Test SELECT
+                const { error: selectError } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .select('*')
+                    .limit(1);
+
+                if (selectError) {
+                    if (selectError.code === '42P01') {
+                        return {
+                            warning: true,
+                            message: 'Tabella non esiste, RLS non testabile'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Policy SELECT fallita: ${selectError.message}`,
+                        action: 'Verificare di essere loggati come admin'
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: 'RLS policies configurate correttamente'
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        async function testEmailLogRLS() {
+            try {
+                const { error: selectError } = await window.supabaseClient
+                    .from('email_log')
+                    .select('*')
+                    .limit(1);
+
+                if (selectError) {
+                    if (selectError.code === '42P01') {
+                        return {
+                            warning: true,
+                            message: 'Tabella non esiste, RLS non testabile'
+                        };
+                    }
+                    return {
+                        success: false,
+                        message: `Policy SELECT fallita: ${selectError.message}`,
+                        action: 'Verificare di essere loggati come admin'
+                    };
+                }
+
+                return {
+                    success: true,
+                    message: 'RLS policies configurate correttamente'
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    message: `Eccezione: ${err.message}`
+                };
+            }
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>
