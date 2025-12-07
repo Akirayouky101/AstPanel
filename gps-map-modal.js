@@ -86,7 +86,15 @@ class GPSMapModal {
      * Chiamata quando si clicca "Vedi Mappa" nella lista
      */
     showHistoryModal(timbratura) {
-        const { latitude, longitude, data_timbratura, tipo_timbratura, indirizzo } = timbratura;
+        // Estrai GPS da posizione_gps (JSONB field)
+        const gpsData = timbratura.posizione_gps || {};
+        const latitude = gpsData.latitude;
+        const longitude = gpsData.longitude;
+        const indirizzo = gpsData.indirizzo || null;
+        
+        // Determina tipo timbratura
+        const tipo_timbratura = timbratura.ora_ingresso && !timbratura.ora_uscita ? 'ingresso' : 'uscita';
+        const data_timbratura = timbratura.created_at || new Date().toISOString();
         
         const dataFormatted = new Date(data_timbratura).toLocaleString('it-IT', {
             day: '2-digit',
