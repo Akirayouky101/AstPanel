@@ -507,6 +507,27 @@
         </div>
     </div>
 
+    <!-- Modal Dettaglio Giornata Dipendente -->
+    <div id="employeeDayModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-2" id="modalEmployeeName">Nome Dipendente</h3>
+                        <p class="text-blue-100" id="modalEmployeeRole">Ruolo</p>
+                    </div>
+                    <button onclick="closeEmployeeDayModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-all">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6" id="modalDayContent">
+                <!-- Contenuto popolato dinamicamente -->
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let allEmployees = [];
@@ -666,7 +687,10 @@
                 allEmployees.forEach(employee => {
                     const t = timbratureMap[employee.id]; // Può essere undefined se non ha timbrato
                     const card = document.createElement('div');
-                    card.className = 'bg-white rounded-xl p-4 shadow-md border-l-4 hover:shadow-lg transition-all';
+                    card.className = 'bg-white rounded-xl p-4 shadow-md border-l-4 hover:shadow-lg transition-all cursor-pointer';
+                    
+                    // Aggiungi click per aprire modal
+                    card.onclick = () => showEmployeeDayDetails(employee, t);
                     
                     // Determina stato
                     let statoHtml = '';
@@ -763,6 +787,202 @@
             } catch (err) {
                 console.error('Errore loadLiveStatus:', err);
             }
+        }
+
+        // Mostra dettagli giornata dipendente
+        async function showEmployeeDayDetails(employee, timbratura) {
+            const modal = document.getElementById('employeeDayModal');
+            const nameEl = document.getElementById('modalEmployeeName');
+            const roleEl = document.getElementById('modalEmployeeRole');
+            const contentEl = document.getElementById('modalDayContent');
+            
+            nameEl.textContent = `${employee.nome} ${employee.cognome}`;
+            roleEl.textContent = employee.ruolo;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const [y, m, d] = today.split('-');
+            const dataFormattata = `${d}/${m}/${y}`;
+            
+            if (!timbratura || !timbratura.ora_ingresso) {
+                // Nessuna timbratura oggi
+                contentEl.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">🏠</div>
+                        <h4 class="text-xl font-bold text-gray-800 mb-2">Nessuna Timbratura</h4>
+                        <p class="text-gray-600">Il dipendente non ha ancora timbrato l'ingresso oggi (${dataFormattata})</p>
+                    </div>
+                `;
+            } else {
+                // Ha timbrato - mostra dettagli
+                const tipoEmoji = {
+                    'normale': '💼',
+                    'straordinario': '🕐',
+                    'permesso': '📋',
+                    'ferie': '🏖️',
+                    'malattia': '🤒',
+                    'trasferta': '🚗'
+                };
+                
+                const tipoColors = {
+                    'normale': 'bg-blue-100 text-blue-800',
+                    'straordinario': 'bg-purple-100 text-purple-800',
+                    'permesso': 'bg-orange-100 text-orange-800',
+                    'ferie': 'bg-green-100 text-green-800',
+                    'malattia': 'bg-red-100 text-red-800',
+                    'trasferta': 'bg-yellow-100 text-yellow-800'
+                };
+                
+                let statoHtml = '';
+                let statoIcon = '';
+                let statoText = '';
+                
+                if (timbratura.pausa_inizio && !timbratura.pausa_fine) {
+                    statoIcon = '☕';
+                    statoText = 'In pausa pranzo';
+                } else if (timbratura.ora_uscita) {
+                    statoIcon = '✅';
+                    statoText = 'Giornata completata';
+                } else {
+                    statoIcon = '💼';
+                    statoText = 'Al lavoro';
+                }
+                
+                // Calcola ore lavorate (se non ha ancora uscito, calcola fino ad ora)
+                let oreLavorate = timbratura.ore_lavorate || 0;
+                if (!timbratura.ora_uscita && timbratura.ora_ingresso) {
+                    const now = new Date();
+                    const [h, m] = timbratura.ora_ingresso.split(':');
+                    const ingressoDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(h), parseInt(m));
+                    const diffMs = now - ingressoDate;
+                    oreLavorate = diffMs / (1000 * 60 * 60);
+                }
+                
+                const oreH = Math.floor(oreLavorate);
+                const oreM = Math.round((oreLavorate - oreH) * 60);
+                
+                // Calcola durata pausa
+                let pausaDurata = '';
+                if (timbratura.pausa_inizio && timbratura.pausa_fine) {
+                    const [h1, m1] = timbratura.pausa_inizio.split(':');
+                    const [h2, m2] = timbratura.pausa_fine.split(':');
+                    const pausaMs = (parseInt(h2) * 60 + parseInt(m2)) - (parseInt(h1) * 60 + parseInt(m1));
+                    pausaDurata = `${Math.floor(pausaMs / 60)}h ${pausaMs % 60}m`;
+                } else if (timbratura.pausa_inizio) {
+                    const now = new Date();
+                    const [h1, m1] = timbratura.pausa_inizio.split(':');
+                    const pausaMs = (now.getHours() * 60 + now.getMinutes()) - (parseInt(h1) * 60 + parseInt(m1));
+                    pausaDurata = `${Math.floor(pausaMs / 60)}h ${pausaMs % 60}m (in corso)`;
+                }
+                
+                contentEl.innerHTML = `
+                    <!-- Stato Attuale -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-6 border-2 border-blue-200">
+                        <div class="flex items-center gap-3">
+                            <span class="text-4xl">${statoIcon}</span>
+                            <div>
+                                <h4 class="text-lg font-bold text-gray-800">${statoText}</h4>
+                                <p class="text-sm text-gray-600">${dataFormattata}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tipo Giornata -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                            Tipo Giornata
+                        </h4>
+                        <div class="px-4 py-2 rounded-lg inline-flex items-center gap-2 ${tipoColors[timbratura.tipo] || 'bg-gray-100 text-gray-800'}">
+                            <span class="text-2xl">${tipoEmoji[timbratura.tipo] || '📄'}</span>
+                            <span class="font-bold capitalize">${timbratura.tipo}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Orari -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="log-in" class="w-5 h-5 text-green-600"></i>
+                                <span class="text-sm font-bold text-gray-700">Ingresso</span>
+                            </div>
+                            <p class="text-2xl font-bold text-green-700">${timbratura.ora_ingresso}</p>
+                        </div>
+                        
+                        <div class="bg-${timbratura.ora_uscita ? 'blue' : 'gray'}-50 rounded-lg p-4 border-2 border-${timbratura.ora_uscita ? 'blue' : 'gray'}-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="log-out" class="w-5 h-5 text-${timbratura.ora_uscita ? 'blue' : 'gray'}-600"></i>
+                                <span class="text-sm font-bold text-gray-700">Uscita</span>
+                            </div>
+                            <p class="text-2xl font-bold text-${timbratura.ora_uscita ? 'blue' : 'gray'}-700">${timbratura.ora_uscita || '--:--'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Pausa Pranzo -->
+                    ${timbratura.pausa_inizio ? `
+                    <div class="bg-orange-50 rounded-lg p-4 mb-6 border-2 border-orange-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <i data-lucide="coffee" class="w-5 h-5 text-orange-600"></i>
+                            <span class="text-sm font-bold text-gray-700">Pausa Pranzo</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <p class="text-xs text-gray-600 mb-1">Inizio</p>
+                                <p class="text-lg font-bold text-orange-700">${timbratura.pausa_inizio}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600 mb-1">Fine</p>
+                                <p class="text-lg font-bold text-orange-700">${timbratura.pausa_fine || '--:--'}</p>
+                            </div>
+                        </div>
+                        ${pausaDurata ? `<p class="text-xs text-orange-600 mt-2">Durata: ${pausaDurata}</p>` : ''}
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Ore Lavorate -->
+                    <div class="bg-purple-50 rounded-lg p-4 mb-6 border-2 border-purple-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="clock" class="w-5 h-5 text-purple-600"></i>
+                            <span class="text-sm font-bold text-gray-700">Ore Lavorate</span>
+                        </div>
+                        <p class="text-3xl font-bold text-purple-700">${oreH}h ${oreM}m</p>
+                        ${!timbratura.ora_uscita ? '<p class="text-xs text-purple-600 mt-1">In corso...</p>' : ''}
+                    </div>
+                    
+                    <!-- GPS -->
+                    ${timbratura.latitudine_ingresso ? `
+                    <div class="mb-6">
+                        <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                            Posizione GPS
+                        </h4>
+                        <button onclick="window.gpsMapModal.showHistoryModal(${JSON.stringify(timbratura).replace(/"/g, '&quot;')})" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="map" class="w-5 h-5"></i>
+                            Visualizza Posizione su Mappa
+                        </button>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Note -->
+                    ${timbratura.note ? `
+                    <div class="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4 text-gray-600"></i>
+                            <span class="text-sm font-bold text-gray-700">Note</span>
+                        </div>
+                        <p class="text-gray-700">${timbratura.note}</p>
+                    </div>
+                    ` : ''}
+                `;
+            }
+            
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+        
+        // Chiudi modal dettagli dipendente
+        function closeEmployeeDayModal() {
+            document.getElementById('employeeDayModal').classList.add('hidden');
         }
 
         // Carica richieste in attesa
