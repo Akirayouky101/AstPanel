@@ -54,7 +54,7 @@ self.addEventListener('install', (event) => {
 
 // ========== ACTIVATE EVENT ==========
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v2.0...');
+  console.log('[SW] Activating Service Worker v2.1...');
   
   event.waitUntil(
     Promise.all([
@@ -70,7 +70,17 @@ self.addEventListener('activate', (event) => {
         );
       }),
       // Prendi controllo di tutti i client
-      self.clients.claim()
+      self.clients.claim().then(() => {
+        // Notifica tutti i client che c'è un aggiornamento
+        return self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'SW_UPDATED',
+              version: CACHE_VERSION
+            });
+          });
+        });
+      })
     ])
   );
 });

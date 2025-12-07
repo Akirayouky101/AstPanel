@@ -4256,6 +4256,17 @@
                 });
                 console.log('[Push] Service Worker registered:', registration);
 
+                // Auto-reload quando SW si aggiorna
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SW_UPDATED') {
+                        console.log('[SW] Nuova versione disponibile:', event.data.version);
+                        console.log('[SW] Ricarico automaticamente la pagina...');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    }
+                });
+
                 // Aspetta che sia ready
                 await navigator.serviceWorker.ready;
 
