@@ -44,10 +44,27 @@
                     <span id="timbraBtnText">Timbra Ingresso</span>
                 </button>
 
+                <!-- Bottoni Pausa (visibili solo durante sessione attiva) -->
+                <div id="pausaBtns" class="mt-4 hidden flex gap-3 justify-center">
+                    <button id="timbraPausaInizioBtn" 
+                        class="bg-amber-500 text-white hover:bg-amber-600 font-semibold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
+                        <i data-lucide="coffee" class="w-5 h-5"></i>
+                        <span>Inizio Pausa</span>
+                    </button>
+                    <button id="timbraPausaFineBtn" 
+                        class="bg-green-500 text-white hover:bg-green-600 font-semibold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2 hidden">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        <span>Fine Pausa</span>
+                    </button>
+                </div>
+
                 <div id="currentSessionInfo" class="mt-6 hidden">
                     <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4 inline-block">
                         <div class="text-sm text-blue-100">Ingresso: <span id="ingressoTime" class="font-bold text-white"></span></div>
                         <div class="text-sm text-blue-100 mt-1">Ore lavorate: <span id="oreLavorate" class="font-bold text-white">0:00</span></div>
+                        <div id="pausaInfo" class="text-sm text-amber-200 mt-1 hidden">
+                            🍽️ In pausa da: <span id="pausaInizioTime" class="font-bold text-white"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -70,12 +87,15 @@
                         <span class="text-gray-600">Uscita</span>
                         <span class="font-semibold text-gray-800" id="todayUscita">--:--</span>
                     </div>
-                    <div class="flex justify-between items-center py-2 border-b">
-                        <span class="text-gray-600 flex items-center gap-1">
+                    <div class="flex justify-between items-center py-2 border-b bg-amber-50 rounded-lg px-3 -mx-3">
+                        <span class="text-gray-700 font-medium flex items-center gap-1">
                             <i data-lucide="coffee" class="w-4 h-4"></i>
                             Pausa
                         </span>
-                        <span class="font-semibold text-gray-800" id="todayPausa">60 min</span>
+                        <div class="text-right">
+                            <span class="font-semibold text-gray-800" id="todayPausa">--</span>
+                            <div class="text-xs text-gray-500" id="todayPausaDettaglio"></div>
+                        </div>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b">
                         <span class="text-gray-600">Ore Lavorate (nette)</span>
@@ -256,6 +276,8 @@
                 await loadMonthDetails();
 
                 document.getElementById('timbraBtn').addEventListener('click', handleTimbratura);
+                document.getElementById('timbraPausaInizioBtn').addEventListener('click', handlePausaInizio);
+                document.getElementById('timbraPausaFineBtn').addEventListener('click', handlePausaFine);
                 document.getElementById('variazioneForm').addEventListener('submit', handleVariazioneSubmit);
                 
                 lucide.createIcons();
@@ -410,6 +432,30 @@
                 document.getElementById('currentSessionInfo').classList.remove('hidden');
                 document.getElementById('ingressoTime').textContent = todayTimbratura.ora_ingresso;
                 
+                // Mostra bottoni pausa
+                document.getElementById('pausaBtns').classList.remove('hidden');
+                
+                // Gestisci stato pausa
+                if (todayTimbratura.pausa_inizio && !todayTimbratura.pausa_fine) {
+                    // Pausa in corso
+                    document.getElementById('timbraPausaInizioBtn').classList.add('hidden');
+                    document.getElementById('timbraPausaFineBtn').classList.remove('hidden');
+                    document.getElementById('pausaInfo').classList.remove('hidden');
+                    document.getElementById('pausaInizioTime').textContent = todayTimbratura.pausa_inizio;
+                } else if (todayTimbratura.pausa_fine) {
+                    // Pausa completata
+                    document.getElementById('timbraPausaInizioBtn').classList.add('hidden');
+                    document.getElementById('timbraPausaFineBtn').classList.add('hidden');
+                } else {
+                    // Nessuna pausa ancora
+                    document.getElementById('timbraPausaInizioBtn').classList.remove('hidden');
+                    document.getElementById('timbraPausaFineBtn').classList.add('hidden');
+                    document.getElementById('pausaInfo').classList.add('hidden');
+                }
+                
+                // Aggiorna display pausa
+                updatePausaDisplay();
+                
                 // Avvia timer live con aggiornamento ogni secondo
                 if (window.liveTimerInterval) clearInterval(window.liveTimerInterval);
                 window.liveTimerInterval = window.timbratureService.startLiveTimer(
@@ -418,8 +464,11 @@
                         // Mostra ore LORDE nel timer live (senza pausa)
                         document.getElementById('oreLavorate').textContent = `${liveData.hours}:${liveData.minutes.toString().padStart(2, '0')}:${liveData.seconds.toString().padStart(2, '0')}`;
                         
-                        // Calcola ore NETTE (sottrai pausa)
-                        const pausaMinuti = currentUser?.pausa_pranzo_minuti || 60;
+                        // Calcola ore NETTE (sottrai pausa effettiva o configurata)
+                        let pausaMinuti = todayTimbratura.pausa_minuti > 0 
+                            ? todayTimbratura.pausa_minuti  // Pausa timbrata
+                            : (currentUser?.pausa_pranzo_minuti || 60);  // Pausa configurata
+                        
                         const pausaOre = pausaMinuti / 60;
                         const oreNette = Math.max(0, liveData.total - pausaOre);
                         
@@ -476,9 +525,40 @@
             }
             document.getElementById('statusText').textContent = 'Clicca per timbrare l\'ingresso';
             document.getElementById('currentSessionInfo').classList.add('hidden');
+            document.getElementById('pausaBtns').classList.add('hidden');
+            document.getElementById('pausaInfo').classList.add('hidden');
             document.querySelector('#timbraBtn').disabled = false;
             document.querySelector('#timbraBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            // Reset display pausa
+            const pausaDefault = currentUser?.pausa_pranzo_minuti || 60;
+            document.getElementById('todayPausa').textContent = pausaDefault === 0 ? 'Nessuna' : `${pausaDefault} min`;
+            document.getElementById('todayPausaDettaglio').textContent = '(configurata)';
+            
             lucide.createIcons();
+        }
+
+        // Aggiorna display pausa
+        function updatePausaDisplay() {
+            if (!todayTimbratura) return;
+            
+            const pausaDefault = currentUser?.pausa_pranzo_minuti || 60;
+            
+            if (todayTimbratura.pausa_minuti > 0) {
+                // Pausa effettiva timbrata
+                document.getElementById('todayPausa').textContent = `${todayTimbratura.pausa_minuti} min`;
+                document.getElementById('todayPausaDettaglio').textContent = 
+                    `${todayTimbratura.pausa_inizio || '--'} - ${todayTimbratura.pausa_fine || '--'}`;
+            } else if (todayTimbratura.pausa_inizio && !todayTimbratura.pausa_fine) {
+                // Pausa in corso
+                document.getElementById('todayPausa').textContent = 'In corso...';
+                document.getElementById('todayPausaDettaglio').textContent = 
+                    `Iniziata: ${todayTimbratura.pausa_inizio}`;
+            } else {
+                // Usa pausa default
+                document.getElementById('todayPausa').textContent = `${pausaDefault} min`;
+                document.getElementById('todayPausaDettaglio').textContent = '(configurata)';
+            }
         }
 
         // Gestisci timbratura
@@ -527,6 +607,91 @@
                 console.log('🔘 [TIMBRATURA] Riabilitazione bottone...');
                 btn.disabled = false;
                 console.log('✅ [TIMBRATURA] Processo completato');
+            }
+        }
+
+        // Gestione Pausa Inizio
+        async function handlePausaInizio() {
+            try {
+                const now = new Date();
+                const pausaInizio = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+                
+                // Aggiorna database
+                const { data, error } = await supabaseClient
+                    .from('timbrature')
+                    .update({ 
+                        pausa_inizio: pausaInizio,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', currentUser.id)
+                    .eq('data', new Date().toISOString().split('T')[0])
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                
+                // Aggiorna UI
+                document.getElementById('timbraPausaInizioBtn').classList.add('hidden');
+                document.getElementById('timbraPausaFineBtn').classList.remove('hidden');
+                document.getElementById('pausaInfo').classList.remove('hidden');
+                document.getElementById('pausaInizioTime').textContent = pausaInizio;
+                
+                showNotification('☕ Pausa iniziata!', 'info');
+                await loadTodayTimbratura();
+            } catch (error) {
+                console.error('❌ Errore pausa inizio:', error);
+                showNotification('❌ Errore durante timbratura pausa', 'error');
+            }
+        }
+
+        // Gestione Pausa Fine
+        async function handlePausaFine() {
+            try {
+                const now = new Date();
+                const pausaFine = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+                
+                // Recupera timbratura corrente per calcolare minuti pausa
+                const { data: timbratura } = await supabaseClient
+                    .from('timbrature')
+                    .select('pausa_inizio')
+                    .eq('user_id', currentUser.id)
+                    .eq('data', new Date().toISOString().split('T')[0])
+                    .single();
+                
+                if (!timbratura?.pausa_inizio) {
+                    throw new Error('Nessuna pausa in corso');
+                }
+                
+                // Calcola minuti pausa
+                const [pausaH, pausaM] = timbratura.pausa_inizio.split(':').map(Number);
+                const [fineH, fineM] = pausaFine.split(':').map(Number);
+                const pausaMinuti = (fineH * 60 + fineM) - (pausaH * 60 + pausaM);
+                
+                // Aggiorna database
+                const { data, error } = await supabaseClient
+                    .from('timbrature')
+                    .update({ 
+                        pausa_fine: pausaFine,
+                        pausa_minuti: pausaMinuti,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', currentUser.id)
+                    .eq('data', new Date().toISOString().split('T')[0])
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                
+                // Aggiorna UI
+                document.getElementById('timbraPausaInizioBtn').classList.remove('hidden');
+                document.getElementById('timbraPausaFineBtn').classList.add('hidden');
+                document.getElementById('pausaInfo').classList.add('hidden');
+                
+                showNotification(`✅ Pausa terminata! Durata: ${pausaMinuti} minuti`, 'success');
+                await loadTodayTimbratura();
+            } catch (error) {
+                console.error('❌ Errore pausa fine:', error);
+                showNotification('❌ Errore durante timbratura pausa', 'error');
             }
         }
 
