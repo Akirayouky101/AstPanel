@@ -127,6 +127,12 @@ class TimbratureService {
 
         this.todayTimbratura = data;
         this.clearCache('today');
+        
+        // 🗺️ Mostra mappa GPS se disponibile
+        if (gpsData && gpsData.latitude && gpsData.longitude && window.gpsMapModal) {
+            window.gpsMapModal.showConfirmModal(gpsData.latitude, gpsData.longitude, 'ingresso');
+        }
+        
         return data;
     }
 
@@ -150,6 +156,15 @@ class TimbratureService {
 
         this.todayTimbratura = data;
         this.clearCache('today');
+        
+        // 🗺️ Mostra mappa GPS se disponibile
+        if (data.posizione_gps && window.gpsMapModal) {
+            const gps = data.posizione_gps;
+            if (gps.latitude && gps.longitude) {
+                window.gpsMapModal.showConfirmModal(gps.latitude, gps.longitude, 'uscita');
+            }
+        }
+        
         return data;
     }
 
