@@ -1,9 +1,9 @@
 // ================================================
-// AST PANEL - Service Worker v2.0
+// AST PANEL - Service Worker v2.1
 // Features: Offline Cache + Push Notifications + Background Sync
 // ================================================
 
-const CACHE_VERSION = 'ast-panel-v2.0';
+const CACHE_VERSION = 'ast-panel-v2.1';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -15,6 +15,8 @@ const STATIC_ASSETS = [
   '/calendario-dipendente.html',
   '/admin-functional.html',
   '/analytics-dashboard.html',
+  '/timbratura-veloce.html',
+  '/output.css',
   '/Admin/index.html',
   '/Admin/gestione-utenti.html',
   '/Admin/gestione-lavorazioni.html',
@@ -29,14 +31,13 @@ const STATIC_ASSETS = [
 
 // CDN da cachare (librerie esterne)
 const CDN_ASSETS = [
-  'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest/dist/umd/lucide.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // ========== INSTALL EVENT ==========
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v2.0...');
+  console.log('[SW] Installing Service Worker v2.1...');
   
   event.waitUntil(
     Promise.all([
