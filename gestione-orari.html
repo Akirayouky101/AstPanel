@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./supabase-client.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
     
@@ -157,7 +158,6 @@
         let currentUser = null;
         let allEmployees = [];
         let allTimbrature = [];
-        let authCheckInProgress = false; // Flag anti-loop
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', async () => {
@@ -171,24 +171,9 @@
             }
             
             console.log('✅ [CHECK] Supabase Client OK');
-            
-            // Verifica loop redirect
-            const redirectCount = parseInt(sessionStorage.getItem('adminOrariRedirectCount') || '0');
-            console.log('🔄 [LOOP-CHECK] Contatore redirect admin:', redirectCount);
-            
-            if (redirectCount > 3) {
-                console.error('❌ [FATAL] Loop di redirect rilevato!');
-                alert('Errore: Loop di autenticazione. Contatta supporto.');
-                sessionStorage.removeItem('adminOrariRedirectCount');
-                return;
-            }
-            
             console.log('🔐 [AUTH] Verifica autenticazione admin...');
             
             await checkAuth();
-            
-            // Reset contatore se OK
-            sessionStorage.removeItem('adminOrariRedirectCount');
             
             console.log('👥 [DATA] Caricamento lista dipendenti...');
             await loadEmployees();
@@ -212,57 +197,31 @@
 
         // Verifica autenticazione admin
         async function checkAuth() {
-            if (authCheckInProgress) {
-                console.warn('⚠️ [AUTH] Verifica già in corso, skip...');
+            console.log('🔍 [AUTH] Controllo autenticazione...');
+            
+            // Usa AuthHelper (sessionStorage) invece di Supabase Auth
+            const user = window.AuthHelper?.getCurrentUser();
+            
+            if (!user) {
+                console.warn('⚠️ [AUTH] Nessun utente in sessionStorage, redirect login...');
+                alert('⛔ Sessione scaduta. Effettua nuovamente il login.');
+                window.location.href = '/Admin/index.html';
                 return;
             }
             
-            authCheckInProgress = true;
-            console.log('🔍 [AUTH] Controllo sessione...');
+            console.log('✅ [AUTH] Utente trovato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
             
-            try {
-                const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
-                
-                if (sessionError) {
-                    console.error('❌ [AUTH] Errore sessione:', sessionError);
-                    incrementAdminRedirectAndGo();
-                    return;
-                }
-                
-                if (!session) {
-                    console.warn('⚠️ [AUTH] Nessuna sessione, redirect login...');
-                    incrementAdminRedirectAndGo();
-                    return;
-                }
-                
-                console.log('✅ [AUTH] Sessione OK, user:', session.user.id);
-                console.log('👤 [DB] Caricamento dati utente...');
-                
-                const { data: user, error: userError } = await window.supabaseClient
-                    .from('users')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (userError) {
-                    console.error('❌ [DB] Errore caricamento utente:', userError);
-                    alert('Errore caricamento dati');
-                    incrementAdminRedirectAndGo();
-                    return;
-                }
-
-                if (!user || (user.ruolo !== 'Titolare' && user.ruolo !== 'Amministratore')) {
-                    console.error('❌ [AUTH] Accesso negato. Ruolo:', user?.ruolo);
-                    alert('Accesso non autorizzato');
-                    incrementAdminRedirectAndGo();
-                    return;
-                }
-
-                console.log('✅ [AUTH] Admin verificato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
-                currentUser = user;
-            } finally {
-                authCheckInProgress = false;
+            // Verifica ruolo admin
+            const adminRoles = ['Titolare', 'Amministratore', 'Tecnico', 'Segreteria'];
+            if (!adminRoles.includes(user.ruolo)) {
+                console.error('❌ [AUTH] Accesso negato. Ruolo:', user.ruolo);
+                alert('⛔ Accesso non autorizzato. Solo amministratori.');
+                window.location.href = '/pannello-utente.html';
+                return;
             }
+            
+            console.log('✅ [AUTH] Admin verificato:', user.nome, user.cognome);
+            currentUser = user;
         }
         
         // Helper redirect admin
