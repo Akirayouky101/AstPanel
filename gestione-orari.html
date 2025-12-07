@@ -375,25 +375,19 @@
 
                 <!-- Sezione Gestione Destinatari -->
                 <div class="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div class="flex-1">
-                            <h4 class="text-xl font-bold text-orange-800 flex items-center gap-2 mb-2">
-                                <i data-lucide="users" class="w-6 h-6"></i>
-                                Destinatari Email Commercialista
-                            </h4>
-                            <p class="text-sm text-orange-700">
-                                <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-                                Configura fino a 5 destinatari per ricevere automaticamente i report mensili PDF
-                            </p>
-                            <div id="recipientsQuickInfo" class="mt-3 text-sm text-orange-600">
-                                <!-- Caricamento info rapida destinatari -->
-                            </div>
-                        </div>
-                        <button onclick="window.location.href='gestione-email-commercialista.html'" 
-                                class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all whitespace-nowrap">
-                            <i data-lucide="settings" class="w-5 h-5"></i>
-                            Gestisci Destinatari
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-xl font-bold text-orange-800 flex items-center gap-2">
+                            <i data-lucide="users" class="w-6 h-6"></i>
+                            Destinatari Email (Max 5)
+                        </h4>
+                        <button onclick="openAddRecipientForm()" 
+                                class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            Aggiungi
                         </button>
+                    </div>
+                    <div id="recipientsList" class="space-y-3">
+                        <!-- Popolato dinamicamente -->
                     </div>
                 </div>
 
@@ -1403,49 +1397,183 @@
             document.getElementById('emailModal').classList.add('hidden');
         }
 
-        // Carica info rapida destinatari (solo conteggio)
+        // Carica lista destinatari
         async function loadRecipients() {
             try {
                 const { data, error } = await window.supabaseClient
                     .from('email_destinatari')
-                    .select('id, attivo')
-                    .eq('attivo', true);
+                    .select('*')
+                    .order('attivo', { ascending: false })
+                    .order('nome');
 
                 if (error) {
-                    console.warn('⚠️ Tabella email_destinatari non trovata:', error);
-                    document.getElementById('recipientsQuickInfo').innerHTML = `
-                        <span class="text-orange-600">
-                            <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
-                            Tabella destinatari non ancora configurata
-                        </span>
+                    console.warn('⚠️ Errore caricamento destinatari:', error);
+                    document.getElementById('recipientsList').innerHTML = `
+                        <div class="text-center text-orange-600 p-4">
+                            <div class="text-lg mb-2">⚠️ Errore caricamento</div>
+                            <div class="text-sm">${error.message}</div>
+                        </div>
                     `;
                     return;
                 }
 
-                const activeCount = data ? data.length : 0;
-                const container = document.getElementById('recipientsQuickInfo');
-                
-                if (activeCount === 0) {
-                    container.innerHTML = `
-                        <span class="text-orange-600 font-medium">
-                            <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
-                            Nessun destinatario attivo configurato
-                        </span>
-                    `;
-                } else {
-                    container.innerHTML = `
-                        <span class="text-green-700 font-medium">
-                            <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>
-                            ${activeCount} destinatar${activeCount === 1 ? 'io attivo' : 'i attivi'} configurati
-                        </span>
-                    `;
+                const container = document.getElementById('recipientsList');
+                container.innerHTML = '';
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-500 p-4">Nessun destinatario configurato</div>';
+                    return;
                 }
+
+                data.forEach(recipient => {
+                    const card = document.createElement('div');
+                    card.className = `bg-white rounded-lg p-4 border-2 ${recipient.attivo ? 'border-green-300' : 'border-gray-300'}`;
+                    
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-gray-900">${escapeHtml(recipient.nome)}</span>
+                                    ${recipient.attivo ? '<span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-bold">ATTIVO</span>' : '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">Disattivato</span>'}
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">📧 ${escapeHtml(recipient.email)}</div>
+                                <div class="text-xs text-gray-500 mt-1">🏷️ ${recipient.tipo}</div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick='toggleRecipient("${recipient.id}", ${!recipient.attivo})' 
+                                        class="px-3 py-1.5 ${recipient.attivo ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-500 hover:bg-green-600'} text-white text-xs rounded-lg transition-all">
+                                    ${recipient.attivo ? 'Disattiva' : 'Attiva'}
+                                </button>
+                                <button onclick='deleteRecipient("${recipient.id}")' 
+                                        class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded-lg transition-all">
+                                    Elimina
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
 
                 lucide.createIcons();
 
             } catch (err) {
-                console.error('Errore caricamento destinatari:', err);
+                console.error('❌ Errore caricamento destinatari:', err);
             }
+        }
+
+        // Aggiungi destinatario
+        async function openAddRecipientForm() {
+            const activeCount = await getActiveRecipientsCount();
+            
+            if (activeCount >= 5) {
+                showNotification('⚠️ Massimo 5 destinatari attivi consentiti', 'error');
+                return;
+            }
+
+            const nome = prompt('Nome destinatario (es: Studio Rossi):');
+            if (!nome) return;
+
+            const email = prompt('Email:');
+            if (!email || !email.includes('@')) {
+                showNotification('❌ Email non valida', 'error');
+                return;
+            }
+
+            const tipo = prompt('Tipo (commercialista/consulente/altro):', 'commercialista');
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .insert({
+                        nome: nome,
+                        email: email,
+                        tipo: tipo || 'commercialista',
+                        attivo: true
+                    });
+
+                if (error) {
+                    console.error('❌ Errore inserimento destinatario:', error);
+                    showNotification('❌ Errore: ' + error.message, 'error');
+                    return;
+                }
+
+                showNotification('✅ Destinatario aggiunto!', 'success');
+                await loadRecipients();
+            } catch (err) {
+                console.error('❌ Eccezione:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
+        }
+
+        // Toggle attivo/disattivo destinatario
+        async function toggleRecipient(id, newStatus) {
+            if (newStatus === true) {
+                const activeCount = await getActiveRecipientsCount();
+                if (activeCount >= 5) {
+                    showNotification('⚠️ Massimo 5 destinatari attivi consentiti', 'error');
+                    return;
+                }
+            }
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .update({ attivo: newStatus })
+                    .eq('id', id);
+
+                if (error) {
+                    console.error('❌ Errore aggiornamento destinatario:', error);
+                    showNotification('❌ Errore aggiornamento', 'error');
+                    return;
+                }
+
+                showNotification(newStatus ? '✅ Destinatario attivato' : '⚠️ Destinatario disattivato', 'success');
+                await loadRecipients();
+            } catch (err) {
+                console.error('❌ Eccezione:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
+        }
+
+        // Elimina destinatario
+        async function deleteRecipient(id) {
+            if (!confirm('Sei sicuro di voler eliminare questo destinatario?')) return;
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    console.error('❌ Errore eliminazione destinatario:', error);
+                    showNotification('❌ Errore eliminazione', 'error');
+                    return;
+                }
+
+                showNotification('✅ Destinatario eliminato', 'success');
+                await loadRecipients();
+            } catch (err) {
+                console.error('❌ Eccezione:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
+        }
+
+        // Conta destinatari attivi
+        async function getActiveRecipientsCount() {
+            const { count } = await window.supabaseClient
+                .from('email_destinatari')
+                .select('*', { count: 'exact', head: true })
+                .eq('attivo', true);
+
+            return count || 0;
+        }
+
+        // Escape HTML per sicurezza
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Carica storico invii email
