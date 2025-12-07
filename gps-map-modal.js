@@ -223,23 +223,6 @@ class GPSMapModal {
         }
     }
 
-        // Remove existing modal
-        const existing = document.getElementById(this.modalId);
-        if (existing) existing.remove();
-
-        // Create modal
-        const modal = document.createElement('div');
-        modal.id = this.modalId;
-        modal.innerHTML = html;
-        document.body.appendChild(modal);
-
-        // Initialize icons
-        if (window.lucide) lucide.createIcons();
-
-        // Initialize map
-        setTimeout(() => this.initMap(latitude, longitude, tipo_timbratura), 100);
-    }
-
     /**
      * 🗺️ INIZIALIZZA MAPPA LEAFLET
      */
