@@ -7,8 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Leaflet CSS/JS per GPS Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
     <script src="./supabase-client.js"></script>
     <script src="/Admin/auth-helper.js"></script>
+    <script src="./gps-map-modal.js"></script>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
     
@@ -112,10 +120,43 @@
 
         <!-- Dettaglio Timbrature -->
         <div class="bg-white rounded-2xl shadow-lg p-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <i data-lucide="list" class="w-6 h-6 text-green-600"></i>
-                Dettaglio Timbrature
-            </h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="list" class="w-6 h-6 text-green-600"></i>
+                    Dettaglio Timbrature
+                </h3>
+                <button onclick="toggleStoricoModifiche()" 
+                        class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5"></i>
+                    Storico Modifiche
+                </button>
+            </div>
+            
+            <!-- Pannello Storico Modifiche (collassabile) -->
+            <div id="storicoModifichePanel" class="hidden mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-300 rounded-xl p-6">
+                <h4 class="text-lg font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="clock" class="w-6 h-6"></i>
+                    Ultime Modifiche alle Timbrature
+                </h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-indigo-200">
+                        <thead class="bg-indigo-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Data Modifica</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Dipendente</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Campo</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Vecchio → Nuovo</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Modificato da</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="storicoModificheBody" class="bg-white divide-y divide-indigo-100">
+                            <!-- Popolato dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -124,11 +165,11 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingresso</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">☕ Pausa</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uscita</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ore</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posizione</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                         </tr>
                     </thead>
                     <tbody id="detailBody" class="bg-white divide-y divide-gray-200">
@@ -150,6 +191,104 @@
             </div>
             <div class="p-6 border-t flex justify-end gap-3">
                 <button onclick="closeEmployeeModal()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Chiudi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modifica Timbratura -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+                <h3 class="text-2xl font-bold flex items-center gap-3">
+                    <i data-lucide="pencil" class="w-7 h-7"></i>
+                    Modifica Timbratura
+                </h3>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <form id="editForm" class="space-y-6">
+                    <input type="hidden" id="editTimbratureId">
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Data</label>
+                            <input type="date" id="editData" required
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipo Timbratura</label>
+                            <select id="editTipo" required
+                                    class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500">
+                                <option value="normale">💼 Normale</option>
+                                <option value="straordinario">🕐 Straordinario</option>
+                                <option value="permesso">🚪 Permesso</option>
+                                <option value="ferie">🏖️ Ferie</option>
+                                <option value="malattia">🤒 Malattia</option>
+                                <option value="trasferta">🚗 Trasferta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Ora Ingresso</label>
+                            <input type="time" id="editIngresso" required
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Ora Uscita</label>
+                            <input type="time" id="editUscita"
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+
+                    <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                        <h4 class="font-bold text-green-800 mb-3 flex items-center gap-2">
+                            <i data-lucide="coffee" class="w-5 h-5"></i>
+                            Pausa Pranzo (Opzionale)
+                        </h4>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-green-700 mb-2">Inizio Pausa</label>
+                                <input type="time" id="editPausaInizio"
+                                       class="w-full border-2 border-green-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-green-700 mb-2">Fine Pausa</label>
+                                <input type="time" id="editPausaFine"
+                                       class="w-full border-2 border-green-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Note</label>
+                        <textarea id="editNote" rows="3"
+                                  class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500"
+                                  placeholder="Note aggiuntive (opzionale)..."></textarea>
+                    </div>
+
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-orange-800 mb-2">
+                            ⚠️ Motivo Modifica (obbligatorio)
+                        </label>
+                        <input type="text" id="editMotivo" required
+                               class="w-full border-2 border-orange-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-orange-500"
+                               placeholder="Es: Correzione orario, Dimenticato timbrato uscita, ecc.">
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t flex justify-between gap-3">
+                <button onclick="closeEditModal()" type="button"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all">
+                    Annulla
+                </button>
+                <button onclick="saveEdit()" type="button"
+                        class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                    💾 Salva Modifiche
+                </button>
             </div>
         </div>
     </div>
@@ -483,7 +622,7 @@
 
             allTimbrature.forEach(t => {
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
+                row.className = 'hover:bg-gray-50 transition-colors';
 
                 const tipoEmoji = {
                     'normale': '💼',
@@ -509,10 +648,23 @@
                 const hours = t.ore_lavorate ? Math.floor(t.ore_lavorate) : 0;
                 const minutes = t.ore_lavorate ? Math.round((t.ore_lavorate - hours) * 60) : 0;
 
-                const gpsIcon = t.posizione_gps ? 
-                    `<a href="https://www.google.com/maps?q=${t.posizione_gps.lat},${t.posizione_gps.lng}" target="_blank" class="text-blue-600 hover:text-blue-800">📍 Mappa</a>` : 
-                    '<span class="text-gray-400">-</span>';
+                // Calcolo pausa pranzo
+                let pausaHtml = '<span class="text-gray-400 text-xs">--</span>';
+                if (t.pausa_inizio && t.pausa_fine) {
+                    const pausaMinutes = Math.round((new Date(`1970-01-01T${t.pausa_fine}`) - new Date(`1970-01-01T${t.pausa_inizio}`)) / 60000);
+                    pausaHtml = `
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs text-gray-600">${t.pausa_inizio} - ${t.pausa_fine}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ☕ ${pausaMinutes} min
+                            </span>
+                        </div>
+                    `;
+                }
 
+                // GPS + Edit buttons
+                const hasGPS = t.posizione_gps && t.posizione_gps.latitude && t.posizione_gps.longitude;
+                
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">${t.user.nome} ${t.user.cognome}</div>
@@ -520,17 +672,180 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(t.data).toLocaleDateString('it-IT')}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">${tipoEmoji[t.tipo] || '💼'} ${t.tipo}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${t.ora_ingresso || '--:--'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${t.ora_uscita || '--:--'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${hours}h ${minutes}m</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">${gpsIcon}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">${t.ora_ingresso || '--:--'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${pausaHtml}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">${t.ora_uscita || '--:--'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">${hours}h ${minutes}m</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statoColors[t.stato]}">${statoText[t.stato]}</span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">${t.note || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex gap-2">
+                            ${hasGPS ? `
+                                <button onclick='showMapForTimbratura(${JSON.stringify(t)})' 
+                                        class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                                    <i data-lucide="map-pin" class="w-3 h-3 mr-1"></i>
+                                    Mappa
+                                </button>
+                            ` : ''}
+                            <button onclick='openEditModal(${JSON.stringify(t)})' 
+                                    class="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                                <i data-lucide="pencil" class="w-3 h-3 mr-1"></i>
+                                Modifica
+                            </button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
+            
+            lucide.createIcons();
+        }
+
+        // Mostra mappa GPS per timbratura
+        function showMapForTimbratura(timbratura) {
+            if (!window.gpsMapModal) {
+                alert('❌ Sistema mappe non disponibile');
+                return;
+            }
+            
+            if (!timbratura.posizione_gps || !timbratura.posizione_gps.latitude) {
+                alert('❌ GPS non disponibile per questa timbratura');
+                return;
+            }
+            
+            window.gpsMapModal.showHistoryModal(timbratura);
+        }
+
+        // Toggle pannello storico modifiche
+        async function toggleStoricoModifiche() {
+            const panel = document.getElementById('storicoModifichePanel');
+            const isHidden = panel.classList.contains('hidden');
+            
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                await loadStoricoModifiche();
+            } else {
+                panel.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+
+        // Carica storico modifiche
+        async function loadStoricoModifiche() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('timbrature_modifiche')
+                    .select(`
+                        *,
+                        timbratura:timbrature!timbratura_id(
+                            data,
+                            user:users!user_id(nome, cognome)
+                        ),
+                        modificato_da_user:users!modificato_da(nome, cognome)
+                    `)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                if (error) {
+                    console.warn('⚠️ Tabella timbrature_modifiche non trovata:', error);
+                    document.getElementById('storicoModificheBody').innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
+                                <div class="text-lg mb-2">📋 Tabella modifiche non ancora creata</div>
+                                <div class="text-sm">Esegui la migration: <code class="bg-gray-100 px-2 py-1 rounded">migrations/create-timbrature-modifiche.sql</code></div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                const tbody = document.getElementById('storicoModificheBody');
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
+                                ✅ Nessuna modifica registrata
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                data.forEach(modifica => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-indigo-50 transition-colors';
+
+                    const campoTraduzioni = {
+                        'data': '📅 Data',
+                        'tipo': '🏷️ Tipo',
+                        'ora_ingresso': '🕐 Ingresso',
+                        'ora_uscita': '🕑 Uscita',
+                        'pausa_inizio': '☕ Inizio Pausa',
+                        'pausa_fine': '☕ Fine Pausa',
+                        'note': '📝 Note'
+                    };
+
+                    const campoNome = campoTraduzioni[modifica.campo_modificato] || modifica.campo_modificato;
+
+                    // Formatta valori per leggibilità
+                    const formatValue = (val) => {
+                        if (val === null || val === '') return '<span class="text-gray-400">vuoto</span>';
+                        return `<strong>${val}</strong>`;
+                    };
+
+                    // Evidenzia modifiche recenti (ultime 24h)
+                    const isRecent = (new Date() - new Date(modifica.created_at)) < 24 * 60 * 60 * 1000;
+                    const recentBadge = isRecent ? '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-bold">NEW</span>' : '';
+
+                    row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            ${new Date(modifica.created_at).toLocaleString('it-IT', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                year: 'numeric',
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}
+                            ${recentBadge}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <div class="font-medium text-gray-900">${modifica.timbratura.user.nome} ${modifica.timbratura.user.cognome}</div>
+                            <div class="text-xs text-gray-500">${new Date(modifica.timbratura.data).toLocaleDateString('it-IT')}</div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-700">${campoNome}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="flex items-center gap-2">
+                                ${formatValue(modifica.valore_vecchio)}
+                                <span class="text-indigo-600 font-bold">→</span>
+                                ${formatValue(modifica.valore_nuovo)}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            ${modifica.modificato_da_user.nome} ${modifica.modificato_da_user.cognome}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                            <span class="italic">"${modifica.motivo}"</span>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error('❌ Errore caricamento storico modifiche:', err);
+                document.getElementById('storicoModificheBody').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-6 text-center text-red-500">
+                            ❌ Errore caricamento storico modifiche
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
         // Mostra modal dettaglio dipendente
@@ -575,6 +890,200 @@
         // Chiudi modal
         function closeEmployeeModal() {
             document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        // Apri modal modifica timbratura
+        function openEditModal(timbratura) {
+            document.getElementById('editTimbratureId').value = timbratura.id;
+            document.getElementById('editData').value = timbratura.data;
+            document.getElementById('editTipo').value = timbratura.tipo;
+            document.getElementById('editIngresso').value = timbratura.ora_ingresso || '';
+            document.getElementById('editUscita').value = timbratura.ora_uscita || '';
+            document.getElementById('editPausaInizio').value = timbratura.pausa_inizio || '';
+            document.getElementById('editPausaFine').value = timbratura.pausa_fine || '';
+            document.getElementById('editNote').value = timbratura.note || '';
+            document.getElementById('editMotivo').value = '';
+            
+            document.getElementById('editModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Chiudi modal modifica
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        // Salva modifiche timbratura
+        async function saveEdit() {
+            const timbratureId = document.getElementById('editTimbratureId').value;
+            const motivo = document.getElementById('editMotivo').value.trim();
+
+            if (!motivo) {
+                showNotification('⚠️ Inserisci il motivo della modifica', 'error');
+                return;
+            }
+
+            // Valori del form
+            const newData = document.getElementById('editData').value;
+            const newTipo = document.getElementById('editTipo').value;
+            const newIngresso = document.getElementById('editIngresso').value;
+            const newUscita = document.getElementById('editUscita').value;
+            const newPausaInizio = document.getElementById('editPausaInizio').value;
+            const newPausaFine = document.getElementById('editPausaFine').value;
+            const newNote = document.getElementById('editNote').value;
+
+            // Validazione orari
+            if (newIngresso && newUscita && newUscita <= newIngresso) {
+                showNotification('❌ L\'ora di uscita deve essere successiva all\'ingresso', 'error');
+                return;
+            }
+
+            if (newPausaInizio && newPausaFine && newPausaFine <= newPausaInizio) {
+                showNotification('❌ La fine pausa deve essere successiva all\'inizio', 'error');
+                return;
+            }
+
+            // Calcola ore lavorate
+            let oreLavorate = 0;
+            if (newIngresso && newUscita) {
+                const ingressoMinutes = parseInt(newIngresso.split(':')[0]) * 60 + parseInt(newIngresso.split(':')[1]);
+                const uscitaMinutes = parseInt(newUscita.split(':')[0]) * 60 + parseInt(newUscita.split(':')[1]);
+                let totalMinutes = uscitaMinutes - ingressoMinutes;
+
+                // Sottrai pausa se presente
+                if (newPausaInizio && newPausaFine) {
+                    const pausaInizioMinutes = parseInt(newPausaInizio.split(':')[0]) * 60 + parseInt(newPausaInizio.split(':')[1]);
+                    const pausaFineMinutes = parseInt(newPausaFine.split(':')[0]) * 60 + parseInt(newPausaFine.split(':')[1]);
+                    totalMinutes -= (pausaFineMinutes - pausaInizioMinutes);
+                }
+
+                oreLavorate = totalMinutes / 60;
+            }
+
+            // Recupera timbratura originale
+            const originalTimbratura = allTimbrature.find(t => t.id === timbratureId);
+            if (!originalTimbratura) {
+                showNotification('❌ Timbratura non trovata', 'error');
+                return;
+            }
+
+            // Prepara record modifiche
+            const modifiche = [];
+            if (originalTimbratura.data !== newData) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'data',
+                    valore_vecchio: originalTimbratura.data,
+                    valore_nuovo: newData,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if (originalTimbratura.tipo !== newTipo) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'tipo',
+                    valore_vecchio: originalTimbratura.tipo,
+                    valore_nuovo: newTipo,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if (originalTimbratura.ora_ingresso !== newIngresso) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'ora_ingresso',
+                    valore_vecchio: originalTimbratura.ora_ingresso || null,
+                    valore_nuovo: newIngresso,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if (originalTimbratura.ora_uscita !== newUscita) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'ora_uscita',
+                    valore_vecchio: originalTimbratura.ora_uscita || null,
+                    valore_nuovo: newUscita,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if ((originalTimbratura.pausa_inizio || '') !== newPausaInizio) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'pausa_inizio',
+                    valore_vecchio: originalTimbratura.pausa_inizio || null,
+                    valore_nuovo: newPausaInizio || null,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if ((originalTimbratura.pausa_fine || '') !== newPausaFine) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'pausa_fine',
+                    valore_vecchio: originalTimbratura.pausa_fine || null,
+                    valore_nuovo: newPausaFine || null,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+            if ((originalTimbratura.note || '') !== newNote) {
+                modifiche.push({
+                    timbratura_id: timbratureId,
+                    campo_modificato: 'note',
+                    valore_vecchio: originalTimbratura.note || null,
+                    valore_nuovo: newNote || null,
+                    motivo: motivo,
+                    modificato_da: currentUser.id
+                });
+            }
+
+            try {
+                // 1. Salva log modifiche (se tabella esiste)
+                if (modifiche.length > 0) {
+                    const { error: logError } = await window.supabaseClient
+                        .from('timbrature_modifiche')
+                        .insert(modifiche);
+
+                    if (logError) {
+                        console.warn('⚠️ Tabella timbrature_modifiche non trovata, skip log modifiche:', logError);
+                    } else {
+                        console.log('✅ Log modifiche salvato:', modifiche.length, 'campi');
+                    }
+                }
+
+                // 2. Aggiorna timbratura
+                const { error: updateError } = await window.supabaseClient
+                    .from('timbrature')
+                    .update({
+                        data: newData,
+                        tipo: newTipo,
+                        ora_ingresso: newIngresso,
+                        ora_uscita: newUscita || null,
+                        pausa_inizio: newPausaInizio || null,
+                        pausa_fine: newPausaFine || null,
+                        ore_lavorate: oreLavorate,
+                        note: newNote || null,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', timbratureId);
+
+                if (updateError) {
+                    console.error('❌ Errore aggiornamento timbratura:', updateError);
+                    showNotification('❌ Errore durante il salvataggio', 'error');
+                    return;
+                }
+
+                showNotification('✅ Timbratura modificata con successo!', 'success');
+                closeEditModal();
+                await loadData();
+
+            } catch (err) {
+                console.error('❌ Errore durante il salvataggio:', err);
+                showNotification('❌ Errore imprevisto durante il salvataggio', 'error');
+            }
         }
 
         // Esporta CSV
