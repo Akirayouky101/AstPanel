@@ -52,6 +52,24 @@
             </div>
         </div>
 
+        <!-- Stato Live Dipendenti -->
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-blue-800 flex items-center gap-2">
+                    <i data-lucide="activity" class="w-7 h-7"></i>
+                    Stato Live Dipendenti
+                    <span class="ml-2 text-sm font-normal text-blue-600">(aggiornato in tempo reale)</span>
+                </h2>
+                <button onclick="loadLiveStatus()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    Aggiorna
+                </button>
+            </div>
+            <div id="liveStatusGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Popolato dinamicamente -->
+            </div>
+        </div>
+
         <!-- Approvazioni Pending -->
         <div id="pendingSection" class="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-2xl shadow-lg p-6 mb-6 hidden">
             <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2">
@@ -433,6 +451,9 @@
             console.log('👥 [DATA] Caricamento lista dipendenti...');
             await loadEmployees();
             
+            console.log('📡 [DATA] Caricamento stato live dipendenti...');
+            await loadLiveStatus();
+            
             console.log('⏳ [DATA] Caricamento approvazioni pending...');
             await loadPendingApprovals();
             
@@ -512,6 +533,136 @@
                 option.textContent = `${emp.nome} ${emp.cognome} (${emp.ruolo})`;
                 select.appendChild(option);
             });
+        }
+
+        // Carica stato live dipendenti
+        async function loadLiveStatus() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Carica timbrature di oggi per tutti i dipendenti
+                const { data: todayTimbrature, error } = await window.supabaseClient
+                    .from('timbrature')
+                    .select(`
+                        *,
+                        user:users!user_id(nome, cognome, ruolo)
+                    `)
+                    .eq('data', today)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Errore caricamento stato live:', error);
+                    return;
+                }
+
+                const container = document.getElementById('liveStatusGrid');
+                container.innerHTML = '';
+
+                if (!todayTimbrature || todayTimbrature.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-8">Nessuna timbratura oggi</div>';
+                    return;
+                }
+
+                // Raggruppa per dipendente (ultima timbratura)
+                const employeeStatus = {};
+                todayTimbrature.forEach(t => {
+                    if (!employeeStatus[t.user_id]) {
+                        employeeStatus[t.user_id] = t;
+                    }
+                });
+
+                // Crea card per ogni dipendente
+                Object.values(employeeStatus).forEach(t => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-xl p-4 shadow-md border-l-4 hover:shadow-lg transition-all';
+                    
+                    // Determina stato
+                    let statoHtml = '';
+                    let borderColor = 'border-gray-300';
+                    let statoIcon = '';
+                    let statoText = '';
+                    let statoColor = '';
+                    
+                    if (!t.ora_ingresso) {
+                        // Non ha ancora timbrato
+                        borderColor = 'border-gray-400';
+                        statoIcon = '🏠';
+                        statoText = 'Fuori sede';
+                        statoColor = 'text-gray-600 bg-gray-100';
+                    } else if (t.pausa_inizio && !t.pausa_fine) {
+                        // In pausa pranzo
+                        borderColor = 'border-orange-400';
+                        statoIcon = '☕';
+                        statoText = 'In pausa pranzo';
+                        statoColor = 'text-orange-700 bg-orange-100';
+                        const pausaDa = t.pausa_inizio;
+                        statoHtml = `<div class="text-xs text-orange-600 mt-1">Iniziata alle ${pausaDa}</div>`;
+                    } else if (t.ora_ingresso && !t.ora_uscita) {
+                        // Al lavoro
+                        borderColor = 'border-green-400';
+                        statoIcon = '💼';
+                        statoText = 'Al lavoro';
+                        statoColor = 'text-green-700 bg-green-100';
+                        
+                        // Calcola ore lavorate
+                        const now = new Date();
+                        const [h, m] = t.ora_ingresso.split(':');
+                        const ingressoDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(h), parseInt(m));
+                        const diffMs = now - ingressoDate;
+                        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        statoHtml = `<div class="text-xs text-green-600 mt-1">Da ${hours}h ${minutes}m</div>`;
+                    } else if (t.ora_uscita) {
+                        // Ha finito
+                        borderColor = 'border-blue-400';
+                        statoIcon = '✅';
+                        statoText = 'Giornata completata';
+                        statoColor = 'text-blue-700 bg-blue-100';
+                        const oreH = Math.floor(t.ore_lavorate || 0);
+                        const oreM = Math.round(((t.ore_lavorate || 0) - oreH) * 60);
+                        statoHtml = `<div class="text-xs text-blue-600 mt-1">Totale: ${oreH}h ${oreM}m</div>`;
+                    }
+                    
+                    card.className += ` ${borderColor}`;
+                    
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="font-bold text-gray-900 text-lg">${t.user.nome} ${t.user.cognome}</div>
+                                <div class="text-xs text-gray-500 mb-2">${t.user.ruolo}</div>
+                                
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-2xl">${statoIcon}</span>
+                                    <div>
+                                        <div class="px-3 py-1 rounded-full text-sm font-bold ${statoColor}">
+                                            ${statoText}
+                                        </div>
+                                        ${statoHtml}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-gray-500">Ingresso:</span>
+                                <span class="font-semibold ml-1">${t.ora_ingresso || '--:--'}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Uscita:</span>
+                                <span class="font-semibold ml-1">${t.ora_uscita || '--:--'}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error('Errore loadLiveStatus:', err);
+            }
         }
 
         // Carica richieste in attesa
@@ -1517,6 +1668,11 @@
             document.body.appendChild(notification);
             setTimeout(() => notification.remove(), 3000);
         }
+
+        // Auto-refresh stato live ogni 60 secondi
+        setInterval(() => {
+            loadLiveStatus();
+        }, 60000);
     </script>
 </body>
 </html>
