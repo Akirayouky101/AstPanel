@@ -1624,7 +1624,19 @@
 
             } catch (err) {
                 console.error('❌ Errore salvataggio:', err);
-                showNotification('❌ Errore: ' + err.message, 'error');
+                
+                // Gestisci errore duplicato email
+                if (err.code === '23505') {
+                    showConfirmModal(
+                        '⚠️ Email già presente',
+                        `L'indirizzo email <strong>${email}</strong> è già stato registrato.<br><br>Ogni destinatario deve avere un indirizzo email unico.`,
+                        () => {}, // Chiude solo modal
+                        'Ho capito',
+                        null
+                    );
+                } else {
+                    showNotification('❌ Errore: ' + err.message, 'error');
+                }
             }
         });
 
@@ -1821,26 +1833,61 @@
             const mese = parseInt(document.getElementById('emailMese').value);
             const anno = parseInt(document.getElementById('emailAnno').value);
 
-            if (!confirm(`Confermi l'invio del report ${mese}/${anno} a tutti i destinatari attivi?`)) {
-                return;
-            }
+            // Conferma con modal invece di confirm()
+            showConfirmModal(
+                '📧 Conferma Invio Report',
+                `Vuoi inviare il report di <strong>${mese}/${anno}</strong> a tutti i destinatari attivi?<br><br>Il sistema genererà il PDF e invierà le email automaticamente.`,
+                async () => {
+                    try {
+                        showNotification('⏳ Generazione PDF e invio email in corso...', 'success');
 
-            try {
-                showNotification('⏳ Generazione PDF e invio email in corso...', 'success');
+                        const result = await window.pdfEmailService.sendMonthlyReport(anno, mese, currentUser);
 
-                const result = await window.pdfEmailService.sendMonthlyReport(anno, mese, currentUser);
+                        if (result.success) {
+                            showConfirmModal(
+                                '✅ Report Inviato',
+                                `Report inviato con successo!<br><br><strong>${result.sent}/${result.total}</strong> email consegnate.`,
+                                () => {}, // Chiude solo modal
+                                'Perfetto',
+                                null
+                            );
+                            await loadEmailLog();
+                        } else {
+                            showConfirmModal(
+                                '❌ Errore Invio',
+                                'Si è verificato un errore durante l\'invio del report.<br><br>Verifica i destinatari e riprova.',
+                                () => {}, // Chiude solo modal
+                                'Ho capito',
+                                null
+                            );
+                        }
 
-                if (result.success) {
-                    showNotification(`✅ Report inviato! ${result.sent}/${result.total} email inviate`, 'success');
-                    await loadEmailLog();
-                } else {
-                    showNotification('❌ Errore durante l\'invio', 'error');
-                }
-
-            } catch (err) {
-                console.error('❌ Errore invio report:', err);
-                showNotification('❌ ' + err.message, 'error');
-            }
+                    } catch (err) {
+                        console.error('❌ Errore invio report:', err);
+                        
+                        // Gestisci errore "nessun dato"
+                        if (err.message.includes('Nessun dato disponibile')) {
+                            showConfirmModal(
+                                '⚠️ Nessun Dato Disponibile',
+                                `Non ci sono timbrature registrate per il periodo <strong>${mese}/${anno}</strong>.<br><br>Seleziona un mese con dati presenti o verifica che le timbrature siano state registrate correttamente.`,
+                                () => {}, // Chiude solo modal
+                                'Ho capito',
+                                null
+                            );
+                        } else {
+                            showConfirmModal(
+                                '❌ Errore',
+                                `Si è verificato un errore:<br><br><code>${err.message}</code>`,
+                                () => {}, // Chiude solo modal
+                                'Ho capito',
+                                null
+                            );
+                        }
+                    }
+                },
+                'Sì, invia',
+                'Annulla'
+            );
         }
 
         // Esporta CSV
