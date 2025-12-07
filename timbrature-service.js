@@ -142,9 +142,33 @@ class TimbratureService {
     async timbraUscita(timbratureId) {
         const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
+        // 📍 Ottieni posizione GPS per l'uscita
+        let gpsData = {};
+        try {
+            const gps = await this.getGPSPosition();
+            if (gps) {
+                gpsData = {
+                    posizione_gps_uscita: {
+                        latitude: gps.latitude,
+                        longitude: gps.longitude,
+                        accuratezza: gps.accuracy,
+                        timestamp: new Date().toISOString(),
+                        indirizzo: null // Verrà aggiunto dopo geocoding se necessario
+                    },
+                    latitudine_uscita: gps.latitude,
+                    longitudine_uscita: gps.longitude
+                };
+            }
+        } catch (err) {
+            console.warn('⚠️ GPS non disponibile per uscita:', err.message);
+        }
+
         const { data, error } = await this.supabase
             .from('timbrature')
-            .update({ ora_uscita: now })
+            .update({ 
+                ora_uscita: now,
+                ...gpsData
+            })
             .eq('id', timbratureId)
             .select(`
                 *,
@@ -157,9 +181,9 @@ class TimbratureService {
         this.todayTimbratura = data;
         this.clearCache('today');
         
-        // 🗺️ Mostra mappa GPS se disponibile
-        if (data.posizione_gps && window.gpsMapModal) {
-            const gps = data.posizione_gps;
+        // 🗺️ Mostra mappa GPS uscita se disponibile
+        if (data.posizione_gps_uscita && window.gpsMapModal) {
+            const gps = data.posizione_gps_uscita;
             if (gps.latitude && gps.longitude) {
                 window.gpsMapModal.showConfirmModal(gps.latitude, gps.longitude, 'uscita');
             }
