@@ -427,6 +427,86 @@
         </div>
     </div>
 
+    <!-- Modal Aggiungi/Modifica Destinatario -->
+    <div id="recipientModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="bg-gradient-to-r from-orange-600 to-red-600 p-6 text-white">
+                <h3 class="text-2xl font-bold flex items-center gap-3">
+                    <i data-lucide="user-plus" class="w-7 h-7"></i>
+                    <span id="recipientModalTitle">Aggiungi Destinatario</span>
+                </h3>
+            </div>
+            <form id="recipientForm" class="p-6 space-y-5">
+                <input type="hidden" id="recipientId">
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i data-lucide="building" class="w-4 h-4 inline mr-1"></i>
+                        Nome / Ragione Sociale *
+                    </label>
+                    <input type="text" id="recipientNome" required 
+                           class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                           placeholder="es: Studio Commercialista Rossi">
+                    <p class="text-xs text-gray-500 mt-1">Nome o ragione sociale del destinatario</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i data-lucide="mail" class="w-4 h-4 inline mr-1"></i>
+                        Email *
+                    </label>
+                    <input type="email" id="recipientEmail" required 
+                           class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                           placeholder="commercialista@example.com">
+                    <p class="text-xs text-gray-500 mt-1">Email per ricevere i report mensili</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i data-lucide="tag" class="w-4 h-4 inline mr-1"></i>
+                        Tipo Destinatario *
+                    </label>
+                    <select id="recipientTipo" required 
+                            class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                        <option value="commercialista">Commercialista</option>
+                        <option value="consulente">Consulente del Lavoro</option>
+                        <option value="altro">Altro</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-4">
+                    <input type="checkbox" id="recipientAttivo" checked 
+                           class="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                    <label for="recipientAttivo" class="text-sm font-medium text-gray-700 cursor-pointer">
+                        <i data-lucide="toggle-right" class="w-4 h-4 inline mr-1 text-green-600"></i>
+                        Destinatario Attivo (riceverà le email)
+                    </label>
+                </div>
+
+                <div id="recipientWarning" class="hidden bg-orange-50 border-l-4 border-orange-500 p-4">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5"></i>
+                        <p class="text-sm text-orange-800">
+                            <strong>Attenzione:</strong> Hai già 5 destinatari attivi. 
+                            Puoi aggiungere questo come inattivo, oppure disattivane uno esistente.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-4 border-t">
+                    <button type="submit" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="save" class="w-5 h-5"></i>
+                        Salva
+                    </button>
+                    <button type="button" onclick="closeRecipientModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                        Annulla
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let allEmployees = [];
@@ -1440,6 +1520,10 @@
                                 <div class="text-xs text-gray-500 mt-1">🏷️ ${recipient.tipo}</div>
                             </div>
                             <div class="flex gap-2">
+                                <button onclick='editRecipient("${recipient.id}")' 
+                                        class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg transition-all">
+                                    <i data-lucide="edit" class="w-3 h-3 inline"></i> Modifica
+                                </button>
                                 <button onclick='toggleRecipient("${recipient.id}", ${!recipient.attivo})' 
                                         class="px-3 py-1.5 ${recipient.attivo ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-500 hover:bg-green-600'} text-white text-xs rounded-lg transition-all">
                                     ${recipient.attivo ? 'Disattiva' : 'Attiva'}
@@ -1461,46 +1545,121 @@
             }
         }
 
-        // Aggiungi destinatario
+        // Aggiungi destinatario - apre modal
         async function openAddRecipientForm() {
             const activeCount = await getActiveRecipientsCount();
             
+            // Reset form
+            document.getElementById('recipientId').value = '';
+            document.getElementById('recipientForm').reset();
+            document.getElementById('recipientModalTitle').textContent = 'Aggiungi Destinatario';
+            document.getElementById('recipientAttivo').checked = true;
+            
+            // Mostra warning se già 5 attivi
+            const warningDiv = document.getElementById('recipientWarning');
             if (activeCount >= 5) {
-                showNotification('⚠️ Massimo 5 destinatari attivi consentiti', 'error');
+                warningDiv.classList.remove('hidden');
+                document.getElementById('recipientAttivo').checked = false;
+            } else {
+                warningDiv.classList.add('hidden');
+            }
+            
+            // Apri modal
+            document.getElementById('recipientModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Chiudi modal destinatario
+        function closeRecipientModal() {
+            document.getElementById('recipientModal').classList.add('hidden');
+            document.getElementById('recipientForm').reset();
+        }
+
+        // Salva destinatario (submit form)
+        document.getElementById('recipientForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('recipientId').value;
+            const nome = document.getElementById('recipientNome').value.trim();
+            const email = document.getElementById('recipientEmail').value.trim();
+            const tipo = document.getElementById('recipientTipo').value;
+            const attivo = document.getElementById('recipientAttivo').checked;
+
+            if (!nome || !email) {
+                showNotification('❌ Compila tutti i campi obbligatori', 'error');
                 return;
             }
 
-            const nome = prompt('Nome destinatario (es: Studio Rossi):');
-            if (!nome) return;
-
-            const email = prompt('Email:');
-            if (!email || !email.includes('@')) {
-                showNotification('❌ Email non valida', 'error');
-                return;
+            // Verifica limite solo se sta attivando
+            if (attivo && !id) {
+                const activeCount = await getActiveRecipientsCount();
+                if (activeCount >= 5) {
+                    showNotification('⚠️ Massimo 5 destinatari attivi! Disattiva la checkbox "Attivo".', 'error');
+                    return;
+                }
             }
-
-            const tipo = prompt('Tipo (commercialista/consulente/altro):', 'commercialista');
 
             try {
-                const { error } = await window.supabaseClient
-                    .from('email_destinatari')
-                    .insert({
-                        nome: nome,
-                        email: email,
-                        tipo: tipo || 'commercialista',
-                        attivo: true
-                    });
+                if (id) {
+                    // UPDATE
+                    const { error } = await window.supabaseClient
+                        .from('email_destinatari')
+                        .update({ nome, email, tipo, attivo, updated_at: new Date().toISOString() })
+                        .eq('id', id);
 
-                if (error) {
-                    console.error('❌ Errore inserimento destinatario:', error);
-                    showNotification('❌ Errore: ' + error.message, 'error');
+                    if (error) throw error;
+                    showNotification('✅ Destinatario modificato!', 'success');
+                } else {
+                    // INSERT
+                    const { error } = await window.supabaseClient
+                        .from('email_destinatari')
+                        .insert({ nome, email, tipo, attivo });
+
+                    if (error) throw error;
+                    showNotification('✅ Destinatario aggiunto!', 'success');
+                }
+
+                closeRecipientModal();
+                await loadRecipients();
+
+            } catch (err) {
+                console.error('❌ Errore salvataggio:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
+        });
+
+        // Modifica destinatario - apre modal pre-compilata
+        async function editRecipient(id) {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('email_destinatari')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+
+                if (error) throw error;
+                if (!data) {
+                    showNotification('❌ Destinatario non trovato', 'error');
                     return;
                 }
 
-                showNotification('✅ Destinatario aggiunto!', 'success');
-                await loadRecipients();
+                // Compila form
+                document.getElementById('recipientId').value = data.id;
+                document.getElementById('recipientNome').value = data.nome;
+                document.getElementById('recipientEmail').value = data.email;
+                document.getElementById('recipientTipo').value = data.tipo;
+                document.getElementById('recipientAttivo').checked = data.attivo;
+                document.getElementById('recipientModalTitle').textContent = 'Modifica Destinatario';
+                
+                // Nascondi warning in modifica
+                document.getElementById('recipientWarning').classList.add('hidden');
+
+                // Apri modal
+                document.getElementById('recipientModal').classList.remove('hidden');
+                lucide.createIcons();
+
             } catch (err) {
-                console.error('❌ Eccezione:', err);
+                console.error('❌ Errore caricamento destinatario:', err);
                 showNotification('❌ Errore: ' + err.message, 'error');
             }
         }
