@@ -164,7 +164,9 @@ class TimbratureService {
         if (!oraIngresso) return { hours: 0, minutes: 0, seconds: 0, total: 0 };
 
         const now = new Date();
-        const [hours, minutes] = oraIngresso.split(':');
+        // Gestisci sia stringhe "HH:MM:SS" che oggetti Date
+        const ingressoStr = typeof oraIngresso === 'string' ? oraIngresso : oraIngresso;
+        const [hours, minutes] = ingressoStr.toString().split(':');
         const ingressoTime = new Date();
         ingressoTime.setHours(parseInt(hours), parseInt(minutes), 0);
 
