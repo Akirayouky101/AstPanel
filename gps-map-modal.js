@@ -84,40 +84,37 @@ class GPSMapModal {
     /**
      * 🗺️ MOSTRA MODAL STORICO TIMBRATURA
      * Chiamata quando si clicca "Vedi Mappa" nella lista
+     * Con supporto ENTRATA + USCITA
      */
     showHistoryModal(timbratura) {
-        // Estrai GPS da posizione_gps (JSONB field)
-        const gpsData = timbratura.posizione_gps || {};
-        const latitude = gpsData.latitude;
-        const longitude = gpsData.longitude;
-        const indirizzo = gpsData.indirizzo || null;
+        // Estrai GPS ingresso e uscita
+        const gpsIngresso = timbratura.posizione_gps || {};
+        const latIngresso = gpsIngresso.latitude;
+        const lngIngresso = gpsIngresso.longitude;
+        const indirizzoIngresso = gpsIngresso.indirizzo || null;
         
-        // Determina tipo timbratura
-        const tipo_timbratura = timbratura.ora_ingresso && !timbratura.ora_uscita ? 'ingresso' : 'uscita';
-        const data_timbratura = timbratura.created_at || new Date().toISOString();
+        // Dati uscita (se presente)
+        const gpsUscita = timbratura.posizione_gps_uscita || null;
+        const hasUscita = gpsUscita && gpsUscita.latitude && gpsUscita.longitude;
         
-        const dataFormatted = new Date(data_timbratura).toLocaleString('it-IT', {
+        const dataFormatted = new Date(timbratura.data).toLocaleDateString('it-IT', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            year: 'numeric'
         });
 
-        const tipoLabel = tipo_timbratura === 'ingresso' ? '🟢 Ingresso' : '🔴 Uscita';
-        
         const html = `
             <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" 
                  onclick="window.gpsMapModal.closeModal()">
-                <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-fadeIn" 
+                <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden animate-fadeIn" 
                      onclick="event.stopPropagation()">
                     
                     <!-- Header -->
                     <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="text-2xl font-bold mb-1">📍 Posizione Timbratura</h3>
-                                <p class="text-blue-100">${dataFormatted} - ${tipoLabel}</p>
+                                <h3 class="text-2xl font-bold mb-1">📍 Posizioni Timbratura</h3>
+                                <p class="text-blue-100">${dataFormatted} - ${timbratura.ora_ingresso || ''}${timbratura.ora_uscita ? ' → ' + timbratura.ora_uscita : ''}</p>
                             </div>
                             <button onclick="window.gpsMapModal.closeModal()" 
                                     class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
@@ -126,20 +123,41 @@ class GPSMapModal {
                         </div>
                     </div>
                     
+                    <!-- Toggle Buttons -->
+                    <div class="bg-gray-100 p-4 flex gap-3 border-b">
+                        <button id="btnShowIngresso" onclick="window.gpsMapModal.switchToPosition('ingresso', ${latIngresso}, ${lngIngresso})" 
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md">
+                            <span class="w-3 h-3 rounded-full bg-white"></span>
+                            🟢 Ingresso ${timbratura.ora_ingresso || ''}
+                        </button>
+                        ${hasUscita ? `
+                            <button id="btnShowUscita" onclick="window.gpsMapModal.switchToPosition('uscita', ${gpsUscita.latitude}, ${gpsUscita.longitude})" 
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-gray-600"></span>
+                                🔴 Uscita ${timbratura.ora_uscita || ''}
+                            </button>
+                        ` : `
+                            <button disabled class="flex-1 bg-gray-200 text-gray-400 font-bold py-3 px-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                                🔴 Uscita (non timbrata)
+                            </button>
+                        `}
+                    </div>
+                    
                     <!-- Map Container -->
                     <div id="timbratureMap" class="w-full h-96 bg-gray-100"></div>
                     
-                    <!-- Footer -->
-                    <div class="p-4 bg-gray-50 border-t">
+                    <!-- Footer Info -->
+                    <div id="mapInfo" class="p-4 bg-gray-50 border-t">
                         <div class="space-y-2 text-sm text-gray-700">
                             <div class="flex items-start gap-2">
                                 <span class="font-semibold min-w-24">📍 Coordinate:</span>
-                                <span>${latitude.toFixed(6)}, ${longitude.toFixed(6)}</span>
+                                <span id="coordsText">${latIngresso.toFixed(6)}, ${lngIngresso.toFixed(6)}</span>
                             </div>
-                            ${indirizzo ? `
+                            ${indirizzoIngresso ? `
                                 <div class="flex items-start gap-2">
                                     <span class="font-semibold min-w-24">📮 Indirizzo:</span>
-                                    <span>${indirizzo}</span>
+                                    <span id="addressText">${indirizzoIngresso}</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -147,6 +165,63 @@ class GPSMapModal {
                 </div>
             </div>
         `;
+
+        // Remove existing modal
+        const existing = document.getElementById(this.modalId);
+        if (existing) existing.remove();
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = this.modalId;
+        modal.innerHTML = html;
+        document.body.appendChild(modal);
+
+        // Initialize icons
+        if (window.lucide) lucide.createIcons();
+
+        // Store data for switching
+        this.currentTimbratura = {
+            ingresso: { lat: latIngresso, lng: lngIngresso, address: indirizzoIngresso },
+            uscita: hasUscita ? { lat: gpsUscita.latitude, lng: gpsUscita.longitude, address: gpsUscita.indirizzo || null } : null
+        };
+
+        // Initialize map with ingresso
+        setTimeout(() => this.initMap(latIngresso, lngIngresso), 100);
+    }
+
+    /**
+     * 🔄 SWITCH TRA INGRESSO E USCITA
+     */
+    switchToPosition(tipo, lat, lng) {
+        // Update buttons
+        const btnIngresso = document.getElementById('btnShowIngresso');
+        const btnUscita = document.getElementById('btnShowUscita');
+        
+        if (tipo === 'ingresso') {
+            btnIngresso.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md';
+            if (btnUscita) btnUscita.className = 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2';
+        } else {
+            btnIngresso.className = 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2';
+            if (btnUscita) btnUscita.className = 'flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md';
+        }
+
+        // Update coordinates text
+        document.getElementById('coordsText').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        
+        // Update address if available
+        const addressEl = document.getElementById('addressText');
+        if (addressEl && this.currentTimbratura[tipo].address) {
+            addressEl.textContent = this.currentTimbratura[tipo].address;
+        }
+
+        // Re-center map
+        if (this.map) {
+            this.map.setView([lat, lng], 16);
+            if (this.marker) {
+                this.marker.setLatLng([lat, lng]);
+            }
+        }
+    }
 
         // Remove existing modal
         const existing = document.getElementById(this.modalId);
