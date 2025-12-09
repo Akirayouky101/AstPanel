@@ -30,67 +30,80 @@
             <p class="text-gray-600 mt-2">Gestione Impianti & Sicurezza</p>
         </div>
 
+        <!-- Alert -->
+        <div id="alert" class="hidden mb-6 p-4 rounded-lg"></div>
+
         <!-- Login Form -->
         <form id="loginForm" class="space-y-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-user mr-2"></i>Seleziona Utente
+                    <i class="fas fa-envelope mr-2"></i>Email
                 </label>
-                <select id="userSelect" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
-                    <option value="">Caricamento utenti...</option>
-                </select>
+                <input 
+                    type="email" 
+                    id="emailInput" 
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    placeholder="tuaemail@esempio.it"
+                    required
+                    autocomplete="email"
+                >
             </div>
 
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-lock mr-2"></i>Password
+                </label>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="passwordInput" 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition pr-12"
+                        placeholder="••••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <button 
+                        type="button" 
+                        onclick="togglePasswordVisibility()"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                        <i id="passwordIcon" class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button 
+                type="submit" 
+                id="loginBtn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
                 <i class="fas fa-sign-in-alt mr-2"></i>Accedi
             </button>
         </form>
 
         <!-- Info -->
         <div class="mt-6 text-center text-sm text-gray-500">
-            <i class="fas fa-info-circle mr-1"></i>
-            Sistema semplificato per sviluppo
+            <i class="fas fa-shield-alt mr-1"></i>
+            Accesso sicuro con Supabase Auth
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="/supabase-client.js"></script>
-    <script src="/data-migration.js"></script>
     <script src="/modal-system.js"></script>
     <script src="/Admin/auth-helper.js"></script>
     <script>
-        // Load users on page load
-        async function loadUsers() {
-            try {
-                const users = await window.UsersAPI.getAll();
-                const select = document.getElementById('userSelect');
-                
-                select.innerHTML = '<option value="">-- Seleziona un utente --</option>';
-                
-                // Ruoli considerati ADMIN
-                const adminRoles = ['Tecnico', 'Segreteria', 'Titolare'];
-                
-                users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.id;
-                    
-                    const isAdmin = adminRoles.includes(user.ruolo);
-                    const roleIcon = isAdmin ? '👑' : '👤';
-                    const roleLabel = isAdmin ? `${user.ruolo} - ADMIN` : user.ruolo;
-                    option.textContent = `${roleIcon} ${user.nome} ${user.cognome} (${roleLabel})`;
-                    
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Errore caricamento utenti:', error);
-                document.getElementById('userSelect').innerHTML = 
-                    '<option value="">Errore caricamento utenti</option>';
-                
-                showAlert(
-                    'Errore Connessione Database',
-                    `Impossibile caricare gli utenti dal database.\n\n${error.message}\n\nAssicurati di aver:\n1. Eseguito database-schema.sql in Supabase\n2. Creato almeno un utente nel database`,
-                    'error'
-                );
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordIcon = document.getElementById('passwordIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.className = 'fas fa-eye';
             }
         }
 
@@ -98,47 +111,73 @@
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const userId = document.getElementById('userSelect').value;
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            const loginBtn = document.getElementById('loginBtn');
             
-            if (!userId) {
-                showAlert(
-                    'Attenzione',
-                    'Seleziona un utente dalla lista per accedere al sistema.',
-                    'warning'
-                );
+            if (!email || !password) {
+                showAlert('Compila tutti i campi', 'error');
                 return;
             }
 
             try {
-                const user = await window.AuthHelper.login(userId);
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Accesso in corso...';
                 
-                // Redirect based on role using AuthHelper.isAdmin()
-                if (window.AuthHelper.isAdmin()) {
-                    window.location.href = '/admin-functional.html';
+                // Login con Supabase Auth
+                const result = await window.AuthHelper.login(email, password);
+                
+                if (result.requirePasswordChange) {
+                    // Primo login - redirect a cambio password
+                    window.location.href = '/cambio-password.html';
                 } else {
-                    window.location.href = '/pannello-utente.html';
+                    // Login normale - redirect basato su ruolo
+                    if (window.AuthHelper.isAdmin()) {
+                        window.location.href = '/Admin/admin-functional.html';
+                    } else {
+                        window.location.href = '/pannello-utente.html';
+                    }
                 }
             } catch (error) {
                 console.error('Errore login:', error);
-                showAlert(
-                    'Errore Login',
-                    `Si è verificato un errore durante l'accesso:\n\n${error.message}`,
-                    'error'
-                );
+                showAlert(error.message || 'Email o password non validi', 'error');
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Accedi';
             }
         });
 
         // Check if already logged in
-        if (window.AuthHelper.isLoggedIn()) {
-            if (window.AuthHelper.isAdmin()) {
-                window.location.href = '/admin-functional.html';
-            } else {
-                window.location.href = '/pannello-utente.html';
+        window.addEventListener('load', async () => {
+            const loggedIn = await window.AuthHelper.isLoggedIn();
+            
+            if (loggedIn) {
+                const user = window.AuthHelper.getCurrentUser();
+                
+                if (user && user.first_login) {
+                    window.location.href = '/cambio-password.html';
+                } else if (window.AuthHelper.isAdmin()) {
+                    window.location.href = '/Admin/admin-functional.html';
+                } else {
+                    window.location.href = '/pannello-utente.html';
+                }
             }
-        }
+        });
 
-        // Load users
-        loadUsers();
+        // Show alert
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.className = `mb-6 p-4 rounded-lg ${
+                type === 'success' 
+                    ? 'bg-green-50 border border-green-200 text-green-800' 
+                    : 'bg-red-50 border border-red-200 text-red-800'
+            }`;
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 5000);
+        }
 
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {

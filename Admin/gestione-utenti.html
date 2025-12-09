@@ -432,47 +432,180 @@
             showModal();
         }
 
-        function saveUser() {
+        async function saveUser() {
             const form = document.getElementById('userForm');
             const formData = new FormData(form);
             
             const userData = {
-                fullName: formData.get('fullName'),
+                nome: formData.get('fullName').split(' ')[0] || formData.get('fullName'),
+                cognome: formData.get('fullName').split(' ').slice(1).join(' ') || '',
                 email: formData.get('email'),
-                role: formData.get('role'),
-                phone: formData.get('phone'),
-                department: formData.get('department'),
+                ruolo: formData.get('role'),
+                telefono: formData.get('phone'),
+                reparto: formData.get('department'),
                 active: formData.get('active') === 'on'
             };
 
             // Validation
-            if (!userData.fullName || !userData.email || !userData.role) {
+            if (!userData.nome || !userData.email || !userData.ruolo) {
                 showNotification('Errore', 'Compila tutti i campi obbligatori', 'error');
                 return;
             }
 
-            if (editingUserId) {
-                // Update existing user
-                const userIndex = users.findIndex(u => u.id === editingUserId);
-                if (userIndex !== -1) {
-                    users[userIndex] = { ...users[userIndex], ...userData };
-                    showNotification('Successo', 'Utente aggiornato con successo', 'success');
-                }
-            } else {
-                // Add new user
-                const newUser = {
-                    id: Math.max(...users.map(u => u.id)) + 1,
-                    ...userData,
-                    lastLogin: null,
-                    createdAt: new Date().toISOString()
-                };
-                users.push(newUser);
-                showNotification('Successo', 'Nuovo utente aggiunto con successo', 'success');
+            // Valida formato email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(userData.email)) {
+                showNotification('Errore', 'Formato email non valido', 'error');
+                return;
             }
 
-            closeUserModal();
-            loadUsers();
-            updateStatistics();
+            try {
+                if (editingUserId) {
+                    // Update existing user
+                    const { error } = await window.supabase
+                        .from('utenti')
+                        .update(userData)
+                        .eq('id', editingUserId);
+                    
+                    if (error) throw error;
+                    
+                    showNotification('Successo', 'Utente aggiornato con successo', 'success');
+                } else {
+                    // Genera password temporanea (8 caratteri alfanumerici)
+                    const tempPassword = generateTemporaryPassword();
+                    
+                    // Crea utente nel database
+                    const { data: newUser, error: insertError } = await window.supabase
+                        .from('utenti')
+                        .insert([{
+                            ...userData,
+                            first_login: true
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (insertError) throw insertError;
+                    
+                    // Crea credenziali Supabase Auth
+                    try {
+                        const { data: authUser, error: authError } = await window.supabase.auth.admin.createUser({
+                            email: userData.email,
+                            password: tempPassword,
+                            email_confirm: true,
+                            user_metadata: {
+                                nome: userData.nome,
+                                cognome: userData.cognome,
+                                ruolo: userData.ruolo
+                            }
+                        });
+                        
+                        if (authError) throw authError;
+                        
+                        // Aggiorna utente con auth_id
+                        const { error: updateError } = await window.supabase
+                            .from('utenti')
+                            .update({ auth_id: authUser.user.id })
+                            .eq('id', newUser.id);
+                        
+                        if (updateError) throw updateError;
+                        
+                        // Mostra password temporanea all'admin
+                        showTemporaryPasswordModal(userData.email, tempPassword);
+                        
+                    } catch (authError) {
+                        // Se fallisce creazione auth, elimina utente dal DB
+                        await window.supabase
+                            .from('utenti')
+                            .delete()
+                            .eq('id', newUser.id);
+                        
+                        throw new Error(`Errore creazione credenziali: ${authError.message}`);
+                    }
+                    
+                    showNotification('Successo', 'Nuovo utente creato con successo', 'success');
+                }
+
+                closeUserModal();
+                loadUsers();
+                updateStatistics();
+                
+            } catch (error) {
+                console.error('Errore salvataggio utente:', error);
+                showNotification('Errore', error.message || 'Errore durante il salvataggio', 'error');
+            }
+        }
+
+        // Genera password temporanea
+        function generateTemporaryPassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return password;
+        }
+
+        // Mostra modal con password temporanea
+        function showTemporaryPasswordModal(email, password) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-3xl">✅</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900">Utente Creato!</h3>
+                        <p class="text-gray-600 mt-2">Password temporanea generata</p>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-6">
+                        <p class="text-sm font-medium text-yellow-800 mb-3">
+                            ⚠️ Comunica queste credenziali al dipendente:
+                        </p>
+                        <div class="space-y-2">
+                            <div>
+                                <p class="text-xs text-gray-600">Email:</p>
+                                <p class="font-mono font-bold text-gray-900 break-all">${email}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Password Temporanea:</p>
+                                <div class="flex items-center gap-2">
+                                    <p id="tempPass" class="font-mono font-bold text-red-600 text-lg">${password}</p>
+                                    <button 
+                                        onclick="copyToClipboard('${password}')"
+                                        class="bg-gray-100 hover:bg-gray-200 p-2 rounded"
+                                        title="Copia"
+                                    >
+                                        📋
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <p class="text-sm text-blue-800">
+                            <strong>Importante:</strong> Al primo accesso, l'utente dovrà cambiare questa password con una personale.
+                        </p>
+                    </div>
+                    
+                    <button 
+                        onclick="this.closest('.fixed').remove()"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg"
+                    >
+                        Ho Comunicato le Credenziali
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Copia negli appunti
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copiato', 'Password copiata negli appunti', 'success');
+            });
         }
 
         function toggleUserStatus(userId) {

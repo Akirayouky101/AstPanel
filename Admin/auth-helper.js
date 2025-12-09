@@ -1,40 +1,160 @@
 // =====================================================
-// AUTH HELPER - Sistema di autenticazione semplificato
+// AUTH HELPER - Supabase Auth Ufficiale
 // =====================================================
 
 window.AuthHelper = {
     STORAGE_KEY: 'ast_current_user',
+    currentUser: null,
 
-    // Simula login (per sviluppo - seleziona utente da DB)
-    async login(userId) {
+    // Inizializza session listener
+    async init() {
+        if (!window.supabase) {
+            console.error('❌ Supabase client non trovato!');
+            return;
+        }
+
+        // Ascolta cambiamenti auth
+        window.supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('🔐 Auth state changed:', event);
+            
+            if (event === 'SIGNED_IN' && session) {
+                await this.loadCurrentUser();
+            } else if (event === 'SIGNED_OUT') {
+                this.currentUser = null;
+                sessionStorage.removeItem(this.STORAGE_KEY);
+            }
+        });
+
+        // Carica utente corrente all'avvio
+        await this.loadCurrentUser();
+    },
+
+    // Carica dati utente da database usando auth.uid()
+    async loadCurrentUser() {
         try {
-            const user = await window.UsersAPI.getById(userId);
-            sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
-            return user;
+            const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
+            
+            if (sessionError || !session) {
+                this.currentUser = null;
+                return null;
+            }
+
+            // Recupera dati utente dal database
+            const { data: userData, error: userError } = await window.supabase
+                .from('utenti')
+                .select('*')
+                .eq('auth_id', session.user.id)
+                .single();
+
+            if (userError) {
+                console.error('Errore recupero utente:', userError);
+                this.currentUser = null;
+                return null;
+            }
+
+            this.currentUser = userData;
+            sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(userData));
+            return userData;
+        } catch (error) {
+            console.error('Errore loadCurrentUser:', error);
+            return null;
+        }
+    },
+
+    // Login con email e password
+    async login(email, password) {
+        try {
+            const { data, error } = await window.supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (error) throw error;
+
+            // Carica dati utente
+            await this.loadCurrentUser();
+
+            // Controlla se è primo login
+            if (this.currentUser && this.currentUser.first_login) {
+                return { user: this.currentUser, requirePasswordChange: true };
+            }
+
+            return { user: this.currentUser, requirePasswordChange: false };
         } catch (error) {
             console.error('Errore login:', error);
             throw error;
         }
     },
 
-    // Logout
-    logout() {
-        // Just clear session data - let the calling page handle UI and redirect
-        sessionStorage.removeItem(this.STORAGE_KEY);
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('ast_current_user');
-        sessionStorage.clear();
+    // Cambia password
+    async changePassword(newPassword) {
+        try {
+            const { error } = await window.supabase.auth.updateUser({
+                password: newPassword
+            });
+
+            if (error) throw error;
+
+            // Aggiorna flag first_login
+            if (this.currentUser) {
+                const { error: updateError } = await window.supabase
+                    .from('utenti')
+                    .update({ first_login: false })
+                    .eq('id', this.currentUser.id);
+
+                if (updateError) throw updateError;
+
+                this.currentUser.first_login = false;
+                sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Errore cambio password:', error);
+            throw error;
+        }
     },
 
-    // Get current user from session
+    // Logout
+    async logout() {
+        try {
+            const { error } = await window.supabase.auth.signOut();
+            if (error) throw error;
+
+            this.currentUser = null;
+            sessionStorage.removeItem(this.STORAGE_KEY);
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('ast_current_user');
+            sessionStorage.clear();
+        } catch (error) {
+            console.error('Errore logout:', error);
+            // Pulisci comunque la sessione locale
+            this.currentUser = null;
+            sessionStorage.clear();
+        }
+    },
+
+    // Get current user from cache
     getCurrentUser() {
+        if (this.currentUser) return this.currentUser;
+        
         const userData = sessionStorage.getItem(this.STORAGE_KEY);
-        return userData ? JSON.parse(userData) : null;
+        if (userData) {
+            this.currentUser = JSON.parse(userData);
+            return this.currentUser;
+        }
+        
+        return null;
     },
 
     // Check if user is logged in
-    isLoggedIn() {
-        return this.getCurrentUser() !== null;
+    async isLoggedIn() {
+        try {
+            const { data: { session } } = await window.supabase.auth.getSession();
+            return session !== null;
+        } catch (error) {
+            return false;
+        }
     },
 
     // Check if user is admin
@@ -42,30 +162,83 @@ window.AuthHelper = {
         const user = this.getCurrentUser();
         if (!user) return false;
         
-        // Ruoli considerati ADMIN con accesso al pannello amministrativo
         const adminRoles = ['Tecnico', 'Segreteria', 'Titolare'];
         return adminRoles.includes(user.ruolo);
     },
 
     // Require login (call in pages)
-    requireLogin() {
-        if (!this.isLoggedIn()) {
+    async requireLogin() {
+        const loggedIn = await this.isLoggedIn();
+        if (!loggedIn) {
             window.location.href = 'index.html';
+            return false;
+        }
+        
+        // Assicurati che currentUser sia caricato
+        if (!this.currentUser) {
+            await this.loadCurrentUser();
+        }
+        
+        return true;
+    },
+
+    // Require admin (call in admin pages)
+    async requireAdmin() {
+        if (!await this.requireLogin()) return false;
+        
+        if (!this.isAdmin()) {
+            window.location.href = '../pannello-utente.html';
             return false;
         }
         return true;
     },
 
-    // Require admin (call in admin pages)
-    requireAdmin() {
-        if (!this.requireLogin()) return false;
-        
-        if (!this.isAdmin()) {
-            window.location.href = 'pannello-utente.html';
-            return false;
+    // Crea nuovo utente in Supabase Auth (solo per admin)
+    async createUser(email, temporaryPassword, userData) {
+        try {
+            // Verifica che chi chiama sia admin
+            if (!this.isAdmin()) {
+                throw new Error('Solo admin possono creare utenti');
+            }
+
+            // NOTA: Questa operazione richiede chiamata API lato server
+            // Per ora usiamo Admin API di Supabase (richiede service_role_key)
+            // In produzione, creare una Edge Function protetta
+
+            const response = await fetch(window.supabase.supabaseUrl + '/auth/v1/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': window.supabase.supabaseKey,
+                    'Authorization': `Bearer ${window.supabase.supabaseKey}`
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: temporaryPassword,
+                    email_confirm: true,
+                    user_metadata: userData
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Errore creazione utente Auth');
+            }
+
+            const { data } = await response.json();
+            return data.user;
+        } catch (error) {
+            console.error('Errore createUser:', error);
+            throw error;
         }
-        return true;
     }
 };
 
-console.log('✅ Auth Helper loaded');
+// Inizializza auth helper quando il DOM è pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.AuthHelper.init());
+} else {
+    window.AuthHelper.init();
+}
+
+console.log('✅ Auth Helper (Supabase Auth) loaded');
