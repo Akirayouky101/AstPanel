@@ -188,7 +188,10 @@ window.AuthHelper = {
     // Check if user is admin
     isAdmin() {
         const user = this.getCurrentUser();
-        if (!user) return false;
+        if (!user) {
+            console.log('❌ isAdmin() - No user found');
+            return false;
+        }
         
         console.log('🔍 isAdmin() check - User role:', user.ruolo);
         
@@ -196,7 +199,7 @@ window.AuthHelper = {
         const adminRoles = ['admin', 'tecnico'];
         const isAdminUser = adminRoles.includes(user.ruolo);
         
-        console.log('✅ Is admin?', isAdminUser);
+        console.log('✅ Is admin?', isAdminUser, '- Role checked:', user.ruolo);
         return isAdminUser;
     },
 
