@@ -91,9 +91,16 @@ window.AuthHelper = {
         try {
             console.log('🔐 Cambiando password...');
             
-            const { error } = await window.supabase.auth.updateUser({
+            // Timeout wrapper per evitare hang
+            const updatePromise = window.supabase.auth.updateUser({
                 password: newPassword
             });
+            
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout: updateUser took too long')), 10000)
+            );
+            
+            const { error } = await Promise.race([updatePromise, timeoutPromise]);
 
             if (error) {
                 console.error('❌ Errore updateUser:', error);
