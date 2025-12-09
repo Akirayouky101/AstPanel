@@ -110,10 +110,10 @@ window.AuthHelper = {
 
             console.log('✅ Password Supabase Auth aggiornata via admin API');
 
-            // Aggiorna flag first_login
+            // Aggiorna flag first_login (usa admin per bypassare RLS)
             console.log('📝 Aggiornando flag first_login per user ID:', this.currentUser.id);
             
-            const { error: updateError } = await window.supabase
+            const { error: updateError } = await window.supabaseAdmin
                 .from('users')
                 .update({ first_login: false })
                 .eq('id', this.currentUser.id);
