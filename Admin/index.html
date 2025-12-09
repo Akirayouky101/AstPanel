@@ -120,27 +120,41 @@
         // Handle login
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('🔵 LOGIN FORM SUBMITTED');
             
             const email = document.getElementById('emailInput').value;
             const password = document.getElementById('passwordInput').value;
             const loginBtn = document.getElementById('loginBtn');
             
+            console.log('📧 Email:', email);
+            console.log('🔑 Password length:', password.length);
+            
             if (!email || !password) {
+                console.log('❌ Empty fields');
                 showAlert('Compila tutti i campi', 'error');
                 return;
             }
 
             try {
+                console.log('🔄 Disabling button...');
                 loginBtn.disabled = true;
                 loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Accesso in corso...';
                 
+                console.log('🔐 Checking AuthHelper...');
+                console.log('window.AuthHelper exists?', !!window.AuthHelper);
+                console.log('window.AuthHelper.login exists?', !!window.AuthHelper?.login);
+                
                 // Login con Supabase Auth
+                console.log('🚀 Calling AuthHelper.login()...');
                 const result = await window.AuthHelper.login(email, password);
+                console.log('✅ Login result:', result);
                 
                 if (result.requirePasswordChange) {
+                    console.log('🔀 Redirecting to cambio-password.html');
                     // Primo login - redirect a cambio password
                     window.location.href = '/cambio-password.html';
                 } else {
+                    console.log('🔀 Redirecting to dashboard');
                     // Login normale - redirect basato su ruolo
                     if (window.AuthHelper.isAdmin()) {
                         window.location.href = '/Admin/admin-functional.html';
@@ -149,7 +163,7 @@
                     }
                 }
             } catch (error) {
-                console.error('Errore login:', error);
+                console.error('❌ ERRORE LOGIN:', error);
                 showAlert(error.message || 'Email o password non validi', 'error');
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Accedi';
