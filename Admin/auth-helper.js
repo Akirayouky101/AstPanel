@@ -89,28 +89,45 @@ window.AuthHelper = {
     // Cambia password
     async changePassword(newPassword) {
         try {
+            console.log('🔐 Cambiando password...');
+            
             const { error } = await window.supabase.auth.updateUser({
                 password: newPassword
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Errore updateUser:', error);
+                throw error;
+            }
+
+            console.log('✅ Password Supabase Auth aggiornata');
 
             // Aggiorna flag first_login
             if (this.currentUser) {
+                console.log('📝 Aggiornando flag first_login per user ID:', this.currentUser.id);
+                
                 const { error: updateError } = await window.supabase
                     .from('users')
                     .update({ first_login: false })
                     .eq('id', this.currentUser.id);
 
-                if (updateError) throw updateError;
+                if (updateError) {
+                    console.error('❌ Errore update first_login:', updateError);
+                    throw updateError;
+                }
 
+                console.log('✅ Flag first_login aggiornato');
+                
                 this.currentUser.first_login = false;
                 sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
+            } else {
+                console.warn('⚠️ currentUser is null, cannot update first_login');
             }
 
+            console.log('✅ Cambio password completato con successo!');
             return true;
         } catch (error) {
-            console.error('Errore cambio password:', error);
+            console.error('❌ Errore cambio password:', error);
             throw error;
         }
     },
