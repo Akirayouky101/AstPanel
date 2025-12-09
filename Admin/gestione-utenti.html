@@ -501,8 +501,8 @@
                         
                         if (authError) throw authError;
                         
-                        // Aggiorna utente con auth_id
-                        const { error: updateError } = await window.supabase
+                        // Aggiorna utente con auth_id (usa admin per bypassare RLS)
+                        const { error: updateError } = await window.supabaseAdmin
                             .from('users')  // Schema inglese
                             .update({ auth_id: authUser.user.id })
                             .eq('id', newUser.id);
@@ -513,8 +513,8 @@
                         showTemporaryPasswordModal(userData.email, tempPassword);
                         
                     } catch (authError) {
-                        // Se fallisce creazione auth, elimina utente dal DB
-                        await window.supabase
+                        // Se fallisce creazione auth, elimina utente dal DB (usa admin)
+                        await window.supabaseAdmin
                             .from('users')  // Schema inglese
                             .delete()
                             .eq('id', newUser.id);
