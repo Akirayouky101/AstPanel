@@ -41,7 +41,7 @@ window.AuthHelper = {
 
             // Recupera dati utente dal database
             const { data: userData, error: userError } = await window.supabase
-                .from('utenti')
+                .from('users')
                 .select('*')
                 .eq('auth_id', session.user.id)
                 .single();
@@ -98,7 +98,7 @@ window.AuthHelper = {
             // Aggiorna flag first_login
             if (this.currentUser) {
                 const { error: updateError } = await window.supabase
-                    .from('utenti')
+                    .from('users')
                     .update({ first_login: false })
                     .eq('id', this.currentUser.id);
 
