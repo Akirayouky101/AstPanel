@@ -190,8 +190,14 @@ window.AuthHelper = {
         const user = this.getCurrentUser();
         if (!user) return false;
         
-        const adminRoles = ['Tecnico', 'Segreteria', 'Titolare'];
-        return adminRoles.includes(user.ruolo);
+        console.log('🔍 isAdmin() check - User role:', user.ruolo);
+        
+        // Ruoli con accesso admin (lowercase da constraint)
+        const adminRoles = ['admin', 'tecnico'];
+        const isAdminUser = adminRoles.includes(user.ruolo);
+        
+        console.log('✅ Is admin?', isAdminUser);
+        return isAdminUser;
     },
 
     // Require login (call in pages)
