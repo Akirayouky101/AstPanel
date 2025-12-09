@@ -134,155 +134,177 @@ END $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'utenti') THEN
+        -- Drop existing policies if they exist
+        DROP POLICY IF EXISTS "utenti_select_own" ON utenti;
+        DROP POLICY IF EXISTS "utenti_select_admin" ON utenti;
+        DROP POLICY IF EXISTS "utenti_insert_admin" ON utenti;
+        DROP POLICY IF EXISTS "utenti_update_own" ON utenti;
+        DROP POLICY IF EXISTS "utenti_update_admin" ON utenti;
+        DROP POLICY IF EXISTS "utenti_delete_admin" ON utenti;
+        
         -- UTENTI: utenti vedono solo se stessi
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_select_own" ON utenti
+        CREATE POLICY "utenti_select_own" ON utenti
             FOR SELECT
-            USING (auth.uid() = auth_id)';
+            USING (auth.uid() = auth_id);
         
         -- UTENTI: admin vedono tutti
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_select_admin" ON utenti
+        CREATE POLICY "utenti_select_admin" ON utenti
             FOR SELECT
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         -- UTENTI: solo admin possono creare
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_insert_admin" ON utenti
+        CREATE POLICY "utenti_insert_admin" ON utenti
             FOR INSERT
             WITH CHECK (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         -- UTENTI: possono aggiornare solo se stessi
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_update_own" ON utenti
+        CREATE POLICY "utenti_update_own" ON utenti
             FOR UPDATE
-            USING (auth.uid() = auth_id)';
+            USING (auth.uid() = auth_id);
         
         -- UTENTI: admin possono aggiornare tutti
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_update_admin" ON utenti
+        CREATE POLICY "utenti_update_admin" ON utenti
             FOR UPDATE
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         -- UTENTI: solo admin possono eliminare
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "utenti_delete_admin" ON utenti
+        CREATE POLICY "utenti_delete_admin" ON utenti
             FOR DELETE
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per tabella UTENTI';
     END IF;
     
     -- TIMBRATURE
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'timbrature') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "timbrature_select_own" ON timbrature
+        DROP POLICY IF EXISTS "timbrature_select_own" ON timbrature;
+        DROP POLICY IF EXISTS "timbrature_select_admin" ON timbrature;
+        DROP POLICY IF EXISTS "timbrature_insert_own" ON timbrature;
+        DROP POLICY IF EXISTS "timbrature_update_own" ON timbrature;
+        DROP POLICY IF EXISTS "timbrature_update_admin" ON timbrature;
+        
+        CREATE POLICY "timbrature_select_own" ON timbrature
             FOR SELECT
             USING (
                 user_id IN (SELECT id FROM utenti WHERE auth_id = auth.uid())
-            )';
+            );
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "timbrature_select_admin" ON timbrature
+        CREATE POLICY "timbrature_select_admin" ON timbrature
             FOR SELECT
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "timbrature_insert_own" ON timbrature
+        CREATE POLICY "timbrature_insert_own" ON timbrature
             FOR INSERT
             WITH CHECK (
                 user_id IN (SELECT id FROM utenti WHERE auth_id = auth.uid())
-            )';
+            );
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "timbrature_update_own" ON timbrature
+        CREATE POLICY "timbrature_update_own" ON timbrature
             FOR UPDATE
             USING (
                 user_id IN (SELECT id FROM utenti WHERE auth_id = auth.uid())
-            )';
+            );
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "timbrature_update_admin" ON timbrature
+        CREATE POLICY "timbrature_update_admin" ON timbrature
             FOR UPDATE
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per tabella TIMBRATURE';
     END IF;
     
     -- EMAIL_DESTINATARI
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'email_destinatari') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "email_destinatari_admin_all" ON email_destinatari
+        DROP POLICY IF EXISTS "email_destinatari_admin_all" ON email_destinatari;
+        
+        CREATE POLICY "email_destinatari_admin_all" ON email_destinatari
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per EMAIL_DESTINATARI';
     END IF;
     
     -- LAVORAZIONI
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lavorazioni') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "lavorazioni_select_all" ON lavorazioni
-            FOR SELECT
-            USING (auth.uid() IS NOT NULL)';
+        DROP POLICY IF EXISTS "lavorazioni_select_all" ON lavorazioni;
+        DROP POLICY IF EXISTS "lavorazioni_admin_all" ON lavorazioni;
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "lavorazioni_admin_all" ON lavorazioni
+        CREATE POLICY "lavorazioni_select_all" ON lavorazioni
+            FOR SELECT
+            USING (auth.uid() IS NOT NULL);
+        
+        CREATE POLICY "lavorazioni_admin_all" ON lavorazioni
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per LAVORAZIONI';
     END IF;
     
     -- CLIENTI
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'clienti') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "clienti_select_all" ON clienti
-            FOR SELECT
-            USING (auth.uid() IS NOT NULL)';
+        DROP POLICY IF EXISTS "clienti_select_all" ON clienti;
+        DROP POLICY IF EXISTS "clienti_admin_all" ON clienti;
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "clienti_admin_all" ON clienti
+        CREATE POLICY "clienti_select_all" ON clienti
+            FOR SELECT
+            USING (auth.uid() IS NOT NULL);
+        
+        CREATE POLICY "clienti_admin_all" ON clienti
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM utenti
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''Tecnico'', ''Segreteria'', ''Titolare'')
+                    AND ruolo IN ('Tecnico', 'Segreteria', 'Titolare')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per CLIENTI';
     END IF;
@@ -295,59 +317,68 @@ END $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
+        DROP POLICY IF EXISTS "users_select_all" ON users;
+        DROP POLICY IF EXISTS "users_admin_all" ON users;
+        
         -- USERS: tutti vedono tutti (per ora - da personalizzare)
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "users_select_all" ON users
+        CREATE POLICY "users_select_all" ON users
             FOR SELECT
-            USING (auth.uid() IS NOT NULL)';
+            USING (auth.uid() IS NOT NULL);
         
         -- USERS: admin possono fare tutto
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "users_admin_all" ON users
+        CREATE POLICY "users_admin_all" ON users
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM users
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''admin'', ''tecnico'')
+                    AND ruolo IN ('admin', 'tecnico')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per tabella USERS';
     END IF;
     
     -- TASKS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tasks') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "tasks_select_all" ON tasks
-            FOR SELECT
-            USING (auth.uid() IS NOT NULL)';
+        DROP POLICY IF EXISTS "tasks_select_all" ON tasks;
+        DROP POLICY IF EXISTS "tasks_admin_all" ON tasks;
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "tasks_admin_all" ON tasks
+        CREATE POLICY "tasks_select_all" ON tasks
+            FOR SELECT
+            USING (auth.uid() IS NOT NULL);
+        
+        CREATE POLICY "tasks_admin_all" ON tasks
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM users
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''admin'', ''tecnico'')
+                    AND ruolo IN ('admin', 'tecnico')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per TASKS';
     END IF;
     
     -- CLIENTS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'clients') THEN
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "clients_select_all" ON clients
-            FOR SELECT
-            USING (auth.uid() IS NOT NULL)';
+        DROP POLICY IF EXISTS "clients_select_all" ON clients;
+        DROP POLICY IF EXISTS "clients_admin_all" ON clients;
         
-        EXECUTE 'CREATE POLICY IF NOT EXISTS "clients_admin_all" ON clients
+        CREATE POLICY "clients_select_all" ON clients
+            FOR SELECT
+            USING (auth.uid() IS NOT NULL);
+        
+        CREATE POLICY "clients_admin_all" ON clients
             FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM users
                     WHERE auth_id = auth.uid()
-                    AND ruolo IN (''admin'', ''tecnico'')
+                    AND ruolo IN ('admin', 'tecnico')
                 )
-            )';
+            );
         
         RAISE NOTICE '✅ Policies create per CLIENTS';
     END IF;
