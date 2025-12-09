@@ -194,6 +194,14 @@
             const telefono = document.getElementById('telefono').value.trim();
 
             try {
+                // Verifica che supabaseAdmin sia disponibile
+                if (!window.supabaseAdmin) {
+                    throw new Error('supabaseAdmin non è inizializzato. Verifica supabase-client.js');
+                }
+                
+                console.log('✅ supabaseAdmin disponibile');
+                console.log('Dati utente:', { nome, cognome, email, ruolo, telefono });
+                
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creazione in corso...';
                 
@@ -232,6 +240,8 @@
                     console.warn('Errore controllando utenti esistenti:', e);
                 }
                 
+                console.log('Tentativo creazione utente auth con password:', tempPassword);
+                
                 // Crea credenziali Supabase Auth
                 const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
                     email: email,
@@ -244,8 +254,15 @@
                     }
                 });
                 
+                console.log('Risposta createUser:', { authUser, authError });
+                
                 if (authError) {
-                    console.error('Errore auth:', authError);
+                    console.error('Errore auth dettagliato:', {
+                        message: authError.message,
+                        status: authError.status,
+                        name: authError.name,
+                        stack: authError.stack
+                    });
                     // Rollback: elimina utente dal DB
                     await window.supabase.from('users').delete().eq('id', newUser.id);
                     throw authError;
