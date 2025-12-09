@@ -220,6 +220,18 @@
                     throw insertError;
                 }
                 
+                // Prima elimina eventuali utenti auth esistenti con questa email
+                try {
+                    const { data: existingUsers } = await window.supabaseAdmin.auth.admin.listUsers();
+                    const existingUser = existingUsers?.users?.find(u => u.email === email);
+                    if (existingUser) {
+                        console.log('Eliminando utente auth esistente:', existingUser.id);
+                        await window.supabaseAdmin.auth.admin.deleteUser(existingUser.id);
+                    }
+                } catch (e) {
+                    console.warn('Errore controllando utenti esistenti:', e);
+                }
+                
                 // Crea credenziali Supabase Auth
                 const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
                     email: email,
@@ -233,6 +245,7 @@
                 });
                 
                 if (authError) {
+                    console.error('Errore auth:', authError);
                     // Rollback: elimina utente dal DB
                     await window.supabase.from('users').delete().eq('id', newUser.id);
                     throw authError;
