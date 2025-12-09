@@ -476,7 +476,7 @@
                     
                     // Crea utente nel database
                     const { data: newUser, error: insertError } = await window.supabase
-                        .from('utenti')
+                        .from('users')  // Schema inglese
                         .insert([{
                             ...userData,
                             first_login: true
@@ -486,9 +486,9 @@
                     
                     if (insertError) throw insertError;
                     
-                    // Crea credenziali Supabase Auth
+                    // Crea credenziali Supabase Auth usando client ADMIN
                     try {
-                        const { data: authUser, error: authError } = await window.supabase.auth.admin.createUser({
+                        const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
                             email: userData.email,
                             password: tempPassword,
                             email_confirm: true,
@@ -503,7 +503,7 @@
                         
                         // Aggiorna utente con auth_id
                         const { error: updateError } = await window.supabase
-                            .from('utenti')
+                            .from('users')  // Schema inglese
                             .update({ auth_id: authUser.user.id })
                             .eq('id', newUser.id);
                         
@@ -515,7 +515,7 @@
                     } catch (authError) {
                         // Se fallisce creazione auth, elimina utente dal DB
                         await window.supabase
-                            .from('utenti')
+                            .from('users')  // Schema inglese
                             .delete()
                             .eq('id', newUser.id);
                         

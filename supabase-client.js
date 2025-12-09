@@ -6,14 +6,23 @@
 const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODczNjUsImV4cCI6MjA3Njg2MzM2NX0.EyJc6p88SDxDt07g4sytrrqqnoA6EOvpKmoZFNCaqvA';
 
+// ⚠️ SERVICE ROLE KEY - Solo per operazioni admin (auth.admin.createUser)
+// ⚠️ SOSTITUISCI CON LA TUA CHIAVE DA: Settings → API → service_role
+const SUPABASE_SERVICE_ROLE_KEY = 'INSERISCI_QUI_LA_TUA_SERVICE_ROLE_KEY';
+
 // Salva riferimento alla libreria globale
 const supabaseLib = window.supabase;
 
-// Inizializza client Supabase 
+// Inizializza client Supabase standard (con anon key)
 const supabase = supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Esporta client come variabile globale
+// Inizializza client admin (con service_role key) - Solo per gestione-utenti.html
+const supabaseAdmin = supabaseLib.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Esporta clients come variabili globali
 window.supabaseClient = supabase;
+window.supabase = supabase; // Compatibilità con codice esistente
+window.supabaseAdmin = supabaseAdmin; // Per operazioni admin
 
 // =====================================================
 // AUTHENTICATION
