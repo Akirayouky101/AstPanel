@@ -91,45 +91,42 @@ window.AuthHelper = {
         try {
             console.log('🔐 Cambiando password...');
             
-            // Timeout wrapper per evitare hang
-            const updatePromise = window.supabase.auth.updateUser({
-                password: newPassword
-            });
+            if (!this.currentUser || !this.currentUser.auth_id) {
+                throw new Error('Utente non trovato o auth_id mancante');
+            }
+
+            console.log('👤 User auth_id:', this.currentUser.auth_id);
             
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout: updateUser took too long')), 10000)
+            // Usa Service Role Key per aggiornare password (bypassa sessione)
+            const { data, error } = await window.supabaseAdmin.auth.admin.updateUserById(
+                this.currentUser.auth_id,
+                { password: newPassword }
             );
-            
-            const { error } = await Promise.race([updatePromise, timeoutPromise]);
 
             if (error) {
-                console.error('❌ Errore updateUser:', error);
+                console.error('❌ Errore updateUserById:', error);
                 throw error;
             }
 
-            console.log('✅ Password Supabase Auth aggiornata');
+            console.log('✅ Password Supabase Auth aggiornata via admin API');
 
             // Aggiorna flag first_login
-            if (this.currentUser) {
-                console.log('📝 Aggiornando flag first_login per user ID:', this.currentUser.id);
-                
-                const { error: updateError } = await window.supabase
-                    .from('users')
-                    .update({ first_login: false })
-                    .eq('id', this.currentUser.id);
+            console.log('📝 Aggiornando flag first_login per user ID:', this.currentUser.id);
+            
+            const { error: updateError } = await window.supabase
+                .from('users')
+                .update({ first_login: false })
+                .eq('id', this.currentUser.id);
 
-                if (updateError) {
-                    console.error('❌ Errore update first_login:', updateError);
-                    throw updateError;
-                }
-
-                console.log('✅ Flag first_login aggiornato');
-                
-                this.currentUser.first_login = false;
-                sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
-            } else {
-                console.warn('⚠️ currentUser is null, cannot update first_login');
+            if (updateError) {
+                console.error('❌ Errore update first_login:', updateError);
+                throw updateError;
             }
+
+            console.log('✅ Flag first_login aggiornato');
+            
+            this.currentUser.first_login = false;
+            sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
 
             console.log('✅ Cambio password completato con successo!');
             return true;
