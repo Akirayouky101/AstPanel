@@ -32,13 +32,19 @@ window.AuthHelper = {
     // Carica dati utente da database usando auth.uid()
     async loadCurrentUser() {
         try {
+            console.log('📥 loadCurrentUser() chiamato');
             const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
             
+            console.log('Session:', session ? '✅ Presente' : '❌ Assente');
+            
             if (sessionError || !session) {
+                console.log('⚠️ Nessuna sessione valida');
                 this.currentUser = null;
                 return null;
             }
 
+            console.log('🔍 Cercando utente con auth_id:', session.user.id);
+            
             // Recupera dati utente dal database
             const { data: userData, error: userError } = await window.supabase
                 .from('users')
@@ -47,16 +53,17 @@ window.AuthHelper = {
                 .single();
 
             if (userError) {
-                console.error('Errore recupero utente:', userError);
+                console.error('❌ Errore recupero utente:', userError);
                 this.currentUser = null;
                 return null;
             }
 
+            console.log('✅ Utente caricato:', userData);
             this.currentUser = userData;
             sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(userData));
             return userData;
         } catch (error) {
-            console.error('Errore loadCurrentUser:', error);
+            console.error('❌ Errore loadCurrentUser:', error);
             return null;
         }
     },
