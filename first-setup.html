@@ -203,19 +203,22 @@
                 // Crea utente nel database
                 const { data: newUser, error: insertError } = await window.supabase
                     .from('users')
-                    .insert([{
+                    .insert({
                         nome: nome,
                         cognome: cognome,
                         email: email,
                         ruolo: ruolo,
-                        telefono: telefono,
+                        telefono: telefono || null,
                         first_login: true,
                         stato: 'attivo'
-                    }])
-                    .select()
+                    })
+                    .select('*')
                     .single();
                 
-                if (insertError) throw insertError;
+                if (insertError) {
+                    console.error('Errore insert:', insertError);
+                    throw insertError;
+                }
                 
                 // Crea credenziali Supabase Auth
                 const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
@@ -241,14 +244,23 @@
                     .update({ auth_id: authUser.user.id })
                     .eq('id', newUser.id);
                 
-                if (updateError) throw updateError;
+                if (updateError) {
+                    console.error('Errore update auth_id:', updateError);
+                    throw updateError;
+                }
                 
                 // Mostra password
                 showPasswordModal(email, tempPassword);
                 
             } catch (error) {
-                console.error('Errore:', error);
-                showAlert(`❌ Errore: ${error.message}`, 'error');
+                console.error('Errore completo:', error);
+                
+                // Mostra dettagli errore
+                let errorMessage = error.message || 'Errore sconosciuto';
+                if (error.details) errorMessage += ` - ${error.details}`;
+                if (error.hint) errorMessage += ` (${error.hint})`;
+                
+                showAlert(`❌ Errore: ${errorMessage}`, 'error');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Crea Amministratore';
             }
