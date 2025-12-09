@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Iniziale - Crea Primo Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-full mb-4">
+                <i class="fas fa-user-plus text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800">Setup Iniziale</h1>
+            <p class="text-gray-600 mt-2">Crea il primo utente amministratore</p>
+        </div>
+
+        <!-- Alert -->
+        <div id="alert" class="hidden mb-6 p-4 rounded-lg"></div>
+
+        <!-- Form -->
+        <form id="setupForm" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nome</label>
+                    <input 
+                        type="text" 
+                        id="nome" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        required
+                    >
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cognome</label>
+                    <input 
+                        type="text" 
+                        id="cognome" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        required
+                    >
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="admin@astpanel.it"
+                    required
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ruolo</label>
+                <select 
+                    id="ruolo" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    required
+                >
+                    <option value="admin">Admin</option>
+                    <option value="tecnico">Tecnico</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                <input 
+                    type="tel" 
+                    id="telefono" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="3331234567"
+                >
+            </div>
+
+            <button 
+                type="submit" 
+                id="submitBtn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50"
+            >
+                <i class="fas fa-user-plus mr-2"></i>Crea Amministratore
+            </button>
+        </form>
+
+        <!-- Info -->
+        <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+            <p><strong>⚠️ Nota:</strong> Questa pagina è solo per il setup iniziale. Dopo aver creato il primo admin, verrà disabilitata automaticamente.</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-client.js"></script>
+    
+    <script>
+        // Genera password temporanea
+        function generateTemporaryPassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return password;
+        }
+
+        // Show alert
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.className = `mb-6 p-4 rounded-lg ${
+                type === 'success' 
+                    ? 'bg-green-50 border border-green-200 text-green-800' 
+                    : 'bg-red-50 border border-red-200 text-red-800'
+            }`;
+            alert.innerHTML = message;
+            alert.classList.remove('hidden');
+        }
+
+        // Mostra modal con password
+        function showPasswordModal(email, password) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-check text-3xl text-green-600"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900">✅ Admin Creato!</h3>
+                        <p class="text-gray-600 mt-2">Primo amministratore configurato con successo</p>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-6">
+                        <p class="text-sm font-medium text-yellow-800 mb-3">
+                            📋 Salva queste credenziali:
+                        </p>
+                        <div class="space-y-2">
+                            <div>
+                                <p class="text-xs text-gray-600">Email:</p>
+                                <p class="font-mono font-bold text-gray-900">${email}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Password Temporanea:</p>
+                                <div class="flex items-center gap-2">
+                                    <p class="font-mono font-bold text-red-600 text-lg">${password}</p>
+                                    <button 
+                                        onclick="navigator.clipboard.writeText('${password}'); alert('Password copiata!');"
+                                        class="bg-gray-100 hover:bg-gray-200 p-2 rounded"
+                                        title="Copia"
+                                    >
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+                        <p><strong>Prossimi passi:</strong></p>
+                        <ol class="list-decimal ml-4 mt-2 space-y-1">
+                            <li>Vai su <code class="bg-blue-100 px-1 rounded">index.html</code></li>
+                            <li>Login con email + password temporanea</li>
+                            <li>Cambierai la password al primo accesso</li>
+                        </ol>
+                    </div>
+                    
+                    <button 
+                        onclick="window.location.href='/Admin/index.html'"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-lg"
+                    >
+                        Vai al Login
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Handle form submit
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const nome = document.getElementById('nome').value;
+            const cognome = document.getElementById('cognome').value;
+            const email = document.getElementById('email').value;
+            const ruolo = document.getElementById('ruolo').value;
+            const telefono = document.getElementById('telefono').value;
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creazione in corso...';
+                
+                // Genera password temporanea
+                const tempPassword = generateTemporaryPassword();
+                
+                // Crea utente nel database
+                const { data: newUser, error: insertError } = await window.supabase
+                    .from('users')
+                    .insert([{
+                        nome: nome,
+                        cognome: cognome,
+                        email: email,
+                        ruolo: ruolo,
+                        telefono: telefono,
+                        first_login: true,
+                        stato: 'attivo'
+                    }])
+                    .select()
+                    .single();
+                
+                if (insertError) throw insertError;
+                
+                // Crea credenziali Supabase Auth
+                const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
+                    email: email,
+                    password: tempPassword,
+                    email_confirm: true,
+                    user_metadata: {
+                        nome: nome,
+                        cognome: cognome,
+                        ruolo: ruolo
+                    }
+                });
+                
+                if (authError) {
+                    // Rollback: elimina utente dal DB
+                    await window.supabase.from('users').delete().eq('id', newUser.id);
+                    throw authError;
+                }
+                
+                // Aggiorna auth_id
+                const { error: updateError } = await window.supabase
+                    .from('users')
+                    .update({ auth_id: authUser.user.id })
+                    .eq('id', newUser.id);
+                
+                if (updateError) throw updateError;
+                
+                // Mostra password
+                showPasswordModal(email, tempPassword);
+                
+            } catch (error) {
+                console.error('Errore:', error);
+                showAlert(`❌ Errore: ${error.message}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Crea Amministratore';
+            }
+        });
+    </script>
+</body>
+</html>
