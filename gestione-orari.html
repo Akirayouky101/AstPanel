@@ -649,11 +649,11 @@
             try {
                 const today = new Date().toISOString().split('T')[0];
                 
-                // Carica TUTTI i dipendenti (solo ruolo Dipendente, esclusi admin)
+                // Carica tutti tranne il Titolare (Dipendente + Tecnico + Segreteria)
                 const { data: allEmployees, error: empError } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
-                    .eq('ruolo', 'Dipendente')
+                    .in('ruolo', ['Dipendente', 'Tecnico', 'Segreteria'])
                     .order('cognome');
 
                 if (empError) {
