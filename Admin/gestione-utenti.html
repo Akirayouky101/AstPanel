@@ -546,7 +546,19 @@
                 
             } catch (error) {
                 console.error('Errore salvataggio utente:', error);
-                showNotification('Errore', error.message || 'Errore durante il salvataggio', 'error');
+                
+                // Gestisci errori specifici
+                let errorMessage = 'Errore durante il salvataggio';
+                
+                if (error.message && error.message.includes('duplicate key value violates unique constraint "users_email_key"')) {
+                    errorMessage = '⚠️ Questa email è già registrata nel sistema. Usa un\'email diversa.';
+                } else if (error.message && error.message.includes('duplicate')) {
+                    errorMessage = '⚠️ Utente già esistente. Controlla i dati inseriti.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                showNotification('Errore', errorMessage, 'error');
             }
         }
 
