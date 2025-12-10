@@ -611,7 +611,19 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore salvataggio utente:', error);
-                showAlert('Errore', 'Impossibile salvare l\'utente: ' + error.message, 'error');
+                
+                // Gestisci errori specifici
+                let errorMessage = 'Impossibile salvare l\'utente';
+                
+                if (error.message && error.message.includes('duplicate key value violates unique constraint "users_email_key"')) {
+                    errorMessage = '⚠️ Questa email è già registrata nel sistema. Usa un\'email diversa.';
+                } else if (error.message && error.message.includes('duplicate')) {
+                    errorMessage = '⚠️ Utente già esistente. Controlla i dati inseriti.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                showAlert('Errore', errorMessage, 'error');
             }
         });
 
