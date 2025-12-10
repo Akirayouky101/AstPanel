@@ -2044,37 +2044,34 @@
                     lucide.createIcons();
                 });
                 
-                // Nuovo prodotto (apre modal veloce)
-                document.getElementById('edit-new-product-btn')?.addEventListener('click', async function() {
-                    const nome = prompt('Nome prodotto:');
-                    if (!nome) return;
+                // Nuovo prodotto (apre pagina magazzino in nuova finestra)
+                document.getElementById('edit-new-product-btn')?.addEventListener('click', function() {
+                    // Apri magazzino in nuova finestra
+                    const magazzinoWindow = window.open('/magazzino-prodotti.html', 'MagazzinoModal', 'width=1200,height=800,scrollbars=yes');
                     
-                    const codice = prompt('Codice prodotto (opzionale):') || nome.toLowerCase().replace(/\s+/g, '-');
-                    const categoria = prompt('Categoria:') || 'Generale';
-                    
-                    try {
-                        const { data: newProduct, error } = await supabaseClient
-                            .from('components')
-                            .insert({
-                                nome: nome,
-                                codice: codice,
-                                categoria: categoria,
-                                quantita_disponibile: 0
-                            })
-                            .select()
-                            .single();
-                        
-                        if (error) throw error;
-                        
-                        alert('✅ Prodotto aggiunto al magazzino!');
-                        
-                        // Aggiorna lista magazzino in memoria
-                        magazzinoProducts.push(newProduct);
-                        
-                    } catch (error) {
-                        console.error('Error creating product:', error);
-                        alert('❌ Errore: ' + error.message);
-                    }
+                    // Listener per quando il prodotto viene creato
+                    const checkForNewProduct = setInterval(async () => {
+                        try {
+                            // Controlla se la finestra è stata chiusa
+                            if (magazzinoWindow.closed) {
+                                clearInterval(checkForNewProduct);
+                                
+                                // Ricarica prodotti magazzino
+                                const { data: updatedProducts } = await supabaseClient
+                                    .from('components')
+                                    .select('id, nome, codice, categoria, quantita_disponibile, unita_misura')
+                                    .order('nome');
+                                
+                                if (updatedProducts) {
+                                    magazzinoProducts.length = 0;
+                                    magazzinoProducts.push(...updatedProducts);
+                                    console.log('📦 Prodotti magazzino aggiornati:', magazzinoProducts.length);
+                                }
+                            }
+                        } catch (e) {
+                            clearInterval(checkForNewProduct);
+                        }
+                    }, 1000);
                 });
                 
                 // Salva modifiche

@@ -454,6 +454,13 @@
             lucide.createIcons();
             await loadProducts();
             updateStats();
+            
+            // Esponi API globale per altre pagine
+            window.MagazzinoModal = {
+                open: openNewProductModal,
+                close: closeProductModal,
+                onProductCreated: null // Callback da impostare esternamente
+            };
         });
 
         // Load products from database
@@ -1037,16 +1044,24 @@ DHI-NVR4104HS,NVR 4 Canali,Videosorveglianza,Dahua,180.00,4,pz,2,Registratore 4 
             };
 
             try {
+                let savedProduct = null;
                 if (editingProductId) {
                     await window.dataManager.updateComponente(editingProductId, productData);
                     showNotification('Prodotto aggiornato con successo', 'success');
+                    savedProduct = { id: editingProductId, ...productData };
                 } else {
-                    await window.dataManager.saveComponente(productData);
+                    const result = await window.dataManager.saveComponente(productData);
                     showNotification('Prodotto creato con successo', 'success');
+                    savedProduct = result;
                 }
 
                 closeProductModal();
                 await loadProducts();
+                
+                // Chiama callback se impostato (da altre pagine)
+                if (window.MagazzinoModal && window.MagazzinoModal.onProductCreated) {
+                    window.MagazzinoModal.onProductCreated(savedProduct);
+                }
             } catch (error) {
                 console.error('Error saving product:', error);
                 showNotification('Errore durante il salvataggio', 'error');
