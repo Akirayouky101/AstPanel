@@ -1529,7 +1529,7 @@
                                     class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-white hover:border-gray-400 transition-all">
                                 ✖️ Chiudi
                             </button>
-                            <button onclick="document.getElementById('task-view-modal').remove(); openWizardForEdit(${taskId});" 
+                            <button id="edit-task-btn" data-task-id="${taskId}"
                                     class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                                 <i data-lucide="edit-3" class="w-5 h-5"></i>
                                 ✏️ Modifica Lavorazione
@@ -1541,6 +1541,16 @@
                 document.body.appendChild(modal);
                 lucide.createIcons();
                 
+                // Event listener per pulsante modifica
+                const editBtn = document.getElementById('edit-task-btn');
+                if (editBtn) {
+                    editBtn.addEventListener('click', () => {
+                        console.log('✏️ [VIEW] Opening wizard for edit, taskId:', taskId);
+                        document.getElementById('task-view-modal').remove();
+                        openWizardForEdit(taskId);
+                    });
+                }
+                
                 // Event listener per click cliente
                 const clientBtn = document.getElementById('view-client-btn');
                 if (clientBtn && task.client_id) {
@@ -1548,7 +1558,21 @@
                         e.stopPropagation();
                         console.log('👤 [VIEW] Opening client modal for:', task.client_id);
                         document.getElementById('task-view-modal').remove();
+                        
+                        // Apri modale cliente con callback per riaprire lavorazione
                         window.ClientModal.show(task.client_id);
+                        
+                        // Override della close per riaprire la lavorazione
+                        const originalClose = window.ClientModal.close;
+                        window.ClientModal.close = function() {
+                            originalClose.call(window.ClientModal);
+                            // Riapri la lavorazione dopo 100ms
+                            setTimeout(() => {
+                                viewTask(taskId);
+                                // Ripristina close originale
+                                window.ClientModal.close = originalClose;
+                            }, 100);
+                        };
                     });
                 }
                 
