@@ -1632,6 +1632,9 @@
                 
                 console.log('🏪 [EDIT] Magazzino products:', magazzinoProducts);
                 
+                // Salva in variabile globale per la modal nuovo prodotto
+                window.currentEditTaskMagazzinoProducts = magazzinoProducts || [];
+                
                 // Carica clienti
                 const { data: clienti } = await supabaseClient
                     .from('clients')
@@ -2044,34 +2047,9 @@
                     lucide.createIcons();
                 });
                 
-                // Nuovo prodotto (apre pagina magazzino in nuova finestra)
+                // Nuovo prodotto (apre modal magazzino)
                 document.getElementById('edit-new-product-btn')?.addEventListener('click', function() {
-                    // Apri magazzino in nuova finestra
-                    const magazzinoWindow = window.open('/magazzino-prodotti.html', 'MagazzinoModal', 'width=1200,height=800,scrollbars=yes');
-                    
-                    // Listener per quando il prodotto viene creato
-                    const checkForNewProduct = setInterval(async () => {
-                        try {
-                            // Controlla se la finestra è stata chiusa
-                            if (magazzinoWindow.closed) {
-                                clearInterval(checkForNewProduct);
-                                
-                                // Ricarica prodotti magazzino
-                                const { data: updatedProducts } = await supabaseClient
-                                    .from('components')
-                                    .select('id, nome, codice, categoria, quantita_disponibile, unita_misura')
-                                    .order('nome');
-                                
-                                if (updatedProducts) {
-                                    magazzinoProducts.length = 0;
-                                    magazzinoProducts.push(...updatedProducts);
-                                    console.log('📦 Prodotti magazzino aggiornati:', magazzinoProducts.length);
-                                }
-                            }
-                        } catch (e) {
-                            clearInterval(checkForNewProduct);
-                        }
-                    }, 1000);
+                    openWarehouseProductModal();
                 });
                 
                 // Salva modifiche
@@ -3596,10 +3574,195 @@
             lucide.createIcons();
         };
 
-        // Auto-init quando la pagina carica
+        // ===================================
+        // WAREHOUSE PRODUCT MODAL
+        // ===================================
+        function openWarehouseProductModal() {
+            document.getElementById('warehouseProductForm').reset();
+            document.getElementById('warehouseProductModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeWarehouseProductModal() {
+            document.getElementById('warehouseProductModal').classList.add('hidden');
+            document.getElementById('warehouseProductForm').reset();
+        }
+
+        // Handle form submit
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            
+            // Form submit handler
+            document.getElementById('warehouseProductForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const btn = e.submitter;
+                const originalHTML = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
+                lucide.createIcons();
+                
+                try {
+                    const productData = {
+                        nome: document.getElementById('whProductName').value,
+                        codice: document.getElementById('whProductCode').value,
+                        categoria: document.getElementById('whProductCategory').value,
+                        fornitore: document.getElementById('whProductBrand').value || null,
+                        quantita_disponibile: parseFloat(document.getElementById('whProductQuantity').value) || 0,
+                        unita_misura: document.getElementById('whProductUnit').value,
+                        descrizione: document.getElementById('whProductDescription').value || null
+                    };
+                    
+                    const { data: newProduct, error } = await supabaseClient
+                        .from('components')
+                        .insert(productData)
+                        .select()
+                        .single();
+                    
+                    if (error) throw error;
+                    
+                    alert('✅ Prodotto creato con successo!');
+                    closeWarehouseProductModal();
+                    
+                    // Aggiorna lista magazzino in memoria (se aperta dalla modal edit)
+                    if (window.currentEditTaskMagazzinoProducts) {
+                        window.currentEditTaskMagazzinoProducts.push(newProduct);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error saving product:', error);
+                    alert('❌ Errore: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                    lucide.createIcons();
+                }
+            });
         });
     </script>
+
+    <!-- Modal Nuovo Prodotto Magazzino -->
+    <div id="warehouseProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="package" class="w-7 h-7 text-green-600"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
+                        </div>
+                        <button type="button" onclick="closeWarehouseProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Content scrollabile -->
+                <form id="warehouseProductForm" class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <!-- Nome Prodotto -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label for="whProductName" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                            Nome Prodotto *
+                        </label>
+                        <input type="text" id="whProductName" required placeholder="Es: Connettori RJ45" 
+                               class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
+                    </div>
+
+                    <!-- Codice e Categoria -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-xl p-4">
+                            <label for="whProductCode" class="flex items-center gap-2 text-sm font-bold text-purple-700 mb-2">
+                                <i data-lucide="hash" class="w-4 h-4"></i>
+                                Codice Prodotto *
+                            </label>
+                            <input type="text" id="whProductCode" required placeholder="Es: 180.811" 
+                                   class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
+                        </div>
+
+                        <div class="bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-xl p-4">
+                            <label for="whProductCategory" class="flex items-center gap-2 text-sm font-bold text-cyan-700 mb-2">
+                                <i data-lucide="folder" class="w-4 h-4"></i>
+                                Categoria *
+                            </label>
+                            <select id="whProductCategory" required class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium bg-white">
+                                <option value="">Seleziona categoria</option>
+                                <option value="Componentistica">Componentistica</option>
+                                <option value="Materiali">Materiali</option>
+                                <option value="Accessori">Accessori</option>
+                                <option value="Antifurto">Antifurto</option>
+                                <option value="Videosorveglianza">Videosorveglianza</option>
+                                <option value="Rete">Rete</option>
+                                <option value="Altro">Altro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Brand -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
+                        <label for="whProductBrand" class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-2">
+                            <i data-lucide="award" class="w-4 h-4"></i>
+                            Brand / Fornitore
+                        </label>
+                        <input type="text" id="whProductBrand" placeholder="Es: Dahua, Tecnoalarm, Daikin..." 
+                               class="w-full px-4 py-2 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium">
+                    </div>
+
+                    <!-- Quantità e Unità -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                            <label for="whProductQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
+                                <i data-lucide="package-2" class="w-4 h-4"></i>
+                                Quantità *
+                            </label>
+                            <input type="number" id="whProductQuantity" min="0" step="0.01" required value="0" 
+                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
+                        </div>
+
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
+                            <label for="whProductUnit" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
+                                <i data-lucide="ruler" class="w-4 h-4"></i>
+                                Unità di Misura *
+                            </label>
+                            <select id="whProductUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
+                                <option value="pz">Pezzi (pz)</option>
+                                <option value="kg">Kilogrammi (kg)</option>
+                                <option value="m">Metri (m)</option>
+                                <option value="l">Litri (l)</option>
+                                <option value="confezione">Confezione</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Descrizione -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <label for="whProductDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Descrizione
+                        </label>
+                        <textarea id="whProductDescription" rows="2" placeholder="Descrizione dettagliata del prodotto..." 
+                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
+                        <button type="button" onclick="closeWarehouseProductModal()" 
+                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
+                            Annulla
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            Salva Prodotto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
