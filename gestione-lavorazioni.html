@@ -1624,6 +1624,14 @@
                 
                 console.log('📦 [EDIT] Components:', taskComponents);
                 
+                // Carica TUTTI i prodotti dal magazzino
+                const { data: magazzinoProducts } = await supabaseClient
+                    .from('components')
+                    .select('id, nome, codice, categoria, quantita_disponibile, unita_misura')
+                    .order('nome');
+                
+                console.log('🏪 [EDIT] Magazzino products:', magazzinoProducts);
+                
                 // Carica clienti
                 const { data: clienti } = await supabaseClient
                     .from('clients')
@@ -1831,26 +1839,36 @@
                                 
                                 <div id="edit-componenti-list" class="space-y-2">
                                     ${taskComponents && taskComponents.length > 0 ? taskComponents.map(tc => `
-                                        <div class="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3" data-component-id="${tc.id}">
+                                        <div class="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3" data-component-db-id="${tc.id}" data-component-id="${tc.components?.id}">
                                             <div class="flex-1 grid grid-cols-3 gap-2">
-                                                <input type="text" value="${tc.components?.nome || ''}" 
-                                                       class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                                                <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+                                                    <strong>${tc.components?.nome || ''}</strong>
+                                                    ${tc.components?.codice ? `<span class="text-gray-500 text-xs ml-2">${tc.components.codice}</span>` : ''}
+                                                </div>
                                                 <input type="number" value="${tc.quantita || 1}" min="1"
-                                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                                                       placeholder="Q.tà">
                                             </div>
-                                            <button type="button" onclick="this.closest('[data-component-id]').remove()"
+                                            <button type="button" onclick="this.closest('[data-component-db-id]').remove()"
                                                     class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
                                                 <i data-lucide="x" class="w-4 h-4"></i>
                                             </button>
                                         </div>
-                                    `).join('') : '<p class="text-gray-500 text-sm italic">Nessun componente assegnato</p>'}
+                                    `).join('') : '<p id="no-components-msg" class="text-gray-500 text-sm italic">Nessun componente assegnato</p>'}
                                 </div>
                                 
-                                <button type="button" id="edit-add-componente-btn"
-                                        class="w-full px-4 py-2 border-2 border-dashed border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 flex items-center justify-center gap-2">
-                                    <i data-lucide="plus" class="w-4 h-4"></i>
-                                    Aggiungi Componente
-                                </button>
+                                <div class="flex gap-2">
+                                    <button type="button" id="edit-add-componente-btn"
+                                            class="flex-1 px-4 py-2 border-2 border-dashed border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 flex items-center justify-center gap-2">
+                                        <i data-lucide="plus" class="w-4 h-4"></i>
+                                        Aggiungi da Magazzino
+                                    </button>
+                                    <button type="button" id="edit-new-product-btn"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+                                        <i data-lucide="package-plus" class="w-4 h-4"></i>
+                                        Nuovo Prodotto
+                                    </button>
+                                </div>
                             </div>
                         </form>
                         
@@ -1957,17 +1975,32 @@
                     lucide.createIcons();
                 });
                 
-                // Aggiungi componente
+                // Aggiungi componente da magazzino
                 document.getElementById('edit-add-componente-btn')?.addEventListener('click', function() {
                     const container = document.getElementById('edit-componenti-list');
                     
-                    const componenteDiv = document.createElement('div');
-                    componenteDiv.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
-                    componenteDiv.innerHTML = `
+                    // Rimuovi messaggio "nessun componente" se presente
+                    const noMsg = container.querySelector('#no-components-msg');
+                    if (noMsg) noMsg.remove();
+                    
+                    // Crea dropdown per selezione prodotto
+                    const selectDiv = document.createElement('div');
+                    selectDiv.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
+                    selectDiv.innerHTML = `
                         <div class="flex-1 grid grid-cols-3 gap-2">
-                            <input type="text" placeholder="Nome componente..." 
-                                   class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
-                            <input type="number" placeholder="Quantità" min="1" value="1"
+                            <select class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                                <option value="">Seleziona prodotto da magazzino...</option>
+                                ${magazzinoProducts?.filter(p => {
+                                    // Escludi già selezionati
+                                    const selected = Array.from(container.querySelectorAll('[data-component-id]')).map(el => el.dataset.componentId);
+                                    return !selected.includes(p.id);
+                                }).map(p => `
+                                    <option value="${p.id}" data-nome="${p.nome}" data-codice="${p.codice || ''}">
+                                        ${p.nome} ${p.codice ? `(${p.codice})` : ''} - Disp: ${p.quantita_disponibile} ${p.unita_misura}
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <input type="number" placeholder="Q.tà" min="1" value="1"
                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
                         </div>
                         <button type="button" onclick="this.closest('div').remove()"
@@ -1976,8 +2009,72 @@
                         </button>
                     `;
                     
-                    container.appendChild(componenteDiv);
+                    const select = selectDiv.querySelector('select');
+                    select.addEventListener('change', function() {
+                        if (!this.value) return;
+                        
+                        const selectedOption = this.options[this.selectedIndex];
+                        const productId = this.value;
+                        const productName = selectedOption.dataset.nome;
+                        const productCode = selectedOption.dataset.codice;
+                        const quantita = selectDiv.querySelector('input[type="number"]').value;
+                        
+                        // Converti in card fissa
+                        selectDiv.setAttribute('data-component-id', productId);
+                        selectDiv.innerHTML = `
+                            <div class="flex-1 grid grid-cols-3 gap-2">
+                                <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+                                    <strong>${productName}</strong>
+                                    ${productCode ? `<span class="text-gray-500 text-xs ml-2">${productCode}</span>` : ''}
+                                </div>
+                                <input type="number" value="${quantita}" min="1"
+                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                                       placeholder="Q.tà">
+                            </div>
+                            <button type="button" onclick="this.closest('[data-component-id]').remove()"
+                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        `;
+                        
+                        lucide.createIcons();
+                    });
+                    
+                    container.appendChild(selectDiv);
                     lucide.createIcons();
+                });
+                
+                // Nuovo prodotto (apre modal veloce)
+                document.getElementById('edit-new-product-btn')?.addEventListener('click', async function() {
+                    const nome = prompt('Nome prodotto:');
+                    if (!nome) return;
+                    
+                    const codice = prompt('Codice prodotto (opzionale):') || nome.toLowerCase().replace(/\s+/g, '-');
+                    const categoria = prompt('Categoria:') || 'Generale';
+                    
+                    try {
+                        const { data: newProduct, error } = await supabaseClient
+                            .from('components')
+                            .insert({
+                                nome: nome,
+                                codice: codice,
+                                categoria: categoria,
+                                quantita_disponibile: 0
+                            })
+                            .select()
+                            .single();
+                        
+                        if (error) throw error;
+                        
+                        alert('✅ Prodotto aggiunto al magazzino!');
+                        
+                        // Aggiorna lista magazzino in memoria
+                        magazzinoProducts.push(newProduct);
+                        
+                    } catch (error) {
+                        console.error('Error creating product:', error);
+                        alert('❌ Errore: ' + error.message);
+                    }
                 });
                 
                 // Salva modifiche
@@ -2052,43 +2149,15 @@
                             .delete()
                             .eq('task_id', taskId);
                         
-                        // Poi salva i nuovi (per semplicità, creo nuovi record components per ogni nome)
-                        const componentInputs = document.querySelectorAll('#edit-componenti-list > div:not(.hidden)');
+                        // Poi salva i nuovi componenti dal magazzino
+                        const componentDivs = document.querySelectorAll('#edit-componenti-list [data-component-id]');
                         
-                        for (const compDiv of componentInputs) {
-                            const inputs = compDiv.querySelectorAll('input');
-                            if (inputs.length < 2) continue;
+                        for (const compDiv of componentDivs) {
+                            const componentId = compDiv.dataset.componentId;
+                            if (!componentId) continue;
                             
-                            const nomeComp = inputs[0].value.trim();
-                            const quantita = parseInt(inputs[1].value) || 1;
-                            
-                            if (!nomeComp) continue;
-                            
-                            // Cerca o crea componente
-                            let { data: existingComp } = await supabaseClient
-                                .from('components')
-                                .select('id')
-                                .eq('nome', nomeComp)
-                                .single();
-                            
-                            let componentId;
-                            
-                            if (existingComp) {
-                                componentId = existingComp.id;
-                            } else {
-                                // Crea nuovo componente
-                                const { data: newComp, error: compError } = await supabaseClient
-                                    .from('components')
-                                    .insert({ nome: nomeComp, codice: nomeComp.toLowerCase().replace(/\s+/g, '-') })
-                                    .select('id')
-                                    .single();
-                                
-                                if (compError) {
-                                    console.error('Error creating component:', compError);
-                                    continue;
-                                }
-                                componentId = newComp.id;
-                            }
+                            const quantitaInput = compDiv.querySelector('input[type="number"]');
+                            const quantita = parseInt(quantitaInput?.value) || 1;
                             
                             // Inserisci task_component
                             await supabaseClient
