@@ -925,25 +925,57 @@ class TaskWizard {
                 categoria: this.wizardData.categoria,
                 ore_stimate: this.wizardData.ore_stimate,
                 costo_stimato: this.wizardData.costo_stimato,
-                indirizzo_lavoro: this.wizardData.indirizzo_lavoro,
-                stato: 'da_fare',
+                stato: this.wizardData.stato || 'da_fare',
                 wizard_completed: true
             };
 
-            console.log('💾 [WIZARD] Inserimento task nel DB:', taskData);
+            let task;
+            
+            // CHECK se è UPDATE o INSERT
+            if (this.wizardData.id) {
+                console.log('🔄 [WIZARD] UPDATE task esistente, ID:', this.wizardData.id);
+                
+                // Prima elimina assegnazioni vecchie
+                if (this.wizardData.tipo_assegnazione === 'multi') {
+                    await supabaseClient
+                        .from('task_assignments')
+                        .delete()
+                        .eq('task_id', this.wizardData.id);
+                    console.log('🗑️ [WIZARD] Assegnazioni vecchie eliminate');
+                }
+                
+                const { data: updatedTask, error: updateError } = await supabaseClient
+                    .from('tasks')
+                    .update(taskData)
+                    .eq('id', this.wizardData.id)
+                    .select()
+                    .single();
 
-            const { data: task, error: taskError } = await supabaseClient
-                .from('tasks')
-                .insert([taskData])
-                .select()
-                .single();
+                if (updateError) {
+                    console.error('❌ [WIZARD] Errore update task:', updateError);
+                    throw updateError;
+                }
+                
+                task = updatedTask;
+                console.log('✅ [WIZARD] Task aggiornato con ID:', task.id);
+                
+            } else {
+                console.log('💾 [WIZARD] INSERT nuovo task');
+                
+                const { data: newTask, error: insertError } = await supabaseClient
+                    .from('tasks')
+                    .insert([taskData])
+                    .select()
+                    .single();
 
-            if (taskError) {
-                console.error('❌ [WIZARD] Errore inserimento task:', taskError);
-                throw taskError;
+                if (insertError) {
+                    console.error('❌ [WIZARD] Errore inserimento task:', insertError);
+                    throw insertError;
+                }
+                
+                task = newTask;
+                console.log('✅ [WIZARD] Task creato con ID:', task.id);
             }
-
-            console.log('✅ [WIZARD] Task creato con ID:', task.id);
 
             // Salva assegnazioni multiple se tipo 'multi'
             if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
@@ -984,7 +1016,7 @@ class TaskWizard {
             }
 
             console.log('🎉 [WIZARD] Lavorazione completata! Mostrando alert...');
-            alert('✅ Lavorazione creata con successo!');
+            alert(this.wizardData.id ? '✅ Lavorazione aggiornata con successo!' : '✅ Lavorazione creata con successo!');
             
             console.log('🔄 [WIZARD] Chiudendo wizard...');
             this.closeWizard();
