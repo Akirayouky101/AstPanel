@@ -438,111 +438,126 @@
             const form = document.getElementById('userForm');
             const formData = new FormData(form);
             
-            const userData = {
-                nome: formData.get('fullName').split(' ')[0] || formData.get('fullName'),
-                cognome: formData.get('fullName').split(' ').slice(1).join(' ') || '',
-                email: formData.get('email'),
-                ruolo: formData.get('role'),
-                telefono: formData.get('phone'),
-                reparto: formData.get('department'),
-                active: formData.get('active') === 'on'
-            };
+            const nome = formData.get('fullName').split(' ')[0] || formData.get('fullName');
+            const cognome = formData.get('fullName').split(' ').slice(1).join(' ') || '';
+            const email = formData.get('email').trim().toLowerCase();
+            const ruolo = formData.get('role');
+            const telefono = formData.get('phone');
+            const reparto = formData.get('department');
 
             // Validation
-            if (!userData.nome || !userData.email || !userData.ruolo) {
+            if (!nome || !email || !ruolo) {
                 showNotification('Errore', 'Compila tutti i campi obbligatori', 'error');
                 return;
             }
 
             // Valida formato email
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(userData.email)) {
+            if (!emailRegex.test(email)) {
                 showNotification('Errore', 'Formato email non valido', 'error');
                 return;
             }
 
             try {
                 if (editingUserId) {
-                    // Update existing user
-                    const { error } = await window.supabase
-                        .from('utenti')
-                        .update(userData)
+                    // Update existing user - SOLO DATABASE, no auth changes
+                    const { error } = await window.supabaseAdmin
+                        .from('users')
+                        .update({
+                            nome: nome,
+                            cognome: cognome,
+                            email: email,
+                            ruolo: ruolo,
+                            telefono: telefono,
+                            reparto: reparto
+                        })
                         .eq('id', editingUserId);
                     
                     if (error) throw error;
                     
+                    closeUserModal();
+                    loadUsers();
+                    updateStatistics();
                     showNotification('Successo', 'Utente aggiornato con successo', 'success');
+                    
                 } else {
-                    // Genera password temporanea (8 caratteri alfanumerici)
+                    // ============================================
+                    // NUOVO UTENTE - USA LOGICA DI FIRST-SETUP
+                    // ============================================
+                    
+                    // Genera password temporanea
                     const tempPassword = generateTemporaryPassword();
                     
                     // Crea utente nel database
-                    const { data: newUser, error: insertError } = await window.supabase
-                        .from('users')  // Schema inglese
-                        .insert([{
-                            ...userData,
-                            first_login: true
-                        }])
-                        .select()
+                    const { data: newUser, error: insertError} = await window.supabase
+                        .from('users')
+                        .insert({
+                            nome: nome,
+                            cognome: cognome,
+                            email: email,
+                            ruolo: ruolo,
+                            telefono: telefono || null,
+                            reparto: reparto || null,
+                            first_login: true,
+                            stato: 'attivo'
+                        })
+                        .select('*')
                         .single();
                     
-                    if (insertError) throw insertError;
+                    if (insertError) {
+                        console.error('Errore insert:', insertError);
+                        throw insertError;
+                    }
                     
                     // Crea credenziali Supabase Auth usando client ADMIN
-                    try {
-                        const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
-                            email: userData.email,
-                            password: tempPassword,
-                            email_confirm: true,
-                            user_metadata: {
-                                nome: userData.nome,
-                                cognome: userData.cognome,
-                                ruolo: userData.ruolo
-                            }
-                        });
-                        
-                        if (authError) throw authError;
-                        
-                        // Aggiorna utente con auth_id (usa admin per bypassare RLS)
-                        const { error: updateError } = await window.supabaseAdmin
-                            .from('users')  // Schema inglese
-                            .update({ auth_id: authUser.user.id })
-                            .eq('id', newUser.id);
-                        
-                        if (updateError) throw updateError;
-                        
-                        console.log('✅ [CREATE USER] User created successfully:', newUser.id);
-                        console.log('✅ [CREATE USER] Auth ID linked:', authUser.user.id);
-                        console.log('🔐 [CREATE USER] Temporary password generated:', tempPassword);
-                        
-                        // Chiudi il form di creazione utente PRIMA di mostrare la modale password
-                        closeUserModal();
-                        loadUsers();
-                        updateStatistics();
-                        
-                        console.log('📋 [CREATE USER] About to show password modal...');
-                        // Mostra password temporanea all'admin
-                        showTemporaryPasswordModal(userData.email, tempPassword);
-                        
-                    } catch (authError) {
-                        // Se fallisce creazione auth, elimina utente dal DB (usa admin)
+                    console.log('Tentativo creazione utente auth...');
+                    
+                    const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
+                        email: email,
+                        password: tempPassword,
+                        email_confirm: true,
+                        user_metadata: {
+                            nome: nome,
+                            cognome: cognome,
+                            ruolo: ruolo
+                        }
+                    });
+                    
+                    if (authError) {
+                        // Se fallisce creazione auth, elimina utente dal DB
                         await window.supabaseAdmin
-                            .from('users')  // Schema inglese
+                            .from('users')
                             .delete()
                             .eq('id', newUser.id);
-                        
                         throw new Error(`Errore creazione credenziali: ${authError.message}`);
                     }
                     
-                    // Non chiudere qui per nuovo utente, già fatto sopra
-                    return;
+                    // Aggiorna utente con auth_id
+                    const { error: updateError } = await window.supabaseAdmin
+                        .from('users')
+                        .update({ auth_id: authUser.user.id })
+                        .eq('id', newUser.id);
+                    
+                    if (updateError) throw updateError;
+                    
+                    console.log('✅ [CREATE USER] User created successfully:', newUser.id);
+                    console.log('✅ [CREATE USER] Auth ID linked:', authUser.user.id);
+                    console.log('🔐 [CREATE USER] Temporary password generated:', tempPassword);
+                    
+                    // Chiudi il form di creazione utente PRIMA di mostrare la modale password
+                    closeUserModal();
+                    loadUsers();
+                    updateStatistics();
+                    
+                    console.log('📋 [CREATE USER] About to show password modal...');
+                    // Mostra password temporanea all'admin
+                    showTemporaryPasswordModal(email, tempPassword);
+                    
+                    return; // Non continuare oltre per CREATE
                 }
-
-                // Solo per UPDATE utente esistente
-                closeUserModal();
-                loadUsers();
-                updateStatistics();
-                showNotification('Successo', 'Utente aggiornato con successo', 'success');
+                
+                // Se arrivi qui, è UPDATE - già gestito sopra con return
+                // Questo codice non dovrebbe mai essere raggiunto
                 
             } catch (error) {
                 console.error('Errore salvataggio utente:', error);
