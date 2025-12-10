@@ -33,7 +33,18 @@ window.AuthHelper = {
     async loadCurrentUser() {
         try {
             console.log('📥 loadCurrentUser() chiamato');
-            const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
+            
+            // Timeout per debug
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('TIMEOUT dopo 5 secondi')), 5000)
+            );
+            
+            const sessionPromise = window.supabase.auth.getSession();
+            
+            const { data: { session }, error: sessionError } = await Promise.race([
+                sessionPromise,
+                timeoutPromise
+            ]);
             
             console.log('Session:', session ? '✅ Presente' : '❌ Assente');
             
@@ -46,11 +57,14 @@ window.AuthHelper = {
             console.log('🔍 Cercando utente con auth_id:', session.user.id);
             
             // Recupera dati utente dal database
+            console.log('⏳ Eseguendo query users...');
             const { data: userData, error: userError } = await window.supabase
                 .from('users')
                 .select('*')
                 .eq('auth_id', session.user.id)
                 .single();
+
+            console.log('📊 Query completata. Data:', userData, 'Error:', userError);
 
             if (userError) {
                 console.error('❌ Errore recupero utente:', userError);
