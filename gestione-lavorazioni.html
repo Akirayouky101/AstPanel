@@ -1584,50 +1584,386 @@
             }
         }
 
-        // Apre wizard in modalità modifica
+        // ===================================
+        // EDIT TASK - MODALE MODIFICA COMPLETA
+        // ===================================
+        
         async function openWizardForEdit(taskId) {
-            console.log('✏️ [EDIT] Opening wizard for task:', taskId);
+            console.log('✏️ [EDIT] Opening edit modal for task:', taskId);
             
             try {
                 const tasks = await window.dataManager.getLavorazioni();
                 const task = tasks.find(t => t.id === taskId);
-                if (!task) return;
+                if (!task) {
+                    console.error('❌ [EDIT] Task not found:', taskId);
+                    return;
+                }
+                
+                console.log('✅ [EDIT] Task loaded:', task);
                 
                 // Carica assegnazioni multiple
                 const { data: multiAssignments } = await supabaseClient
                     .from('task_assignments')
-                    .select('user_id, ruolo_assegnazione, ore_assegnate')
+                    .select(`
+                        user_id,
+                        ruolo_assegnazione,
+                        ore_assegnate
+                    `)
                     .eq('task_id', taskId);
                 
-                // Popola wizardData con i dati esistenti
-                window.taskWizard.wizardData = {
-                    id: task.id,  // Salva ID per UPDATE
-                    titolo: task.titolo || task.title,
-                    cliente_id: task.client_id,
-                    descrizione: task.descrizione || task.description,
-                    priorita: task.priorita || task.priority || 'media',
-                    scadenza: task.scadenza || task.deadline,
-                    categoria: task.categoria || '',
-                    tags: task.tags || [],
-                    ore_stimate: task.ore_stimate || 0,
-                    costo_stimato: task.costo_stimato || 0,
-                    indirizzo_lavoro: task.indirizzo_lavoro || '',
-                    coordinate_gps: task.coordinate_gps || null,
-                    componenti: [],
-                    tipo_assegnazione: multiAssignments?.length > 0 ? 'multi' : (task.assigned_team_id ? 'team' : 'user'),
-                    assigned_user_id: task.assigned_user_id,
-                    assigned_team_id: task.assigned_team_id,
-                    assigned_users: multiAssignments || []
-                };
+                // Carica clienti
+                const { data: clienti } = await supabaseClient
+                    .from('clients')
+                    .select('id, ragione_sociale')
+                    .order('ragione_sociale');
                 
-                // Apre il wizard
-                await window.taskWizard.iniziaWizard();
+                // Carica utenti
+                const { data: utenti } = await supabaseClient
+                    .from('users')
+                    .select('id, nome, cognome, ruolo')
+                    .order('nome');
                 
-                console.log('✅ [EDIT] Wizard opened with data:', window.taskWizard.wizardData);
+                // Determina tipo assegnazione
+                let tipoAssegnazione = 'single';
+                let selectedUsers = [];
+                
+                if (multiAssignments && multiAssignments.length > 0) {
+                    tipoAssegnazione = 'multi';
+                    selectedUsers = multiAssignments;
+                } else if (task.assigned_team_id) {
+                    tipoAssegnazione = 'team';
+                }
+                
+                // Crea modale
+                const modal = document.createElement('div');
+                modal.id = 'edit-task-modal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        <!-- Header -->
+                        <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-t-2xl">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-2xl font-bold text-white">✏️ Modifica Lavorazione</h2>
+                                <button onclick="document.getElementById('edit-task-modal').remove()" 
+                                        class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg">
+                                    <i data-lucide="x" class="w-6 h-6"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Form -->
+                        <form id="edit-task-form" class="p-6 space-y-6">
+                            <!-- Dati Base -->
+                            <div class="space-y-4">
+                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                    <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+                                    Informazioni Base
+                                </h3>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Titolo *</label>
+                                        <input type="text" id="edit-titolo" value="${task.titolo || task.title || ''}" required
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+                                        <select id="edit-cliente" required
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                            <option value="">Seleziona cliente...</option>
+                                            ${clienti?.map(c => `
+                                                <option value="${c.id}" ${c.id === task.client_id ? 'selected' : ''}>
+                                                    ${c.ragione_sociale}
+                                                </option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Priorità *</label>
+                                        <select id="edit-priorita" required
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                            <option value="bassa" ${task.priorita === 'bassa' ? 'selected' : ''}>🟢 Bassa</option>
+                                            <option value="media" ${task.priorita === 'media' ? 'selected' : ''}>🟡 Media</option>
+                                            <option value="alta" ${task.priorita === 'alta' ? 'selected' : ''}>🔴 Alta</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Scadenza *</label>
+                                        <input type="date" id="edit-scadenza" value="${task.scadenza || task.deadline || ''}" required
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                                        <select id="edit-stato"
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                            <option value="da_fare" ${task.stato === 'da_fare' ? 'selected' : ''}>Da Fare</option>
+                                            <option value="in_corso" ${task.stato === 'in_corso' ? 'selected' : ''}>In Corso</option>
+                                            <option value="completato" ${task.stato === 'completato' ? 'selected' : ''}>Completato</option>
+                                            <option value="sospeso" ${task.stato === 'sospeso' ? 'selected' : ''}>Sospeso</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+                                        <textarea id="edit-descrizione" rows="3"
+                                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">${task.descrizione || task.description || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Assegnazioni -->
+                            <div class="space-y-4">
+                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                    <i data-lucide="users" class="w-5 h-5 text-purple-600"></i>
+                                    Assegnazione Team
+                                </h3>
+                                
+                                <div class="flex gap-4 mb-4">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="edit-tipo-assegnazione" value="single" ${tipoAssegnazione === 'single' ? 'checked' : ''}
+                                               class="text-purple-600 focus:ring-purple-500">
+                                        <span class="text-sm font-medium">Utente Singolo</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="edit-tipo-assegnazione" value="multi" ${tipoAssegnazione === 'multi' ? 'checked' : ''}
+                                               class="text-purple-600 focus:ring-purple-500">
+                                        <span class="text-sm font-medium">Multi-Utente</span>
+                                    </label>
+                                </div>
+                                
+                                <!-- Singolo -->
+                                <div id="edit-single-container" class="${tipoAssegnazione === 'single' ? '' : 'hidden'}">
+                                    <select id="edit-utente-singolo"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                        <option value="">Seleziona utente...</option>
+                                        ${utenti?.map(u => `
+                                            <option value="${u.id}" ${u.id === task.assigned_user_id ? 'selected' : ''}>
+                                                ${u.nome} ${u.cognome} (${u.ruolo})
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                
+                                <!-- Multi -->
+                                <div id="edit-multi-container" class="${tipoAssegnazione === 'multi' ? '' : 'hidden'}">
+                                    <div id="edit-selected-users" class="space-y-2 mb-3">
+                                        ${selectedUsers.map(a => {
+                                            const user = utenti?.find(u => u.id === a.user_id);
+                                            if (!user) return '';
+                                            return `
+                                                <div class="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3" data-user-id="${user.id}">
+                                                    <div class="flex items-center gap-3">
+                                                        <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
+                                                            ${user.nome[0]}${user.cognome[0]}
+                                                        </div>
+                                                        <div>
+                                                            <div class="font-semibold">${user.nome} ${user.cognome}</div>
+                                                            <div class="text-xs text-gray-600">${user.ruolo}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" onclick="this.closest('[data-user-id]').remove()"
+                                                            class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            `;
+                                        }).join('') || '<p class="text-gray-500 text-sm italic">Nessun utente selezionato</p>'}
+                                    </div>
+                                    <button type="button" id="edit-add-user-btn"
+                                            class="w-full px-4 py-2 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50">
+                                        + Aggiungi Utente
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Dettagli Tecnici -->
+                            <div class="space-y-4">
+                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                    <i data-lucide="wrench" class="w-5 h-5 text-green-600"></i>
+                                    Dettagli Tecnici
+                                </h3>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Ore Stimate</label>
+                                        <input type="number" id="edit-ore" value="${task.ore_stimate || 0}" min="0" step="0.5"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Costo Stimato (€)</label>
+                                        <input type="number" id="edit-costo" value="${task.costo_stimato || 0}" min="0" step="0.01"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- Footer -->
+                        <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl border-t flex justify-between">
+                            <button onclick="document.getElementById('edit-task-modal').remove()"
+                                    class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-white">
+                                Annulla
+                            </button>
+                            <button id="save-edit-btn" type="button"
+                                    class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 shadow-lg">
+                                💾 Salva Modifiche
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                lucide.createIcons();
+                
+                // Toggle tipo assegnazione
+                document.querySelectorAll('input[name="edit-tipo-assegnazione"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        const tipo = e.target.value;
+                        document.getElementById('edit-single-container').classList.toggle('hidden', tipo !== 'single');
+                        document.getElementById('edit-multi-container').classList.toggle('hidden', tipo !== 'multi');
+                    });
+                });
+                
+                // Aggiungi utente al multi
+                document.getElementById('edit-add-user-btn')?.addEventListener('click', () => {
+                    const container = document.getElementById('edit-selected-users');
+                    const select = document.createElement('select');
+                    select.className = 'w-full px-4 py-2 border border-gray-300 rounded-lg mb-2';
+                    select.innerHTML = `
+                        <option value="">Seleziona utente...</option>
+                        ${utenti?.filter(u => {
+                            // Escludi già selezionati
+                            const selected = Array.from(container.querySelectorAll('[data-user-id]')).map(el => el.dataset.userId);
+                            return !selected.includes(u.id);
+                        }).map(u => `<option value="${u.id}">${u.nome} ${u.cognome} (${u.ruolo})</option>`).join('')}
+                    `;
+                    
+                    select.addEventListener('change', (e) => {
+                        const userId = e.target.value;
+                        if (!userId) return;
+                        
+                        const user = utenti?.find(u => u.id === userId);
+                        if (!user) return;
+                        
+                        const userCard = document.createElement('div');
+                        userCard.className = 'flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3';
+                        userCard.dataset.userId = user.id;
+                        userCard.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
+                                    ${user.nome[0]}${user.cognome[0]}
+                                </div>
+                                <div>
+                                    <div class="font-semibold">${user.nome} ${user.cognome}</div>
+                                    <div class="text-xs text-gray-600">${user.ruolo}</div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="this.closest('[data-user-id]').remove()"
+                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        `;
+                        
+                        container.appendChild(userCard);
+                        select.remove();
+                        lucide.createIcons();
+                    });
+                    
+                    container.appendChild(select);
+                });
+                
+                // Salva modifiche
+                document.getElementById('save-edit-btn')?.addEventListener('click', async () => {
+                    try {
+                        const btn = document.getElementById('save-edit-btn');
+                        btn.disabled = true;
+                        btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
+                        lucide.createIcons();
+                        
+                        const tipoAssegnazione = document.querySelector('input[name="edit-tipo-assegnazione"]:checked').value;
+                        
+                        const taskData = {
+                            titolo: document.getElementById('edit-titolo').value,
+                            descrizione: document.getElementById('edit-descrizione').value,
+                            client_id: document.getElementById('edit-cliente').value,
+                            priorita: document.getElementById('edit-priorita').value,
+                            scadenza: document.getElementById('edit-scadenza').value,
+                            stato: document.getElementById('edit-stato').value,
+                            ore_stimate: parseFloat(document.getElementById('edit-ore').value) || 0,
+                            costo_stimato: parseFloat(document.getElementById('edit-costo').value) || 0,
+                            assigned_user_id: tipoAssegnazione === 'single' ? document.getElementById('edit-utente-singolo').value : null,
+                            assigned_team_id: null
+                        };
+                        
+                        // Update task
+                        const { error: updateError } = await supabaseClient
+                            .from('tasks')
+                            .update(taskData)
+                            .eq('id', taskId);
+                        
+                        if (updateError) throw updateError;
+                        
+                        // Gestisci assegnazioni multiple
+                        if (tipoAssegnazione === 'multi') {
+                            // Elimina vecchie
+                            await supabaseClient
+                                .from('task_assignments')
+                                .delete()
+                                .eq('task_id', taskId);
+                            
+                            // Inserisci nuove
+                            const selectedUserIds = Array.from(document.querySelectorAll('#edit-selected-users [data-user-id]'))
+                                .map(el => el.dataset.userId);
+                            
+                            if (selectedUserIds.length > 0) {
+                                // Assegna anche il primo al campo singolo per constraint
+                                await supabaseClient
+                                    .from('tasks')
+                                    .update({ assigned_user_id: selectedUserIds[0] })
+                                    .eq('id', taskId);
+                                
+                                const assignments = selectedUserIds.map(userId => ({
+                                    task_id: taskId,
+                                    user_id: userId,
+                                    ruolo_assegnazione: 'membro',
+                                    ore_assegnate: 0
+                                }));
+                                
+                                const { error: assignError } = await supabaseClient
+                                    .from('task_assignments')
+                                    .insert(assignments);
+                                
+                                if (assignError) throw assignError;
+                            }
+                        }
+                        
+                        alert('✅ Lavorazione aggiornata con successo!');
+                        document.getElementById('edit-task-modal').remove();
+                        
+                        // Ricarica lista
+                        if (typeof loadTasks === 'function') {
+                            loadTasks();
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ [EDIT] Save error:', error);
+                        alert('❌ Errore durante il salvataggio: ' + error.message);
+                        const btn = document.getElementById('save-edit-btn');
+                        btn.disabled = false;
+                        btn.innerHTML = '💾 Salva Modifiche';
+                    }
+                });
+                
+                console.log('✅ [EDIT] Modal displayed');
                 
             } catch (error) {
                 console.error('❌ [EDIT] Error:', error);
-                alert('Errore nell\'apertura del wizard');
+                alert('Errore nell\'apertura della modale di modifica');
             }
         }
 
