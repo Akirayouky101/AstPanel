@@ -566,21 +566,19 @@
             
             console.log('✅ [INIT] Inizializzazione admin completata!');
             
-            // Aspetta che tutto sia renderizzato e poi crea icone Lucide
-            // Chiamata multipla per sicurezza
-            setTimeout(() => {
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                    console.log('✅ [ICONS] Icone Lucide create (first pass)');
-                }
-            }, 200);
+            // Crea icone Lucide - prima chiamata immediata
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+                console.log('✅ [ICONS] Icone Lucide create (immediate)');
+            }
             
+            // Chiamate ritardate per icone caricate dinamicamente
             setTimeout(() => {
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
-                    console.log('✅ [ICONS] Icone Lucide create (second pass)');
+                    console.log('✅ [ICONS] Icone Lucide create (delayed)');
                 }
-            }, 500);
+            }, 300);
 
             // Imposta date filtro al mese corrente
             const now = new Date();
@@ -796,6 +794,11 @@
                     
                     container.appendChild(card);
                 });
+                
+                // Crea icone Lucide dopo aver aggiunto tutte le card
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
 
             } catch (err) {
                 console.error('Errore loadLiveStatus:', err);
