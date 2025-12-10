@@ -511,6 +511,11 @@
                         
                         if (updateError) throw updateError;
                         
+                        // Chiudi il form di creazione utente PRIMA di mostrare la modale password
+                        closeUserModal();
+                        loadUsers();
+                        updateStatistics();
+                        
                         // Mostra password temporanea all'admin
                         showTemporaryPasswordModal(userData.email, tempPassword);
                         
@@ -524,12 +529,15 @@
                         throw new Error(`Errore creazione credenziali: ${authError.message}`);
                     }
                     
-                    showNotification('Successo', 'Nuovo utente creato con successo', 'success');
+                    // Non chiudere qui per nuovo utente, già fatto sopra
+                    return;
                 }
 
+                // Solo per UPDATE utente esistente
                 closeUserModal();
                 loadUsers();
                 updateStatistics();
+                showNotification('Successo', 'Utente aggiornato con successo', 'success');
                 
             } catch (error) {
                 console.error('Errore salvataggio utente:', error);
