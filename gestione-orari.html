@@ -564,7 +564,12 @@
             console.log('📊 [DATA] Caricamento dati orari...');
             await loadData();
             
-            lucide.createIcons();
+            // Aspetta che Font Awesome sia pronto e poi crea icone Lucide
+            setTimeout(() => {
+                lucide.createIcons();
+                console.log('✅ [INIT] Icone Lucide create');
+            }, 100);
+            
             console.log('✅ [INIT] Inizializzazione admin completata!');
 
             // Imposta date filtro al mese corrente
@@ -644,11 +649,11 @@
             try {
                 const today = new Date().toISOString().split('T')[0];
                 
-                // Carica TUTTI i dipendenti (non admin)
+                // Carica TUTTI i dipendenti (solo ruolo Dipendente, esclusi admin)
                 const { data: allEmployees, error: empError } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
-                    .not('ruolo', 'in', '("Titolare","Amministratore")')
+                    .eq('ruolo', 'Dipendente')
                     .order('cognome');
 
                 if (empError) {
@@ -781,8 +786,11 @@
                     
                     container.appendChild(card);
                 });
-
-                lucide.createIcons();
+                
+                // Ricrea le icone Lucide dopo aver aggiunto le card
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
 
             } catch (err) {
                 console.error('Errore loadLiveStatus:', err);
