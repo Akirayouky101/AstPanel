@@ -1432,7 +1432,7 @@
                                     <h2 class="text-3xl font-bold text-white mb-3">${task.titolo || task.title}</h2>
                                     <div class="flex flex-wrap items-center gap-3">
                                         <!-- Cliente CLICCABILE -->
-                                        <button onclick="event.stopPropagation(); document.getElementById('task-view-modal').remove(); showClientModal(${task.client_id});" 
+                                        <button id="view-client-btn" data-client-id="${task.client_id}"
                                                 class="flex items-center gap-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg transition-all">
                                             <i data-lucide="building-2" class="w-4 h-4 text-white"></i>
                                             <span class="text-white font-medium">${clienteNome}</span>
@@ -1540,6 +1540,17 @@
                 
                 document.body.appendChild(modal);
                 lucide.createIcons();
+                
+                // Event listener per click cliente
+                const clientBtn = document.getElementById('view-client-btn');
+                if (clientBtn && task.client_id) {
+                    clientBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        console.log('👤 [VIEW] Opening client modal for:', task.client_id);
+                        document.getElementById('task-view-modal').remove();
+                        window.ClientModal.show(task.client_id);
+                    });
+                }
                 
                 console.log('✅ [VIEW] Modal displayed');
                 
