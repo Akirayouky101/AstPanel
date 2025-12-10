@@ -564,13 +564,23 @@
             console.log('📊 [DATA] Caricamento dati orari...');
             await loadData();
             
-            // Aspetta che Font Awesome sia pronto e poi crea icone Lucide
-            setTimeout(() => {
-                lucide.createIcons();
-                console.log('✅ [INIT] Icone Lucide create');
-            }, 100);
-            
             console.log('✅ [INIT] Inizializzazione admin completata!');
+            
+            // Aspetta che tutto sia renderizzato e poi crea icone Lucide
+            // Chiamata multipla per sicurezza
+            setTimeout(() => {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                    console.log('✅ [ICONS] Icone Lucide create (first pass)');
+                }
+            }, 200);
+            
+            setTimeout(() => {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                    console.log('✅ [ICONS] Icone Lucide create (second pass)');
+                }
+            }, 500);
 
             // Imposta date filtro al mese corrente
             const now = new Date();
@@ -786,11 +796,6 @@
                     
                     container.appendChild(card);
                 });
-                
-                // Ricrea le icone Lucide dopo aver aggiunto le card
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
 
             } catch (err) {
                 console.error('Errore loadLiveStatus:', err);
