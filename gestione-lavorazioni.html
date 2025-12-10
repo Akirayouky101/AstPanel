@@ -1611,6 +1611,19 @@
                     `)
                     .eq('task_id', taskId);
                 
+                // Carica componenti
+                const { data: taskComponents } = await supabaseClient
+                    .from('task_components')
+                    .select(`
+                        id,
+                        quantita,
+                        note,
+                        components:component_id (id, nome, codice)
+                    `)
+                    .eq('task_id', taskId);
+                
+                console.log('📦 [EDIT] Components:', taskComponents);
+                
                 // Carica clienti
                 const { data: clienti } = await supabaseClient
                     .from('clients')
@@ -1669,15 +1682,22 @@
                                     
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
-                                        <select id="edit-cliente" required
-                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                                            <option value="">Seleziona cliente...</option>
-                                            ${clienti?.map(c => `
-                                                <option value="${c.id}" ${c.id === task.client_id ? 'selected' : ''}>
-                                                    ${c.ragione_sociale}
-                                                </option>
-                                            `).join('')}
-                                        </select>
+                                        <div class="flex gap-2">
+                                            <select id="edit-cliente" required disabled
+                                                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                                <option value="">Seleziona cliente...</option>
+                                                ${clienti?.map(c => `
+                                                    <option value="${c.id}" ${c.id === task.client_id ? 'selected' : ''}>
+                                                        ${c.ragione_sociale}
+                                                    </option>
+                                                `).join('')}
+                                            </select>
+                                            <button type="button" id="toggle-cliente-lock" 
+                                                    class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                                                    title="Sblocca per modificare cliente">
+                                                <i data-lucide="lock" class="w-5 h-5 text-gray-600"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     
                                     <div>
@@ -1801,6 +1821,37 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Componenti -->
+                            <div class="space-y-4">
+                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                    <i data-lucide="package" class="w-5 h-5 text-orange-600"></i>
+                                    Componenti/Materiali
+                                </h3>
+                                
+                                <div id="edit-componenti-list" class="space-y-2">
+                                    ${taskComponents && taskComponents.length > 0 ? taskComponents.map(tc => `
+                                        <div class="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3" data-component-id="${tc.id}">
+                                            <div class="flex-1 grid grid-cols-3 gap-2">
+                                                <input type="text" value="${tc.components?.nome || ''}" 
+                                                       class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                                                <input type="number" value="${tc.quantita || 1}" min="1"
+                                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                                            </div>
+                                            <button type="button" onclick="this.closest('[data-component-id]').remove()"
+                                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                                                <i data-lucide="x" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    `).join('') : '<p class="text-gray-500 text-sm italic">Nessun componente assegnato</p>'}
+                                </div>
+                                
+                                <button type="button" id="edit-add-componente-btn"
+                                        class="w-full px-4 py-2 border-2 border-dashed border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 flex items-center justify-center gap-2">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    Aggiungi Componente
+                                </button>
+                            </div>
                         </form>
                         
                         <!-- Footer -->
@@ -1877,6 +1928,58 @@
                     container.appendChild(select);
                 });
                 
+                // Toggle lucchetto cliente
+                document.getElementById('toggle-cliente-lock')?.addEventListener('click', function() {
+                    const clienteSelect = document.getElementById('edit-cliente');
+                    const isLocked = clienteSelect.disabled;
+                    
+                    clienteSelect.disabled = !isLocked;
+                    
+                    const icon = this.querySelector('i');
+                    if (isLocked) {
+                        // Sblocca
+                        icon.setAttribute('data-lucide', 'unlock');
+                        this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                        this.classList.add('bg-green-100', 'hover:bg-green-200');
+                        icon.classList.remove('text-gray-600');
+                        icon.classList.add('text-green-600');
+                        this.title = 'Blocca cliente';
+                    } else {
+                        // Blocca
+                        icon.setAttribute('data-lucide', 'lock');
+                        this.classList.remove('bg-green-100', 'hover:bg-green-200');
+                        this.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                        icon.classList.remove('text-green-600');
+                        icon.classList.add('text-gray-600');
+                        this.title = 'Sblocca per modificare cliente';
+                    }
+                    
+                    lucide.createIcons();
+                });
+                
+                // Aggiungi componente
+                document.getElementById('edit-add-componente-btn')?.addEventListener('click', function() {
+                    const container = document.getElementById('edit-componenti-list');
+                    
+                    const componenteDiv = document.createElement('div');
+                    componenteDiv.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
+                    componenteDiv.innerHTML = `
+                        <div class="flex-1 grid grid-cols-3 gap-2">
+                            <input type="text" placeholder="Nome componente..." 
+                                   class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                            <input type="number" placeholder="Quantità" min="1" value="1"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <button type="button" onclick="this.closest('div').remove()"
+                                class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    
+                    container.appendChild(componenteDiv);
+                    lucide.createIcons();
+                });
+                
                 // Salva modifiche
                 document.getElementById('save-edit-btn')?.addEventListener('click', async () => {
                     try {
@@ -1940,6 +2043,61 @@
                                 
                                 if (assignError) throw assignError;
                             }
+                        }
+                        
+                        // Gestisci componenti
+                        // Prima elimina tutti i vecchi componenti
+                        await supabaseClient
+                            .from('task_components')
+                            .delete()
+                            .eq('task_id', taskId);
+                        
+                        // Poi salva i nuovi (per semplicità, creo nuovi record components per ogni nome)
+                        const componentInputs = document.querySelectorAll('#edit-componenti-list > div:not(.hidden)');
+                        
+                        for (const compDiv of componentInputs) {
+                            const inputs = compDiv.querySelectorAll('input');
+                            if (inputs.length < 2) continue;
+                            
+                            const nomeComp = inputs[0].value.trim();
+                            const quantita = parseInt(inputs[1].value) || 1;
+                            
+                            if (!nomeComp) continue;
+                            
+                            // Cerca o crea componente
+                            let { data: existingComp } = await supabaseClient
+                                .from('components')
+                                .select('id')
+                                .eq('nome', nomeComp)
+                                .single();
+                            
+                            let componentId;
+                            
+                            if (existingComp) {
+                                componentId = existingComp.id;
+                            } else {
+                                // Crea nuovo componente
+                                const { data: newComp, error: compError } = await supabaseClient
+                                    .from('components')
+                                    .insert({ nome: nomeComp, codice: nomeComp.toLowerCase().replace(/\s+/g, '-') })
+                                    .select('id')
+                                    .single();
+                                
+                                if (compError) {
+                                    console.error('Error creating component:', compError);
+                                    continue;
+                                }
+                                componentId = newComp.id;
+                            }
+                            
+                            // Inserisci task_component
+                            await supabaseClient
+                                .from('task_components')
+                                .insert({
+                                    task_id: taskId,
+                                    component_id: componentId,
+                                    quantita: quantita
+                                });
                         }
                         
                         alert('✅ Lavorazione aggiornata con successo!');
