@@ -1205,7 +1205,16 @@
                 // Load all tasks from Supabase
                 const allTasks = await window.dataManager.getLavorazioni();
                 
-                // Filter tasks assigned to current user OR to their teams
+                // Carica assegnazioni multi-utente per l'utente corrente
+                const { data: multiAssignments } = await supabaseClient
+                    .from('task_assignments')
+                    .select('task_id')
+                    .eq('user_id', currentUser.id);
+                
+                const multiTaskIds = multiAssignments?.map(a => a.task_id) || [];
+                console.log('📋 Multi-assignments for user:', multiTaskIds);
+                
+                // Filter tasks assigned to current user OR to their teams OR in multi-assignments
                 userTasks = allTasks.filter(task => {
                     // Direct user assignment
                     const isDirectlyAssigned = task.assigned_user_id === currentUser.id || 
@@ -1216,7 +1225,10 @@
                     const isTeamAssigned = task.assigned_team_id && 
                                           userTeamIds.includes(task.assigned_team_id);
                     
-                    return isDirectlyAssigned || isTeamAssigned;
+                    // Multi-user assignment (in task_assignments table)
+                    const isMultiAssigned = multiTaskIds.includes(task.id);
+                    
+                    return isDirectlyAssigned || isTeamAssigned || isMultiAssigned;
                 });
 
                 // Load team details and members for team tasks
@@ -1952,7 +1964,21 @@
                 
                 // Load and display real statistics
                 const tasks = await window.dataManager.getLavorazioni();
-                const userTasksData = tasks.filter(t => t.assegnato_a === currentUser.id);
+                
+                // Carica anche multi-assignments per statistiche
+                const { data: profileMultiAssignments } = await supabaseClient
+                    .from('task_assignments')
+                    .select('task_id')
+                    .eq('user_id', currentUser.id);
+                
+                const profileMultiTaskIds = profileMultiAssignments?.map(a => a.task_id) || [];
+                
+                // Filtra tasks: assigned_user_id O in task_assignments
+                const userTasksData = tasks.filter(t => 
+                    t.assegnato_a === currentUser.id || 
+                    t.assigned_user_id === currentUser.id ||
+                    profileMultiTaskIds.includes(t.id)
+                );
                 
                 const totalTasks = userTasksData.length;
                 const completedTasks = userTasksData.filter(t => t.stato === 'completato').length;

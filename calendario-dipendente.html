@@ -361,7 +361,20 @@
             try {
                 const user = window.AuthHelper.getCurrentUser();
                 const tasks = await window.dataManager.getLavorazioni();
-                const myTasks = tasks.filter(t => t.assigned_user_id === user.id);
+                
+                // Carica multi-assignments
+                const { data: calMultiAssignments } = await supabaseClient
+                    .from('task_assignments')
+                    .select('task_id')
+                    .eq('user_id', user.id);
+                
+                const calMultiTaskIds = calMultiAssignments?.map(a => a.task_id) || [];
+                
+                // Filtra tasks: assigned_user_id O in task_assignments
+                const myTasks = tasks.filter(t => 
+                    t.assigned_user_id === user.id ||
+                    calMultiTaskIds.includes(t.id)
+                );
                 
                 const total = myTasks.length;
                 const completed = myTasks.filter(t => t.stato === 'completato').length;
@@ -390,7 +403,20 @@
         async function updateStats() {
             try {
                 const allTasks = await window.dataManager.getLavorazioni();
-                const myTasks = allTasks.filter(t => (t.assigned_user_id || t.assegnatario) === currentUser.id);
+                
+                // Carica multi-assignments per secondo updateStats
+                const { data: calMultiAssignments2 } = await supabaseClient
+                    .from('task_assignments')
+                    .select('task_id')
+                    .eq('user_id', currentUser.id);
+                
+                const calMultiTaskIds2 = calMultiAssignments2?.map(a => a.task_id) || [];
+                
+                // Filtra tasks
+                const myTasks = allTasks.filter(t => 
+                    (t.assigned_user_id || t.assegnatario) === currentUser.id ||
+                    calMultiTaskIds2.includes(t.id)
+                );
                 
                 document.getElementById('totalMyTasks').textContent = myTasks.length;
                 document.getElementById('highPriorityCount').textContent = myTasks.filter(t => (t.priority || t.priorita) === 'alta').length;
