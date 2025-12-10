@@ -2087,6 +2087,16 @@
                         
                         const tipoAssegnazione = document.querySelector('input[name="edit-tipo-assegnazione"]:checked').value;
                         
+                        // Per multi-utente, calcola il primo utente selezionato
+                        let assignedUserId = null;
+                        if (tipoAssegnazione === 'single') {
+                            assignedUserId = document.getElementById('edit-utente-singolo').value;
+                        } else if (tipoAssegnazione === 'multi') {
+                            const selectedUserIds = Array.from(document.querySelectorAll('#edit-selected-users [data-user-id]'))
+                                .map(el => el.dataset.userId);
+                            assignedUserId = selectedUserIds.length > 0 ? selectedUserIds[0] : null;
+                        }
+                        
                         const taskData = {
                             titolo: document.getElementById('edit-titolo').value,
                             descrizione: document.getElementById('edit-descrizione').value,
@@ -2096,7 +2106,7 @@
                             stato: document.getElementById('edit-stato').value,
                             ore_stimate: parseFloat(document.getElementById('edit-ore').value) || 0,
                             costo_stimato: parseFloat(document.getElementById('edit-costo').value) || 0,
-                            assigned_user_id: tipoAssegnazione === 'single' ? document.getElementById('edit-utente-singolo').value : null,
+                            assigned_user_id: assignedUserId,
                             assigned_team_id: null
                         };
                         
@@ -2121,12 +2131,7 @@
                                 .map(el => el.dataset.userId);
                             
                             if (selectedUserIds.length > 0) {
-                                // Assegna anche il primo al campo singolo per constraint
-                                await supabaseClient
-                                    .from('tasks')
-                                    .update({ assigned_user_id: selectedUserIds[0] })
-                                    .eq('id', taskId);
-                                
+                                // assigned_user_id già impostato nel primo UPDATE con selectedUserIds[0]
                                 const assignments = selectedUserIds.map(userId => ({
                                     task_id: taskId,
                                     user_id: userId,
