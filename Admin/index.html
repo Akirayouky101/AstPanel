@@ -170,19 +170,22 @@
             }
         });
 
-        // Check if already logged in
+        // Check if already logged in - SOLO SE NON STIAMO FACENDO LOGIN
         window.addEventListener('load', async () => {
+            // NON fare redirect automatico se siamo nella pagina di login
+            // L'utente ha fatto esplicitamente logout e vuole fare login
+            console.log('🔍 Checking existing session on login page...');
+            
             const loggedIn = await window.AuthHelper.isLoggedIn();
             
             if (loggedIn) {
-                const user = window.AuthHelper.getCurrentUser();
-                
-                if (user && user.first_login) {
-                    window.location.href = '/cambio-password.html';
-                } else if (window.AuthHelper.isAdmin()) {
-                    window.location.href = '/admin-functional.html';
-                } else {
-                    window.location.href = '/pannello-utente.html';
+                console.log('ℹ️ Sessione esistente trovata, ma siamo in pagina login - non faccio redirect automatico');
+                // Mostra un messaggio invece di fare redirect automatico
+                const alert = document.getElementById('alert');
+                if (alert) {
+                    alert.className = 'mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800';
+                    alert.textContent = 'Hai già effettuato l\'accesso. Usa il pulsante "Accedi" per continuare.';
+                    alert.classList.remove('hidden');
                 }
             }
         });
