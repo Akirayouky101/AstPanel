@@ -238,9 +238,7 @@ class TaskWizard {
                 this.populateStep3Form();
                 break;
             case 4:
-                await this.verificaDisponibilita();
-                break;
-            case 5:
+                // STEP 4: Riepilogo finale
                 this.generaRiepilogo();
                 break;
         }
