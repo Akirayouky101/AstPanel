@@ -532,21 +532,33 @@ class TaskWizard {
     }
 
     async generaRiepilogo() {
+        console.log('📋 [WIZARD] generaRiepilogo() chiamato');
+        
         const container = document.getElementById('wizard-riepilogo-container');
-        if (!container) return;
+        if (!container) {
+            console.error('❌ [WIZARD] Container wizard-riepilogo-container non trovato!');
+            return;
+        }
+
+        console.log('📊 [WIZARD] Dati wizard per riepilogo:', this.wizardData);
 
         // Carica dati cliente, utenti e team
         const clienteNome = document.getElementById('wizard-cliente-select')?.selectedOptions[0]?.text || 'N/D';
+        console.log('👤 [WIZARD] Cliente selezionato:', clienteNome);
         
         let assegnazioneHTML = '';
         
         // ASSEGNAZIONE SINGOLA
         if (this.wizardData.tipo_assegnazione === 'user' && this.wizardData.assigned_user_id) {
+            console.log('👤 [WIZARD] Caricando utente singolo:', this.wizardData.assigned_user_id);
+            
             const { data: user } = await supabaseClient
                 .from('users')
                 .select('nome, cognome, ruolo, email')
                 .eq('id', this.wizardData.assigned_user_id)
                 .single();
+            
+            console.log('✅ [WIZARD] Utente caricato:', user);
             
             if (user) {
                 assegnazioneHTML = `
@@ -568,11 +580,17 @@ class TaskWizard {
         
         // ASSEGNAZIONE MULTIPLA
         else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users?.length > 0) {
+            console.log('👥 [WIZARD] Caricando utenti multipli:', this.wizardData.assigned_users.length);
+            
             const userIds = this.wizardData.assigned_users.map(u => u.user_id);
+            console.log('📋 [WIZARD] IDs utenti:', userIds);
+            
             const { data: users } = await supabaseClient
                 .from('users')
                 .select('id, nome, cognome, ruolo, email')
                 .in('id', userIds);
+            
+            console.log('✅ [WIZARD] Utenti caricati:', users);
             
             assegnazioneHTML = `
                 <div class="space-y-2">
@@ -779,6 +797,7 @@ class TaskWizard {
         `;
 
         lucide.createIcons();
+        console.log('✅ [WIZARD] Riepilogo generato con successo');
     }
 
     getPrioritaIcon(priorita) {
@@ -865,23 +884,34 @@ class TaskWizard {
     // ===================================
 
     async submitWizard() {
+        console.log('🚀 [WIZARD] submitWizard() chiamato');
+        
         try {
+            console.log('📝 [WIZARD] Salvando dati step corrente...');
             this.saveCurrentStepData();
+            
+            console.log('📊 [WIZARD] wizardData completo:', JSON.stringify(this.wizardData, null, 2));
 
             // Crea la lavorazione
             // Per tipo_assegnazione === 'multi', assegniamo al primo utente della lista
             let assignedUserId = null;
             let assignedTeamId = null;
             
+            console.log('👥 [WIZARD] Tipo assegnazione:', this.wizardData.tipo_assegnazione);
+            
             if (this.wizardData.tipo_assegnazione === 'user') {
                 assignedUserId = this.wizardData.assigned_user_id;
+                console.log('✅ [WIZARD] Assegnazione singola:', assignedUserId);
             } else if (this.wizardData.tipo_assegnazione === 'team') {
                 assignedTeamId = this.wizardData.assigned_team_id;
+                console.log('✅ [WIZARD] Assegnazione team:', assignedTeamId);
             } else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
                 // Per multi-user, assegna al primo utente (required dal constraint)
                 // assigned_users può contenere oggetti o solo IDs
                 const firstUser = this.wizardData.assigned_users[0];
                 assignedUserId = typeof firstUser === 'object' ? firstUser.user_id : firstUser;
+                console.log('✅ [WIZARD] Assegnazione multi-utente. Primo utente:', assignedUserId);
+                console.log('📋 [WIZARD] Totale utenti assegnati:', this.wizardData.assigned_users.length);
             }
             
             const taskData = {
@@ -900,28 +930,42 @@ class TaskWizard {
                 wizard_completed: true
             };
 
+            console.log('💾 [WIZARD] Inserimento task nel DB:', taskData);
+
             const { data: task, error: taskError } = await supabaseClient
                 .from('tasks')
                 .insert([taskData])
                 .select()
                 .single();
 
-            if (taskError) throw taskError;
+            if (taskError) {
+                console.error('❌ [WIZARD] Errore inserimento task:', taskError);
+                throw taskError;
+            }
+
+            console.log('✅ [WIZARD] Task creato con ID:', task.id);
 
             // Salva assegnazioni multiple se tipo 'multi'
             if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
+                console.log('👥 [WIZARD] Salvando assegnazioni multiple...');
+                console.log('📊 [WIZARD] Utenti da assegnare:', this.wizardData.assigned_users);
+                
                 const assignResult = await window.multiUserAssignment.salvaAssegnazioni(
                     task.id,
                     this.wizardData.assigned_users
                 );
                 
                 if (!assignResult.success) {
-                    console.error('Errore salvataggio assegnazioni:', assignResult.error);
+                    console.error('❌ [WIZARD] Errore salvataggio assegnazioni:', assignResult.error);
+                } else {
+                    console.log('✅ [WIZARD] Assegnazioni multiple salvate con successo');
                 }
             }
 
             // Associa componenti se presenti
             if (this.wizardData.componenti.length > 0) {
+                console.log('📦 [WIZARD] Salvando', this.wizardData.componenti.length, 'componenti...');
+                
                 const componentiData = this.wizardData.componenti.map(c => ({
                     task_id: task.id,
                     component_id: c.prodotto_id,
@@ -932,20 +976,31 @@ class TaskWizard {
                     .from('task_components')
                     .insert(componentiData);
 
-                if (compError) console.error('Errore componenti:', compError);
+                if (compError) {
+                    console.error('❌ [WIZARD] Errore componenti:', compError);
+                } else {
+                    console.log('✅ [WIZARD] Componenti salvati con successo');
+                }
             }
 
+            console.log('🎉 [WIZARD] Lavorazione completata! Mostrando alert...');
             alert('✅ Lavorazione creata con successo!');
+            
+            console.log('🔄 [WIZARD] Chiudendo wizard...');
             this.closeWizard();
             
+            console.log('📋 [WIZARD] Ricaricando lista lavorazioni...');
             // Ricarica lista lavorazioni
             if (typeof loadTasks === 'function') {
                 loadTasks();
             }
+            
+            console.log('✅ [WIZARD] submitWizard() completato con successo');
 
         } catch (error) {
-            console.error('Errore creazione lavorazione:', error);
-            alert('❌ Errore durante la creazione della lavorazione');
+            console.error('❌ [WIZARD] Errore critico in submitWizard():', error);
+            console.error('❌ [WIZARD] Stack trace:', error.stack);
+            alert('❌ Errore durante la creazione della lavorazione: ' + error.message);
         }
     }
 
