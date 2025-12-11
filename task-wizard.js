@@ -282,7 +282,7 @@ class TaskWizard {
             const { data: dipendenti, error: errDip } = await supabaseClient
                 .from('users')
                 .select('*')
-                .in('ruolo', ['Dipendente', 'Tecnico', 'Titolare'])
+                .in('ruolo', ['Dipendente', 'Tecnico', 'Titolare', 'Segreteria'])
                 .order('nome');
             
             if (errDip) throw errDip;
