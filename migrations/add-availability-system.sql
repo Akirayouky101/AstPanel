@@ -147,34 +147,51 @@ SET search_path = public
 AS $$
 BEGIN
     RETURN QUERY
-    WITH next_week AS (
-        SELECT 
-            CURRENT_DATE as data_inizio,
-            CURRENT_DATE + INTERVAL '7 days' as data_fine
-    ),
-    carico_corrente AS (
+    WITH carico_corrente AS (
         SELECT 
             u.id,
             (u.nome || ' ' || u.cognome) as nome_completo,
             u.email,
             u.ruolo,
-            COUNT(t.id) as task_attivi,
-            COALESCE(SUM(t.ore_stimate), 0) as ore_impegnate,
-            (40 - COALESCE(SUM(t.ore_stimate), 0)) as ore_disponibili,
+            -- Conta task diretti + multi-user assignments
+            (
+                COUNT(DISTINCT t1.id) + 
+                COUNT(DISTINCT ta.task_id)
+            ) as task_attivi,
+            -- Somma ore da task diretti + ore assegnate da task_assignments
+            (
+                COALESCE(SUM(DISTINCT t1.ore_stimate), 0) + 
+                COALESCE(SUM(DISTINCT ta.ore_assegnate), 0)
+            ) as ore_impegnate,
+            (
+                40 - (
+                    COALESCE(SUM(DISTINCT t1.ore_stimate), 0) + 
+                    COALESCE(SUM(DISTINCT ta.ore_assegnate), 0)
+                )
+            ) as ore_disponibili,
             CASE 
-                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 40 THEN 'occupato'
-                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 30 THEN 'quasi_pieno'
-                WHEN COALESCE(SUM(t.ore_stimate), 0) >= 15 THEN 'disponibile'
+                WHEN (
+                    COALESCE(SUM(DISTINCT t1.ore_stimate), 0) + 
+                    COALESCE(SUM(DISTINCT ta.ore_assegnate), 0)
+                ) >= 40 THEN 'occupato'
+                WHEN (
+                    COALESCE(SUM(DISTINCT t1.ore_stimate), 0) + 
+                    COALESCE(SUM(DISTINCT ta.ore_assegnate), 0)
+                ) >= 30 THEN 'quasi_pieno'
+                WHEN (
+                    COALESCE(SUM(DISTINCT t1.ore_stimate), 0) + 
+                    COALESCE(SUM(DISTINCT ta.ore_assegnate), 0)
+                ) >= 15 THEN 'disponibile'
                 ELSE 'molto_disponibile'
             END as stato_disponibilita
         FROM users u
-        CROSS JOIN next_week nw
-        LEFT JOIN tasks t ON t.assigned_user_id = u.id 
-            AND t.stato NOT IN ('completata', 'annullata')
-            AND (
-                (t.scadenza >= nw.data_inizio AND t.scadenza <= nw.data_fine)
-                OR (t.data_inizio >= nw.data_inizio AND t.data_inizio <= nw.data_fine)
-            )
+        -- Task assegnati direttamente (assigned_user_id)
+        LEFT JOIN tasks t1 ON t1.assigned_user_id = u.id 
+            AND t1.stato NOT IN ('completata', 'annullata')
+        -- Task multi-user (task_assignments)
+        LEFT JOIN task_assignments ta ON ta.user_id = u.id
+        LEFT JOIN tasks t2 ON ta.task_id = t2.id 
+            AND t2.stato NOT IN ('completata', 'annullata')
         WHERE u.ruolo IN ('dipendente', 'admin')
         GROUP BY u.id, u.nome, u.cognome, u.email, u.ruolo
     )
