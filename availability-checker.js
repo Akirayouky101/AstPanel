@@ -217,6 +217,63 @@ class AvailabilityChecker {
      * UI rapida per urgenze
      */
     async mostraCheckVeloce() {
+        // Mostra modal con date picker
+        const oggi = new Date().toISOString().split('T')[0];
+        const html = `
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-3">📅</div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">Check Veloce Disponibilità</h3>
+                    <p class="text-gray-600">Seleziona la data per vedere le disponibilità</p>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Data da controllare
+                    </label>
+                    <input type="date" 
+                           id="checkVeloceDate" 
+                           value="${oggi}"
+                           min="${oggi}"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg">
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="window.availabilityChecker.closeCheckVeloce()" 
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">
+                        Annulla
+                    </button>
+                    <button onclick="window.availabilityChecker.eseguiCheckVeloce()" 
+                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        Avanti
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.showModal(html);
+        lucide.createIcons();
+    }
+
+    async eseguiCheckVeloce() {
+        const dateInput = document.getElementById('checkVeloceDate');
+        const selectedDate = dateInput ? dateInput.value : null;
+
+        if (!selectedDate) {
+            alert('Seleziona una data');
+            return;
+        }
+
+        // Chiudi modal e mostra loading
+        this.closeCheckVeloce();
+        this.showModal(`
+            <div class="bg-white rounded-xl shadow-2xl p-8 text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Caricamento disponibilità per ${this.formatDate(selectedDate)}...</p>
+            </div>
+        `);
+
         const result = await this.checkUrgenzaVeloce();
 
         if (result.success) {
@@ -226,7 +283,7 @@ class AvailabilityChecker {
                     <div class="text-center mb-4">
                         <div class="text-6xl mb-3">⚡</div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-2">Check Veloce Disponibilità</h3>
-                        <p class="text-gray-600">Dipendente più disponibile ADESSO</p>
+                        <p class="text-gray-600">Dipendente più disponibile per il <strong>${this.formatDate(selectedDate)}</strong></p>
                     </div>
                     
                     <div class="bg-gradient-to-r from-green-50 to-emerald-100 rounded-xl p-5 mb-4 border-2 border-green-200">
@@ -257,9 +314,20 @@ class AvailabilityChecker {
             `;
 
             this.showModal(html);
+            lucide.createIcons();
         } else {
             alert(result.message || 'Errore nel controllo disponibilità');
+            this.closeCheckVeloce();
         }
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const giorni = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+        const mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
+                      'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+        
+        return `${giorni[date.getDay()]} ${date.getDate()} ${mesi[date.getMonth()]} ${date.getFullYear()}`;
     }
 
     /**

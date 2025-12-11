@@ -69,7 +69,15 @@ BEGIN
                 WHEN (COALESCE(od.ore_totali, 0) + COALESCE(om.ore_totali, 0)) >= 30 THEN 'quasi_pieno'
                 WHEN (COALESCE(od.ore_totali, 0) + COALESCE(om.ore_totali, 0)) >= 15 THEN 'disponibile'
                 ELSE 'molto_disponibile'
-            END as stato_disponibilita
+            END as stato_disponibilita,
+            -- Priorità ruolo: Dipendente > Titolare > Tecnico > Segreteria
+            CASE u.ruolo
+                WHEN 'Dipendente' THEN 4
+                WHEN 'Titolare' THEN 3
+                WHEN 'Tecnico' THEN 2
+                WHEN 'Segreteria' THEN 1
+                ELSE 0
+            END as prio_ruolo
         FROM users u
         LEFT JOIN ore_dirette od ON od.user_id = u.id
         LEFT JOIN ore_multiuser om ON om.user_id = u.id
@@ -91,7 +99,7 @@ BEGIN
             WHEN 'occupato' THEN 1
         END as priorita
     FROM carico_corrente cc
-    ORDER BY priorita DESC, cc.ore_disponibili DESC;
+    ORDER BY cc.prio_ruolo DESC, priorita DESC, cc.ore_disponibili DESC;
 END;
 $$ LANGUAGE plpgsql;
 
