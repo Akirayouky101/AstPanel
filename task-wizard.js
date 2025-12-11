@@ -5,6 +5,88 @@
  * 4 Step workflow per creare lavorazioni complete
  */
 
+// ===================================
+// MODAL HELPERS
+// ===================================
+
+function showWizardAlert(message, type = 'warning') {
+    return new Promise((resolve) => {
+        const icons = {
+            warning: '⚠️',
+            error: '❌',
+            success: '✅',
+            info: 'ℹ️'
+        };
+        
+        const colors = {
+            warning: 'orange',
+            error: 'red',
+            success: 'green',
+            info: 'blue'
+        };
+        
+        const icon = icons[type] || icons.info;
+        const color = colors[type] || colors.info;
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+                <div class="text-center mb-4">
+                    <div class="text-6xl mb-3">${icon}</div>
+                    <p class="text-lg text-gray-800">${message}</p>
+                </div>
+                <button class="w-full bg-${color}-600 hover:bg-${color}-700 text-white font-bold py-3 rounded-xl transition-colors">
+                    OK
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const button = modal.querySelector('button');
+        button.onclick = () => {
+            modal.remove();
+            resolve(true);
+        };
+    });
+}
+
+function showWizardConfirm(message) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-3">⚠️</div>
+                    <p class="text-lg text-gray-800">${message}</p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="cancelBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">
+                        Annulla
+                    </button>
+                    <button id="confirmBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors">
+                        Continua
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        document.getElementById('cancelBtn').onclick = () => {
+            modal.remove();
+            resolve(false);
+        };
+        
+        document.getElementById('confirmBtn').onclick = () => {
+            modal.remove();
+            resolve(true);
+        };
+    });
+}
+
 class TaskWizard {
     constructor() {
         this.currentStep = 1;
@@ -47,8 +129,8 @@ class TaskWizard {
         this.showStep(1);
     }
 
-    nextStep() {
-        if (this.validateCurrentStep()) {
+    async nextStep() {
+        if (await this.validateCurrentStep()) {
             if (this.currentStep < this.totalSteps) {
                 this.currentStep++;
                 this.showStep(this.currentStep);
@@ -63,12 +145,12 @@ class TaskWizard {
         }
     }
 
-    goToStep(stepNumber) {
+    async goToStep(stepNumber) {
         if (stepNumber >= 1 && stepNumber <= this.totalSteps) {
             // Valida tutti i passaggi precedenti
             for (let i = 1; i < stepNumber; i++) {
-                if (!this.validateStep(i)) {
-                    alert(`Completa prima lo step ${i}`);
+                if (!await this.validateStep(i)) {
+                    await showWizardAlert(`Completa prima lo step ${i}`, 'warning');
                     return;
                 }
             }
@@ -153,20 +235,20 @@ class TaskWizard {
     // VALIDAZIONE STEP
     // ===================================
 
-    validateCurrentStep() {
-        return this.validateStep(this.currentStep);
+    async validateCurrentStep() {
+        return await this.validateStep(this.currentStep);
     }
 
-    validateStep(stepNumber) {
+    async validateStep(stepNumber) {
         switch(stepNumber) {
             case 1:
-                return this.validateStep1();
+                return await this.validateStep1();
             case 2:
-                return this.validateStep2();
+                return await this.validateStep2();
             case 3:
-                return this.validateStep3();
+                return await this.validateStep3();
             case 4:
-                return this.validateStep4();
+                return await this.validateStep4();
             case 5:
                 return true; // Conferma sempre valida
             default:
@@ -174,42 +256,41 @@ class TaskWizard {
         }
     }
 
-    validateStep1() {
+    async validateStep1() {
         if (!this.wizardData.titolo || this.wizardData.titolo.trim() === '') {
-            alert('⚠️ Inserisci un titolo per la lavorazione');
+            await showWizardAlert('Inserisci un titolo per la lavorazione', 'warning');
             return false;
         }
         if (!this.wizardData.cliente_id) {
-            alert('⚠️ Seleziona un cliente');
+            await showWizardAlert('Seleziona un cliente', 'warning');
             return false;
         }
         if (!this.wizardData.scadenza) {
-            alert('⚠️ Inserisci una data di scadenza');
+            await showWizardAlert('Inserisci una data di scadenza', 'warning');
             return false;
         }
         return true;
     }
 
-    validateStep2() {
+    async validateStep2() {
         if (this.wizardData.tipo_assegnazione === 'user' && !this.wizardData.assigned_user_id) {
-            alert('⚠️ Seleziona un dipendente');
+            await showWizardAlert('Seleziona un dipendente', 'warning');
             return false;
         }
         if (this.wizardData.tipo_assegnazione === 'multi' && (!this.wizardData.assigned_users || this.wizardData.assigned_users.length === 0)) {
-            alert('⚠️ Seleziona almeno un membro per la lavorazione');
+            await showWizardAlert('Seleziona almeno un membro per la lavorazione', 'warning');
             return false;
         }
         if (this.wizardData.tipo_assegnazione === 'team' && !this.wizardData.assigned_team_id) {
-            alert('⚠️ Seleziona una squadra');
+            await showWizardAlert('Seleziona una squadra', 'warning');
             return false;
         }
         return true;
     }
 
-    validateStep3() {
+    async validateStep3() {
         if (this.wizardData.ore_stimate <= 0) {
-            const confirm = window.confirm('⚠️ Non hai inserito le ore stimate. Continuare?');
-            return confirm;
+            return await showWizardConfirm('Non hai inserito le ore stimate. Continuare?');
         }
         return true;
     }
@@ -521,14 +602,14 @@ class TaskWizard {
         }
     }
 
-    applicaSuggerimentoDisponibilita(userId) {
+    async applicaSuggerimentoDisponibilita(userId) {
         this.wizardData.assigned_user_id = userId;
         this.wizardData.tipo_assegnazione = 'user';
         this.wizardData.disponibilita_verificata = true;
         this.wizardData.suggerimento_accettato = true;
         
-        alert('✅ Dipendente selezionato! Procedi alla conferma.');
-        this.nextStep();
+        await showWizardAlert('Dipendente selezionato! Procedi alla conferma.', 'success');
+        await this.nextStep();
     }
 
     async generaRiepilogo() {
@@ -1014,7 +1095,7 @@ class TaskWizard {
             }
 
             console.log('🎉 [WIZARD] Lavorazione completata! Mostrando alert...');
-            alert(this.wizardData.id ? '✅ Lavorazione aggiornata con successo!' : '✅ Lavorazione creata con successo!');
+            await showWizardAlert(this.wizardData.id ? 'Lavorazione aggiornata con successo!' : 'Lavorazione creata con successo!', 'success');
             
             console.log('🔄 [WIZARD] Chiudendo wizard...');
             this.closeWizard();
@@ -1030,7 +1111,7 @@ class TaskWizard {
         } catch (error) {
             console.error('❌ [WIZARD] Errore critico in submitWizard():', error);
             console.error('❌ [WIZARD] Stack trace:', error.stack);
-            alert('❌ Errore durante la creazione della lavorazione: ' + error.message);
+            await showWizardAlert('Errore durante la creazione della lavorazione: ' + error.message, 'error');
         }
     }
 
