@@ -3729,16 +3729,91 @@
                     loadTasks();
                 }
                 
-                // Notifica successo
-                alert('✅ Lavorazione eliminata con successo!');
+                // Mostra modal di successo
+                showSuccessModal('Lavorazione Eliminata', 'La lavorazione è stata eliminata con successo dal sistema.');
                 
             } catch (error) {
                 console.error('❌ Errore eliminazione:', error);
-                alert('❌ Errore durante l\'eliminazione: ' + error.message);
+                showErrorModal('Errore Eliminazione', error.message || 'Si è verificato un errore durante l\'eliminazione della lavorazione.');
                 btn.disabled = false;
                 btn.innerHTML = '<i data-lucide="trash-2" class="w-5 h-5"></i> Elimina Definitivamente';
                 lucide.createIcons();
             }
+        }
+        
+        // ===================================
+        // SUCCESS/ERROR MODALS
+        // ===================================
+        function showSuccessModal(title, message) {
+            const successModal = document.createElement('div');
+            successModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4';
+            successModal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+                    <!-- Header verde -->
+                    <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                                <i data-lucide="check-circle" class="w-7 h-7 text-green-600"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">${title}</h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="p-6">
+                        <p class="text-gray-700 text-lg">
+                            ${message}
+                        </p>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+                        <button onclick="this.closest('.fixed').remove()"
+                                class="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 shadow-lg">
+                            Ok
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(successModal);
+            lucide.createIcons();
+        }
+        
+        function showErrorModal(title, message) {
+            const errorModal = document.createElement('div');
+            errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4';
+            errorModal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+                    <!-- Header rosso -->
+                    <div class="bg-gradient-to-r from-red-600 to-red-700 p-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                                <i data-lucide="x-circle" class="w-7 h-7 text-red-600"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">${title}</h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="p-6">
+                        <p class="text-gray-700 text-lg">
+                            ${message}
+                        </p>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+                        <button onclick="this.closest('.fixed').remove()"
+                                class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl hover:from-red-700 hover:to-red-800 shadow-lg">
+                            Ok
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(errorModal);
+            lucide.createIcons();
         }
 
         // ===================================
