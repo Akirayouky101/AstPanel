@@ -843,7 +843,6 @@ class TaskWizard {
     populateStep3Form() {
         document.getElementById('wizard-ore-stimate').value = this.wizardData.ore_stimate || '';
         document.getElementById('wizard-costo-stimato').value = this.wizardData.costo_stimato || '';
-        document.getElementById('wizard-indirizzo').value = this.wizardData.indirizzo_lavoro || '';
     }
 
     // ===================================
@@ -868,7 +867,6 @@ class TaskWizard {
     saveStep3Data() {
         this.wizardData.ore_stimate = parseFloat(document.getElementById('wizard-ore-stimate').value) || 0;
         this.wizardData.costo_stimato = parseFloat(document.getElementById('wizard-costo-stimato').value) || 0;
-        this.wizardData.indirizzo_lavoro = document.getElementById('wizard-indirizzo').value;
     }
 
     saveCurrentStepData() {
