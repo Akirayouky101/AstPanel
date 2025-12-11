@@ -2651,22 +2651,67 @@
                 document.getElementById('uploadProgress').classList.remove('hidden');
                 document.getElementById('uploadProgressBar').style.width = '20%';
 
-                // Resize image before upload
-                const resizedImage = await resizeImage(selectedPhotoFile, 400, 400);
-                
+                // Generate unique filename
+                const timestamp = Date.now();
+                const ext = selectedPhotoFile.name.split('.').pop();
+                const filePath = `profile-photos/${currentUser.id}-${timestamp}.${ext}`;
+
+                // Upload to Supabase Storage
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('user-photos')
+                    .upload(filePath, selectedPhotoFile, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    throw new Error(uploadError.message || 'Errore upload file');
+                }
+
                 document.getElementById('uploadProgressBar').style.width = '60%';
 
-                // Update user profile with resized image
-                const result = await window.UsersAPI.update(currentUser.id, {
-                    foto_profilo: resizedImage
-                });
+                // Get public URL
+                const { data: urlData } = supabase.storage
+                    .from('user-photos')
+                    .getPublicUrl(filePath);
 
-                console.log('Update successful:', result);
+                if (!urlData || !urlData.publicUrl) {
+                    throw new Error('Impossibile ottenere URL pubblico');
+                }
+
+                const photoUrl = urlData.publicUrl;
+                
+                document.getElementById('uploadProgressBar').style.width = '80%';
+
+                // Update user record in database
+                const { data: updateData, error: updateError } = await supabase
+                    .from('users')
+                    .update({ foto_profilo: photoUrl })
+                    .eq('id', currentUser.id)
+                    .select()
+                    .single();
+
+                if (updateError) {
+                    console.error('Database update error:', updateError);
+                    throw new Error(updateError.message || 'Errore aggiornamento database');
+                }
+
+                console.log('Profile photo updated:', updateData);
 
                 document.getElementById('uploadProgressBar').style.width = '100%';
                 
-                // Update UI
-                document.getElementById('userProfilePhoto').src = resizedImage;
+                // Update UI with new photo
+                document.getElementById('userProfilePhoto').src = photoUrl;
+                const headerPhoto = document.querySelector('.user-avatar');
+                if (headerPhoto) {
+                    headerPhoto.style.backgroundImage = `url('${photoUrl}')`;
+                }
+
+                // Update localStorage
+                const storedUser = JSON.parse(localStorage.getItem('ast_current_user') || '{}');
+                storedUser.foto_profilo = photoUrl;
+                localStorage.setItem('ast_current_user', JSON.stringify(storedUser));
                 
                 setTimeout(() => {
                     closeProfilePhotoModal();
