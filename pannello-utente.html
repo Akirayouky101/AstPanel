@@ -29,6 +29,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(50px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        /* Animazioni per modal warning */
+        .animate-fadeIn { animation: modalFadeIn 0.3s ease-out; }
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-scaleIn { animation: modalScaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes modalScaleIn { from { opacity: 0; transform: scale(0.8) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -3520,16 +3527,66 @@
             // ⚠️ WARNING se stock basso dopo l'assegnazione
             const stockRimanente = stock - qty;
             if (minStock > 0 && stockRimanente <= minStock && stockRimanente > 0) {
-                const proceed = confirm(
-                    `⚠️ ATTENZIONE: Scorta Bassa!\n\n` +
-                    `Dopo questa assegnazione rimarranno solo ${stockRimanente} ${pendingComponent.unita_misura || 'pz'} in magazzino.\n` +
-                    `Scorta minima consigliata: ${minStock} ${pendingComponent.unita_misura || 'pz'}\n\n` +
-                    `Vuoi procedere comunque?`
-                );
-                if (!proceed) {
-                    return;
-                }
+                // Crea modal di warning con stile moderno
+                const warningModal = document.createElement('div');
+                warningModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[11000] animate-fadeIn';
+                warningModal.innerHTML = `
+                    <div class="bg-gradient-to-br from-orange-50 via-white to-yellow-50 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 transform animate-scaleIn border-2 border-orange-300">
+                        <!-- Icon con gradiente -->
+                        <div class="flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl mx-auto mb-4 shadow-lg animate-bounce">
+                            <i data-lucide="alert-triangle" class="w-10 h-10 text-white"></i>
+                        </div>
+                        
+                        <!-- Titolo -->
+                        <h3 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600 text-center mb-3">
+                            ⚠️ ATTENZIONE: Scorta Bassa!
+                        </h3>
+                        
+                        <!-- Messaggio -->
+                        <div class="bg-white rounded-xl p-4 mb-6 border-l-4 border-orange-500 shadow-inner">
+                            <p class="text-gray-700 text-center leading-relaxed">
+                                Dopo questa assegnazione rimarranno solo <span class="font-bold text-orange-600">${stockRimanente} ${pendingComponent.unita_misura || 'pz'}</span> in magazzino.
+                            </p>
+                            <p class="text-gray-600 text-center text-sm mt-2">
+                                Scorta minima consigliata: <span class="font-bold text-red-600">${minStock} ${pendingComponent.unita_misura || 'pz'}</span>
+                            </p>
+                        </div>
+                        
+                        <p class="text-gray-600 text-center mb-6 font-medium">
+                            Vuoi procedere comunque?
+                        </p>
+                        
+                        <!-- Buttons -->
+                        <div class="flex space-x-3">
+                            <button onclick="this.closest('.fixed').remove()" 
+                                    class="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 font-bold transition-all hover:scale-105 hover:shadow-lg">
+                                Annulla
+                            </button>
+                            <button onclick="this.closest('.fixed').remove(); proceedAfterWarning();" 
+                                    class="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-bold transition-all hover:scale-105 hover:shadow-lg">
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(warningModal);
+                lucide.createIcons();
+                
+                // Funzione per procedere dopo il warning
+                window.proceedAfterWarning = function() {
+                    continueWithComponentAssignment(qty);
+                };
+                
+                return; // Ferma l'esecuzione fino alla conferma
             }
+            
+            // Se non c'è warning, procedi direttamente
+            continueWithComponentAssignment(qty);
+        }
+        
+        // Funzione separata per continuare con l'assegnazione
+        async function continueWithComponentAssignment(qty) {
             
             // Close quantity modal
             document.getElementById('quantityModal').classList.add('hidden');
