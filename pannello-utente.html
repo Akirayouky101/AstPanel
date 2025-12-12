@@ -3213,29 +3213,77 @@
 
         async function loadTaskComponents(taskId) {
             try {
-                const components = await window.TasksAPI.getComponents(taskId);
+                // Prima prova a ottenere i componenti dall'API
+                let components = await window.TasksAPI.getComponents(taskId);
+                
+                // Se l'API non restituisce componenti, prova a usare i dati dalla lavorazione corrente
+                if (!components || components.length === 0) {
+                    const tasks = await window.dataManager.getLavorazioni();
+                    const task = tasks.find(t => t.id === taskId);
+                    if (task && task.componenti && task.componenti.length > 0) {
+                        // Ottieni tutti i componenti dal magazzino
+                        const allComponents = await window.dataManager.getComponenti();
+                        // Mappa i componenti con i loro dettagli
+                        components = task.componenti.map(tc => {
+                            const compDetails = allComponents.find(c => c.id === tc.id);
+                            return {
+                                id: tc.id,
+                                quantita: tc.quantita,
+                                component: compDetails
+                            };
+                        }).filter(tc => tc.component); // Rimuovi quelli non trovati
+                    }
+                }
                 
                 const container = document.getElementById(`taskComponentsList-${taskId}`);
                 if (!container) return;
                 
                 if (components && components.length > 0) {
-                    container.innerHTML = components.map(tc => `
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="box" class="w-5 h-5 text-blue-600"></i>
-                                <div>
-                                    <p class="font-semibold text-gray-900">${tc.component?.nome || tc.component?.name || 'N/A'}</p>
-                                    <p class="text-xs text-gray-500">Codice: ${tc.component?.codice || tc.component?.code || 'N/A'} • Quantità: ${tc.quantita || tc.quantity} ${tc.component?.unita_misura || tc.component?.unit || ''}</p>
+                    container.innerHTML = components.map(tc => {
+                        const componentName = tc.component?.nome || tc.component?.name || 'N/A';
+                        const componentCode = tc.component?.codice || tc.component?.code || 'N/A';
+                        const quantity = tc.quantita || tc.quantity || 0;
+                        const unit = tc.component?.unita_misura || tc.component?.unit || 'pz';
+                        const stock = tc.component?.quantita_magazzino || tc.component?.quantita_disponibile || 0;
+                        const minStock = tc.component?.quantita_minima || tc.component?.scorta_minima || 0;
+                        
+                        // Calcola stock badge
+                        const stockBadge = stock <= minStock 
+                            ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                                ${stock} ${unit}
+                               </span>`
+                            : `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                <i data-lucide="package" class="w-3 h-3"></i>
+                                ${stock} ${unit}
+                               </span>`;
+                        
+                        return `
+                        <div class="flex items-center justify-between p-3 bg-white rounded-lg border-2 border-green-200 hover:border-green-300 transition-colors">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="box" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-bold text-gray-900 truncate">${componentName}</p>
+                                    <div class="flex items-center gap-2 flex-wrap mt-1">
+                                        <span class="text-xs text-gray-600">Cod: ${componentCode}</span>
+                                        <span class="text-xs text-gray-400">•</span>
+                                        <span class="text-xs font-bold text-blue-600">Usati: ${quantity} ${unit}</span>
+                                        <span class="text-xs text-gray-400">•</span>
+                                        ${stockBadge}
+                                    </div>
                                 </div>
                             </div>
                             <button onclick="removeTaskComponent('${tc.id}', '${taskId}')" 
-                                    class="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors">
+                                    class="ml-2 px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors flex-shrink-0">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
-                    container.innerHTML = '<p class="text-gray-500 text-sm">Nessun componente aggiunto</p>';
+                    container.innerHTML = '<p class="text-gray-500 text-sm italic">Nessun componente aggiunto</p>';
                 }
                 
                 lucide.createIcons();
@@ -3243,7 +3291,7 @@
                 console.error('Error loading task components:', error);
                 const container = document.getElementById(`taskComponentsList-${taskId}`);
                 if (container) {
-                    container.innerHTML = '<p class="text-red-500 text-sm">Errore nel caricamento componenti</p>';
+                    container.innerHTML = '<p class="text-red-500 text-sm">❌ Errore nel caricamento componenti</p>';
                 }
             }
         }
