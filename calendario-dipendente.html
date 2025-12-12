@@ -196,21 +196,22 @@
     </div>
 
 
-    <!-- Task Details Modal - COLORATA COME FOTO 1 -->
-    <div id="taskDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <!-- Task Details Modal - OTTIMIZZATA PER MOBILE -->
+    <div id="taskDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <!-- Header VIOLA gradiente -->
-                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-5 rounded-t-2xl text-white relative">
-                    <div class="flex justify-between items-center">
-                        <h3 id="modalTitle" class="text-xl font-bold">Dettagli Lavorazione</h3>
-                        <button onclick="closeTaskModal()" class="text-white/90 hover:text-white rounded-full p-2 hover:bg-white/20" title="Chiudi">
-                            <i data-lucide="x" class="w-6 h-6"></i>
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-4 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <h3 id="modalTitle" class="text-lg font-bold text-white flex-1">Dettagli Lavorazione</h3>
+                        <button onclick="closeTaskModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-2" title="Chiudi">
+                            <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </div>
                 
-                <div class="p-6" id="taskDetailsContent">
+                <!-- Content scrollabile -->
+                <div class="p-3 overflow-y-auto flex-1" id="taskDetailsContent">
                     <!-- Content will be loaded here -->
                 </div>
             </div>
@@ -469,57 +470,80 @@
                 const isOverdue = scadenza && new Date(scadenza) < new Date() && stato !== 'completato';
                 
                 content.innerHTML = `
-                    <div class="space-y-4">
-                        <!-- Card Grid 2x2 COLORATE -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <!-- Main Info Grid - Grid 2x2 su mobile -->
+                        <div class="grid grid-cols-2 gap-3">
                             <!-- Cliente - VERDE -->
-                            <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                                        <i data-lucide="building-2" class="w-6 h-6 text-white"></i>
+                            <div class="col-span-2 bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i data-lucide="building-2" class="w-5 h-5 text-white"></i>
                                     </div>
-                                    <div>
+                                    <div class="flex-1 min-w-0">
                                         <p class="text-xs text-green-700 font-medium">Cliente</p>
-                                        <p class="font-bold text-gray-900">${clienteName}</p>
+                                        <p class="font-bold text-sm text-gray-900 truncate">${clienteName}</p>
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Scadenza - ARANCIO -->
-                            <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center">
-                                        <i data-lucide="calendar" class="w-6 h-6 text-white"></i>
+                            <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-3">
+                                <div class="flex flex-col items-center text-center">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center mb-2">
+                                        <i data-lucide="calendar" class="w-5 h-5 text-white"></i>
                                     </div>
-                                    <div>
-                                        <p class="text-xs text-orange-700 font-medium">Scadenza</p>
-                                        <p class="font-bold text-gray-900">${scadenza ? new Date(scadenza).toLocaleDateString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}</p>
-                                    </div>
+                                    <p class="text-xs text-orange-700 font-medium">Scadenza</p>
+                                    <p class="font-bold text-sm ${isOverdue ? 'text-red-600' : 'text-gray-900'} mt-1">${scadenza ? new Date(scadenza).toLocaleDateString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}</p>
                                 </div>
                             </div>
                             
                             <!-- Priorità - ROSA -->
-                            <div class="bg-gradient-to-br from-pink-50 to-rose-100 border-2 border-pink-200 rounded-xl p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg flex items-center justify-center">
-                                        <i data-lucide="alert-circle" class="w-6 h-6 text-white"></i>
+                            <div class="bg-gradient-to-br from-pink-50 to-rose-100 border-2 border-pink-200 rounded-xl p-3">
+                                <div class="flex flex-col items-center text-center">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg flex items-center justify-center mb-2">
+                                        <i data-lucide="alert-circle" class="w-5 h-5 text-white"></i>
                                     </div>
-                                    <div>
-                                        <p class="text-xs text-pink-700 font-medium">Priorità</p>
-                                        <p class="font-bold text-gray-900">${getPriorityEmoji(priorita)} ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}</p>
-                                    </div>
+                                    <p class="text-xs text-pink-700 font-medium">Priorità</p>
+                                    <p class="font-bold text-sm text-gray-900 mt-1">${getPriorityEmoji(priorita)} ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}</p>
                                 </div>
                             </div>
                             
                             <!-- Stato - BLU -->
-                            <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                                        <i data-lucide="activity" class="w-6 h-6 text-white"></i>
+                            <div class="col-span-2 bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i data-lucide="activity" class="w-5 h-5 text-white"></i>
                                     </div>
-                                    <div>
+                                    <div class="flex-1 min-w-0">
                                         <p class="text-xs text-blue-700 font-medium">Stato</p>
-                                        <p class="font-bold text-gray-900">${getStatusText(stato)}</p>
+                                        <p class="font-bold text-sm text-gray-900">${getStatusText(stato)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Categoria - GIALLO -->
+                            ${assignedTeam ? `
+                            <div class="col-span-2 bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i data-lucide="users" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-purple-700 font-medium">Team</p>
+                                        <p class="font-bold text-sm text-gray-900 truncate">${assignedTeam}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="col-span-2 bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i data-lucide="tag" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-yellow-700 font-medium">Categoria</p>
+                                        <p class="font-bold text-sm text-gray-900">${getCategoryText(categoria)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -527,32 +551,32 @@
                         
                         <!-- Progresso - CELESTE -->
                         ${progresso !== undefined ? `
-                        <div class="bg-gradient-to-br from-cyan-50 to-sky-100 border-2 border-cyan-200 rounded-xl p-4">
-                            <div class="flex items-center justify-between mb-3">
+                        <div class="bg-gradient-to-br from-cyan-50 to-sky-100 border-2 border-cyan-200 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2">
-                                    <i data-lucide="trending-up" class="w-5 h-5 text-cyan-700"></i>
-                                    <span class="text-sm font-bold text-cyan-900">Progresso</span>
+                                    <i data-lucide="trending-up" class="w-4 h-4 text-cyan-700"></i>
+                                    <span class="text-xs font-bold text-cyan-900">Progresso</span>
                                 </div>
-                                <span class="text-2xl font-bold text-cyan-600">${progresso}%</span>
+                                <span class="text-lg font-bold text-cyan-600">${progresso}%</span>
                             </div>
-                            <div class="w-full bg-cyan-200 rounded-full h-3 overflow-hidden">
-                                <div class="bg-gradient-to-r from-cyan-500 to-blue-600 h-3 rounded-full transition-all duration-500" style="width: ${progresso}%"></div>
+                            <div class="w-full bg-cyan-200 rounded-full h-2 overflow-hidden">
+                                <div class="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all duration-500" style="width: ${progresso}%"></div>
                             </div>
                         </div>
                         ` : ''}
                         
                         <!-- Descrizione - GRIGIO CHIARO -->
-                        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
-                            <div class="flex items-start gap-3">
-                                <i data-lucide="file-text" class="w-5 h-5 text-gray-600 mt-1"></i>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700 mb-2">Descrizione</p>
-                                    <p class="text-gray-600 leading-relaxed">${descrizione}</p>
+                        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-3">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-gray-600 mt-1 flex-shrink-0"></i>
+                                <div class="flex-1">
+                                    <p class="text-xs font-bold text-gray-700 mb-1">Descrizione</p>
+                                    <p class="text-xs text-gray-600 leading-relaxed">${descrizione}</p>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Pulsante Chiudi - VIOLA -->
+                        <!-- Pulsante Chiudi -->
                         <div class="flex justify-center pt-2">
                             <button onclick="closeTaskModal()" class="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
                                 Chiudi
