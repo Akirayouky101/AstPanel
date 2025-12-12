@@ -363,13 +363,18 @@
                 const user = window.AuthHelper.getCurrentUser();
                 const tasks = await window.dataManager.getLavorazioni();
                 
-                // Carica multi-assignments
-                const { data: calMultiAssignments } = await supabaseClient
-                    .from('task_assignments')
-                    .select('task_id')
-                    .eq('user_id', user.id);
-                
-                const calMultiTaskIds = calMultiAssignments?.map(a => a.task_id) || [];
+                // Carica multi-assignments (solo se user.id è definito)
+                let calMultiTaskIds = [];
+                if (user && user.id) {
+                    const { data: calMultiAssignments, error: assignError } = await supabaseClient
+                        .from('task_assignments')
+                        .select('task_id')
+                        .eq('user_id', user.id);
+                    
+                    if (!assignError) {
+                        calMultiTaskIds = calMultiAssignments?.map(a => a.task_id) || [];
+                    }
+                }
                 
                 // Filtra tasks: assigned_user_id O in task_assignments
                 const myTasks = tasks.filter(t => 
