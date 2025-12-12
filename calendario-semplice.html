@@ -111,26 +111,137 @@
         </div>
     </div>
 
-    <!-- Event Details Modal - COMPATTA per mobile -->
-    <div id="eventModal" class="fixed inset-0 bg-gradient-to-br from-gray-900/60 to-black/60 backdrop-blur-sm hidden z-50" onclick="closeEventModal()">
-        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-md md:max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                <!-- Header compatto -->
-                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white relative overflow-hidden">
-                    <div class="flex justify-between items-center">
+    <!-- Task Details Modal - UNIFIED con altri calendari -->
+    <div id="eventModal" class="hidden fixed inset-0 bg-gradient-to-br from-gray-900/60 to-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md md:max-w-2xl w-full max-h-[90vh] overflow-hidden transform transition-all animate-slideUp">
+            <!-- Header compatto -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white relative overflow-hidden">
+                <div class="relative flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="briefcase" class="w-5 h-5"></i>
+                        <h2 class="text-sm font-semibold" id="modalTitle"></h2>
+                    </div>
+                    <button onclick="closeEventModal()" class="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content Grid 2x2 -->
+            <div class="p-3 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <!-- Cliente - Full width -->
+                    <div class="col-span-2 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-2.5 border border-green-100">
                         <div class="flex items-center gap-2">
-                            <i data-lucide="briefcase" class="w-5 h-5"></i>
-                            <h3 id="modalTitleHeader" class="text-sm font-semibold truncate">Dettagli Lavorazione</h3>
+                            <div class="bg-green-600 rounded-lg p-1.5">
+                                <i data-lucide="building-2" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Cliente</p>
+                                <p class="text-sm font-semibold text-gray-900 truncate" id="modalClient"></p>
+                            </div>
                         </div>
-                        <button onclick="closeEventModal()" class="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all flex-shrink-0">
-                            <i data-lucide="x" class="w-5 h-5"></i>
-                        </button>
+                    </div>
+                    
+                    <!-- Scadenza - Left -->
+                    <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-2.5 border border-orange-100">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-orange-600 rounded-lg p-1.5">
+                                <i data-lucide="calendar-days" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Scadenza</p>
+                                <p class="text-xs font-semibold text-gray-900 truncate" id="modalDeadline"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Priorità - Right -->
+                    <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg p-2.5 border border-red-100">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-red-600 rounded-lg p-1.5">
+                                <i data-lucide="alert-circle" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Priorità</p>
+                                <p class="text-xs font-semibold text-gray-900 truncate" id="modalPriority"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stato - Full width -->
+                    <div class="col-span-2 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-2.5 border border-blue-100">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-blue-600 rounded-lg p-1.5">
+                                <i data-lucide="activity" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Stato</p>
+                                <p class="text-sm font-semibold text-gray-900" id="modalStatus"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Assegnato - Full width -->
+                    <div class="col-span-2 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-2.5 border border-purple-100">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-purple-600 rounded-lg p-1.5">
+                                <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Assegnato</p>
+                                <p class="text-sm font-semibold text-gray-900 truncate" id="modalAssignee"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Categoria - Full width -->
+                    <div class="col-span-2 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-2.5 border border-indigo-100">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-indigo-600 rounded-lg p-1.5">
+                                <i data-lucide="tag" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-gray-600 font-medium">Categoria</p>
+                                <p class="text-sm font-semibold text-gray-900" id="modalCategory"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="p-3 overflow-y-auto max-h-[calc(90vh-80px)]" id="modalContent">
-                    <!-- Content will be loaded here -->
+                <!-- Progress Bar compatto -->
+                <div id="modalProgressContainer" class="mb-3 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg p-3 border border-cyan-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-cyan-600"></i>
+                            <span class="text-xs font-medium text-gray-700">Progresso</span>
+                        </div>
+                        <span class="text-sm font-bold text-cyan-600" id="modalProgress"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div id="modalProgressBar" class="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all duration-500"></div>
+                    </div>
                 </div>
+                
+                <!-- Description compatta -->
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div class="flex items-start gap-2">
+                        <div class="bg-gray-600 rounded-lg p-1.5 mt-0.5">
+                            <i data-lucide="file-text" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-semibold text-gray-700 mb-1">Descrizione</p>
+                            <p id="modalDescription" class="text-xs text-gray-600 leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer compatto -->
+            <div class="bg-gray-50 px-3 py-2.5 border-t border-gray-200 flex justify-end">
+                <button onclick="closeEventModal()" class="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg text-sm font-medium">
+                    Chiudi
+                </button>
             </div>
         </div>
     </div>
@@ -288,146 +399,46 @@
                     return;
                 }
                 
+                // Status text mapping
+                const statusText = {
+                    'da_fare': 'Da Fare',
+                    'in_corso': 'In Corso',
+                    'revisione': 'In Revisione',
+                    'completata': 'Completata',
+                    'completato': 'Completato'
+                };
+                
+                const priorityText = {
+                    'alta': '🔴 Alta',
+                    'media': '🟡 Media',
+                    'bassa': '🟢 Bassa',
+                    'normale': '🔵 Normale'
+                };
+                
                 // Extract task info
-                const titolo = task.titolo || task.title || 'Senza titolo';
-                const descrizione = task.descrizione || task.description || 'Nessuna descrizione disponibile';
-                const stato = task.stato || task.status || 'da_fare';
-                const priorita = task.priorita || task.priority || 'normale';
-                const scadenza = task.scadenza || task.deadline;
-                const progresso = task.progresso || task.progress;
-                const categoria = task.categoria || task.category || 'Generale';
-                const clienteId = task.client_id || task.clientId;
                 const clienteName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                 const assigneeName = task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : 'Non assegnato';
-                const assignedTeam = event.extendedProps.teamName || null;
+                const categoria = task.categoria || 'Generale';
                 
-                // Set modal title
-                document.getElementById('modalTitleHeader').textContent = `Dettagli: ${titolo}`;
+                // Populate modal fields
+                document.getElementById('modalTitle').textContent = task.titolo || task.title || 'Senza titolo';
+                document.getElementById('modalClient').textContent = clienteName;
+                document.getElementById('modalDeadline').textContent = task.scadenza ? new Date(task.scadenza).toLocaleDateString('it-IT') : 'N/A';
+                document.getElementById('modalPriority').textContent = priorityText[task.priorita || 'normale'];
+                document.getElementById('modalStatus').textContent = statusText[task.stato] || 'Da Fare';
+                document.getElementById('modalAssignee').textContent = assigneeName;
+                document.getElementById('modalCategory').textContent = categoria;
+                document.getElementById('modalDescription').textContent = task.descrizione || task.description || 'Nessuna descrizione disponibile';
                 
-                // Populate modal content with COMPACT GRID 2x2 layout
-                const content = document.getElementById('modalContent');
-                const isOverdue = scadenza && new Date(scadenza) < new Date() && stato !== 'completato';
-                
-                content.innerHTML = `
-                    <div class="space-y-3">
-                        <!-- Grid 2x2 COMPATTO -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <!-- Cliente - Full width -->
-                            <div class="col-span-2 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-2.5 border border-green-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-green-600 rounded-lg p-1.5">
-                                        <i data-lucide="building-2" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Cliente</p>
-                                        <p class="text-sm font-semibold text-gray-900 truncate">${clienteName}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Scadenza - Left -->
-                            <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-2.5 border border-orange-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-orange-600 rounded-lg p-1.5">
-                                        <i data-lucide="calendar-days" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Scadenza</p>
-                                        <p class="text-xs font-semibold text-gray-900 truncate">${scadenza ? new Date(scadenza).toLocaleDateString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric'}) : 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Priorità - Right -->
-                            <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg p-2.5 border border-red-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-red-600 rounded-lg p-1.5">
-                                        <i data-lucide="alert-circle" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Priorità</p>
-                                        <p class="text-xs font-semibold text-gray-900 truncate">${getPriorityEmoji(priorita)} ${priorita.charAt(0).toUpperCase() + priorita.slice(1)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Stato - Full width -->
-                            <div class="col-span-2 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-2.5 border border-blue-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-blue-600 rounded-lg p-1.5">
-                                        <i data-lucide="activity" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Stato</p>
-                                        <p class="text-sm font-semibold text-gray-900">${getStatusText(stato)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Assegnato - Full width -->
-                            <div class="col-span-2 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-2.5 border border-purple-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-purple-600 rounded-lg p-1.5">
-                                        <i data-lucide="user" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Assegnato</p>
-                                        <p class="text-sm font-semibold text-gray-900 truncate">${assigneeName}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Categoria - Full width -->
-                            <div class="col-span-2 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-2.5 border border-indigo-100">
-                                <div class="flex items-center gap-2">
-                                    <div class="bg-indigo-600 rounded-lg p-1.5">
-                                        <i data-lucide="tag" class="w-4 h-4 text-white"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-600 font-medium">Categoria</p>
-                                        <p class="text-sm font-semibold text-gray-900">${categoria}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Progresso - COMPATTO -->
-                        ${progresso !== undefined ? `
-                        <div class="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg p-3 border border-cyan-100">
-                            <div class="flex items-center justify-between mb-2">
-                                <div class="flex items-center gap-2">
-                                    <i data-lucide="trending-up" class="w-4 h-4 text-cyan-600"></i>
-                                    <span class="text-xs font-medium text-gray-700">Progresso</span>
-                                </div>
-                                <span class="text-sm font-bold text-cyan-600">${progresso}%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div class="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all duration-500" style="width: ${progresso}%"></div>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <!-- Descrizione - COMPATTA -->
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <div class="flex items-start gap-2">
-                                <div class="bg-gray-600 rounded-lg p-1.5 mt-0.5">
-                                    <i data-lucide="file-text" class="w-4 h-4 text-white"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-gray-700 mb-1">Descrizione</p>
-                                    <p class="text-xs text-gray-600 leading-relaxed">${descrizione}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Pulsante Chiudi - COMPATTO -->
-                        <div class="flex justify-center pt-2">
-                            <button onclick="closeEventModal()" class="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md text-sm font-medium">
-                                Chiudi
-                            </button>
-                        </div>
-                    </div>
-                `;
+                // Handle progress bar
+                const progress = task.progresso || task.progress;
+                if (progress !== undefined) {
+                    document.getElementById('modalProgressContainer').classList.remove('hidden');
+                    document.getElementById('modalProgress').textContent = `${progress}%`;
+                    document.getElementById('modalProgressBar').style.width = `${progress}%`;
+                } else {
+                    document.getElementById('modalProgressContainer').classList.add('hidden');
+                }
                 
                 // Show modal
                 document.getElementById('eventModal').classList.remove('hidden');
