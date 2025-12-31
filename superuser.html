@@ -305,10 +305,113 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl max-w-md w-full border-2 border-red-600">
+            <div class="bg-red-900 p-4 border-b border-red-800">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-300 text-2xl mr-3"></i>
+                    <h3 class="text-white font-bold text-xl">Conferma Azione</h3>
+                </div>
+            </div>
+            <div class="p-6">
+                <p id="confirmMessage" class="text-white mb-6"></p>
+                <div class="flex gap-3">
+                    <button onclick="cancelConfirm()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button id="confirmButton" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-medium">
+                        <i class="fas fa-check mr-2"></i>Conferma
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Confirmation Modal -->
+    <div id="inputConfirmModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl max-w-md w-full border-2 border-red-600">
+            <div class="bg-red-900 p-4 border-b border-red-800">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-halved text-yellow-300 text-2xl mr-3"></i>
+                    <h3 class="text-white font-bold text-xl">Conferma Richiesta</h3>
+                </div>
+            </div>
+            <div class="p-6">
+                <p id="inputConfirmMessage" class="text-white mb-4"></p>
+                <input type="text" id="confirmInput" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent mb-6" placeholder="Scrivi qui...">
+                <div class="flex gap-3">
+                    <button onclick="cancelInputConfirm()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button id="inputConfirmButton" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-medium">
+                        <i class="fas fa-check mr-2"></i>Conferma
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPERUSER_PASSWORD = 'Supercalifragilistichespiralidoso2025!'; // Password SuperUser
         let currentTable = null;
         let selectedItems = new Set();
+        let confirmCallback = null;
+        let inputConfirmCallback = null;
+
+        // ===== MODAL FUNCTIONS =====
+        function showConfirmModal(message, onConfirm) {
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            confirmCallback = onConfirm;
+            
+            document.getElementById('confirmButton').onclick = () => {
+                document.getElementById('confirmModal').classList.add('hidden');
+                if (confirmCallback) confirmCallback();
+                confirmCallback = null;
+            };
+        }
+
+        function cancelConfirm() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        function showInputConfirmModal(message, expectedValue, onConfirm) {
+            document.getElementById('inputConfirmMessage').textContent = message;
+            document.getElementById('confirmInput').value = '';
+            document.getElementById('inputConfirmModal').classList.remove('hidden');
+            inputConfirmCallback = onConfirm;
+            
+            document.getElementById('inputConfirmButton').onclick = () => {
+                const inputValue = document.getElementById('confirmInput').value;
+                if (inputValue === expectedValue) {
+                    document.getElementById('inputConfirmModal').classList.add('hidden');
+                    if (inputConfirmCallback) inputConfirmCallback();
+                    inputConfirmCallback = null;
+                } else {
+                    showAlert('❌ Testo di conferma errato!', 'error');
+                }
+            };
+        }
+
+        function cancelInputConfirm() {
+            document.getElementById('inputConfirmModal').classList.add('hidden');
+            inputConfirmCallback = null;
+        }
+
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-2xl text-white font-medium ${
+                type === 'error' ? 'bg-red-600' : 'bg-green-600'
+            } fade-in`;
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
 
         function checkPassword(e) {
             e.preventDefault();
@@ -337,7 +440,7 @@
                 const tables = ['users', 'tasks', 'clients', 'teams', 'components', 'communications', 'requests', 'timbrature'];
                 
                 for (const table of tables) {
-                    const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+                    const { count } = await supabaseClient.from(table).select('*', { count: 'exact', head: true });
                     document.getElementById(`${table}Count`).textContent = count || 0;
                 }
             } catch (error) {
@@ -350,7 +453,7 @@
                 currentTable = tableName;
                 selectedItems.clear();
                 
-                const { data, error } = await supabase.from(tableName).select('*');
+                const { data, error } = await supabaseClient.from(tableName).select('*');
                 
                 if (error) throw error;
 
@@ -409,42 +512,42 @@
         }
 
         async function selectAll() {
-            const { data } = await supabase.from(currentTable).select('id');
+            const { data } = await supabaseClient.from(currentTable).select('id');
             data.forEach(item => selectedItems.add(item.id));
             viewTable(currentTable); // Refresh
         }
 
         async function deleteSingle(tableName, id) {
-            if (confirm('Sei sicuro di voler eliminare questo record?')) {
+            showConfirmModal('Sei sicuro di voler eliminare questo record?', async () => {
                 try {
-                    await supabase.from(tableName).delete().eq('id', id);
-                    alert('Record eliminato!');
+                    await supabaseClient.from(tableName).delete().eq('id', id);
+                    showAlert('✅ Record eliminato!', 'success');
                     viewTable(tableName);
                     loadAllCounts();
                 } catch (error) {
-                    alert('Errore: ' + error.message);
+                    showAlert('❌ Errore: ' + error.message, 'error');
                 }
-            }
+            });
         }
 
         async function deleteSelectedFromModal() {
             if (selectedItems.size === 0) {
-                alert('Nessun elemento selezionato!');
+                showAlert('⚠️ Nessun elemento selezionato!', 'error');
                 return;
             }
             
-            if (confirm(`Eliminare ${selectedItems.size} record selezionati?`)) {
+            showConfirmModal(`Eliminare ${selectedItems.size} record selezionati?`, async () => {
                 try {
                     for (const id of selectedItems) {
-                        await supabase.from(currentTable).delete().eq('id', id);
+                        await supabaseClient.from(currentTable).delete().eq('id', id);
                     }
-                    alert(`${selectedItems.size} record eliminati!`);
+                    showAlert(`✅ ${selectedItems.size} record eliminati!`, 'success');
                     viewTable(currentTable);
                     loadAllCounts();
                 } catch (error) {
-                    alert('Errore: ' + error.message);
+                    showAlert('❌ Errore: ' + error.message, 'error');
                 }
-            }
+            });
         }
 
         async function deleteSelected(tableName) {
@@ -452,56 +555,62 @@
         }
 
         async function deleteAllTable(tableName) {
-            const confirmed = confirm(`⚠️ ATTENZIONE!\n\nSei sicuro di voler eliminare TUTTI i record dalla tabella "${tableName}"?\n\nQuesta azione è IRREVERSIBILE!`);
-            
-            if (confirmed) {
-                const doubleConfirm = prompt(`Per confermare, scrivi: DELETE ${tableName.toUpperCase()}`);
-                
-                if (doubleConfirm === `DELETE ${tableName.toUpperCase()}`) {
-                    try {
-                        const { data } = await supabase.from(tableName).select('id');
-                        for (const item of data) {
-                            await supabase.from(tableName).delete().eq('id', item.id);
+            showConfirmModal(
+                `⚠️ ATTENZIONE!\n\nSei sicuro di voler eliminare TUTTI i record dalla tabella "${tableName}"?\n\nQuesta azione è IRREVERSIBILE!`,
+                () => {
+                    showInputConfirmModal(
+                        `Per confermare, scrivi esattamente: DELETE ${tableName.toUpperCase()}`,
+                        `DELETE ${tableName.toUpperCase()}`,
+                        async () => {
+                            try {
+                                const { data } = await supabaseClient.from(tableName).select('id');
+                                for (const item of data) {
+                                    await supabaseClient.from(tableName).delete().eq('id', item.id);
+                                }
+                                showAlert(`✅ Tutti i record di "${tableName}" sono stati eliminati!`, 'success');
+                                loadAllCounts();
+                            } catch (error) {
+                                showAlert('❌ Errore: ' + error.message, 'error');
+                            }
                         }
-                        alert(`Tutti i record di "${tableName}" sono stati eliminati!`);
-                        loadAllCounts();
-                    } catch (error) {
-                        alert('Errore: ' + error.message);
-                    }
-                } else {
-                    alert('Operazione annullata - testo di conferma errato');
+                    );
                 }
-            }
+            );
         }
 
         async function nukeDatabase() {
-            const confirmed = confirm('☢️ ATTENZIONE MASSIMA! ☢️\n\nStai per ELIMINARE TUTTO IL DATABASE!\n\nQuesta azione cancellerà TUTTI i dati da TUTTE le tabelle.\n\nSei ASSOLUTAMENTE SICURO?');
-            
-            if (confirmed) {
-                const password = prompt('Inserisci la password SUPERUSER per confermare:');
-                
-                if (password === SUPERUSER_PASSWORD) {
-                    const finalConfirm = prompt('ULTIMA CONFERMA: Scrivi "NUKE DATABASE" per procedere');
-                    
-                    if (finalConfirm === 'NUKE DATABASE') {
-                        try {
-                            const tables = ['requests', 'communications', 'task_components', 'tasks', 'team_members', 'teams', 'components', 'clients', 'users'];
-                            
-                            for (const table of tables) {
-                                const { data } = await supabase.from(table).select('id');
-                                for (const item of data) {
-                                    await supabase.from(table).delete().eq('id', item.id);
+            showConfirmModal(
+                '☢️ ATTENZIONE MASSIMA! ☢️\n\nStai per ELIMINARE TUTTO IL DATABASE!\n\nQuesta azione cancellerà TUTTI i dati da TUTTE le tabelle.\n\nSei ASSOLUTAMENTE SICURO?',
+                () => {
+                    showInputConfirmModal(
+                        'Inserisci la password SUPERUSER per confermare:',
+                        SUPERUSER_PASSWORD,
+                        () => {
+                            showInputConfirmModal(
+                                'ULTIMA CONFERMA: Scrivi esattamente "NUKE DATABASE" per procedere',
+                                'NUKE DATABASE',
+                                async () => {
+                                    try {
+                                        const tables = ['requests', 'communications', 'task_components', 'tasks', 'team_members', 'teams', 'components', 'clients', 'users'];
+                                        
+                                        for (const table of tables) {
+                                            const { data } = await supabaseClient.from(table).select('id');
+                                            for (const item of data) {
+                                                await supabaseClient.from(table).delete().eq('id', item.id);
+                                            }
+                                        }
+                                        
+                                        showAlert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥', 'success');
+                                        loadAllCounts();
+                                    } catch (error) {
+                                        showAlert('❌ Errore durante l\'eliminazione: ' + error.message, 'error');
+                                    }
                                 }
-                            }
-                            
-                            alert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥');
-                            loadAllCounts();
-                        } catch (error) {
-                            alert('Errore durante l\'eliminazione: ' + error.message);
+                            );
                         }
-                    }
+                    );
                 }
-            }
+            );
         }
     </script>
 </body>
