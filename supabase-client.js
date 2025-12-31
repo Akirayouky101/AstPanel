@@ -10,19 +10,27 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // ⚠️ Bypassa RLS - Usare SOLO in gestione-utenti.html
 const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTI4NzM2NSwiZXhwIjoyMDc2ODYzMzY1fQ.VRr21sG4eaJqVRDRAETmqFsEEUtcxisKLNNqEA-jGNE';
 
-// Salva riferimento alla libreria globale
-const supabaseLib = window.supabase;
+// Attendi che la libreria Supabase CDN sia caricata
+if (!window.supabase || !window.supabase.createClient) {
+    console.error('❌ Supabase CDN library not loaded! Make sure to include: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>');
+    throw new Error('Supabase library not found');
+}
+
+// Salva riferimento alla libreria globale dal CDN
+const { createClient } = window.supabase;
 
 // Inizializza client Supabase standard (con anon key)
-const supabase = supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Inizializza client admin (con service_role key) - Solo per gestione-utenti.html
-const supabaseAdmin = supabaseLib.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Esporta clients come variabili globali
-window.supabaseClient = supabase;
-window.supabase = supabase; // Compatibilità con codice esistente
+window.supabaseClient = supabaseClient;
+window.supabase = supabaseClient; // Compatibilità con codice esistente
 window.supabaseAdmin = supabaseAdmin; // Per operazioni admin
+
+console.log('✅ Supabase clients initialized successfully');
 
 // =====================================================
 // AUTHENTICATION
@@ -30,7 +38,7 @@ window.supabaseAdmin = supabaseAdmin; // Per operazioni admin
 window.AuthService = {
     // Login
     async login(email, password) {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
             email,
             password
         });
@@ -41,20 +49,20 @@ window.AuthService = {
 
     // Logout
     async logout() {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabaseClient.auth.signOut();
         if (error) throw error;
     },
 
     // Get current user
     async getCurrentUser() {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
         if (error) throw error;
         return user;
     },
 
     // Get user session
     async getSession() {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (error) throw error;
         return session;
     }
@@ -947,7 +955,7 @@ window.StorageAPI = {
             const fileExt = file.name.split('.').pop();
             const fileName = `${folder}/${timestamp}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             
-            const { data, error } = await supabase.storage
+            const { data, error } = await supabaseClient.storage
                 .from(this.BUCKET_NAME)
                 .upload(fileName, file, {
                     cacheControl: '3600',
@@ -983,7 +991,7 @@ window.StorageAPI = {
     // Delete file from storage
     async deleteFile(filePath) {
         try {
-            const { error } = await supabase.storage
+            const { error } = await supabaseClient.storage
                 .from(this.BUCKET_NAME)
                 .remove([filePath]);
             
@@ -1007,7 +1015,7 @@ window.StorageAPI = {
     // List files in a folder
     async listFiles(folder = 'attachments') {
         try {
-            const { data, error } = await supabase.storage
+            const { data, error } = await supabaseClient.storage
                 .from(this.BUCKET_NAME)
                 .list(folder);
             
