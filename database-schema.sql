@@ -19,6 +19,9 @@ CREATE TABLE users (
     reparto VARCHAR(100),
     data_assunzione DATE,
     stato VARCHAR(20) DEFAULT 'attivo' CHECK (stato IN ('attivo', 'inattivo', 'sospeso')),
+    pin_code VARCHAR(10),  -- PIN per sicurezza extra (opzionale)
+    auth_id UUID UNIQUE,  -- Collegamento a Supabase Auth
+    first_login BOOLEAN DEFAULT true,  -- Flag per cambio password primo accesso
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

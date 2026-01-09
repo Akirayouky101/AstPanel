@@ -36,7 +36,10 @@ DROP TABLE IF EXISTS components CASCADE;
 DROP TABLE IF EXISTS team_members CASCADE;
 DROP TABLE IF EXISTS teams CASCADE;
 DROP TABLE IF EXISTS clients CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+
+-- ⚠️ ATTENZIONE: NON eliminiamo la tabella users per preservare il super admin
+-- Invece, cancelliamo SOLO gli utenti normali (non il super admin)
+DELETE FROM users WHERE id != '00000000-0000-0000-0000-000000000001'::UUID;
 
 -- Drop functions (triggers vengono eliminati automaticamente con CASCADE)
 DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
