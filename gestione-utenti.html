@@ -622,8 +622,14 @@
                 const tempPassword = generateTemporaryPassword();
                 
                 // 1. INSERT nel DB
-                // Normalizza il ruolo in minuscolo per il database
-                const ruoloNormalizzato = ruolo.toLowerCase();
+                // Mappa i ruoli del form ai ruoli del database
+                const ruoloMapping = {
+                    'Titolare': 'admin',
+                    'Tecnico': 'tecnico',
+                    'Segreteria': 'admin',
+                    'Dipendente': 'dipendente'
+                };
+                const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
                 
                 const { data: newUser, error: insertError } = await window.supabaseAdmin
                     .from('users')
