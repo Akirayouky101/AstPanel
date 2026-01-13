@@ -6,25 +6,25 @@
 -- Permessi normali: dipendente
 -- =====================================================
 
--- 1. PRIMA aggiorna gli utenti esistenti con i vecchi ruoli
+-- 1. PRIMA rimuovi il vecchio constraint (così possiamo modificare liberamente)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ruolo_check;
+
+-- 2. Aggiorna gli utenti esistenti con i vecchi ruoli
 -- Converti 'admin' → 'titolare' (per il super admin e altri admin)
 UPDATE users 
 SET ruolo = 'titolare' 
 WHERE ruolo = 'admin';
 
--- 2. Il ruolo 'tecnico' rimane invariato (già corretto)
--- 3. Il ruolo 'dipendente' rimane invariato (già corretto)
+-- 3. Il ruolo 'tecnico' rimane invariato (già corretto)
+-- 4. Il ruolo 'dipendente' rimane invariato (già corretto)
 
--- 4. Verifica che non ci siano ruoli strani
+-- 5. Verifica che non ci siano ruoli strani
 SELECT DISTINCT ruolo, COUNT(*) as count
 FROM users
 GROUP BY ruolo
 ORDER BY ruolo;
 
--- 5. SOLO DOPO aver aggiornato i dati, rimuovi il vecchio constraint
-ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ruolo_check;
-
--- 6. Aggiungi il nuovo constraint con i 4 ruoli distinti
+-- 6. INFINE aggiungi il nuovo constraint con i 4 ruoli distinti
 ALTER TABLE users ADD CONSTRAINT users_ruolo_check 
 CHECK (ruolo IN ('titolare', 'segreteria', 'tecnico', 'dipendente'));
 
