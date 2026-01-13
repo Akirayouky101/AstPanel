@@ -459,14 +459,9 @@
             }
 
             try {
-                // Mappa i ruoli del form ai ruoli del database
-                const ruoloMapping = {
-                    'Titolare': 'admin',
-                    'Tecnico': 'tecnico',
-                    'Segreteria': 'admin',
-                    'Dipendente': 'dipendente'
-                };
-                const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
+                // Normalizza il ruolo: i nomi UI corrispondono ai ruoli DB (lowercase)
+                // Titolare → titolare, Segreteria → segreteria, Tecnico → tecnico, Dipendente → dipendente
+                const ruoloNormalizzato = ruolo.toLowerCase();
                 
                 if (editingUserId) {
                     // Update existing user - SOLO DATABASE, no auth changes
@@ -496,15 +491,6 @@
                     
                     // Genera password temporanea
                     const tempPassword = generateTemporaryPassword();
-                    
-                    // Mappa i ruoli del form ai ruoli del database
-                    const ruoloMapping = {
-                        'Titolare': 'admin',
-                        'Tecnico': 'tecnico',
-                        'Segreteria': 'admin',
-                        'Dipendente': 'dipendente'
-                    };
-                    const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
                     
                     // Crea utente nel database (USA ADMIN per bypassare RLS)
                     const { data: newUser, error: insertError} = await window.supabaseAdmin

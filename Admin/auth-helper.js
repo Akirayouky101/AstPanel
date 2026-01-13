@@ -223,9 +223,9 @@ window.AuthHelper = {
         
         console.log('🔍 isAdmin() check - User role:', user.ruolo);
         
-        // Solo 'admin' e 'tecnico' hanno accesso admin
-        // 'dipendente' NON è admin
-        const adminRoles = ['admin', 'tecnico'];
+        // Ruoli con permessi admin: titolare, segreteria, tecnico
+        // Dipendente NON è admin
+        const adminRoles = ['titolare', 'segreteria', 'tecnico'];
         const isAdminUser = adminRoles.includes(user.ruolo.toLowerCase());
         
         console.log('✅ Is admin?', isAdminUser, '- Role checked:', user.ruolo);
