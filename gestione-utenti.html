@@ -594,6 +594,15 @@
                 const stato = document.getElementById('userStatus').value;
                 const telefono = document.getElementById('userPhone').value;
 
+                // Mappa i ruoli del form ai ruoli del database (UNICA VOLTA)
+                const ruoloMapping = {
+                    'Titolare': 'admin',
+                    'Tecnico': 'tecnico',
+                    'Segreteria': 'admin',
+                    'Dipendente': 'dipendente'
+                };
+                const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
+
                 // UPDATE UTENTE ESISTENTE
                 if (currentEditingUserId) {
                     const { error: updateError } = await window.supabaseAdmin
@@ -602,7 +611,7 @@
                             nome: nome,
                             cognome: cognome,
                             email: email,
-                            ruolo: ruolo,
+                            ruolo: ruoloNormalizzato,
                             stato: stato,
                             telefono: telefono
                         })
@@ -622,15 +631,6 @@
                 const tempPassword = generateTemporaryPassword();
                 
                 // 1. INSERT nel DB
-                // Mappa i ruoli del form ai ruoli del database
-                const ruoloMapping = {
-                    'Titolare': 'admin',
-                    'Tecnico': 'tecnico',
-                    'Segreteria': 'admin',
-                    'Dipendente': 'dipendente'
-                };
-                const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
-                
                 const { data: newUser, error: insertError } = await window.supabaseAdmin
                     .from('users')
                     .insert({

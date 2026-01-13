@@ -459,6 +459,15 @@
             }
 
             try {
+                // Mappa i ruoli del form ai ruoli del database
+                const ruoloMapping = {
+                    'Titolare': 'admin',
+                    'Tecnico': 'tecnico',
+                    'Segreteria': 'admin',
+                    'Dipendente': 'dipendente'
+                };
+                const ruoloNormalizzato = ruoloMapping[ruolo] || ruolo.toLowerCase();
+                
                 if (editingUserId) {
                     // Update existing user - SOLO DATABASE, no auth changes
                     const { error } = await window.supabaseAdmin
@@ -467,7 +476,7 @@
                             nome: nome,
                             cognome: cognome,
                             email: email,
-                            ruolo: ruolo,
+                            ruolo: ruoloNormalizzato,
                             telefono: telefono,
                             reparto: reparto
                         })
