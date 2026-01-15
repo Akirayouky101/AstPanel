@@ -10,21 +10,13 @@ DROP POLICY IF EXISTS "users_select_all" ON users;
 DROP POLICY IF EXISTS "users_select_policy" ON users;
 
 -- 2. Crea UNA SOLA policy SELECT semplice
--- Gli admin (titolare, segreteria, tecnico) vedono TUTTI
--- I dipendenti vedono SOLO se stessi
-CREATE POLICY "users_select_policy" ON users
+-- TUTTI gli utenti autenticati possono vedere TUTTI gli utenti
+-- Le restrizioni vengono gestite a livello applicativo
+CREATE POLICY "users_select_all" ON users
 FOR SELECT
 USING (
-    -- Permetti a tutti di vedere tutti (usiamo supabaseAdmin per admin operations)
-    -- Le restrizioni verranno gestite a livello applicativo
-    auth_id = auth.uid()
-    OR
-    -- Oppure l'utente corrente è admin
-    EXISTS (
-        SELECT 1 FROM users u
-        WHERE u.auth_id = auth.uid()
-        AND u.ruolo IN ('titolare', 'segreteria', 'tecnico')
-    )
+    -- Permetti a tutti gli utenti autenticati di vedere tutti
+    auth.uid() IS NOT NULL
 );
 
 -- 3. Verifica le policy attive
@@ -50,8 +42,8 @@ BEGIN
     RAISE NOTICE '✅ ========================================';
     RAISE NOTICE '';
     RAISE NOTICE '📋 Policy SELECT attiva:';
-    RAISE NOTICE '  👁️  Admin (titolare, segreteria, tecnico) → Vedono TUTTI';
-    RAISE NOTICE '  👤 Dipendenti → Vedono SOLO se stessi';
+    RAISE NOTICE '  👁️  TUTTI gli utenti autenticati vedono TUTTI';
+    RAISE NOTICE '  � Le restrizioni sono gestite a livello applicativo';
     RAISE NOTICE '';
     RAISE NOTICE '⚠️  NOTA:';
     RAISE NOTICE '  - Le operazioni admin usano supabaseAdmin (service_role)';
