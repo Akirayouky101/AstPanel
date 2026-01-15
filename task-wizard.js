@@ -359,11 +359,11 @@ class TaskWizard {
 
     async loadDipendentiESquadre() {
         try {
-            // Carica dipendenti
+            // Carica dipendenti (ruoli lowercase)
             const { data: dipendenti, error: errDip } = await supabaseClient
                 .from('users')
                 .select('*')
-                .in('ruolo', ['Dipendente', 'Tecnico', 'Titolare', 'Segreteria'])
+                .in('ruolo', ['dipendente', 'tecnico', 'titolare', 'segreteria'])
                 .order('nome');
             
             if (errDip) throw errDip;
