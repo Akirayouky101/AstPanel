@@ -5,10 +5,10 @@
 -- ma ora nel DB sono lowercase ('dipendente', 'titolare', 'segreteria', 'tecnico')
 -- =====================================================
 
--- 0. DROP delle vecchie funzioni
-DROP FUNCTION IF EXISTS get_dashboard_disponibilita();
-DROP FUNCTION IF EXISTS check_urgenza_veloce();
-DROP FUNCTION IF EXISTS trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR);
+-- 0. DROP delle vecchie funzioni con CASCADE
+DROP FUNCTION IF EXISTS get_dashboard_disponibilita() CASCADE;
+DROP FUNCTION IF EXISTS check_urgenza_veloce() CASCADE;
+DROP FUNCTION IF EXISTS trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR) CASCADE;
 
 -- 1. Aggiorna get_dashboard_disponibilita() con ruoli lowercase
 CREATE OR REPLACE FUNCTION get_dashboard_disponibilita()
