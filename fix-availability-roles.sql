@@ -5,6 +5,11 @@
 -- ma ora nel DB sono lowercase ('dipendente', 'titolare', 'segreteria', 'tecnico')
 -- =====================================================
 
+-- 0. DROP delle vecchie funzioni
+DROP FUNCTION IF EXISTS get_dashboard_disponibilita();
+DROP FUNCTION IF EXISTS check_urgenza_veloce();
+DROP FUNCTION IF EXISTS trova_dipendente_disponibile(DATE, DATE, DECIMAL, VARCHAR);
+
 -- 1. Aggiorna get_dashboard_disponibilita() con ruoli lowercase
 CREATE OR REPLACE FUNCTION get_dashboard_disponibilita()
 RETURNS TABLE(
@@ -83,6 +88,54 @@ BEGIN
     ORDER BY cc.prio_ruolo DESC, priorita DESC, cc.ore_disponibili DESC;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 2. Ricrea check_urgenza_veloce() (dipende da get_dashboard_disponibilita)
+CREATE OR REPLACE FUNCTION check_urgenza_veloce()
+RETURNS TABLE(
+    consigliato_user_id UUID,
+    consigliato_nome TEXT,
+    motivo TEXT,
+    ore_disponibili DECIMAL,
+    task_attivi BIGINT,
+    ruolo VARCHAR
+)
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    user_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO user_count FROM users;
+    
+    IF user_count = 0 THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        dv.user_id,
+        dv.nome_completo::TEXT,
+        CASE 
+            WHEN dv.stato_disponibilita = 'molto_disponibile' 
+                THEN '✅ MOLTO DISPONIBILE - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
+            WHEN dv.stato_disponibilita = 'disponibile' 
+                THEN '⚠️ Disponibile - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
+            WHEN dv.stato_disponibilita = 'quasi_pieno' 
+                THEN '🔸 Quasi pieno - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
+            ELSE '🔴 Occupato - ' || dv.ore_disponibili || ' ore libere (' || dv.ruolo || ')'
+        END as motivo,
+        dv.ore_disponibili,
+        dv.task_attivi,
+        dv.ruolo
+    FROM get_dashboard_disponibilita() dv
+    -- Già ordinato per priorita_ruolo DESC dalla funzione
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_urgenza_veloce IS 'Check veloce per urgenze: restituisce il dipendente più disponibile ADESSO';
+GRANT EXECUTE ON FUNCTION check_urgenza_veloce TO authenticated;
+ALTER FUNCTION check_urgenza_veloce() OWNER TO postgres;
 
 -- Messaggio finale
 DO $$ 
