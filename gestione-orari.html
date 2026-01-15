@@ -604,9 +604,9 @@
             
             console.log('✅ [AUTH] Utente trovato:', user.nome, user.cognome, '- Ruolo:', user.ruolo);
             
-            // Verifica ruolo admin
-            const adminRoles = ['Titolare', 'Amministratore', 'Tecnico', 'Segreteria'];
-            if (!adminRoles.includes(user.ruolo)) {
+            // Verifica ruolo admin (case-insensitive per compatibilità)
+            const adminRoles = ['titolare', 'tecnico', 'segreteria'];
+            if (!adminRoles.includes(user.ruolo.toLowerCase())) {
                 console.error('❌ [AUTH] Accesso negato. Ruolo:', user.ruolo);
                 alert('⛔ Accesso non autorizzato. Solo amministratori.');
                 window.location.href = '/pannello-utente.html';
@@ -657,11 +657,11 @@
             try {
                 const today = new Date().toISOString().split('T')[0];
                 
-                // Carica tutti tranne il Titolare (Dipendente + Tecnico + Segreteria)
+                // Carica tutti i dipendenti (ruoli lowercase)
                 const { data: allEmployees, error: empError } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
-                    .in('ruolo', ['Dipendente', 'Tecnico', 'Segreteria'])
+                    .in('ruolo', ['dipendente', 'tecnico', 'segreteria'])
                     .order('cognome');
 
                 if (empError) {
