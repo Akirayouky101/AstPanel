@@ -18,7 +18,7 @@ ORDER BY au.created_at DESC;
 -- 2. Verifica se esiste l'utente problematico specifico
 SELECT 
     'auth.users' as tabella,
-    id,
+    id::text as id,
     email,
     created_at
 FROM auth.users
