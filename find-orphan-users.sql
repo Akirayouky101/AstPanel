@@ -34,13 +34,13 @@ SELECT
 FROM public.users
 WHERE auth_id = 'c0d0a351-f4ab-47a8-b5d3-8c3e56227b0e';
 
--- 3. Se vuoi eliminare l'utente orfano specifico, decommentare:
--- DELETE FROM auth.users 
--- WHERE id = 'c0d0a351-f4ab-47a8-b5d3-8c3e56227b0e'
--- AND NOT EXISTS (
---     SELECT 1 FROM public.users 
---     WHERE auth_id = 'c0d0a351-f4ab-47a8-b5d3-8c3e56227b0e'
--- );
+-- 3. Elimina l'utente orfano specifico
+DELETE FROM auth.users 
+WHERE id = 'c0d0a351-f4ab-47a8-b5d3-8c3e56227b0e'
+AND NOT EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE auth_id = 'c0d0a351-f4ab-47a8-b5d3-8c3e56227b0e'
+);
 
 -- 4. OPPURE elimina TUTTI gli utenti orfani (tranne super admin)
 -- ATTENZIONE: Questo eliminerà tutti gli utenti in auth.users che non hanno corrispondenza in public.users
