@@ -529,7 +529,27 @@
                 }
             } catch (error) {
                 console.error('Errore eliminazione utente:', error);
-                showAlert('Errore', 'Impossibile eliminare l\'utente: ' + error.message, 'error');
+                
+                // Gestisci errore specifico per task assegnati
+                if (error.code === '23514' || error.message?.includes('check_assignment') || error.message?.includes('violates check constraint')) {
+                    showAlert(
+                        'Impossibile Eliminare Utente', 
+                        `❌ Non è possibile eliminare <strong>${userName}</strong> perché ha delle <strong>lavorazioni assegnate</strong>.<br><br>
+                        <strong>Cosa fare:</strong><br>
+                        1️⃣ Riassegna o completa le lavorazioni dell'utente<br>
+                        2️⃣ Oppure disattiva l'utente invece di eliminarlo`, 
+                        'error'
+                    );
+                } else if (error.code === '23503' || error.message?.includes('foreign key')) {
+                    showAlert(
+                        'Impossibile Eliminare Utente',
+                        `❌ Non è possibile eliminare <strong>${userName}</strong> perché è referenziato in altri record del sistema.<br><br>
+                        <strong>Suggerimento:</strong> Disattiva l'utente invece di eliminarlo.`,
+                        'error'
+                    );
+                } else {
+                    showAlert('Errore', 'Impossibile eliminare l\'utente: ' + error.message, 'error');
+                }
             }
         }
 
