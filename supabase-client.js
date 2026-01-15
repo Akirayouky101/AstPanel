@@ -120,14 +120,44 @@ window.UsersAPI = {
         return data;
     },
 
-    // Delete user
+    // Delete user (elimina da public.users E da auth.users)
     async delete(id) {
-        const { error } = await supabase
-            .from('users')
-            .delete()
-            .eq('id', id);
-        
-        if (error) throw error;
+        try {
+            // 1. Prima recupera l'auth_id dell'utente
+            const { data: user, error: fetchError } = await supabase
+                .from('users')
+                .select('auth_id')
+                .eq('id', id)
+                .single();
+            
+            if (fetchError) throw fetchError;
+            
+            // 2. Elimina da public.users
+            const { error: deleteError } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', id);
+            
+            if (deleteError) throw deleteError;
+            
+            // 3. Se ha un auth_id, elimina anche da auth.users
+            if (user?.auth_id && window.supabaseAdmin) {
+                console.log('🗑️ Eliminando utente da auth.users:', user.auth_id);
+                const { error: authDeleteError } = await window.supabaseAdmin.auth.admin.deleteUser(
+                    user.auth_id
+                );
+                
+                if (authDeleteError) {
+                    console.warn('⚠️ Errore eliminazione da auth.users (utente già eliminato?):', authDeleteError);
+                    // Non bloccare se fallisce (potrebbe essere già eliminato)
+                }
+            }
+            
+            console.log('✅ Utente eliminato completamente');
+        } catch (error) {
+            console.error('❌ Errore eliminazione utente:', error);
+            throw error;
+        }
     },
 
     // Get by role
