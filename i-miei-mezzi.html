@@ -249,7 +249,35 @@
                 const today = new Date().toISOString().split('T')[0];
                 const now = new Date().toTimeString().slice(0, 5);
 
-                // Crea assegnazione
+                // 1. CONTROLLO: Chiudi automaticamente altri mezzi attivi dell'utente
+                const { data: myActiveAssignments } = await window.supabase
+                    .from('vehicle_assignments')
+                    .select('id, vehicle_id')
+                    .eq('user_id', currentUser.id)
+                    .eq('stato', 'attiva');
+                
+                if (myActiveAssignments && myActiveAssignments.length > 0) {
+                    // Chiudi tutte le assegnazioni attive
+                    for (const assignment of myActiveAssignments) {
+                        await window.supabase
+                            .from('vehicle_assignments')
+                            .update({
+                                data_fine: today,
+                                ora_fine: now,
+                                stato: 'completata',
+                                note: assignment.note ? `${assignment.note}\nChiuso automaticamente per nuova presa mezzo` : 'Chiuso automaticamente per nuova presa mezzo'
+                            })
+                            .eq('id', assignment.id);
+                        
+                        // Veicolo torna disponibile
+                        await window.supabase
+                            .from('vehicles')
+                            .update({ stato: 'disponibile' })
+                            .eq('id', assignment.vehicle_id);
+                    }
+                }
+
+                // 2. Crea nuova assegnazione
                 const { error } = await window.supabase
                     .from('vehicle_assignments')
                     .insert([{
@@ -263,14 +291,20 @@
                 
                 if (error) throw error;
 
-                // Aggiorna stato veicolo
+                // 3. Aggiorna stato nuovo veicolo
                 await window.supabase
                     .from('vehicles')
                     .update({ stato: 'in_uso' })
                     .eq('id', vehicleId);
 
                 document.getElementById('notesModal').classList.add('hidden');
-                showNotification('✅ Mezzo preso con successo!', 'success');
+                
+                if (myActiveAssignments && myActiveAssignments.length > 0) {
+                    showNotification('✅ Mezzo precedente chiuso e nuovo mezzo preso!', 'success');
+                } else {
+                    showNotification('✅ Mezzo preso con successo!', 'success');
+                }
+                
                 await loadData();
             } catch (error) {
                 console.error('Errore:', error);
