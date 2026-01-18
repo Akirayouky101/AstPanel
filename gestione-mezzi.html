@@ -88,6 +88,9 @@
                     <button onclick="switchTab('assegnazioni')" id="tab-assegnazioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
                         <i class="fas fa-users mr-2"></i>Assegnazioni Attive
                     </button>
+                    <button onclick="switchTab('storico')" id="tab-storico" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-history mr-2"></i>Storico Utilizzi
+                    </button>
                 </nav>
             </div>
         </div>
@@ -128,6 +131,115 @@
                     <!-- Lista assegnazioni -->
                 </div>
             </div>
+        </div>
+
+        <!-- Panel Storico -->
+        <div id="panel-storico" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Storico Completo Utilizzi</h2>
+                    <div class="flex items-center space-x-2">
+                        <select id="filterVehicle" onchange="loadHistory()" class="px-3 py-2 border rounded-lg text-sm">
+                            <option value="">Tutti i mezzi</option>
+                        </select>
+                        <select id="filterUser" onchange="loadHistory()" class="px-3 py-2 border rounded-lg text-sm">
+                            <option value="">Tutti gli utenti</option>
+                        </select>
+                        <select id="filterStato" onchange="loadHistory()" class="px-3 py-2 border rounded-lg text-sm">
+                            <option value="">Tutti gli stati</option>
+                            <option value="attiva">Attive</option>
+                            <option value="completata">Completate</option>
+                            <option value="annullata">Annullate</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mezzo</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utente</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Inizio</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Fine</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durata</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Righe storico -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="historyPagination" class="mt-4 flex justify-center">
+                    <!-- Paginazione -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modifica Assegnazione -->
+    <div id="editAssignmentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
+            <div class="bg-gradient-to-r from-orange-600 to-orange-800 text-white p-6 rounded-t-xl">
+                <h3 class="text-2xl font-bold">✏️ Modifica Assegnazione</h3>
+            </div>
+            <form id="editAssignmentForm" class="p-6 space-y-4">
+                <input type="hidden" id="editAssignmentId">
+                
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <p class="text-sm text-gray-600">Mezzo:</p>
+                    <p class="font-bold text-lg" id="editVehicleName"></p>
+                    <p class="text-sm text-gray-600 mt-1">Utente:</p>
+                    <p class="font-bold" id="editUserName"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data Inizio</label>
+                        <input type="date" id="editDataInizio" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ora Inizio</label>
+                        <input type="time" id="editOraInizio" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data Fine</label>
+                        <input type="date" id="editDataFine" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ora Fine</label>
+                        <input type="time" id="editOraFine" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stato</label>
+                    <select id="editStato" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500">
+                        <option value="attiva">Attiva</option>
+                        <option value="completata">Completata</option>
+                        <option value="annullata">Annullata</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                    <textarea id="editNote" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeEditAssignmentModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Salva Modifiche
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -241,6 +353,12 @@
             const activeTab = document.getElementById(`tab-${tab}`);
             activeTab.classList.add('border-blue-500', 'text-blue-600');
             activeTab.classList.remove('border-transparent', 'text-gray-500');
+
+            // Carica dati specifici per lo storico
+            if (tab === 'storico') {
+                loadHistory();
+                populateFilters();
+            }
         }
 
         // Carica dati
@@ -557,6 +675,240 @@
                 showAlert('Errore', error.message, 'error');
             }
         }
+
+        // ========== STORICO UTILIZZI ==========
+        
+        let allUsers = [];
+        let currentPage = 1;
+        const itemsPerPage = 20;
+
+        // Popola filtri
+        async function populateFilters() {
+            try {
+                // Carica utenti per filtro
+                const { data: users } = await window.supabase
+                    .from('users')
+                    .select('id, nome, cognome')
+                    .order('nome');
+                
+                allUsers = users || [];
+
+                const filterUser = document.getElementById('filterUser');
+                filterUser.innerHTML = '<option value="">Tutti gli utenti</option>';
+                allUsers.forEach(u => {
+                    filterUser.innerHTML += `<option value="${u.id}">${u.nome} ${u.cognome}</option>`;
+                });
+
+                const filterVehicle = document.getElementById('filterVehicle');
+                filterVehicle.innerHTML = '<option value="">Tutti i mezzi</option>';
+                vehicles.forEach(v => {
+                    filterVehicle.innerHTML += `<option value="${v.id}">${v.nome} (${v.targa})</option>`;
+                });
+            } catch (error) {
+                console.error('Errore popolamento filtri:', error);
+            }
+        }
+
+        // Carica storico
+        async function loadHistory(page = 1) {
+            try {
+                currentPage = page;
+                const filterVehicle = document.getElementById('filterVehicle').value;
+                const filterUser = document.getElementById('filterUser').value;
+                const filterStato = document.getElementById('filterStato').value;
+
+                let query = window.supabase
+                    .from('vehicle_assignments')
+                    .select('*, vehicle:vehicles(nome, targa), user:users(nome, cognome)', { count: 'exact' })
+                    .order('data_inizio', { ascending: false });
+                
+                if (filterVehicle) query = query.eq('vehicle_id', filterVehicle);
+                if (filterUser) query = query.eq('user_id', filterUser);
+                if (filterStato) query = query.eq('stato', filterStato);
+
+                const { data, error, count } = await query
+                    .range((page - 1) * itemsPerPage, page * itemsPerPage - 1);
+                
+                if (error) throw error;
+
+                renderHistory(data || []);
+                renderPagination(count);
+            } catch (error) {
+                console.error('Errore caricamento storico:', error);
+                showAlert('Errore', 'Impossibile caricare lo storico: ' + error.message, 'error');
+            }
+        }
+
+        // Render storico
+        function renderHistory(assignments) {
+            const tbody = document.getElementById('historyTableBody');
+            
+            if (assignments.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2 opacity-20"></i>
+                            <p>Nessun utilizzo trovato</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = assignments.map(a => {
+                const statoColors = {
+                    'attiva': 'bg-green-100 text-green-800',
+                    'completata': 'bg-blue-100 text-blue-800',
+                    'annullata': 'bg-red-100 text-red-800'
+                };
+
+                const dataInizio = new Date(a.data_inizio + (a.ora_inizio ? 'T' + a.ora_inizio : ''));
+                const dataFine = a.data_fine ? new Date(a.data_fine + (a.ora_fine ? 'T' + a.ora_fine : '')) : null;
+                
+                let durata = '-';
+                if (dataFine && a.stato === 'completata') {
+                    const diffMs = dataFine - dataInizio;
+                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    durata = `${diffHrs}h ${diffMins}m`;
+                }
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">
+                            <div class="font-medium">${a.vehicle?.nome || 'N/D'}</div>
+                            <div class="text-gray-500 text-xs">${a.vehicle?.targa || 'N/D'}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            ${a.user ? `${a.user.nome} ${a.user.cognome}` : 'N/D'}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <div>${new Date(a.data_inizio).toLocaleDateString('it-IT')}</div>
+                            ${a.ora_inizio ? `<div class="text-xs text-gray-500">${a.ora_inizio}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            ${a.data_fine ? `
+                                <div>${new Date(a.data_fine).toLocaleDateString('it-IT')}</div>
+                                ${a.ora_fine ? `<div class="text-xs text-gray-500">${a.ora_fine}</div>` : ''}
+                            ` : '<span class="text-gray-400">In corso</span>'}
+                        </td>
+                        <td class="px-4 py-3 text-sm">${durata}</td>
+                        <td class="px-4 py-3 text-sm">
+                            ${a.note ? `<span class="text-xs text-gray-600" title="${a.note}">${a.note.substring(0, 30)}${a.note.length > 30 ? '...' : ''}</span>` : '-'}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 text-xs rounded ${statoColors[a.stato] || 'bg-gray-100 text-gray-800'}">
+                                ${a.stato.charAt(0).toUpperCase() + a.stato.slice(1)}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <button onclick="openEditAssignment('${a.id}')" class="text-blue-600 hover:text-blue-800" title="Modifica">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render paginazione
+        function renderPagination(totalCount) {
+            const totalPages = Math.ceil(totalCount / itemsPerPage);
+            const container = document.getElementById('historyPagination');
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="flex space-x-2">';
+            
+            // Prev
+            if (currentPage > 1) {
+                html += `<button onclick="loadHistory(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">←</button>`;
+            }
+            
+            // Pages
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button onclick="loadHistory(${i})" class="px-3 py-1 border rounded ${i === currentPage ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += '<span class="px-2">...</span>';
+                }
+            }
+            
+            // Next
+            if (currentPage < totalPages) {
+                html += `<button onclick="loadHistory(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">→</button>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Apri modal modifica assegnazione
+        async function openEditAssignment(id) {
+            try {
+                const { data, error } = await window.supabase
+                    .from('vehicle_assignments')
+                    .select('*, vehicle:vehicles(nome), user:users(nome, cognome)')
+                    .eq('id', id)
+                    .single();
+                
+                if (error) throw error;
+
+                document.getElementById('editAssignmentId').value = data.id;
+                document.getElementById('editVehicleName').textContent = data.vehicle?.nome || 'N/D';
+                document.getElementById('editUserName').textContent = data.user ? `${data.user.nome} ${data.user.cognome}` : 'N/D';
+                document.getElementById('editDataInizio').value = data.data_inizio;
+                document.getElementById('editOraInizio').value = data.ora_inizio || '';
+                document.getElementById('editDataFine').value = data.data_fine || '';
+                document.getElementById('editOraFine').value = data.ora_fine || '';
+                document.getElementById('editStato').value = data.stato;
+                document.getElementById('editNote').value = data.note || '';
+
+                document.getElementById('editAssignmentModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore:', error);
+                showAlert('Errore', error.message, 'error');
+            }
+        }
+
+        function closeEditAssignmentModal() {
+            document.getElementById('editAssignmentModal').classList.add('hidden');
+        }
+
+        // Salva modifiche assegnazione
+        document.getElementById('editAssignmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            try {
+                const id = document.getElementById('editAssignmentId').value;
+                const updates = {
+                    data_inizio: document.getElementById('editDataInizio').value,
+                    ora_inizio: document.getElementById('editOraInizio').value || null,
+                    data_fine: document.getElementById('editDataFine').value || null,
+                    ora_fine: document.getElementById('editOraFine').value || null,
+                    stato: document.getElementById('editStato').value,
+                    note: document.getElementById('editNote').value || null
+                };
+
+                const { error } = await window.supabase
+                    .from('vehicle_assignments')
+                    .update(updates)
+                    .eq('id', id);
+                
+                if (error) throw error;
+
+                showNotification('✅ Assegnazione modificata!', 'success');
+                closeEditAssignmentModal();
+                await loadHistory(currentPage);
+                await loadData(); // Ricarica anche le altre tab
+            } catch (error) {
+                console.error('Errore:', error);
+                showAlert('Errore', 'Impossibile salvare: ' + error.message, 'error');
+            }
+        });
     </script>
 </body>
 </html>
