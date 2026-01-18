@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Mezzi - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <script src="modal-system.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='/admin-functional.html'" class="hover:bg-blue-700 p-2 rounded">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">🚗 Gestione Mezzi</h1>
+                        <p class="text-blue-100 text-sm">Furgoni aziendali e noleggi</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="text-right">
+                    <p class="text-sm opacity-90" id="userName">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Mezzi Totali</p>
+                        <p class="text-2xl font-bold text-gray-800" id="statTotal">0</p>
+                    </div>
+                    <i class="fas fa-truck text-blue-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Disponibili</p>
+                        <p class="text-2xl font-bold text-green-600" id="statAvailable">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">In Uso</p>
+                        <p class="text-2xl font-bold text-orange-600" id="statInUse">0</p>
+                    </div>
+                    <i class="fas fa-road text-orange-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">A Noleggio</p>
+                        <p class="text-2xl font-bold text-purple-600" id="statRental">0</p>
+                    </div>
+                    <i class="fas fa-calendar-alt text-purple-500 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex -mb-px">
+                    <button onclick="switchTab('aziendali')" id="tab-aziendali" class="tab-button border-b-2 border-blue-500 text-blue-600 py-4 px-6 font-medium">
+                        <i class="fas fa-building mr-2"></i>Mezzi Aziendali
+                    </button>
+                    <button onclick="switchTab('noleggio')" id="tab-noleggio" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-handshake mr-2"></i>Mezzi a Noleggio
+                    </button>
+                    <button onclick="switchTab('assegnazioni')" id="tab-assegnazioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-users mr-2"></i>Assegnazioni Attive
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Content Panels -->
+        <div id="panel-aziendali" class="tab-panel">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Mezzi Aziendali</h2>
+                    <button onclick="openVehicleModal('aziendale')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-plus mr-2"></i>Aggiungi Mezzo
+                    </button>
+                </div>
+                <div id="vehiclesAziendali" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Cards mezzi aziendali -->
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-noleggio" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Mezzi a Noleggio</h2>
+                    <button onclick="openVehicleModal('noleggio')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-plus mr-2"></i>Registra Noleggio
+                    </button>
+                </div>
+                <div id="vehiclesNoleggio" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Cards mezzi noleggio -->
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-assegnazioni" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Assegnazioni Attive</h2>
+                <div id="activeAssignments" class="space-y-4">
+                    <!-- Lista assegnazioni -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Veicolo -->
+    <div id="vehicleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-t-xl">
+                <h3 class="text-2xl font-bold" id="modalTitle">Nuovo Mezzo</h3>
+            </div>
+            <form id="vehicleForm" class="p-6 space-y-4">
+                <input type="hidden" id="vehicleId">
+                <input type="hidden" id="vehicleProprieta">
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome Mezzo *</label>
+                        <input type="text" id="vehicleNome" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="es: Furgone Fiat Ducato 1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Targa *</label>
+                        <input type="text" id="vehicleTarga" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="AB123CD">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
+                        <select id="vehicleTipo" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="furgone">🚚 Furgone</option>
+                            <option value="auto">🚗 Auto</option>
+                            <option value="van">🚐 Van</option>
+                            <option value="camion">🚛 Camion</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+                        <input type="text" id="vehicleMarca" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="es: Fiat">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Modello</label>
+                        <input type="text" id="vehicleModello" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="es: Ducato">
+                    </div>
+                </div>
+
+                <!-- Campi Noleggio (visibili solo per noleggio) -->
+                <div id="rentalFields" class="hidden space-y-4 border-t pt-4">
+                    <h4 class="font-bold text-gray-800">📋 Informazioni Noleggio</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Inizio Noleggio *</label>
+                            <input type="date" id="vehicleDataInizio" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Fine Noleggio *</label>
+                            <input type="date" id="vehicleDataFine" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Azienda Noleggio</label>
+                            <input type="text" id="vehicleAziendaNoleggio" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="es: Rent-a-Car">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Costo Giornaliero (€)</label>
+                            <input type="number" step="0.01" id="vehicleCosto" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="50.00">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Note Noleggio</label>
+                            <textarea id="vehicleNoteNoleggio" rows="2" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Note aggiuntive..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeVehicleModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'aziendali';
+        let vehicles = [];
+        let assignments = [];
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Verifica autenticazione e permessi admin
+            if (!await window.AuthHelper.requireAdmin()) return;
+
+            const user = window.AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = `${user.nome} ${user.cognome}`;
+
+            await loadData();
+            lucide.createIcons();
+        });
+
+        // Switch tab
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Nascondi tutti i panel
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(b => {
+                b.classList.remove('border-blue-500', 'text-blue-600');
+                b.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Mostra panel selezionato
+            document.getElementById(`panel-${tab}`).classList.remove('hidden');
+            const activeTab = document.getElementById(`tab-${tab}`);
+            activeTab.classList.add('border-blue-500', 'text-blue-600');
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
+        }
+
+        // Carica dati
+        async function loadData() {
+            try {
+                // Carica mezzi
+                const { data: vehiclesData, error: vError } = await window.supabase
+                    .from('vehicles')
+                    .select('*')
+                    .order('nome');
+                
+                if (vError) throw vError;
+                vehicles = vehiclesData || [];
+
+                // Carica assegnazioni attive
+                const { data: assignmentsData, error: aError } = await window.supabase
+                    .from('vehicle_assignments')
+                    .select('*, vehicle:vehicles(*), user:users(nome, cognome)')
+                    .eq('stato', 'attiva')
+                    .order('data_inizio', { ascending: false });
+                
+                if (aError) throw aError;
+                assignments = assignmentsData || [];
+
+                updateStats();
+                renderVehicles();
+                renderAssignments();
+            } catch (error) {
+                console.error('Errore caricamento dati:', error);
+                showAlert('Errore', 'Impossibile caricare i dati: ' + error.message, 'error');
+            }
+        }
+
+        // Aggiorna statistiche
+        function updateStats() {
+            const total = vehicles.length;
+            const available = vehicles.filter(v => v.stato === 'disponibile').length;
+            const inUse = vehicles.filter(v => v.stato === 'in_uso').length;
+            const rental = vehicles.filter(v => v.proprieta === 'noleggio').length;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statAvailable').textContent = available;
+            document.getElementById('statInUse').textContent = inUse;
+            document.getElementById('statRental').textContent = rental;
+        }
+
+        // Render mezzi
+        function renderVehicles() {
+            const aziendali = vehicles.filter(v => v.proprieta === 'aziendale');
+            const noleggio = vehicles.filter(v => v.proprieta === 'noleggio');
+
+            document.getElementById('vehiclesAziendali').innerHTML = aziendali.map(v => createVehicleCard(v)).join('');
+            document.getElementById('vehiclesNoleggio').innerHTML = noleggio.map(v => createVehicleCard(v)).join('');
+        }
+
+        // Card mezzo
+        function createVehicleCard(vehicle) {
+            const statusColors = {
+                'disponibile': 'bg-green-100 text-green-800',
+                'in_uso': 'bg-orange-100 text-orange-800',
+                'manutenzione': 'bg-red-100 text-red-800',
+                'restituito': 'bg-gray-100 text-gray-800'
+            };
+
+            const tipoIcons = {
+                'furgone': '🚚',
+                'auto': '🚗',
+                'van': '🚐',
+                'camion': '🚛'
+            };
+
+            const assignment = assignments.find(a => a.vehicle_id === vehicle.id);
+
+            return `
+                <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="text-2xl">${tipoIcons[vehicle.tipo] || '🚗'}</span>
+                                <h3 class="font-bold text-gray-800">${vehicle.nome}</h3>
+                            </div>
+                            <p class="text-sm text-gray-600">
+                                <i class="fas fa-hashtag text-xs"></i> ${vehicle.targa}
+                            </p>
+                            ${vehicle.marca ? `<p class="text-xs text-gray-500">${vehicle.marca} ${vehicle.modello || ''}</p>` : ''}
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${statusColors[vehicle.stato] || 'bg-gray-100 text-gray-800'}">
+                            ${vehicle.stato.replace('_', ' ')}
+                        </span>
+                    </div>
+
+                    ${assignment ? `
+                        <div class="bg-blue-50 border border-blue-200 rounded p-2 mb-3">
+                            <p class="text-xs font-medium text-blue-800">
+                                <i class="fas fa-user mr-1"></i> ${assignment.user.nome} ${assignment.user.cognome}
+                            </p>
+                            <p class="text-xs text-blue-600">
+                                <i class="fas fa-calendar mr-1"></i> ${new Date(assignment.data_inizio).toLocaleDateString('it-IT')}
+                                ${assignment.destinazione ? `<br><i class="fas fa-map-marker-alt mr-1"></i> ${assignment.destinazione}` : ''}
+                            </p>
+                        </div>
+                    ` : ''}
+
+                    ${vehicle.proprieta === 'noleggio' ? `
+                        <div class="bg-purple-50 border border-purple-200 rounded p-2 mb-3">
+                            <p class="text-xs font-medium text-purple-800">
+                                <i class="fas fa-calendar-alt mr-1"></i> Noleggio fino al ${new Date(vehicle.data_fine_noleggio).toLocaleDateString('it-IT')}
+                            </p>
+                            ${vehicle.azienda_noleggio ? `<p class="text-xs text-purple-600">${vehicle.azienda_noleggio}</p>` : ''}
+                        </div>
+                    ` : ''}
+
+                    <div class="flex space-x-2">
+                        <button onclick="editVehicle('${vehicle.id}')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded">
+                            <i class="fas fa-edit mr-1"></i> Modifica
+                        </button>
+                        <button onclick="deleteVehicle('${vehicle.id}', '${vehicle.nome}')" class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render assegnazioni
+        function renderAssignments() {
+            if (assignments.length === 0) {
+                document.getElementById('activeAssignments').innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-inbox text-6xl mb-4"></i>
+                        <p>Nessuna assegnazione attiva</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('activeAssignments').innerHTML = assignments.map(a => `
+                <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-blue-600"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800">${a.user.nome} ${a.user.cognome}</h4>
+                                    <p class="text-sm text-gray-600">
+                                        <i class="fas fa-truck mr-1"></i> ${a.vehicle.nome} (${a.vehicle.targa})
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-calendar mr-1"></i> ${new Date(a.data_inizio).toLocaleDateString('it-IT')}
+                                        ${a.data_fine ? ` - ${new Date(a.data_fine).toLocaleDateString('it-IT')}` : ''}
+                                    </p>
+                                    ${a.destinazione ? `<p class="text-xs text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i> ${a.destinazione}</p>` : ''}
+                                    ${a.km_partenza ? `<p class="text-xs text-gray-500"><i class="fas fa-tachometer-alt mr-1"></i> KM partenza: ${a.km_partenza}</p>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="completeAssignment('${a.id}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
+                            <i class="fas fa-check mr-1"></i> Completa
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Apri modal
+        function openVehicleModal(proprieta) {
+            document.getElementById('vehicleId').value = '';
+            document.getElementById('vehicleProprieta').value = proprieta;
+            document.getElementById('vehicleForm').reset();
+            
+            if (proprieta === 'noleggio') {
+                document.getElementById('modalTitle').textContent = 'Registra Nuovo Noleggio';
+                document.getElementById('rentalFields').classList.remove('hidden');
+            } else {
+                document.getElementById('modalTitle').textContent = 'Nuovo Mezzo Aziendale';
+                document.getElementById('rentalFields').classList.add('hidden');
+            }
+            
+            document.getElementById('vehicleModal').classList.remove('hidden');
+        }
+
+        function closeVehicleModal() {
+            document.getElementById('vehicleModal').classList.add('hidden');
+        }
+
+        // Modifica mezzo
+        async function editVehicle(id) {
+            const vehicle = vehicles.find(v => v.id === id);
+            if (!vehicle) return;
+
+            document.getElementById('vehicleId').value = vehicle.id;
+            document.getElementById('vehicleProprieta').value = vehicle.proprieta;
+            document.getElementById('vehicleNome').value = vehicle.nome;
+            document.getElementById('vehicleTarga').value = vehicle.targa;
+            document.getElementById('vehicleTipo').value = vehicle.tipo;
+            document.getElementById('vehicleMarca').value = vehicle.marca || '';
+            document.getElementById('vehicleModello').value = vehicle.modello || '';
+
+            if (vehicle.proprieta === 'noleggio') {
+                document.getElementById('modalTitle').textContent = 'Modifica Noleggio';
+                document.getElementById('rentalFields').classList.remove('hidden');
+                document.getElementById('vehicleDataInizio').value = vehicle.data_inizio_noleggio || '';
+                document.getElementById('vehicleDataFine').value = vehicle.data_fine_noleggio || '';
+                document.getElementById('vehicleAziendaNoleggio').value = vehicle.azienda_noleggio || '';
+                document.getElementById('vehicleCosto').value = vehicle.costo_giornaliero || '';
+                document.getElementById('vehicleNoteNoleggio').value = vehicle.note_noleggio || '';
+            } else {
+                document.getElementById('modalTitle').textContent = 'Modifica Mezzo';
+                document.getElementById('rentalFields').classList.add('hidden');
+            }
+
+            document.getElementById('vehicleModal').classList.remove('hidden');
+        }
+
+        // Salva mezzo
+        document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            try {
+                const id = document.getElementById('vehicleId').value;
+                const proprieta = document.getElementById('vehicleProprieta').value;
+                
+                const vehicleData = {
+                    nome: document.getElementById('vehicleNome').value,
+                    targa: document.getElementById('vehicleTarga').value.toUpperCase(),
+                    tipo: document.getElementById('vehicleTipo').value,
+                    marca: document.getElementById('vehicleMarca').value || null,
+                    modello: document.getElementById('vehicleModello').value || null,
+                    proprieta: proprieta,
+                    stato: 'disponibile'
+                };
+
+                if (proprieta === 'noleggio') {
+                    vehicleData.data_inizio_noleggio = document.getElementById('vehicleDataInizio').value || null;
+                    vehicleData.data_fine_noleggio = document.getElementById('vehicleDataFine').value || null;
+                    vehicleData.azienda_noleggio = document.getElementById('vehicleAziendaNoleggio').value || null;
+                    vehicleData.costo_giornaliero = document.getElementById('vehicleCosto').value || null;
+                    vehicleData.note_noleggio = document.getElementById('vehicleNoteNoleggio').value || null;
+                }
+
+                if (id) {
+                    // Update
+                    const { error } = await window.supabase
+                        .from('vehicles')
+                        .update(vehicleData)
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    showNotification('Mezzo aggiornato con successo!', 'success');
+                } else {
+                    // Insert
+                    const { error } = await window.supabase
+                        .from('vehicles')
+                        .insert([vehicleData]);
+                    
+                    if (error) throw error;
+                    showNotification('Mezzo creato con successo!', 'success');
+                }
+
+                closeVehicleModal();
+                await loadData();
+            } catch (error) {
+                console.error('Errore salvataggio:', error);
+                showAlert('Errore', 'Impossibile salvare il mezzo: ' + error.message, 'error');
+            }
+        });
+
+        // Elimina mezzo
+        async function deleteVehicle(id, nome) {
+            const confirmed = await showConfirm(
+                'Elimina Mezzo',
+                `Sei sicuro di voler eliminare "${nome}"?`
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const { error } = await window.supabase
+                    .from('vehicles')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+
+                showNotification('Mezzo eliminato con successo!', 'success');
+                await loadData();
+            } catch (error) {
+                console.error('Errore eliminazione:', error);
+                showAlert('Errore', 'Impossibile eliminare il mezzo: ' + error.message, 'error');
+            }
+        }
+
+        // Completa assegnazione
+        async function completeAssignment(id) {
+            try {
+                const { error } = await window.supabase
+                    .from('vehicle_assignments')
+                    .update({ 
+                        stato: 'completata',
+                        data_fine: new Date().toISOString().split('T')[0]
+                    })
+                    .eq('id', id);
+                
+                if (error) throw error;
+
+                showNotification('Assegnazione completata!', 'success');
+                await loadData();
+            } catch (error) {
+                console.error('Errore:', error);
+                showAlert('Errore', error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
