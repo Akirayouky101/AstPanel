@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS preventivi (
     numero VARCHAR(50) UNIQUE NOT NULL, -- es: "PREV-2026-001"
     
     -- Cliente
-    cliente_id UUID REFERENCES clienti(id) ON DELETE SET NULL,
+    cliente_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     cliente_nome VARCHAR(200), -- Cache per storico
     cliente_email VARCHAR(200),
     cliente_telefono VARCHAR(50),
