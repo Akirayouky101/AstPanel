@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS preventivi_items (
     
     -- Relazioni
     preventivo_id UUID NOT NULL REFERENCES preventivi(id) ON DELETE CASCADE,
-    prodotto_id UUID REFERENCES prodotti(id) ON DELETE SET NULL,
+    prodotto_id UUID REFERENCES components(id) ON DELETE SET NULL,
     
     -- Dati prodotto (cache per storico)
     codice VARCHAR(100),
