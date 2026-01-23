@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Preventivi - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg no-print">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='/admin-functional.html'" class="hover:bg-purple-700 p-2 rounded">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">📋 Gestione Preventivi</h1>
+                        <p class="text-purple-100 text-sm">Preventivi veloci dal magazzino</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="text-right">
+                    <p class="text-sm opacity-90" id="userName">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 no-print">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Totali</p>
+                        <p class="text-2xl font-bold text-gray-800" id="statTotal">0</p>
+                    </div>
+                    <i class="fas fa-file-alt text-gray-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Bozze</p>
+                        <p class="text-2xl font-bold text-yellow-600" id="statBozza">0</p>
+                    </div>
+                    <i class="fas fa-edit text-yellow-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Inviati</p>
+                        <p class="text-2xl font-bold text-blue-600" id="statInviato">0</p>
+                    </div>
+                    <i class="fas fa-paper-plane text-blue-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Accettati</p>
+                        <p class="text-2xl font-bold text-green-600" id="statAccettato">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Valore Totale</p>
+                        <p class="text-xl font-bold text-purple-600" id="statValore">€0</p>
+                    </div>
+                    <i class="fas fa-euro-sign text-purple-500 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6 no-print">
+            <div class="flex items-center justify-between">
+                <button onclick="nuovoPreventivo()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium">
+                    <i class="fas fa-plus mr-2"></i>Nuovo Preventivo
+                </button>
+                <div class="flex items-center space-x-3">
+                    <select id="filterStato" onchange="loadPreventivi()" class="px-4 py-2 border rounded-lg">
+                        <option value="">Tutti gli stati</option>
+                        <option value="bozza">Bozze</option>
+                        <option value="inviato">Inviati</option>
+                        <option value="accettato">Accettati</option>
+                        <option value="rifiutato">Rifiutati</option>
+                        <option value="scaduto">Scaduti</option>
+                    </select>
+                    <input type="text" id="searchQuery" placeholder="Cerca numero, cliente..." 
+                        onkeyup="searchPreventivi()" class="px-4 py-2 border rounded-lg w-64">
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista Preventivi -->
+        <div id="preventiviList" class="bg-white rounded-lg shadow">
+            <!-- Lista preventivi -->
+        </div>
+
+    </div>
+
+    <!-- Modal Nuovo/Modifica Preventivo -->
+    <div id="preventivoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
+        <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full my-8">
+            <div class="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-6 rounded-t-xl sticky top-0 z-10">
+                <h3 class="text-2xl font-bold" id="modalTitle">Nuovo Preventivo</h3>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <input type="hidden" id="preventivoId">
+                
+                <!-- Dati Cliente -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-gray-800 mb-3 flex items-center">
+                        <i class="fas fa-user mr-2 text-purple-600"></i>
+                        Dati Cliente
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Seleziona Cliente</label>
+                            <select id="clienteId" onchange="fillClienteData()" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                                <option value="">-- Seleziona o inserisci manualmente --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Cliente *</label>
+                            <input type="text" id="clienteNome" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="clienteEmail" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                            <input type="tel" id="clienteTelefono" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Indirizzo</label>
+                            <input type="text" id="clienteIndirizzo" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dettagli Preventivo -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Oggetto *</label>
+                        <input type="text" id="oggetto" required placeholder="es: Fornitura materiale idraulico" 
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data Emissione</label>
+                        <input type="date" id="dataEmissione" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Validità fino al</label>
+                        <input type="date" id="dataValidita" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                </div>
+
+                <!-- Prodotti -->
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-box mr-2 text-purple-600"></i>
+                            Prodotti/Servizi
+                        </h4>
+                        <button onclick="aggiungiProdotto()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm">
+                            <i class="fas fa-plus mr-1"></i>Aggiungi Prodotto
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Codice/Descrizione</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">UM</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Qta</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Prezzo €</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Sc.%</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Totale €</th>
+                                    <th class="px-3 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="prodottiTable">
+                                <!-- Righe prodotti -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Totali -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="max-w-md ml-auto space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span>Subtotale:</span>
+                            <span class="font-semibold" id="displaySubtotale">€ 0,00</span>
+                        </div>
+                        <div class="flex justify-between text-sm items-center">
+                            <span>Sconto generale:</span>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="scontoPercentuale" value="0" min="0" max="100" step="0.1"
+                                    onchange="calcolaTotali()" class="w-20 px-2 py-1 border rounded text-right">
+                                <span>%</span>
+                                <span class="font-semibold text-red-600" id="displaySconto">€ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-sm items-center">
+                            <span>IVA:</span>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="ivaPercentuale" value="22" min="0" max="100" step="0.1"
+                                    onchange="calcolaTotali()" class="w-20 px-2 py-1 border rounded text-right">
+                                <span>%</span>
+                                <span class="font-semibold" id="displayIva">€ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-lg font-bold border-t pt-2">
+                            <span>TOTALE:</span>
+                            <span class="text-purple-600" id="displayTotale">€ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Note Cliente (visibili nel preventivo)</label>
+                        <textarea id="noteCliente" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Note Interne (non visibili)</label>
+                        <textarea id="noteInterne" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Condizioni di Pagamento</label>
+                        <input type="text" id="condizioniPagamento" placeholder="es: 30 giorni data fattura"
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Stato</label>
+                        <select id="stato" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <option value="bozza">Bozza</option>
+                            <option value="inviato">Inviato</option>
+                            <option value="accettato">Accettato</option>
+                            <option value="rifiutato">Rifiutato</option>
+                            <option value="scaduto">Scaduto</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" onclick="closeModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="salvaPreventivo()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Salva Preventivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Selezione Prodotto -->
+    <div id="prodottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 no-print">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div class="bg-purple-600 text-white p-4">
+                <h3 class="text-xl font-bold">Seleziona Prodotto dal Magazzino</h3>
+            </div>
+            <div class="p-4">
+                <input type="text" id="searchProdotto" placeholder="Cerca per codice o descrizione..." 
+                    onkeyup="searchProdotti()" class="w-full px-4 py-2 border rounded-lg mb-4">
+                <div class="overflow-y-auto max-h-96" id="prodottiMagazzino">
+                    <!-- Lista prodotti -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let preventivi = [];
+        let clienti = [];
+        let prodotti = [];
+        let currentItems = [];
+        let currentProdottoIndex = null;
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await window.AuthHelper.requireLogin()) return;
+            
+            currentUser = window.AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+
+            // Imposta data di oggi
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dataEmissione').value = today;
+            
+            // Data validità +30 giorni
+            const validita = new Date();
+            validita.setDate(validita.getDate() + 30);
+            document.getElementById('dataValidita').value = validita.toISOString().split('T')[0];
+
+            await loadData();
+        });
+
+        async function loadData() {
+            await Promise.all([
+                loadPreventivi(),
+                loadClienti(),
+                loadProdotti()
+            ]);
+        }
+
+        // Carica preventivi
+        async function loadPreventivi() {
+            try {
+                const filterStato = document.getElementById('filterStato')?.value || '';
+                
+                let query = window.supabase
+                    .from('preventivi')
+                    .select('*, cliente:clienti(ragione_sociale, nome, cognome), created_by_user:users!created_by(nome, cognome)')
+                    .order('data_emissione', { ascending: false });
+                
+                if (filterStato) query = query.eq('stato', filterStato);
+                
+                const { data, error } = await query;
+                if (error) throw error;
+                
+                preventivi = data || [];
+                renderPreventivi();
+                updateStats();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento: ' + error.message);
+            }
+        }
+
+        // Carica clienti
+        async function loadClienti() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('clienti')
+                    .select('*')
+                    .order('ragione_sociale');
+                
+                if (error) throw error;
+                clienti = data || [];
+                
+                // Popola select
+                const select = document.getElementById('clienteId');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Seleziona o inserisci manualmente --</option>';
+                    clienti.forEach(c => {
+                        const nome = c.ragione_sociale || `${c.nome} ${c.cognome}`;
+                        select.innerHTML += `<option value="${c.id}">${nome}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Errore caricamento clienti:', error);
+            }
+        }
+
+        // Carica prodotti
+        async function loadProdotti() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('prodotti')
+                    .select('*')
+                    .order('codice');
+                
+                if (error) throw error;
+                prodotti = data || [];
+            } catch (error) {
+                console.error('Errore caricamento prodotti:', error);
+            }
+        }
+
+        // Render lista preventivi
+        function renderPreventivi() {
+            const container = document.getElementById('preventiviList');
+            
+            if (preventivi.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-file-alt text-6xl mb-4 opacity-20"></i>
+                        <p class="text-lg">Nessun preventivo trovato</p>
+                        <button onclick="nuovoPreventivo()" class="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg">
+                            <i class="fas fa-plus mr-2"></i>Crea il primo preventivo
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const statoColors = {
+                'bozza': 'bg-yellow-100 text-yellow-800',
+                'inviato': 'bg-blue-100 text-blue-800',
+                'accettato': 'bg-green-100 text-green-800',
+                'rifiutato': 'bg-red-100 text-red-800',
+                'scaduto': 'bg-gray-100 text-gray-800'
+            };
+
+            container.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oggetto</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Totale</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${preventivi.map(p => `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <span class="font-semibold text-purple-600">${p.numero}</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">${p.cliente_nome || 'N/D'}</div>
+                                        ${p.cliente_email ? `<div class="text-xs text-gray-500">${p.cliente_email}</div>` : ''}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${p.oggetto || '-'}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        ${new Date(p.data_emissione).toLocaleDateString('it-IT')}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-semibold text-gray-900">€ ${parseFloat(p.totale || 0).toFixed(2)}</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-1 text-xs rounded ${statoColors[p.stato] || 'bg-gray-100 text-gray-800'}">
+                                            ${p.stato.charAt(0).toUpperCase() + p.stato.slice(1)}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm space-x-2">
+                                        <button onclick="modificaPreventivo('${p.id}')" class="text-blue-600 hover:text-blue-800" title="Modifica">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="stampaPreventivo('${p.id}')" class="text-green-600 hover:text-green-800" title="Stampa/PDF">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                        <button onclick="duplicaPreventivo('${p.id}')" class="text-purple-600 hover:text-purple-800" title="Duplica">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button onclick="eliminaPreventivo('${p.id}', '${p.numero}')" class="text-red-600 hover:text-red-800" title="Elimina">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Update stats
+        function updateStats() {
+            const stats = {
+                total: preventivi.length,
+                bozza: preventivi.filter(p => p.stato === 'bozza').length,
+                inviato: preventivi.filter(p => p.stato === 'inviato').length,
+                accettato: preventivi.filter(p => p.stato === 'accettato').length,
+                valore: preventivi.reduce((sum, p) => sum + parseFloat(p.totale || 0), 0)
+            };
+
+            document.getElementById('statTotal').textContent = stats.total;
+            document.getElementById('statBozza').textContent = stats.bozza;
+            document.getElementById('statInviato').textContent = stats.inviato;
+            document.getElementById('statAccettato').textContent = stats.accettato;
+            document.getElementById('statValore').textContent = '€ ' + stats.valore.toFixed(2);
+        }
+
+        // Nuovo preventivo
+        function nuovoPreventivo() {
+            document.getElementById('preventivoId').value = '';
+            document.getElementById('modalTitle').textContent = 'Nuovo Preventivo';
+            document.getElementById('clienteId').value = '';
+            document.getElementById('clienteNome').value = '';
+            document.getElementById('clienteEmail').value = '';
+            document.getElementById('clienteTelefono').value = '';
+            document.getElementById('clienteIndirizzo').value = '';
+            document.getElementById('oggetto').value = '';
+            document.getElementById('noteCliente').value = '';
+            document.getElementById('noteInterne').value = '';
+            document.getElementById('condizioniPagamento').value = '30 giorni data fattura';
+            document.getElementById('stato').value = 'bozza';
+            document.getElementById('scontoPercentuale').value = '0';
+            document.getElementById('ivaPercentuale').value = '22';
+            
+            currentItems = [];
+            renderProdottiTable();
+            calcolaTotali();
+            
+            document.getElementById('preventivoModal').classList.remove('hidden');
+        }
+
+        // Fill cliente data
+        function fillClienteData() {
+            const clienteId = document.getElementById('clienteId').value;
+            if (!clienteId) return;
+            
+            const cliente = clienti.find(c => c.id === clienteId);
+            if (!cliente) return;
+            
+            const nome = cliente.ragione_sociale || `${cliente.nome || ''} ${cliente.cognome || ''}`;
+            document.getElementById('clienteNome').value = nome.trim();
+            document.getElementById('clienteEmail').value = cliente.email || '';
+            document.getElementById('clienteTelefono').value = cliente.telefono || '';
+            document.getElementById('clienteIndirizzo').value = cliente.indirizzo || '';
+        }
+
+        // Aggiungi prodotto
+        function aggiungiProdotto() {
+            currentProdottoIndex = null;
+            renderProdottiMagazzino();
+            document.getElementById('prodottoModal').classList.remove('hidden');
+        }
+
+        // Search prodotti
+        function searchProdotti() {
+            renderProdottiMagazzino();
+        }
+
+        // Render prodotti magazzino
+        function renderProdottiMagazzino() {
+            const search = document.getElementById('searchProdotto').value.toLowerCase();
+            const filtered = prodotti.filter(p => 
+                p.codice?.toLowerCase().includes(search) || 
+                p.descrizione?.toLowerCase().includes(search)
+            );
+
+            const container = document.getElementById('prodottiMagazzino');
+            container.innerHTML = filtered.map(p => `
+                <div onclick="selezionaProdotto('${p.id}')" 
+                    class="border rounded-lg p-3 mb-2 hover:bg-purple-50 cursor-pointer">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-semibold">${p.codice}</p>
+                            <p class="text-sm text-gray-600">${p.descrizione}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold text-purple-600">€ ${parseFloat(p.prezzo_vendita || 0).toFixed(2)}</p>
+                            <p class="text-xs text-gray-500">${p.um || 'pz'}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Seleziona prodotto
+        function selezionaProdotto(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            const item = {
+                id: Date.now().toString(),
+                prodotto_id: prodotto.id,
+                codice: prodotto.codice,
+                descrizione: prodotto.descrizione,
+                um: prodotto.um || 'pz',
+                quantita: 1,
+                prezzo_unitario: parseFloat(prodotto.prezzo_vendita || 0),
+                sconto_percentuale: 0,
+                importo: parseFloat(prodotto.prezzo_vendita || 0)
+            };
+
+            currentItems.push(item);
+            renderProdottiTable();
+            calcolaTotali();
+            
+            document.getElementById('prodottoModal').classList.add('hidden');
+            document.getElementById('searchProdotto').value = '';
+        }
+
+        // Render tabella prodotti
+        function renderProdottiTable() {
+            const tbody = document.getElementById('prodottiTable');
+            
+            if (currentItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-3 py-8 text-center text-gray-500">
+                            Nessun prodotto aggiunto. Clicca "Aggiungi Prodotto" per iniziare.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = currentItems.map((item, index) => `
+                <tr>
+                    <td class="px-3 py-2">
+                        <input type="text" value="${item.descrizione}" onchange="updateItem(${index}, 'descrizione', this.value)"
+                            class="w-full px-2 py-1 border rounded text-sm">
+                        <input type="text" value="${item.codice || ''}" onchange="updateItem(${index}, 'codice', this.value)"
+                            class="w-full px-2 py-1 border rounded text-xs mt-1" placeholder="Codice">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" value="${item.um}" onchange="updateItem(${index}, 'um', this.value)"
+                            class="w-16 px-2 py-1 border rounded text-sm">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" value="${item.quantita}" min="0" step="0.01" 
+                            onchange="updateItem(${index}, 'quantita', parseFloat(this.value))"
+                            class="w-20 px-2 py-1 border rounded text-sm">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" value="${item.prezzo_unitario}" min="0" step="0.01"
+                            onchange="updateItem(${index}, 'prezzo_unitario', parseFloat(this.value))"
+                            class="w-24 px-2 py-1 border rounded text-sm">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" value="${item.sconto_percentuale}" min="0" max="100" step="0.1"
+                            onchange="updateItem(${index}, 'sconto_percentuale', parseFloat(this.value))"
+                            class="w-16 px-2 py-1 border rounded text-sm">
+                    </td>
+                    <td class="px-3 py-2">
+                        <span class="font-semibold">€ ${item.importo.toFixed(2)}</span>
+                    </td>
+                    <td class="px-3 py-2">
+                        <button onclick="rimuoviItem(${index})" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update item
+        function updateItem(index, field, value) {
+            currentItems[index][field] = value;
+            
+            // Ricalcola importo
+            const item = currentItems[index];
+            const subtotale = item.quantita * item.prezzo_unitario;
+            const sconto = subtotale * (item.sconto_percentuale / 100);
+            item.importo = subtotale - sconto;
+            
+            renderProdottiTable();
+            calcolaTotali();
+        }
+
+        // Rimuovi item
+        function rimuoviItem(index) {
+            currentItems.splice(index, 1);
+            renderProdottiTable();
+            calcolaTotali();
+        }
+
+        // Calcola totali
+        function calcolaTotali() {
+            const subtotale = currentItems.reduce((sum, item) => sum + item.importo, 0);
+            const scontoPerc = parseFloat(document.getElementById('scontoPercentuale').value || 0);
+            const ivaPerc = parseFloat(document.getElementById('ivaPercentuale').value || 22);
+            
+            const scontoImporto = subtotale * (scontoPerc / 100);
+            const imponibile = subtotale - scontoImporto;
+            const iva = imponibile * (ivaPerc / 100);
+            const totale = imponibile + iva;
+            
+            document.getElementById('displaySubtotale').textContent = '€ ' + subtotale.toFixed(2);
+            document.getElementById('displaySconto').textContent = '€ ' + scontoImporto.toFixed(2);
+            document.getElementById('displayIva').textContent = '€ ' + iva.toFixed(2);
+            document.getElementById('displayTotale').textContent = '€ ' + totale.toFixed(2);
+        }
+
+        // Salva preventivo
+        async function salvaPreventivo() {
+            try {
+                const preventivoId = document.getElementById('preventivoId').value;
+                const isNew = !preventivoId;
+
+                // Validazione
+                if (!document.getElementById('clienteNome').value) {
+                    alert('Inserisci il nome del cliente');
+                    return;
+                }
+                if (!document.getElementById('oggetto').value) {
+                    alert('Inserisci l\'oggetto del preventivo');
+                    return;
+                }
+                if (currentItems.length === 0) {
+                    alert('Aggiungi almeno un prodotto/servizio');
+                    return;
+                }
+
+                // Genera numero se nuovo
+                let numero = null;
+                if (isNew) {
+                    const { data: numeroData, error: numeroError } = await window.supabase.rpc('generate_preventivo_numero');
+                    if (numeroError) throw numeroError;
+                    numero = numeroData;
+                }
+
+                // Calcola totali
+                const subtotale = currentItems.reduce((sum, item) => sum + item.importo, 0);
+                const scontoPerc = parseFloat(document.getElementById('scontoPercentuale').value || 0);
+                const ivaPerc = parseFloat(document.getElementById('ivaPercentuale').value || 22);
+                const scontoImporto = subtotale * (scontoPerc / 100);
+                const imponibile = subtotale - scontoImporto;
+                const totaleIva = imponibile * (ivaPerc / 100);
+                const totale = imponibile + totaleIva;
+
+                const preventivoData = {
+                    cliente_id: document.getElementById('clienteId').value || null,
+                    cliente_nome: document.getElementById('clienteNome').value,
+                    cliente_email: document.getElementById('clienteEmail').value || null,
+                    cliente_telefono: document.getElementById('clienteTelefono').value || null,
+                    cliente_indirizzo: document.getElementById('clienteIndirizzo').value || null,
+                    oggetto: document.getElementById('oggetto').value,
+                    data_emissione: document.getElementById('dataEmissione').value,
+                    data_validita: document.getElementById('dataValidita').value || null,
+                    stato: document.getElementById('stato').value,
+                    note_cliente: document.getElementById('noteCliente').value || null,
+                    note_interne: document.getElementById('noteInterne').value || null,
+                    condizioni_pagamento: document.getElementById('condizioniPagamento').value || null,
+                    sconto_percentuale: scontoPerc,
+                    sconto_importo: scontoImporto,
+                    iva_percentuale: ivaPerc,
+                    totale_iva: totaleIva,
+                    subtotale: subtotale,
+                    totale: totale
+                };
+
+                if (isNew) {
+                    preventivoData.numero = numero;
+                    preventivoData.created_by = currentUser.id;
+                }
+
+                // Salva preventivo
+                let savedId;
+                if (isNew) {
+                    const { data, error } = await window.supabase
+                        .from('preventivi')
+                        .insert([preventivoData])
+                        .select()
+                        .single();
+                    if (error) throw error;
+                    savedId = data.id;
+                } else {
+                    const { error } = await window.supabase
+                        .from('preventivi')
+                        .update(preventivoData)
+                        .eq('id', preventivoId);
+                    if (error) throw error;
+                    savedId = preventivoId;
+
+                    // Elimina vecchi items
+                    await window.supabase
+                        .from('preventivi_items')
+                        .delete()
+                        .eq('preventivo_id', preventivoId);
+                }
+
+                // Salva items
+                const itemsData = currentItems.map((item, index) => ({
+                    preventivo_id: savedId,
+                    prodotto_id: item.prodotto_id || null,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita: item.quantita,
+                    prezzo_unitario: item.prezzo_unitario,
+                    sconto_percentuale: item.sconto_percentuale,
+                    importo: item.importo,
+                    posizione: index
+                }));
+
+                const { error: itemsError } = await window.supabase
+                    .from('preventivi_items')
+                    .insert(itemsData);
+                
+                if (itemsError) throw itemsError;
+
+                alert(isNew ? '✅ Preventivo creato!' : '✅ Preventivo aggiornato!');
+                closeModal();
+                await loadPreventivi();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        // Modifica preventivo
+        async function modificaPreventivo(id) {
+            try {
+                // Carica preventivo
+                const { data: preventivo, error: prevError } = await window.supabase
+                    .from('preventivi')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+                
+                if (prevError) throw prevError;
+
+                // Carica items
+                const { data: items, error: itemsError } = await window.supabase
+                    .from('preventivi_items')
+                    .select('*')
+                    .eq('preventivo_id', id)
+                    .order('posizione');
+                
+                if (itemsError) throw itemsError;
+
+                // Popola form
+                document.getElementById('preventivoId').value = preventivo.id;
+                document.getElementById('modalTitle').textContent = 'Modifica Preventivo ' + preventivo.numero;
+                document.getElementById('clienteId').value = preventivo.cliente_id || '';
+                document.getElementById('clienteNome').value = preventivo.cliente_nome || '';
+                document.getElementById('clienteEmail').value = preventivo.cliente_email || '';
+                document.getElementById('clienteTelefono').value = preventivo.cliente_telefono || '';
+                document.getElementById('clienteIndirizzo').value = preventivo.cliente_indirizzo || '';
+                document.getElementById('oggetto').value = preventivo.oggetto || '';
+                document.getElementById('dataEmissione').value = preventivo.data_emissione;
+                document.getElementById('dataValidita').value = preventivo.data_validita || '';
+                document.getElementById('noteCliente').value = preventivo.note_cliente || '';
+                document.getElementById('noteInterne').value = preventivo.note_interne || '';
+                document.getElementById('condizioniPagamento').value = preventivo.condizioni_pagamento || '';
+                document.getElementById('stato').value = preventivo.stato;
+                document.getElementById('scontoPercentuale').value = preventivo.sconto_percentuale || 0;
+                document.getElementById('ivaPercentuale').value = preventivo.iva_percentuale || 22;
+
+                currentItems = items.map(item => ({
+                    id: item.id,
+                    prodotto_id: item.prodotto_id,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita: parseFloat(item.quantita),
+                    prezzo_unitario: parseFloat(item.prezzo_unitario),
+                    sconto_percentuale: parseFloat(item.sconto_percentuale || 0),
+                    importo: parseFloat(item.importo)
+                }));
+
+                renderProdottiTable();
+                calcolaTotali();
+                document.getElementById('preventivoModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento: ' + error.message);
+            }
+        }
+
+        // Elimina preventivo
+        async function eliminaPreventivo(id, numero) {
+            if (!confirm(`Sei sicuro di voler eliminare il preventivo ${numero}?`)) return;
+            
+            try {
+                const { error } = await window.supabase
+                    .from('preventivi')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                alert('✅ Preventivo eliminato!');
+                await loadPreventivi();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nell\'eliminazione: ' + error.message);
+            }
+        }
+
+        // Duplica preventivo
+        async function duplicaPreventivo(id) {
+            await modificaPreventivo(id);
+            document.getElementById('preventivoId').value = '';
+            document.getElementById('modalTitle').textContent = 'Duplica Preventivo';
+            document.getElementById('stato').value = 'bozza';
+        }
+
+        // Stampa preventivo
+        async function stampaPreventivo(id) {
+            // TODO: Implementare generazione PDF/Stampa
+            alert('Funzionalità stampa in sviluppo');
+        }
+
+        // Search preventivi
+        function searchPreventivi() {
+            const query = document.getElementById('searchQuery').value.toLowerCase();
+            const filtered = preventivi.filter(p => 
+                p.numero.toLowerCase().includes(query) ||
+                (p.cliente_nome && p.cliente_nome.toLowerCase().includes(query))
+            );
+            
+            const temp = preventivi;
+            preventivi = filtered;
+            renderPreventivi();
+            preventivi = temp;
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('preventivoModal').classList.add('hidden');
+            document.getElementById('prodottoModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
