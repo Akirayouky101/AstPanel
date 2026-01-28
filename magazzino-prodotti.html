@@ -378,6 +378,52 @@
         </div>
     </div>
 
+    <!-- Modal Conferma Eliminazione -->
+    <div id="confermaEliminaModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-fadeIn">
+            <!-- Header Rosso -->
+            <div class="bg-gradient-to-br from-red-500 via-red-600 to-rose-600 p-8 rounded-t-3xl text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white bg-opacity-20 rounded-full mb-4">
+                    <i class="fas fa-trash-alt text-white text-4xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-2">Elimina Prodotto?</h2>
+                <p class="text-red-50 text-lg">Questa azione è irreversibile!</p>
+            </div>
+            
+            <div class="p-6">
+                <!-- Info Prodotto -->
+                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600 mb-1">Stai per eliminare:</p>
+                        <p id="eliminaNomeProdotto" class="text-xl font-bold text-gray-900 mb-2"></p>
+                        <div id="eliminaWarningGiacenza" class="hidden bg-yellow-100 border border-yellow-300 rounded-lg p-2 mt-2">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mr-1"></i>
+                            <span class="text-sm text-yellow-800">Attenzione: il prodotto ha giacenza!</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li><i class="fas fa-times text-red-500 mr-2"></i>Il prodotto sarà cancellato definitivamente</li>
+                        <li><i class="fas fa-times text-red-500 mr-2"></i>Lo storico movimenti sarà eliminato</li>
+                        <li><i class="fas fa-times text-red-500 mr-2"></i>Non potrai recuperare i dati</li>
+                    </ul>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="flex space-x-3">
+                    <button onclick="closeConfermaEliminaModal()" class="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-all">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="eliminaProdotto()" class="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                        <i class="fas fa-trash mr-2"></i>Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Prodotto Non Trovato -->
     <div id="prodottoNonTrovatoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
@@ -609,12 +655,15 @@
                                 </button>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-2">
+                            <div class="grid grid-cols-3 gap-2">
                                 <button onclick="mostraStorico('${p.id}')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-all">
                                     <i class="fas fa-history mr-1"></i>Storico
                                 </button>
                                 <button onclick="mostraGrafico('${p.id}')" class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200 transition-all">
                                     <i class="fas fa-chart-line mr-1"></i>Grafico
+                                </button>
+                                <button onclick="confermaEliminazione('${p.id}', '${(p.descrizione || 'Prodotto').replace(/'/g, "\\'")}', ${giacenza})" class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200 transition-all">
+                                    <i class="fas fa-trash mr-1"></i>Elimina
                                 </button>
                             </div>
                         </div>
@@ -1313,6 +1362,69 @@
             const modal = document.getElementById('successModal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+
+        // ========================================
+        // ELIMINAZIONE PRODOTTO
+        // ========================================
+        let prodottoDaEliminare = null;
+
+        function confermaEliminazione(prodottoId, nomeProdotto, giacenza) {
+            prodottoDaEliminare = prodottoId;
+            document.getElementById('eliminaNomeProdotto').textContent = nomeProdotto;
+            
+            // Mostra warning se c'è giacenza
+            const warningDiv = document.getElementById('eliminaWarningGiacenza');
+            if (giacenza > 0) {
+                warningDiv.classList.remove('hidden');
+            } else {
+                warningDiv.classList.add('hidden');
+            }
+            
+            const modal = document.getElementById('confermaEliminaModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeConfermaEliminaModal() {
+            const modal = document.getElementById('confermaEliminaModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            prodottoDaEliminare = null;
+        }
+
+        async function eliminaProdotto() {
+            if (!prodottoDaEliminare) return;
+
+            try {
+                // Elimina prima i movimenti associati
+                const { error: movError } = await supabase
+                    .from('movimenti_magazzino')
+                    .delete()
+                    .eq('prodotto_id', prodottoDaEliminare);
+
+                // Non bloccare se non ci sono movimenti
+                if (movError && movError.code !== 'PGRST116') {
+                    console.warn('Errore eliminazione movimenti:', movError);
+                }
+
+                // Elimina il prodotto
+                const { error: prodError } = await supabase
+                    .from('components')
+                    .delete()
+                    .eq('id', prodottoDaEliminare);
+
+                if (prodError) throw prodError;
+
+                closeConfermaEliminaModal();
+                showSuccessModal('Prodotto eliminato!', 'Il prodotto è stato rimosso dal magazzino');
+                
+                await caricaProdotti();
+
+            } catch (error) {
+                console.error('Errore eliminazione prodotto:', error);
+                alert('Errore durante l\'eliminazione: ' + error.message);
+            }
         }
 
         // Init on load
