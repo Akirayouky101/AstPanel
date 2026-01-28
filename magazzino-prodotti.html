@@ -272,6 +272,77 @@
         </div>
     </div>
 
+    <!-- Modal Modifica Prodotto -->
+    <div id="modificaProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-t-2xl sticky top-0">
+                <h3 class="text-2xl font-bold text-white"><i class="fas fa-edit mr-2"></i>Modifica Prodotto</h3>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="modificaId">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN *</label>
+                        <input type="text" id="modificaBarcode" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Descrizione *</label>
+                        <input type="text" id="modificaDescrizione" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Codice Prodotto</label>
+                        <input type="text" id="modificaCodice" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
+                        <select id="modificaCategoria" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="Componentistica">Componentistica</option>
+                            <option value="Materiali">Materiali</option>
+                            <option value="Accessori">Accessori</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Attuale</label>
+                        <input type="number" id="modificaGiacenza" step="0.01" class="w-full px-4 py-2 border rounded-lg bg-gray-50" readonly>
+                        <p class="text-xs text-gray-500 mt-1">Usa Carico/Scarico per modificare</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Unità Misura</label>
+                        <select id="modificaUM" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="pz">pz (pezzi)</option>
+                            <option value="mt">mt (metri)</option>
+                            <option value="kg">kg (kilogrammi)</option>
+                            <option value="lt">lt (litri)</option>
+                            <option value="conf">conf (confezioni)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Prezzo Acquisto €</label>
+                        <input type="number" id="modificaPrezzoAcquisto" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Prezzo Vendita €</label>
+                        <input type="number" id="modificaPrezzoVendita" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Minima</label>
+                        <input type="number" id="modificaGiacenzaMin" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button onclick="closeModificaProdottoModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="salvaModificaProdotto()" class="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold hover:shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Salva Modifiche
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Storico Movimenti -->
     <div id="storicoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -678,7 +749,10 @@
                                 </button>
                             </div>
                             
-                            <div class="grid grid-cols-3 gap-2">
+                            <div class="grid grid-cols-4 gap-2">
+                                <button onclick="apriModificaProdotto('${p.id}')" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200 transition-all">
+                                    <i class="fas fa-edit mr-1"></i>Modifica
+                                </button>
                                 <button onclick="mostraStorico('${p.id}')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-all">
                                     <i class="fas fa-history mr-1"></i>Storico
                                 </button>
@@ -962,6 +1036,86 @@
         function scanBarcode() {
             scannerMode = 'fillInput'; // Imposta modalità compilazione campo
             toggleScanner();
+        }
+
+        // ========================================
+        // MODIFICA PRODOTTO
+        // ========================================
+        function apriModificaProdotto(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            // Precompila tutti i campi
+            document.getElementById('modificaId').value = prodotto.id;
+            document.getElementById('modificaBarcode').value = prodotto.barcode || '';
+            document.getElementById('modificaDescrizione').value = prodotto.descrizione || prodotto.nome || '';
+            document.getElementById('modificaCodice').value = prodotto.codice || '';
+            document.getElementById('modificaCategoria').value = prodotto.categoria || 'Componentistica';
+            document.getElementById('modificaGiacenza').value = (prodotto.giacenza || 0).toFixed(2);
+            document.getElementById('modificaUM').value = prodotto.um || prodotto.unita_misura || 'pz';
+            document.getElementById('modificaPrezzoAcquisto').value = (prodotto.prezzo_acquisto || 0).toFixed(2);
+            document.getElementById('modificaPrezzoVendita').value = (prodotto.prezzo_vendita || prodotto.prezzo_unitario || 0).toFixed(2);
+            document.getElementById('modificaGiacenzaMin').value = (prodotto.giacenza_minima || 0).toFixed(2);
+
+            // Apri modal
+            document.getElementById('modificaProdottoModal').classList.remove('hidden');
+        }
+
+        function closeModificaProdottoModal() {
+            document.getElementById('modificaProdottoModal').classList.add('hidden');
+        }
+
+        async function salvaModificaProdotto() {
+            const prodottoId = document.getElementById('modificaId').value;
+            const barcode = document.getElementById('modificaBarcode').value.trim();
+            const descrizione = document.getElementById('modificaDescrizione').value.trim();
+
+            if (!barcode || !descrizione) {
+                alert('Barcode e Descrizione sono obbligatori');
+                return;
+            }
+
+            try {
+                const umValore = document.getElementById('modificaUM').value || 'pz';
+                const prezzoVendita = parseFloat(document.getElementById('modificaPrezzoVendita').value) || 0;
+                const prezzoAcquisto = parseFloat(document.getElementById('modificaPrezzoAcquisto').value) || 0;
+                const codiceValore = document.getElementById('modificaCodice').value.trim() || null;
+                
+                const datiAggiornati = {
+                    // Campi OBBLIGATORI schema originale
+                    nome: descrizione,
+                    categoria: document.getElementById('modificaCategoria').value || 'Generale',
+                    
+                    // Campi OPZIONALI schema originale
+                    codice: codiceValore,
+                    unita_misura: umValore,
+                    prezzo_unitario: prezzoVendita || prezzoAcquisto,
+                    
+                    // Campi NUOVI aggiunti dalla migration
+                    barcode: barcode,
+                    descrizione: descrizione,
+                    giacenza_minima: parseFloat(document.getElementById('modificaGiacenzaMin').value) || 0,
+                    um: umValore,
+                    prezzo_vendita: prezzoVendita,
+                    prezzo_acquisto: prezzoAcquisto
+                };
+
+                const { error } = await supabase
+                    .from('components')
+                    .update(datiAggiornati)
+                    .eq('id', prodottoId);
+
+                if (error) throw error;
+
+                showSuccessModal('Prodotto aggiornato!', `${descrizione} è stato modificato con successo`);
+                closeModificaProdottoModal();
+                
+                await caricaProdotti();
+
+            } catch (error) {
+                console.error('Errore aggiornamento prodotto:', error);
+                alert('Errore nell\'aggiornamento: ' + error.message);
+            }
         }
 
         // ========================================
