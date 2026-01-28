@@ -4,2021 +4,1182 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Magazzino Prodotti - AST:ZG</title>
+    <meta name="description" content="Gestione magazzino con scanner barcode integrato">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="/manifest-magazzino.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23667eea' width='100' height='100'/><text y='75' x='50' text-anchor='middle' font-size='80' fill='white'>📦</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- HTML5 QR Code Scanner -->
+    <!-- Scanner Barcode -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <!-- QR Code Generator -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="/supabase-client.js"></script>
-    <script src="/data-migration.js"></script>
     <script src="/Admin/auth-helper.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .hover-scale { transition: transform 0.2s; }
-        .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .brand-filter-btn.active { 
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); 
-            color: white; 
-            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
-        }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Sidebar -->
-    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
-        <div class="flex items-center justify-center h-16 gradient-bg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+
+    <!-- Header Compatto -->
+    <div class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.history.back()" title="Torna indietro" class="text-white hover:text-gray-200 transition-colors">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">📦 Magazzino Prodotti</h1>
+                        <p class="text-purple-200 text-sm">Scansiona • Carica • Scarica</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="toggleScanner()" id="scanBtn" class="bg-white text-purple-600 px-6 py-2 rounded-lg font-bold hover:bg-purple-50 transition-all flex items-center space-x-2">
+                        <i class="fas fa-barcode"></i>
+                        <span>Scansiona</span>
+                    </button>
+                    <button onclick="showStampaEtichette()" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-600 transition-all">
+                        <i class="fas fa-print mr-2"></i>Etichette
+                    </button>
+                    <button onclick="showNuovoProdotto()" class="bg-green-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-600 transition-all">
+                        <i class="fas fa-plus mr-2"></i>Nuovo
+                    </button>
+                </div>
+            </div>
         </div>
-        <nav class="mt-8">
-            <a href="/admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
-                Dashboard
-            </a>
-            <a href="/gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
-                Gestione Utenti
-            </a>
-            <a href="/gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>
-                Gestione Clienti
-            </a>
-            <a href="/gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
-                Gestione Lavorazioni
-            </a>
-            <a href="/magazzino-prodotti.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
-                <i data-lucide="package" class="w-5 h-5 mr-3"></i>
-                Magazzino Prodotti
-            </a>
-            <a href="/calendario-admin.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
-                Calendario
-            </a>
-            <a href="/gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
-                <span class="flex-1">Gestione Richieste</span>
-                <span id="requestsBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
-            </a>
-            <a href="/comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                Comunicazioni
-            </a>
-            
-            <!-- Utility Section -->
-            <div class="mt-6 pt-6 border-t border-gray-200">
-                <p class="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Utility</p>
-                <a href="/analytics-dashboard.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
-                    <i data-lucide="bar-chart-3" class="w-5 h-5 mr-3"></i>
-                    Analytics
-                </a>
+    </div>
+
+    <!-- Scanner Area (nascosto di default) -->
+    <div id="scannerArea" class="hidden bg-black">
+        <div class="max-w-2xl mx-auto p-4">
+            <div class="bg-white rounded-lg p-4 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-lg">📷 Scanner Barcode/QR</h3>
+                    <button onclick="toggleScanner()" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600">Inquadra il codice a barre del prodotto</p>
             </div>
-            
-            <div class="mt-6 border-t pt-4">
-                <a href="/pannello-utente.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
-                    <i data-lucide="user" class="w-5 h-5 mr-3"></i>
-                    Pannello Utente
-                </a>
-                <a href="/superuser.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
-                    <i data-lucide="shield-alert" class="w-5 h-5 mr-3"></i>
-                    SuperUser Panel
-                </a>
-                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
-                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
-                    Logout
-                </a>
-            </div>
-        </nav>
+            <div id="reader" class="rounded-lg overflow-hidden shadow-2xl"></div>
+        </div>
     </div>
 
     <!-- Main Content -->
-    <div class="ml-64 p-8">
-        <!-- Header -->
-        <div class="mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Magazzino Prodotti</h1>
-                    <p class="text-gray-600 mt-1">Gestisci i prodotti disponibili per le lavorazioni</p>
-                </div>
-                <div class="flex gap-3">
-                    <button onclick="openMovementModal()" class="bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
-                        <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
-                        Nuovo Movimento
-                    </button>
-                    <button onclick="openImportCSVModal()" class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
-                        <i data-lucide="upload" class="w-5 h-5"></i>
-                        Importa Listino
-                    </button>
-                    <button onclick="openBulkAddModal()" class="bg-gradient-to-r from-orange-600 via-orange-700 to-orange-800 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
-                        <i data-lucide="layers" class="w-5 h-5"></i>
-                        Carico Multiplo
-                    </button>
-                    <button onclick="openNewProductModal()" class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 shadow-lg font-bold">
-                        <i data-lucide="plus" class="w-5 h-5"></i>
-                        Nuovo Prodotto
-                    </button>
-                </div>
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        
+        <!-- Stats Compatte -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+                <div class="text-sm text-gray-600">Totale</div>
+                <div id="statTotal" class="text-2xl font-bold text-gray-900">0</div>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+                <div class="text-sm text-gray-600">Disponibili</div>
+                <div id="statDisponibili" class="text-2xl font-bold text-green-600">0</div>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border-l-4 border-orange-500">
+                <div class="text-sm text-gray-600">Scorta Bassa</div>
+                <div id="statBassa" class="text-2xl font-bold text-orange-600">0</div>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500">
+                <div class="text-sm text-gray-600">Esauriti</div>
+                <div id="statEsauriti" class="text-2xl font-bold text-red-600">0</div>
             </div>
         </div>
 
-        <!-- Stats Cards con gradiente -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
-            <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-2xl shadow-lg p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-blue-700 mb-1">Prodotti Totali</p>
-                        <p id="totalProducts" class="text-3xl font-bold text-gray-900">0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-md">
-                        <i data-lucide="package" class="w-7 h-7 text-white"></i>
-                    </div>
+        <!-- Ricerca Semplice -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="flex-1 relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" 
+                           id="searchInput" 
+                           placeholder="Cerca prodotto per nome, codice o barcode..."
+                           oninput="ricercaProdotti()"
+                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
                 </div>
-            </div>
-
-            <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-2xl shadow-lg p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-green-700 mb-1">In Stock</p>
-                        <p id="inStockProducts" class="text-3xl font-bold text-green-600">0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-md">
-                        <i data-lucide="check-circle" class="w-7 h-7 text-white"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-2xl shadow-lg p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-orange-700 mb-1">Scorta Bassa</p>
-                        <p id="lowStockProducts" class="text-3xl font-bold text-orange-600">0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-md">
-                        <i data-lucide="alert-triangle" class="w-7 h-7 text-white"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-gradient-to-br from-red-50 to-rose-100 border-2 border-red-200 rounded-2xl shadow-lg p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-red-700 mb-1">Esauriti</p>
-                        <p id="outOfStockProducts" class="text-3xl font-bold text-red-600">0</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-red-500 to-rose-600 p-3 rounded-xl shadow-md">
-                        <i data-lucide="x-circle" class="w-7 h-7 text-white"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Brand Quick Filters -->
-        <div class="mb-6 fade-in">
-            <div class="flex items-center gap-3 flex-wrap">
-                <span class="text-sm font-bold text-gray-700">Filtra per Brand:</span>
-                <button onclick="filterByBrand('all')" id="filter-all" class="brand-filter-btn active px-4 py-2 rounded-lg font-medium transition-all">
-                    Tutti
-                </button>
-                <button onclick="filterByBrand('Dahua')" id="filter-Dahua" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-blue-100 text-gray-700 rounded-lg font-medium transition-all">
-                    📹 Dahua
-                </button>
-                <button onclick="filterByBrand('Tecnoalarm')" id="filter-Tecnoalarm" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-red-100 text-gray-700 rounded-lg font-medium transition-all">
-                    🔐 Tecnoalarm
-                </button>
-                <button onclick="filterByBrand('Daikin')" id="filter-Daikin" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-green-100 text-gray-700 rounded-lg font-medium transition-all">
-                    ❄️ Climatizzatori
-                </button>
-                <button onclick="filterByBrand('Materiale Elettrico')" id="filter-Materiale Elettrico" class="brand-filter-btn px-4 py-2 bg-gray-100 hover:bg-yellow-100 text-gray-700 rounded-lg font-medium transition-all">
-                    ⚡ Materiale Elettrico
-                </button>
-            </div>
-        </div>
-
-        <!-- Search and Filters -->
-        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-2xl shadow-lg p-6 mb-6 fade-in">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="md:col-span-2">
-                    <div class="relative">
-                        <input type="text" 
-                               id="searchInput" 
-                               placeholder="🔍 Cerca per nome, codice o descrizione..."
-                               oninput="applyFilters()"
-                               class="w-full pl-12 pr-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
-                        <i data-lucide="search" class="w-6 h-6 absolute left-3 top-3 text-purple-600"></i>
-                    </div>
-                </div>
-
-                <select id="categoryFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
-                    <option value="all">📁 Tutte le categorie</option>
-                    <option value="Componentistica">Componentistica</option>
-                    <option value="Materiali">Materiali</option>
-                    <option value="Accessori">Accessori</option>
-                    <option value="Antifurto">Antifurto</option>
-                    <option value="Videosorveglianza">Videosorveglianza</option>
-                    <option value="Rete">Rete</option>
-```
-                    <option value="altro">Altro</option>
-                </select>
-
-                <select id="stockFilter" onchange="applyFilters()" class="px-4 py-3 border-2 border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white text-gray-700">
-                    <option value="all">📊 Tutti gli stock</option>
-                    <option value="instock">✅ In Stock</option>
-                    <option value="lowstock">⚠️ Scorta Bassa</option>
-                    <option value="outofstock">❌ Esaurito</option>
+                <select id="filtroStock" onchange="ricercaProdotti()" class="px-4 py-2 border rounded-lg">
+                    <option value="all">Tutti</option>
+                    <option value="disponibili">Disponibili</option>
+                    <option value="bassa">Scorta Bassa</option>
+                    <option value="esauriti">Esauriti</option>
                 </select>
             </div>
         </div>
 
-        <!-- Products Table -->
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prodotto</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantità</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unità</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-                        </tr>
-                    </thead>
-                    <tbody id="productsTableBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Products will be loaded here -->
-                    </tbody>
-                </table>
+        <!-- Lista Prodotti (Card View) -->
+        <div id="prodottiContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Caricamento prodotti -->
+        </div>
+
+    </div>
+
+    <!-- Modal Movimento Veloce -->
+    <div id="movimentoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <div class="gradient-bg p-6 rounded-t-2xl">
+                <h3 class="text-2xl font-bold text-white" id="movimentoTitle">Movimento Magazzino</h3>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="movimentoProdottoId">
+                
+                <!-- Info Prodotto -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div class="font-bold text-lg" id="movimentoProdottoNome"></div>
+                    <div class="text-sm text-gray-600" id="movimentoCodice"></div>
+                    <div class="text-sm font-semibold mt-2">
+                        Giacenza attuale: <span id="movimentoGiacenzaAttuale" class="text-blue-600">0</span> <span id="movimentoUM">pz</span>
+                    </div>
+                </div>
+
+                <!-- Tipo Movimento -->
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Tipo Movimento</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setTipoMovimento('carico')" id="btnCarico" class="px-4 py-3 border-2 border-green-500 text-green-700 rounded-lg font-bold hover:bg-green-50 transition-all">
+                            <i class="fas fa-plus-circle mr-2"></i>CARICO
+                        </button>
+                        <button onclick="setTipoMovimento('scarico')" id="btnScarico" class="px-4 py-3 border-2 border-gray-300 text-gray-500 rounded-lg font-bold hover:bg-red-50 transition-all">
+                            <i class="fas fa-minus-circle mr-2"></i>SCARICO
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quantità -->
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Quantità</label>
+                    <input type="number" 
+                           id="movimentoQuantita" 
+                           step="0.01" 
+                           min="0" 
+                           class="w-full px-4 py-3 text-2xl font-bold text-center border-2 rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+
+                <!-- Causale -->
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Causale (opzionale)</label>
+                    <input type="text" 
+                           id="movimentoCausale" 
+                           placeholder="es: Ordine fornitore, Lavorazione, Inventario..."
+                           class="w-full px-4 py-2 border rounded-lg">
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="flex space-x-3">
+                    <button onclick="closeMovimentoModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="salvaMovimento()" class="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold hover:shadow-lg">
+                        <i class="fas fa-check mr-2"></i>Conferma
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- New/Edit Product Modal -->
     <!-- Modal Nuovo Prodotto -->
-    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header con gradiente -->
-                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="package" class="w-7 h-7 text-green-600"></i>
-                            </div>
-                            <h3 id="modalTitle" class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" onclick="openBarcodeScannerForProduct()" 
-                                    class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-bold transition-all flex items-center gap-2 border border-white border-opacity-30">
-                                <i data-lucide="scan" class="w-5 h-5"></i>
-                                Scan Barcode
-                            </button>
-                            <button onclick="closeProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                                <i data-lucide="x" class="w-6 h-6"></i>
+    <div id="nuovoProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="gradient-bg p-6 rounded-t-2xl sticky top-0">
+                <h3 class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN *</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="nuovoBarcode" class="flex-1 px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="Scansiona o inserisci manualmente">
+                            <button onclick="scanBarcode()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                                <i class="fas fa-barcode"></i>
                             </button>
                         </div>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Descrizione *</label>
+                        <input type="text" id="nuovoDescrizione" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Codice Prodotto</label>
+                        <input type="text" id="nuovoCodice" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
+                        <select id="nuovoCategoria" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="Componentistica">Componentistica</option>
+                            <option value="Materiali">Materiali</option>
+                            <option value="Accessori">Accessori</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Iniziale</label>
+                        <input type="number" id="nuovoGiacenza" value="0" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Unità Misura</label>
+                        <select id="nuovoUM" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="pz">pz (pezzi)</option>
+                            <option value="mt">mt (metri)</option>
+                            <option value="kg">kg (kilogrammi)</option>
+                            <option value="lt">lt (litri)</option>
+                            <option value="conf">conf (confezioni)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Prezzo Acquisto €</label>
+                        <input type="number" id="nuovoPrezzoAcquisto" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Prezzo Vendita €</label>
+                        <input type="number" id="nuovoPrezzoVendita" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Minima</label>
+                        <input type="number" id="nuovoGiacenzaMin" value="0" step="0.01" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button onclick="closeNuovoProdottoModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="salvaNuovoProdotto()" class="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold hover:shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Salva Prodotto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Storico Movimenti -->
+    <div id="storicoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl sticky top-0">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-2xl font-bold text-white">📋 Storico Movimenti</h3>
+                    <button onclick="closeStoricoModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <p class="text-blue-100 mt-1" id="storicoNomeProdotto"></p>
+            </div>
+            <div class="p-6">
+                <div id="storicoContent">
+                    <div class="text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-4xl text-gray-400"></i>
+                        <p class="text-gray-500 mt-4">Caricamento...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Grafico Giacenza -->
+    <div id="graficoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-t-2xl sticky top-0">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-2xl font-bold text-white">📊 Andamento Giacenza</h3>
+                    <button onclick="closeGraficoModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <p class="text-purple-100 mt-1" id="graficoNomeProdotto"></p>
+            </div>
+            <div class="p-6">
+                <canvas id="graficoCanvas" width="800" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Stampa Etichette -->
+    <div id="etichetteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 rounded-t-2xl sticky top-0">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-2xl font-bold text-white">🖨️ Stampa Etichette Barcode</h3>
+                    <button onclick="closeEtichetteModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Seleziona Prodotti</label>
+                    <div id="prodottiEtichette" class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
+                        <!-- Caricamento prodotti per etichette -->
                     </div>
                 </div>
                 
-                <!-- Content scrollabile -->
-                <form id="productForm" class="p-6 overflow-y-auto flex-1 space-y-4">
-                    <!-- Nome Prodotto -->
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                        <label for="productName" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
-                            <i data-lucide="tag" class="w-4 h-4"></i>
-                            Nome Prodotto *
-                        </label>
-                        <input type="text" id="productName" required placeholder="Es: Connettori RJ45" 
-                               class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold mb-3">Anteprima Etichette</h4>
+                    <div id="anteprimaEtichette" class="grid grid-cols-3 gap-4">
+                        <!-- Anteprima -->
                     </div>
+                </div>
 
-                    <!-- Codice e Categoria -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-xl p-4">
-                            <label for="productCode" class="flex items-center gap-2 text-sm font-bold text-purple-700 mb-2">
-                                <i data-lucide="hash" class="w-4 h-4"></i>
-                                Codice Prodotto *
-                            </label>
-                            <input type="text" id="productCode" required placeholder="Es: 180.811" 
-                                   class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
-                        </div>
-
-                        <div class="bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-xl p-4">
-                            <label for="productCategory" class="flex items-center gap-2 text-sm font-bold text-cyan-700 mb-2">
-                                <i data-lucide="folder" class="w-4 h-4"></i>
-                                Categoria *
-                            </label>
-                            <select id="productCategory" required class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium bg-white">
-                                <option value="">Seleziona categoria</option>
-                                <option value="Componentistica">Componentistica</option>
-                                <option value="Materiali">Materiali</option>
-                                <option value="Accessori">Accessori</option>
-                                <option value="Antifurto">Antifurto</option>
-                                <option value="Videosorveglianza">Videosorveglianza</option>
-                                <option value="Rete">Rete</option>
-                                <option value="altro">Altro</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Brand -->
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
-                        <label for="productBrand" class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-2">
-                            <i data-lucide="award" class="w-4 h-4"></i>
-                            Brand / Fornitore
-                        </label>
-                        <input type="text" id="productBrand" placeholder="Es: Dahua, Tecnoalarm, Daikin..." 
-                               list="brandSuggestions"
-                               class="w-full px-4 py-2 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium">
-                        <datalist id="brandSuggestions">
-                            <option value="Dahua">
-                            <option value="Tecnoalarm">
-                            <option value="Daikin">
-                            <option value="Bticino">
-                            <option value="Vimar">
-                            <option value="Gewiss">
-                            <option value="Hikvision">
-                            <option value="Mitsubishi">
-                        </datalist>
-                    </div>
-
-                    <!-- Quantità e Unità -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                            <label for="productQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
-                                <i data-lucide="package-2" class="w-4 h-4"></i>
-                                Quantità *
-                            </label>
-                            <input type="number" id="productQuantity" min="0" step="0.01" required placeholder="400" 
-                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
-                        </div>
-
-                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
-                            <label for="productUnit" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
-                                <i data-lucide="ruler" class="w-4 h-4"></i>
-                                Unità di Misura *
-                            </label>
-                            <select id="productUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
-                                <option value="pz">Pezzi (pz)</option>
-                                <option value="kg">Kilogrammi (kg)</option>
-                                <option value="g">Grammi (g)</option>
-                                <option value="l">Litri (l)</option>
-                                <option value="ml">Millilitri (ml)</option>
-                                <option value="m">Metri (m)</option>
-                                <option value="cm">Centimetri (cm)</option>
-                                <option value="m²">Metri quadrati (m²)</option>
-                                <option value="confezione">Confezione</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Scorta Minima e Prezzo -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-orange-50 to-red-100 border-2 border-orange-200 rounded-xl p-4">
-                            <label for="productMinStock" class="flex items-center gap-2 text-sm font-bold text-orange-700 mb-2">
-                                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                                Scorta Minima
-                            </label>
-                            <input type="number" id="productMinStock" min="0" step="0.01" placeholder="10" 
-                                   class="w-full px-4 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium">
-                            <p class="text-xs text-orange-600 mt-1 font-medium">⚠️ Avviso se scende sotto questo valore</p>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-emerald-200 rounded-xl p-4">
-                            <label for="productPrice" class="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-2">
-                                <i data-lucide="euro" class="w-4 h-4"></i>
-                                Prezzo Unitario (€)
-                            </label>
-                            <input type="number" id="productPrice" min="0" step="0.01" placeholder="12.50" 
-                                   class="w-full px-4 py-2 border-2 border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
-                        </div>
-                    </div>
-
-                    <!-- Descrizione -->
-                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
-                        <label for="productDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
-                            <i data-lucide="file-text" class="w-4 h-4"></i>
-                            Descrizione
-                        </label>
-                        <textarea id="productDescription" rows="3" placeholder="Descrizione dettagliata del prodotto..." 
-                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
-                    </div>
-
-                    <!-- Note -->
-                    <div class="bg-gradient-to-br from-gray-50 to-slate-100 border-2 border-gray-300 rounded-xl p-4">
-                        <label for="productNotes" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
-                            <i data-lucide="sticky-note" class="w-4 h-4"></i>
-                            Note
-                        </label>
-                        <textarea id="productNotes" rows="2" placeholder="Note aggiuntive, fornitore, etc." 
-                                  class="w-full px-4 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 font-medium"></textarea>
-                    </div>
-
-                    <!-- Buttons -->
-                    <div class="flex justify-between gap-3 pt-4 border-t-2 border-gray-200">
-                        <button type="button" id="generateQRBtn" onclick="generateProductQR()" 
-                                class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-bold shadow-lg transition-all flex items-center gap-2 hidden">
-                            <i data-lucide="qr-code" class="w-5 h-5"></i>
-                            Genera QR Code
-                        </button>
-                        <div class="flex gap-3 ml-auto">
-                            <button type="button" onclick="closeProductModal()" 
-                                    class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
-                                Annulla
-                            </button>
-                            <button type="submit" 
-                                    class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
-                                <i data-lucide="save" class="w-5 h-5"></i>
-                                Salva Prodotto
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-                        </button>
-                    </div>
-                </form>
+                <div class="flex space-x-3">
+                    <button onclick="closeEtichetteModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="stampaEtichette()" class="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg">
+                        <i class="fas fa-print mr-2"></i>Stampa
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal: Prodotto Non Trovato -->
+    <div id="prodottoNonTrovatoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white">Prodotto Non Trovato</h2>
+                    </div>
+                    <button onclick="closeProdottoNonTrovatoModal()" title="Chiudi" class="text-white hover:text-gray-200 transition-colors">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Info Barcode -->
+                <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 mb-6">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-barcode text-orange-500 text-3xl"></i>
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium">Codice Scansionato</p>
+                            <p id="barcodeNonTrovato" class="text-xl font-bold text-gray-900"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messaggio -->
+                <div class="mb-6 text-center">
+                    <p class="text-gray-700 text-lg mb-2">
+                        Questo prodotto non è presente nel magazzino.
+                    </p>
+                    <p class="text-gray-500">
+                        Vuoi aggiungerlo ora al tuo inventario?
+                    </p>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="flex space-x-3">
+                    <button onclick="closeProdottoNonTrovatoModal()" class="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-all">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="creaProdottoDaBarcode()" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                        <i class="fas fa-plus mr-2"></i>Crea Prodotto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
-        let allProducts = [];
-        let editingProductId = null;
+        let prodotti = [];
+        let currentUser = null;
+        let html5QrCode = null;
+        let tipoMovimentoSelezionato = 'carico';
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            lucide.createIcons();
-            await loadProducts();
-            updateStats();
-            
-            // Esponi API globale per altre pagine
-            window.MagazzinoModal = {
-                open: openNewProductModal,
-                close: closeProductModal,
-                onProductCreated: null // Callback da impostare esternamente
-            };
-        });
-
-        // Load products from database
-        async function loadProducts() {
+        // Inizializzazione
+        async function init() {
             try {
-                console.log('🔄 Ricaricamento prodotti dal database...');
-                allProducts = await window.dataManager.getComponenti() || [];
-                console.log('📦 Prodotti caricati:', allProducts.length);
-                console.log('📊 Dati prodotti:', allProducts.map(p => ({
-                    nome: p.nome,
-                    quantita_magazzino: p.quantita_magazzino,
-                    quantita_disponibile: p.quantita_disponibile
-                })));
-                renderProducts(allProducts);
-                updateStats();
+                currentUser = await checkAuth();
+                if (!currentUser) {
+                    window.location.href = '/Admin/index.html';
+                    return;
+                }
+                await caricaProdotti();
+                
+                // Registra service worker per PWA
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw-magazzino.js').catch(err => {
+                        console.log('Service worker registration failed:', err);
+                    });
+                }
+                
+                // Gestisci deep links
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('action') === 'scan') {
+                    toggleScanner();
+                } else if (params.get('action') === 'new') {
+                    showNuovoProdotto();
+                }
             } catch (error) {
-                console.error('Error loading products:', error);
-                showNotification('Errore nel caricamento dei prodotti', 'error');
+                console.error('Errore init:', error);
             }
         }
 
-        // Render products table
-        function renderProducts(products) {
-            const tbody = document.getElementById('productsTableBody');
+        // Carica prodotti
+        async function caricaProdotti() {
+            try {
+                const { data, error } = await supabase
+                    .from('components')
+                    .select('*')
+                    .order('descrizione');
+                
+                if (error) throw error;
+                
+                prodotti = data || [];
+                aggiornaStats();
+                renderProdotti();
+            } catch (error) {
+                console.error('Errore caricamento:', error);
+                alert('Errore nel caricamento dei prodotti');
+            }
+        }
+
+        // Aggiorna statistiche
+        function aggiornaStats() {
+            const totale = prodotti.length;
+            const disponibili = prodotti.filter(p => (p.giacenza || 0) > (p.giacenza_minima || 0)).length;
+            const bassa = prodotti.filter(p => {
+                const giacenza = p.giacenza || 0;
+                const min = p.giacenza_minima || 0;
+                return giacenza > 0 && giacenza <= min;
+            }).length;
+            const esauriti = prodotti.filter(p => (p.giacenza || 0) === 0).length;
+
+            document.getElementById('statTotal').textContent = totale;
+            document.getElementById('statDisponibili').textContent = disponibili;
+            document.getElementById('statBassa').textContent = bassa;
+            document.getElementById('statEsauriti').textContent = esauriti;
+        }
+
+        // Render prodotti
+        function renderProdotti() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtroStock = document.getElementById('filtroStock').value;
+
+            let filtrati = prodotti.filter(p => {
+                const matchSearch = !search || 
+                    p.descrizione?.toLowerCase().includes(search) ||
+                    p.codice?.toLowerCase().includes(search) ||
+                    p.barcode?.toLowerCase().includes(search);
+                
+                if (!matchSearch) return false;
+
+                const giacenza = p.giacenza || 0;
+                const min = p.giacenza_minima || 0;
+
+                if (filtroStock === 'disponibili') return giacenza > min;
+                if (filtroStock === 'bassa') return giacenza > 0 && giacenza <= min;
+                if (filtroStock === 'esauriti') return giacenza === 0;
+                return true;
+            });
+
+            const container = document.getElementById('prodottiContainer');
             
-            if (!products || products.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-6 py-8 text-center text-gray-500">
-                            <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 text-gray-400"></i>
-                            <p>Nessun prodotto in magazzino</p>
-                            <p class="text-sm">Clicca su "Nuovo Prodotto" per iniziare</p>
-                        </td>
-                    </tr>
+            if (filtrati.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-box-open text-gray-300 text-6xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nessun prodotto trovato</p>
+                    </div>
                 `;
-                lucide.createIcons();
                 return;
             }
 
-            tbody.innerHTML = products.map(product => {
-                const quantity = parseFloat(product.quantita_magazzino || product.quantita_disponibile || 0);
-                const minStock = parseFloat(product.quantita_minima || product.scorta_minima || 0);
+            container.innerHTML = filtrati.map(p => {
+                const giacenza = p.giacenza || 0;
+                const min = p.giacenza_minima || 0;
+                const um = p.um || 'pz';
                 
-                let statusBadge, statusText;
-                if (quantity === 0) {
-                    statusBadge = 'bg-red-100 text-red-800';
-                    statusText = 'Esaurito';
-                } else if (minStock > 0 && quantity <= minStock) {
-                    statusBadge = 'bg-orange-100 text-orange-800';
-                    statusText = 'Scorta Bassa';
-                } else {
-                    statusBadge = 'bg-green-100 text-green-800';
-                    statusText = 'Disponibile';
+                let badgeColor = 'bg-green-100 text-green-700';
+                let iconColor = 'text-green-600';
+                let statoText = 'Disponibile';
+                
+                if (giacenza === 0) {
+                    badgeColor = 'bg-red-100 text-red-700';
+                    iconColor = 'text-red-600';
+                    statoText = 'Esaurito';
+                } else if (giacenza <= min) {
+                    badgeColor = 'bg-orange-100 text-orange-700';
+                    iconColor = 'text-orange-600';
+                    statoText = 'Scorta Bassa';
                 }
 
                 return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4">
-                            <div class="flex items-center">
-                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                    <i data-lucide="package" class="w-5 h-5 text-blue-600"></i>
+                    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-4 border-l-4 ${giacenza === 0 ? 'border-red-500' : giacenza <= min ? 'border-orange-500' : 'border-green-500'}">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-900 mb-1">${p.descrizione || 'Senza nome'}</h3>
+                                <div class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                                    ${p.codice ? `<span class="bg-gray-100 px-2 py-0.5 rounded">${p.codice}</span>` : ''}
+                                    ${p.barcode ? `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs"><i class="fas fa-barcode mr-1"></i>${p.barcode}</span>` : ''}
                                 </div>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-900">${product.nome}</div>
-                                    ${product.descrizione ? `<div class="text-xs text-gray-500">${product.descrizione.substring(0, 50)}${product.descrizione.length > 50 ? '...' : ''}</div>` : ''}
-                                </div>
+                                <span class="${badgeColor} px-2 py-1 rounded-full text-xs font-bold">
+                                    ${statoText}
+                                </span>
                             </div>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">${product.codice || '-'}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize">
-                                ${product.categoria || 'N/D'}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${quantity}</td>
-                        <td class="px-6 py-4 text-sm text-gray-500">${product.unita_misura || 'pz'}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs font-medium rounded-full ${statusBadge}">
-                                ${statusText}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            <div class="flex gap-2">
-                                <button onclick="editProduct('${product.id}')" class="text-blue-600 hover:text-blue-800 transition-colors" title="Modifica">
-                                    <i data-lucide="edit" class="w-5 h-5"></i>
-                                </button>
-                                <button onclick="duplicateProduct('${product.id}')" class="text-green-600 hover:text-green-800 transition-colors" title="Duplica">
-                                    <i data-lucide="copy" class="w-5 h-5"></i>
-                                </button>
-                                <button onclick="deleteProduct('${product.id}')" class="text-red-600 hover:text-red-800 transition-colors" title="Elimina">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            lucide.createIcons();
-        }
-
-        // Update stats
-        function updateStats() {
-            const total = allProducts.length;
-            const inStock = allProducts.filter(p => {
-                const qty = parseFloat(p.quantita_magazzino || p.quantita_disponibile || 0);
-                const min = parseFloat(p.quantita_minima || p.scorta_minima || 0);
-                return qty > min;
-            }).length;
-            const lowStock = allProducts.filter(p => {
-                const qty = parseFloat(p.quantita_magazzino || p.quantita_disponibile || 0);
-                const min = parseFloat(p.quantita_minima || p.scorta_minima || 0);
-                return qty > 0 && min > 0 && qty <= min;
-            }).length;
-            const outOfStock = allProducts.filter(p => {
-                const qty = parseFloat(p.quantita_magazzino || p.quantita_disponibile || 0);
-                return qty === 0;
-            }).length;
-
-            document.getElementById('totalProducts').textContent = total;
-            document.getElementById('inStockProducts').textContent = inStock;
-            document.getElementById('lowStockProducts').textContent = lowStock;
-            document.getElementById('outOfStockProducts').textContent = outOfStock;
-        }
-
-        // Apply filters
-        function applyFilters() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const category = document.getElementById('categoryFilter').value;
-            const stock = document.getElementById('stockFilter').value;
-
-            const filtered = allProducts.filter(product => {
-                const matchSearch = !search || 
-                    (product.nome || '').toLowerCase().includes(search) ||
-                    (product.codice || '').toLowerCase().includes(search) ||
-                    (product.descrizione || '').toLowerCase().includes(search) ||
-                    (product.brand || '').toLowerCase().includes(search);
-
-                const matchCategory = category === 'all' || product.categoria === category;
-
-                // Brand filter
-                const matchBrand = currentBrandFilter === 'all' || 
-                    (product.brand && product.brand.toLowerCase().includes(currentBrandFilter.toLowerCase())) ||
-                    (product.categoria && product.categoria.toLowerCase().includes(currentBrandFilter.toLowerCase()));
-
-                let matchStock = true;
-                if (stock !== 'all') {
-                    const qty = parseFloat(product.quantita_magazzino || 0);
-                    const min = parseFloat(product.quantita_minima || 0);
-                    
-                    if (stock === 'outofstock') matchStock = qty === 0;
-                    else if (stock === 'lowstock') matchStock = qty > 0 && min > 0 && qty <= min;
-                    else if (stock === 'instock') matchStock = qty > min || (qty > 0 && min === 0);
-                }
-
-                return matchSearch && matchCategory && matchBrand && matchStock;
-            });
-
-            renderProducts(filtered);
-        }
-
-        // Open modal
-        function openNewProductModal() {
-            editingProductId = null;
-            document.getElementById('modalTitle').textContent = 'Nuovo Prodotto';
-            document.getElementById('productForm').reset();
-            document.getElementById('productModal').classList.remove('hidden');
-            document.getElementById('generateQRBtn').classList.add('hidden'); // Hide QR button for new products
-            lucide.createIcons();
-        }
-
-        // Close modal
-        function closeProductModal() {
-            editingProductId = null;
-            document.getElementById('productModal').classList.add('hidden');
-            document.getElementById('productForm').reset();
-            document.getElementById('generateQRBtn').classList.add('hidden');
-        }
-
-        // Edit product
-        async function editProduct(id) {
-            const product = allProducts.find(p => p.id === id);
-            if (!product) return;
-
-            editingProductId = id;
-            document.getElementById('modalTitle').textContent = 'Modifica Prodotto';
-            document.getElementById('productName').value = product.nome || '';
-            document.getElementById('productCode').value = product.codice || product.code || '';
-            document.getElementById('productCategory').value = product.categoria || product.category || '';
-            document.getElementById('productBrand').value = product.brand || '';
-            document.getElementById('productQuantity').value = product.quantita_magazzino || 0;
-            document.getElementById('productUnit').value = product.unita_misura || 'pz';
-            document.getElementById('productMinStock').value = product.quantita_minima || 5;
-            document.getElementById('productPrice').value = product.prezzo_acquisto || '';
-            document.getElementById('productDescription').value = product.descrizione || '';
-            document.getElementById('productNotes').value = product.note_magazzino || product.note || '';
-
-            document.getElementById('productModal').classList.remove('hidden');
-            lucide.createIcons();
-            
-            // Show QR button only when editing existing product
-            document.getElementById('generateQRBtn').classList.remove('hidden');
-        }
-
-        // Delete product
-        async function deleteProduct(id) {
-            if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) return;
-
-            try {
-                await window.dataManager.deleteComponente(id);
-                showNotification('Prodotto eliminato con successo', 'success');
-                await loadProducts();
-            } catch (error) {
-                console.error('Error deleting product:', error);
-                showNotification('Errore durante l\'eliminazione', 'error');
-            }
-        }
-
-        // 🆕 DUPLICATE PRODUCT
-        async function duplicateProduct(id) {
-            const product = allProducts.find(p => p.id === id);
-            if (!product) return;
-
-            editingProductId = null; // Reset editing ID for new product
-            document.getElementById('modalTitle').textContent = 'Duplica Prodotto';
-            document.getElementById('productName').value = (product.nome || '') + ' (Copia)';
-            document.getElementById('productCode').value = (product.codice || product.code || '') + '-COPY';
-            document.getElementById('productCategory').value = product.categoria || product.category || '';
-            document.getElementById('productQuantity').value = 0; // Reset quantity
-            document.getElementById('productUnit').value = product.unita_misura || 'pz';
-            document.getElementById('productMinStock').value = product.quantita_minima || 5;
-            document.getElementById('productPrice').value = product.prezzo_acquisto || '';
-            document.getElementById('productDescription').value = product.descrizione || '';
-            document.getElementById('productNotes').value = product.note_magazzino || product.note || '';
-
-            document.getElementById('productModal').classList.remove('hidden');
-            lucide.createIcons();
-            
-            // Hide QR button for new duplicated product
-            document.getElementById('generateQRBtn').classList.add('hidden');
-            
-            showNotification('Prodotto duplicato! Modifica i campi necessari', 'info');
-        }
-
-        // 🆕 BULK ADD FUNCTIONALITY
-        let bulkProductsList = [];
-
-        function openBulkAddModal() {
-            bulkProductsList = [];
-            updateBulkProductsList();
-            document.getElementById('bulkAddModal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeBulkAddModal() {
-            document.getElementById('bulkAddModal').classList.add('hidden');
-            clearBulkForm();
-        }
-
-        function clearBulkForm() {
-            document.getElementById('bulkProductName').value = '';
-            document.getElementById('bulkProductCode').value = '';
-            document.getElementById('bulkProductCategory').value = '';
-            document.getElementById('bulkProductQuantity').value = '';
-            document.getElementById('bulkProductUnit').value = 'pz';
-            document.getElementById('bulkProductMinStock').value = '';
-        }
-
-        function addProductToBulkList() {
-            const name = document.getElementById('bulkProductName').value.trim();
-            const code = document.getElementById('bulkProductCode').value.trim();
-            const category = document.getElementById('bulkProductCategory').value;
-            const quantity = parseFloat(document.getElementById('bulkProductQuantity').value) || 0;
-            const unit = document.getElementById('bulkProductUnit').value || 'pz';
-            const minStock = parseFloat(document.getElementById('bulkProductMinStock').value) || 0;
-
-            // Validation
-            if (!name || !code || !category) {
-                showNotification('Compila almeno Nome, Codice e Categoria', 'error');
-                return;
-            }
-
-            // Add to list
-            bulkProductsList.push({
-                nome: name,
-                codice: code,
-                categoria: category,
-                quantita_magazzino: quantity,
-                unita_misura: unit,
-                quantita_minima: minStock
-            });
-
-            updateBulkProductsList();
-            clearBulkForm();
-            showNotification('Prodotto aggiunto alla lista!', 'success');
-        }
-
-        function updateBulkProductsList() {
-            const container = document.getElementById('bulkProductsList');
-            const count = document.getElementById('bulkProductCount');
-            
-            count.textContent = bulkProductsList.length;
-
-            if (bulkProductsList.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-sm text-center py-8">Nessun prodotto aggiunto. Compila il form sopra e clicca "Aggiungi alla Lista"</p>';
-                return;
-            }
-
-            container.innerHTML = bulkProductsList.map((product, index) => `
-                <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="font-bold text-gray-900">${product.nome}</span>
-                            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">${product.categoria}</span>
                         </div>
-                        <div class="text-sm text-gray-600">
-                            Codice: <span class="font-medium">${product.codice}</span> • 
-                            Quantità: <span class="font-medium">${product.quantita_magazzino} ${product.unita_misura}</span>
-                            ${product.quantita_minima > 0 ? ` • Min: ${product.quantita_minima}` : ''}
+                        
+                        <div class="border-t pt-3 mt-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-sm text-gray-600">Giacenza:</span>
+                                <span class="text-2xl font-bold ${iconColor}">${giacenza.toFixed(2)} <span class="text-base">${um}</span></span>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <button onclick="apriMovimento('${p.id}', 'carico')" class="px-3 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-all text-sm">
+                                    <i class="fas fa-plus mr-1"></i>CARICO
+                                </button>
+                                <button onclick="apriMovimento('${p.id}', 'scarico')" class="px-3 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all text-sm">
+                                    <i class="fas fa-minus mr-1"></i>SCARICO
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="mostraStorico('${p.id}')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-all">
+                                    <i class="fas fa-history mr-1"></i>Storico
+                                </button>
+                                <button onclick="mostraGrafico('${p.id}')" class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200 transition-all">
+                                    <i class="fas fa-chart-line mr-1"></i>Grafico
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="removeFromBulkList(${index})" class="text-red-600 hover:text-red-800 p-2" title="Rimuovi">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            `).join('');
-
-            lucide.createIcons();
+                `;
+            }).join('');
         }
 
-        function removeFromBulkList(index) {
-            bulkProductsList.splice(index, 1);
-            updateBulkProductsList();
-            showNotification('Prodotto rimosso dalla lista', 'info');
+        // Ricerca prodotti
+        function ricercaProdotti() {
+            renderProdotti();
         }
 
-        async function saveBulkProducts() {
-            if (bulkProductsList.length === 0) {
-                showNotification('Nessun prodotto da salvare', 'warning');
+        // Toggle scanner
+        function toggleScanner() {
+            const scannerArea = document.getElementById('scannerArea');
+            const isHidden = scannerArea.classList.contains('hidden');
+            
+            if (isHidden) {
+                scannerArea.classList.remove('hidden');
+                avviaScanner();
+            } else {
+                scannerArea.classList.add('hidden');
+                stopScanner();
+            }
+        }
+
+        // Avvia scanner
+        function avviaScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop();
+            }
+            
+            html5QrCode = new Html5Qrcode("reader");
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    cercaProdottoPerBarcode(decodedText);
+                    toggleScanner();
+                },
+                (errorMessage) => {
+                    // Ignora errori di scansione
+                }
+            ).catch(err => {
+                console.error("Errore scanner:", err);
+                alert("Impossibile avviare la fotocamera");
+            });
+        }
+
+        // Stop scanner
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().catch(err => console.error(err));
+                html5QrCode = null;
+            }
+        }
+
+        // Cerca prodotto per barcode
+        function cercaProdottoPerBarcode(barcode) {
+            const prodotto = prodotti.find(p => p.barcode === barcode);
+            
+            if (prodotto) {
+                apriMovimento(prodotto.id, 'carico');
+            } else {
+                mostraProdottoNonTrovato(barcode);
+            }
+        }
+
+        // Apri movimento
+        function apriMovimento(prodottoId, tipo = 'carico') {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            document.getElementById('movimentoProdottoId').value = prodottoId;
+            document.getElementById('movimentoProdottoNome').textContent = prodotto.descrizione;
+            document.getElementById('movimentoCodice').textContent = prodotto.codice || prodotto.barcode || 'N/A';
+            document.getElementById('movimentoGiacenzaAttuale').textContent = (prodotto.giacenza || 0).toFixed(2);
+            document.getElementById('movimentoUM').textContent = prodotto.um || 'pz';
+            document.getElementById('movimentoQuantita').value = '';
+            document.getElementById('movimentoCausale').value = '';
+            
+            setTipoMovimento(tipo);
+            document.getElementById('movimentoModal').classList.remove('hidden');
+            document.getElementById('movimentoQuantita').focus();
+        }
+
+        // Set tipo movimento
+        function setTipoMovimento(tipo) {
+            tipoMovimentoSelezionato = tipo;
+            
+            const btnCarico = document.getElementById('btnCarico');
+            const btnScarico = document.getElementById('btnScarico');
+            
+            if (tipo === 'carico') {
+                btnCarico.className = 'px-4 py-3 border-2 border-green-500 bg-green-500 text-white rounded-lg font-bold';
+                btnScarico.className = 'px-4 py-3 border-2 border-gray-300 text-gray-500 rounded-lg font-bold hover:bg-red-50';
+                document.getElementById('movimentoTitle').textContent = 'Carico Magazzino';
+            } else {
+                btnScarico.className = 'px-4 py-3 border-2 border-red-500 bg-red-500 text-white rounded-lg font-bold';
+                btnCarico.className = 'px-4 py-3 border-2 border-gray-300 text-gray-500 rounded-lg font-bold hover:bg-green-50';
+                document.getElementById('movimentoTitle').textContent = 'Scarico Magazzino';
+            }
+        }
+
+        // Salva movimento
+        async function salvaMovimento() {
+            const prodottoId = document.getElementById('movimentoProdottoId').value;
+            const quantita = parseFloat(document.getElementById('movimentoQuantita').value);
+            const causale = document.getElementById('movimentoCausale').value;
+
+            if (!quantita || quantita <= 0) {
+                alert('Inserisci una quantità valida');
+                return;
+            }
+
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            try {
+                const giacenzaPrima = prodotto.giacenza || 0;
+                const giacenzaDopo = tipoMovimentoSelezionato === 'carico' 
+                    ? giacenzaPrima + quantita 
+                    : giacenzaPrima - quantita;
+
+                if (giacenzaDopo < 0) {
+                    alert('Giacenza insufficiente per lo scarico!');
+                    return;
+                }
+
+                // Aggiorna giacenza
+                const { error: updateError } = await supabase
+                    .from('components')
+                    .update({ giacenza: giacenzaDopo })
+                    .eq('id', prodottoId);
+
+                if (updateError) throw updateError;
+
+                // Crea movimento
+                const { error: movError } = await supabase
+                    .from('movimenti_magazzino')
+                    .insert({
+                        prodotto_id: prodottoId,
+                        tipo_movimento: tipoMovimentoSelezionato,
+                        quantita: tipoMovimentoSelezionato === 'carico' ? quantita : -quantita,
+                        giacenza_prima: giacenzaPrima,
+                        giacenza_dopo: giacenzaDopo,
+                        causale: causale || (tipoMovimentoSelezionato === 'carico' ? 'Carico manuale' : 'Scarico manuale'),
+                        created_by: currentUser.id
+                    });
+
+                if (movError) throw movError;
+
+                alert(`✅ ${tipoMovimentoSelezionato === 'carico' ? 'Carico' : 'Scarico'} registrato con successo!`);
+                closeMovimentoModal();
+                await caricaProdotti();
+
+            } catch (error) {
+                console.error('Errore salvataggio movimento:', error);
+                alert('Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        // Close movimento modal
+        function closeMovimentoModal() {
+            document.getElementById('movimentoModal').classList.add('hidden');
+        }
+
+        // Show nuovo prodotto
+        function showNuovoProdotto() {
+            document.getElementById('nuovoProdottoModal').classList.remove('hidden');
+        }
+
+        // Close nuovo prodotto modal
+        function closeNuovoProdottoModal() {
+            document.getElementById('nuovoProdottoModal').classList.add('hidden');
+        }
+
+        // Salva nuovo prodotto
+        async function salvaNuovoProdotto() {
+            const barcode = document.getElementById('nuovoBarcode').value.trim();
+            const descrizione = document.getElementById('nuovoDescrizione').value.trim();
+
+            if (!barcode || !descrizione) {
+                alert('Barcode e Descrizione sono obbligatori');
                 return;
             }
 
             try {
-                let successCount = 0;
-                let errorCount = 0;
-
-                for (const product of bulkProductsList) {
-                    try {
-                        await window.dataManager.saveComponente(product);
-                        successCount++;
-                    } catch (error) {
-                        console.error('Error saving product:', product.nome, error);
-                        errorCount++;
-                    }
-                }
-
-                if (successCount > 0) {
-                    showNotification(`${successCount} prodotti salvati con successo!`, 'success');
-                }
-                if (errorCount > 0) {
-                    showNotification(`${errorCount} prodotti non salvati`, 'error');
-                }
-
-                closeBulkAddModal();
-                await loadProducts();
-            } catch (error) {
-                console.error('Error in bulk save:', error);
-                showNotification('Errore durante il salvataggio multiplo', 'error');
-            }
-        }
-
-        // 🆕 IMPORT CSV FUNCTIONALITY
-        let csvParsedData = [];
-        let currentBrandFilter = 'all';
-
-        function openImportCSVModal() {
-            document.getElementById('importCSVModal').classList.remove('hidden');
-            document.getElementById('csvFileInput').value = '';
-            document.getElementById('csvPreview').classList.add('hidden');
-            csvParsedData = [];
-            lucide.createIcons();
-        }
-
-        function closeImportCSVModal() {
-            document.getElementById('importCSVModal').classList.add('hidden');
-        }
-
-        function downloadCSVTemplate() {
-            const template = `codice,nome,categoria,brand,prezzo,quantita,unita_misura,scorta_minima,descrizione
-DHI-IPC-HDBW1431E,Telecamera Dome 4MP,Videosorveglianza,Dahua,89.90,10,pz,5,Dome IR 30m WDR
-TN-TG168,Centrale Antifurto 8Z,Antifurti,Tecnoalarm,245.00,3,pz,2,8 zone espandibile a 168
-FTXM35R,Climatizzatore 12000 BTU,Climatizzatori,Daikin,650.00,5,pz,1,Split inverter A+++
-BTI-380,Cavo UTP Cat6,Materiale Elettrico,Bticino,120.00,50,mt,10,Cavo rete certificato
-DHI-NVR4104HS,NVR 4 Canali,Videosorveglianza,Dahua,180.00,4,pz,2,Registratore 4 canali 4K`;
-
-            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'template_listino_prodotti.csv';
-            link.click();
-            showNotification('Template scaricato!', 'success');
-        }
-
-        function previewCSV() {
-            const fileInput = document.getElementById('csvFileInput');
-            const file = fileInput.files[0];
-            
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                parseCSVData(text);
-            };
-            reader.readAsText(file);
-        }
-
-        function parseCSVData(csvText) {
-            const lines = csvText.trim().split('\n');
-            if (lines.length < 2) {
-                showNotification('File CSV vuoto o non valido', 'error');
-                return;
-            }
-
-            const headers = lines[0].split(',').map(h => h.trim());
-            csvParsedData = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                
-                if (values.length < headers.length) continue; // Skip incomplete rows
-
-                const product = {
-                    codice: values[0] || '',
-                    nome: values[1] || '',
-                    categoria: values[2] || '',
-                    brand: values[3] || '',
-                    prezzo_acquisto: parseFloat(values[4]) || 0,
-                    quantita_magazzino: parseFloat(values[5]) || 0,
-                    unita_misura: values[6] || 'pz',
-                    quantita_minima: parseFloat(values[7]) || 0,
-                    descrizione: values[8] || ''
+                const nuovoProdotto = {
+                    barcode: barcode,
+                    descrizione: descrizione,
+                    codice: document.getElementById('nuovoCodice').value.trim(),
+                    categoria: document.getElementById('nuovoCategoria').value,
+                    giacenza: parseFloat(document.getElementById('nuovoGiacenza').value) || 0,
+                    um: document.getElementById('nuovoUM').value,
+                    prezzo_acquisto: parseFloat(document.getElementById('nuovoPrezzoAcquisto').value) || 0,
+                    prezzo_vendita: parseFloat(document.getElementById('nuovoPrezzoVendita').value) || 0,
+                    giacenza_minima: parseFloat(document.getElementById('nuovoGiacenzaMin').value) || 0,
+                    created_by: currentUser.id
                 };
 
-                if (product.codice && product.nome) {
-                    csvParsedData.push(product);
-                }
-            }
+                const { error } = await supabase
+                    .from('components')
+                    .insert(nuovoProdotto);
 
-            displayCSVPreview();
+                if (error) throw error;
+
+                alert('✅ Prodotto creato con successo!');
+                closeNuovoProdottoModal();
+                
+                // Reset form
+                document.getElementById('nuovoBarcode').value = '';
+                document.getElementById('nuovoDescrizione').value = '';
+                document.getElementById('nuovoCodice').value = '';
+                document.getElementById('nuovoGiacenza').value = '0';
+                
+                await caricaProdotti();
+
+            } catch (error) {
+                console.error('Errore creazione prodotto:', error);
+                alert('Errore nella creazione: ' + error.message);
+            }
         }
 
-        function displayCSVPreview() {
-            if (csvParsedData.length === 0) {
-                showNotification('Nessun prodotto valido nel file CSV', 'warning');
-                return;
-            }
+        // Scan barcode per nuovo prodotto
+        function scanBarcode() {
+            toggleScanner();
+            // Quando scansiona, riempie il campo barcode
+        }
 
-            const preview = document.getElementById('csvPreview');
-            const tableBody = document.getElementById('csvPreviewTable');
-            const rowCount = document.getElementById('csvRowCount');
-            const importBtn = document.getElementById('importCSVBtn');
+        // ========================================
+        // STORICO MOVIMENTI
+        // ========================================
+        async function mostraStorico(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
 
-            preview.classList.remove('hidden');
-            rowCount.textContent = csvParsedData.length;
-            importBtn.disabled = false;
+            document.getElementById('storicoNomeProdotto').textContent = prodotto.descrizione;
+            document.getElementById('storicoModal').classList.remove('hidden');
+            document.getElementById('storicoContent').innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fas fa-spinner fa-spin text-4xl text-gray-400"></i>
+                    <p class="text-gray-500 mt-4">Caricamento storico...</p>
+                </div>
+            `;
 
-            tableBody.innerHTML = csvParsedData.slice(0, 20).map(product => `
-                <tr class="border-b border-gray-200">
-                    <td class="p-2 font-mono text-xs">${product.codice}</td>
-                    <td class="p-2">${product.nome}</td>
-                    <td class="p-2"><span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">${product.brand || 'N/D'}</span></td>
-                    <td class="p-2">${product.categoria}</td>
-                    <td class="p-2 font-bold">${product.quantita_magazzino} ${product.unita_misura}</td>
-                </tr>
-            `).join('');
+            try {
+                const { data, error } = await supabase
+                    .from('movimenti_magazzino')
+                    .select('*')
+                    .eq('prodotto_id', prodottoId)
+                    .order('data_movimento', { ascending: false })
+                    .limit(50);
 
-            if (csvParsedData.length > 20) {
-                tableBody.innerHTML += `
-                    <tr>
-                        <td colspan="5" class="p-2 text-center text-gray-500 text-sm">
-                            ... e altri ${csvParsedData.length - 20} prodotti
-                        </td>
-                    </tr>
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    document.getElementById('storicoContent').innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-inbox text-gray-300 text-6xl mb-4"></i>
+                            <p class="text-gray-500 text-lg">Nessun movimento registrato</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const html = `
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Data</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Quantità</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Giacenza</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Causale</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${data.map(m => {
+                                    const data_mov = new Date(m.data_movimento).toLocaleString('it-IT');
+                                    const tipo = m.tipo_movimento || 'movimento';
+                                    const tipoColor = tipo === 'carico' ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100';
+                                    const quantita = parseFloat(m.quantita || 0);
+                                    const segno = quantita >= 0 ? '+' : '';
+                                    
+                                    return `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-sm text-gray-900">${data_mov}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="${tipoColor} px-2 py-1 rounded-full text-xs font-bold uppercase">
+                                                    ${tipo}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm font-bold ${quantita >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                                ${segno}${quantita.toFixed(2)} ${prodotto.um || 'pz'}
+                                            </td>
+                                            <td class="px-4 py-3 text-sm">
+                                                <span class="text-gray-500">${(m.giacenza_prima || 0).toFixed(2)}</span>
+                                                <i class="fas fa-arrow-right text-gray-400 mx-1"></i>
+                                                <span class="font-bold text-blue-600">${(m.giacenza_dopo || 0).toFixed(2)}</span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-600">${m.causale || '-'}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                document.getElementById('storicoContent').innerHTML = html;
+
+            } catch (error) {
+                console.error('Errore caricamento storico:', error);
+                document.getElementById('storicoContent').innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-exclamation-circle text-red-400 text-6xl mb-4"></i>
+                        <p class="text-red-600 text-lg">Errore nel caricamento dello storico</p>
+                    </div>
                 `;
             }
-
-            lucide.createIcons();
-            showNotification(`${csvParsedData.length} prodotti pronti per l'importazione!`, 'success');
         }
 
-        async function importCSVData() {
-            if (csvParsedData.length === 0) {
-                showNotification('Nessun dato da importare', 'warning');
-                return;
-            }
+        function closeStoricoModal() {
+            document.getElementById('storicoModal').classList.add('hidden');
+        }
 
-            const importBtn = document.getElementById('importCSVBtn');
-            importBtn.disabled = true;
-            importBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Importazione in corso...';
-            lucide.createIcons();
+        // ========================================
+        // GRAFICO GIACENZA
+        // ========================================
+        let chartInstance = null;
+
+        async function mostraGrafico(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            document.getElementById('graficoNomeProdotto').textContent = prodotto.descrizione;
+            document.getElementById('graficoModal').classList.remove('hidden');
 
             try {
-                let successCount = 0;
-                let errorCount = 0;
-                let duplicateCount = 0;
+                const { data, error } = await supabase
+                    .from('movimenti_magazzino')
+                    .select('*')
+                    .eq('prodotto_id', prodottoId)
+                    .order('data_movimento', { ascending: true })
+                    .limit(100);
 
-                for (const product of csvParsedData) {
-                    try {
-                        // Check if product already exists by code
-                        const existing = allProducts.find(p => p.codice === product.codice);
-                        if (existing) {
-                            duplicateCount++;
-                            continue;
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    alert('Nessun dato disponibile per creare il grafico');
+                    closeGraficoModal();
+                    return;
+                }
+
+                // Prepara dati per grafico
+                const labels = data.map(m => new Date(m.data_movimento).toLocaleDateString('it-IT'));
+                const giacenze = data.map(m => parseFloat(m.giacenza_dopo || 0));
+
+                // Distruggi grafico precedente se esiste
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                // Crea nuovo grafico
+                const ctx = document.getElementById('graficoCanvas').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Giacenza (' + (prodotto.um || 'pz') + ')',
+                            data: giacenze,
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: 'rgb(139, 92, 246)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Andamento Giacenza nel Tempo',
+                                font: {
+                                    size: 18,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Quantità'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Data Movimento'
+                                }
+                            }
                         }
-
-                        await window.dataManager.saveComponente(product);
-                        successCount++;
-                    } catch (error) {
-                        console.error('Error importing product:', product.nome, error);
-                        errorCount++;
                     }
-                }
-
-                if (successCount > 0) {
-                    showNotification(`✅ ${successCount} prodotti importati con successo!`, 'success');
-                }
-                if (duplicateCount > 0) {
-                    showNotification(`⚠️ ${duplicateCount} prodotti già esistenti (saltati)`, 'warning');
-                }
-                if (errorCount > 0) {
-                    showNotification(`❌ ${errorCount} prodotti non importati`, 'error');
-                }
-
-                closeImportCSVModal();
-                await loadProducts();
-            } catch (error) {
-                console.error('Error in CSV import:', error);
-                showNotification('Errore durante l\'importazione', 'error');
-            } finally {
-                importBtn.disabled = false;
-                importBtn.innerHTML = '<i data-lucide="upload" class="w-5 h-5"></i> Importa Prodotti';
-                lucide.createIcons();
-            }
-        }
-
-        // 🆕 BRAND FILTER FUNCTIONALITY
-        function filterByBrand(brand) {
-            currentBrandFilter = brand;
-
-            // Update button styles
-            document.querySelectorAll('.brand-filter-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-blue-600', 'text-white');
-                btn.classList.add('bg-gray-100', 'text-gray-700');
-            });
-
-            const activeBtn = document.getElementById(`filter-${brand}`);
-            if (activeBtn) {
-                activeBtn.classList.remove('bg-gray-100', 'text-gray-700');
-                activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
-            }
-
-            applyFilters();
-        }
-
-        // Form submit
-        document.getElementById('productForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const productData = {
-                nome: document.getElementById('productName').value,
-                codice: document.getElementById('productCode').value,
-                categoria: document.getElementById('productCategory').value,
-                brand: document.getElementById('productBrand').value || null,
-                quantita_magazzino: parseFloat(document.getElementById('productQuantity').value) || 0,
-                quantita_minima: parseFloat(document.getElementById('productMinStock').value) || 5,
-                unita_misura: document.getElementById('productUnit').value,
-                prezzo_acquisto: parseFloat(document.getElementById('productPrice').value) || null,
-                descrizione: document.getElementById('productDescription').value,
-                note_magazzino: document.getElementById('productNotes').value
-            };
-
-            try {
-                let savedProduct = null;
-                if (editingProductId) {
-                    await window.dataManager.updateComponente(editingProductId, productData);
-                    showNotification('Prodotto aggiornato con successo', 'success');
-                    savedProduct = { id: editingProductId, ...productData };
-                } else {
-                    const result = await window.dataManager.saveComponente(productData);
-                    showNotification('Prodotto creato con successo', 'success');
-                    savedProduct = result;
-                }
-
-                closeProductModal();
-                await loadProducts();
-                
-                // Chiama callback se impostato (da altre pagine)
-                if (window.MagazzinoModal && window.MagazzinoModal.onProductCreated) {
-                    window.MagazzinoModal.onProductCreated(savedProduct);
-                }
-            } catch (error) {
-                console.error('Error saving product:', error);
-                showNotification('Errore durante il salvataggio', 'error');
-            }
-        });
-
-        // Notification helper
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
-        }
-
-        // ========== MOVEMENT TRACKING FUNCTIONS ==========
-        let selectedMovementType = null;
-
-        function openMovementModal() {
-            console.log('🔓 Apertura modale movimento...');
-            console.log('📦 Prodotti disponibili:', allProducts.length);
-            
-            document.getElementById('movementForm').reset();
-            selectedMovementType = null;
-            document.querySelectorAll('.movement-type-btn').forEach(btn => {
-                btn.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50', 
-                                     'border-yellow-500', 'bg-yellow-50', 'border-blue-500', 'bg-blue-50');
-                btn.classList.add('border-gray-300');
-            });
-            document.getElementById('currentStockInfo').classList.add('hidden');
-            
-            // Popola select componenti
-            const select = document.getElementById('movementComponent');
-            select.innerHTML = '<option value="">Seleziona componente...</option>';
-            allProducts.forEach(p => {
-                const stock = p.quantita_magazzino || p.quantita_disponibile || 0;
-                const unit = p.unita_misura || 'pz';
-                select.innerHTML += `<option value="${p.id}" data-stock="${stock}" data-unit="${unit}">${p.nome} - Stock: ${stock} ${unit}</option>`;
-            });
-            
-            console.log('✅ Select popolato con', allProducts.length, 'prodotti');
-            
-            document.getElementById('movementModal').classList.remove('hidden');
-            lucide.createIcons();
-            
-            console.log('✅ Modale aperto');
-        }
-
-        function closeMovementModal() {
-            document.getElementById('movementModal').classList.add('hidden');
-        }
-
-        // === BARCODE SCANNER FUNCTIONS ===
-        let html5QrcodeScanner = null;
-        let scannedComponentData = null;
-        let scannerMode = 'movement'; // 'movement' or 'product'
-        let isScanning = false; // Track scanner state
-
-        function openBarcodeScannerForProduct() {
-            scannerMode = 'product';
-            openBarcodeScanner();
-        }
-
-        function openBarcodeScanner() {
-            document.getElementById('barcodeScannerModal').classList.remove('hidden');
-            document.getElementById('scanResult').classList.add('hidden');
-            document.getElementById('scanError').classList.add('hidden');
-            
-            // Initialize scanner
-            if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5Qrcode("qr-reader");
-            }
-
-            const config = {
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0
-            };
-
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, // Use back camera
-                config,
-                onScanSuccess,
-                onScanError
-            ).then(() => {
-                isScanning = true;
-                console.log('📷 Scanner started');
-            }).catch(err => {
-                console.error("Camera error:", err);
-                isScanning = false;
-                showNotification('Impossibile accedere alla camera. Controlla i permessi.', 'error');
-            });
-
-            // Re-initialize Lucide icons for modal
-            setTimeout(() => lucide.createIcons(), 100);
-        }
-
-        function closeBarcodeScanner() {
-            if (html5QrcodeScanner && isScanning) {
-                html5QrcodeScanner.stop().then(() => {
-                    console.log('📷 Scanner stopped successfully');
-                    isScanning = false;
-                    html5QrcodeScanner = null;
-                }).catch(err => {
-                    console.log("Scanner stop info:", err);
-                    isScanning = false;
-                    html5QrcodeScanner = null;
                 });
-            }
-            document.getElementById('barcodeScannerModal').classList.add('hidden');
-            scannedComponentData = null;
-            scannerMode = 'movement'; // Reset to default
-        }
 
-        async function onScanSuccess(decodedText, decodedResult) {
-            console.log(`📷 Code scanned: ${decodedText}`);
-            console.log('📊 Full scan result:', decodedResult);
-            console.log('📋 Format:', decodedResult?.result?.format?.formatName || 'Unknown');
-            
-            // Stop scanner immediately
-            if (html5QrcodeScanner && isScanning) {
-                isScanning = false; // Prevent multiple stops
-                html5QrcodeScanner.stop().catch(err => {
-                    console.log("Scanner stop info:", err);
-                });
-            }
-            
-            // If scanning for product form, just insert the barcode - NO DATABASE SEARCH
-            if (scannerMode === 'product') {
-                document.getElementById('productCode').value = decodedText;
-                
-                setTimeout(() => {
-                    document.getElementById('barcodeScannerModal').classList.add('hidden');
-                    scannerMode = 'movement'; // Reset
-                    html5QrcodeScanner = null;
-                    showNotification(`🔢 Codice inserito: ${decodedText} (${decodedResult?.result?.format?.formatName || 'formato sconosciuto'})`, 'success');
-                }, 200);
-                return;
-            }
-            
-            // For movement mode: search component by barcode
-            try {
-                const { data, error } = await window.supabaseClient
-                    .rpc('find_component_by_barcode', { p_barcode: decodedText });
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    scannedComponentData = data[0];
-                    
-                    // Show result for movement
-                    document.getElementById('scanError').classList.add('hidden');
-                    document.getElementById('scanResult').classList.remove('hidden');
-                    
-                    const detailsDiv = document.getElementById('scanResultDetails');
-                    detailsDiv.innerHTML = `
-                        <p><strong>Nome:</strong> ${scannedComponentData.nome}</p>
-                        <p><strong>Codice:</strong> ${scannedComponentData.codice || 'N/A'}</p>
-                        <p><strong>Categoria:</strong> ${scannedComponentData.categoria || 'N/A'}</p>
-                        <p><strong>Stock:</strong> ${scannedComponentData.quantita_magazzino} ${scannedComponentData.unita_misura}</p>
-                        <p><strong>Barcode:</strong> <code class="bg-gray-100 px-2 py-1 rounded">${scannedComponentData.barcode}</code></p>
-                    `;
-                    
-                    lucide.createIcons();
-                } else {
-                    // Not found
-                    document.getElementById('scanResult').classList.add('hidden');
-                    document.getElementById('scanError').classList.remove('hidden');
-                    scannedComponentData = null;
-                }
             } catch (error) {
-                console.error('Error searching component:', error);
-                showNotification('Errore ricerca componente', 'error');
-                document.getElementById('scanResult').classList.add('hidden');
-                document.getElementById('scanError').classList.remove('hidden');
+                console.error('Errore creazione grafico:', error);
+                alert('Errore nella creazione del grafico');
+                closeGraficoModal();
             }
         }
 
-        function onScanError(errorMessage) {
-            // Ignore scan errors (happens continuously while scanning)
-        }
-
-        function applyScannedComponent() {
-            if (scannedComponentData) {
-                // Set component in select
-                const select = document.getElementById('movementComponent');
-                select.value = scannedComponentData.id;
-                
-                // Trigger stock display
-                showCurrentStock();
-                
-                // Close scanner modal
-                closeBarcodeScanner();
-                
-                // Show success
-                showNotification(`Componente "${scannedComponentData.nome}" selezionato!`, 'success');
+        function closeGraficoModal() {
+            document.getElementById('graficoModal').classList.add('hidden');
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
             }
         }
 
-        // === QR CODE GENERATION FUNCTIONS ===
-        let currentQRCode = null;
+        // ========================================
+        // STAMPA ETICHETTE BARCODE
+        // ========================================
+        let prodottiSelezionatiEtichette = [];
 
-        async function generateProductQR() {
-            if (!editingProductId) {
-                showNotification('Salva prima il prodotto per generare il QR code', 'warning');
+        function showStampaEtichette() {
+            prodottiSelezionatiEtichette = [];
+            document.getElementById('etichetteModal').classList.remove('hidden');
+            
+            const container = document.getElementById('prodottiEtichette');
+            container.innerHTML = prodotti.map(p => `
+                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" 
+                           value="${p.id}" 
+                           onchange="toggleEtichetta('${p.id}')"
+                           class="w-5 h-5 text-blue-600 rounded">
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-900">${p.descrizione}</div>
+                        <div class="text-xs text-gray-500">${p.codice || ''} ${p.barcode ? '• Barcode: ' + p.barcode : ''}</div>
+                    </div>
+                </label>
+            `).join('');
+            
+            aggiornaAnteprimaEtichette();
+        }
+
+        function toggleEtichetta(prodottoId) {
+            const index = prodottiSelezionatiEtichette.indexOf(prodottoId);
+            if (index > -1) {
+                prodottiSelezionatiEtichette.splice(index, 1);
+            } else {
+                prodottiSelezionatiEtichette.push(prodottoId);
+            }
+            aggiornaAnteprimaEtichette();
+        }
+
+        async function aggiornaAnteprimaEtichette() {
+            const container = document.getElementById('anteprimaEtichette');
+            
+            if (prodottiSelezionatiEtichette.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-3 text-center py-8 text-gray-400">
+                        <i class="fas fa-tags text-4xl mb-2"></i>
+                        <p>Seleziona i prodotti per vedere l'anteprima</p>
+                    </div>
+                `;
                 return;
             }
 
-            const product = allProducts.find(p => p.id === editingProductId);
-            if (!product) return;
+            const prodottiSelezionati = prodotti.filter(p => 
+                prodottiSelezionatiEtichette.includes(p.id)
+            );
 
-            // Get barcode from database
-            try {
-                const { data, error } = await window.supabaseClient
-                    .from('components')
-                    .select('barcode, codice, nome, categoria')
-                    .eq('id', editingProductId)
-                    .single();
+            container.innerHTML = '';
 
-                if (error) throw error;
+            for (const p of prodottiSelezionati) {
+                const div = document.createElement('div');
+                div.className = 'border-2 border-dashed border-gray-300 rounded-lg p-3 bg-white text-center';
+                div.innerHTML = `
+                    <div id="qr-${p.id}" class="mb-2"></div>
+                    <div class="font-bold text-xs">${p.descrizione.substring(0, 30)}</div>
+                    <div class="text-xs text-gray-600">${p.codice || ''}</div>
+                    <div class="text-xs font-mono">${p.barcode || 'N/A'}</div>
+                `;
+                container.appendChild(div);
 
-                const barcode = data.barcode || `COMP-${data.codice || editingProductId.substring(0, 8)}`;
-
-                // Show QR modal
-                document.getElementById('qrCodeModal').classList.remove('hidden');
-                
-                // Set component info
-                document.getElementById('qrComponentName').textContent = data.nome;
-                document.getElementById('qrComponentCode').textContent = `Codice: ${data.codice || 'N/A'}`;
-                document.getElementById('qrComponentBarcode').textContent = barcode;
-
-                // Clear previous QR code
-                const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = '';
-
-                // Generate QR code
-                currentQRCode = new QRCode(qrContainer, {
-                    text: barcode,
-                    width: 256,
-                    height: 256,
-                    colorDark: '#7c3aed',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                lucide.createIcons();
-            } catch (error) {
-                console.error('Error generating QR:', error);
-                showNotification('Errore generazione QR code', 'error');
+                // Genera QR Code
+                if (p.barcode) {
+                    new QRCode(document.getElementById(`qr-${p.id}`), {
+                        text: p.barcode,
+                        width: 80,
+                        height: 80
+                    });
+                }
             }
         }
 
-        function closeQRModal() {
-            document.getElementById('qrCodeModal').classList.add('hidden');
-            currentQRCode = null;
-        }
-
-        function printQRCode() {
-            const componentName = document.getElementById('qrComponentName').textContent;
-            const componentCode = document.getElementById('qrComponentCode').textContent;
-            const barcode = document.getElementById('qrComponentBarcode').textContent;
-            
-            const qrCanvas = document.querySelector('#qrcode canvas');
-            if (!qrCanvas) {
-                showNotification('QR code non trovato', 'error');
+        function stampaEtichette() {
+            if (prodottiSelezionatiEtichette.length === 0) {
+                alert('Seleziona almeno un prodotto');
                 return;
             }
 
-            const qrDataUrl = qrCanvas.toDataURL('image/png');
+            const printWindow = window.open('', '_blank');
+            const prodottiSelezionati = prodotti.filter(p => 
+                prodottiSelezionatiEtichette.includes(p.id)
+            );
 
-            // Create print window
-            const printWindow = window.open('', '_blank', 'width=600,height=800');
-            printWindow.document.write(`
+            let html = `
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>Etichetta QR - ${componentName}</title>
+                    <title>Etichette Barcode</title>
                     <style>
-                        @page { size: 10cm 10cm; margin: 0; }
+                        @media print {
+                            @page { margin: 10mm; }
+                            body { margin: 0; }
+                        }
                         body {
-                            margin: 0;
-                            padding: 20px;
                             font-family: Arial, sans-serif;
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 10px;
+                            padding: 10px;
+                        }
+                        .etichetta {
+                            border: 2px dashed #ccc;
+                            padding: 15px;
                             text-align: center;
+                            page-break-inside: avoid;
+                            background: white;
                         }
-                        .label {
-                            border: 3px solid #7c3aed;
-                            padding: 20px;
-                            border-radius: 12px;
-                            background: linear-gradient(135deg, #f3e8ff 0%, #fce7f3 100%);
+                        .nome {
+                            font-weight: bold;
+                            font-size: 12px;
+                            margin: 10px 0 5px 0;
                         }
-                        h1 { margin: 0 0 10px 0; font-size: 18px; color: #7c3aed; }
-                        p { margin: 5px 0; font-size: 12px; color: #333; }
-                        img { margin: 15px 0; }
-                        .barcode { font-family: monospace; font-size: 14px; font-weight: bold; background: white; padding: 5px 10px; border-radius: 5px; display: inline-block; }
+                        .codice {
+                            font-size: 10px;
+                            color: #666;
+                        }
+                        .barcode {
+                            font-family: monospace;
+                            font-size: 11px;
+                            margin-top: 5px;
+                        }
                     </style>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
                 </head>
                 <body>
-                    <div class="label">
-                        <h1>🏢 AST:ZG Magazzino</h1>
-                        <h2 style="margin: 10px 0; font-size: 16px;">${componentName}</h2>
-                        <p>${componentCode}</p>
-                        <img src="${qrDataUrl}" width="200" height="200" />
-                        <p class="barcode">${barcode}</p>
+            `;
+
+            prodottiSelezionati.forEach((p, index) => {
+                html += `
+                    <div class="etichetta">
+                        <div id="qr-print-${index}"></div>
+                        <div class="nome">${p.descrizione.substring(0, 40)}</div>
+                        <div class="codice">${p.codice || ''}</div>
+                        <div class="barcode">${p.barcode || 'N/A'}</div>
                     </div>
+                `;
+            });
+
+            html += `
                     <script>
-                        window.onload = () => {
+                        ${prodottiSelezionati.map((p, index) => 
+                            p.barcode ? `new QRCode(document.getElementById('qr-print-${index}'), { text: '${p.barcode}', width: 100, height: 100 });` : ''
+                        ).join('\n')}
+                        
+                        setTimeout(() => {
                             window.print();
-                            setTimeout(() => window.close(), 100);
-                        };
+                        }, 500);
                     <\/script>
                 </body>
                 </html>
-            `);
+            `;
+
+            printWindow.document.write(html);
             printWindow.document.close();
         }
 
-        function downloadQRCode() {
-            const componentName = document.getElementById('qrComponentName').textContent;
-            const barcode = document.getElementById('qrComponentBarcode').textContent;
-            
-            const qrCanvas = document.querySelector('#qrcode canvas');
-            if (!qrCanvas) {
-                showNotification('QR code non trovato', 'error');
-                return;
-            }
-
-            // Download canvas as PNG
-            const link = document.createElement('a');
-            link.download = `QR_${componentName.replace(/\s+/g, '_')}_${barcode}.png`;
-            link.href = qrCanvas.toDataURL('image/png');
-            link.click();
-
-            showNotification('QR code scaricato!', 'success');
+        function closeEtichetteModal() {
+            document.getElementById('etichetteModal').classList.add('hidden');
+            prodottiSelezionatiEtichette = [];
         }
 
-        function selectMovementType(type) {
-            selectedMovementType = type;
-            document.getElementById('movementType').value = type;
-            
-            // Reset all buttons
-            document.querySelectorAll('.movement-type-btn').forEach(btn => {
-                btn.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50',
-                                     'border-yellow-500', 'bg-yellow-50', 'border-blue-500', 'bg-blue-50');
-                btn.classList.add('border-gray-300');
-            });
-            
-            // Highlight selected
-            const btn = document.getElementById(`btn-${type}`);
-            btn.classList.remove('border-gray-300');
-            if (type === 'carico') {
-                btn.classList.add('border-green-500', 'bg-green-50');
-            } else if (type === 'scarico') {
-                btn.classList.add('border-red-500', 'bg-red-50');
-            } else if (type === 'rettifica') {
-                btn.classList.add('border-yellow-500', 'bg-yellow-50');
-            } else if (type === 'inventario') {
-                btn.classList.add('border-blue-500', 'bg-blue-50');
-            }
+        // Modal Prodotto Non Trovato
+        let barcodeTemporaneo = '';
+
+        function mostraProdottoNonTrovato(barcode) {
+            barcodeTemporaneo = barcode;
+            document.getElementById('barcodeNonTrovato').textContent = barcode;
+            document.getElementById('prodottoNonTrovatoModal').classList.remove('hidden');
+            document.getElementById('prodottoNonTrovatoModal').classList.add('flex');
         }
 
-        function showCurrentStock() {
-            const select = document.getElementById('movementComponent');
-            const option = select.selectedOptions[0];
-            if (option && option.value) {
-                const stock = option.dataset.stock;
-                const unit = option.dataset.unit;
-                document.getElementById('currentStockValue').textContent = `${stock} ${unit}`;
-                document.getElementById('currentStockInfo').classList.remove('hidden');
-            } else {
-                document.getElementById('currentStockInfo').classList.add('hidden');
-            }
+        function closeProdottoNonTrovatoModal() {
+            document.getElementById('prodottoNonTrovatoModal').classList.add('hidden');
+            document.getElementById('prodottoNonTrovatoModal').classList.remove('flex');
+            barcodeTemporaneo = '';
         }
 
-        async function saveMovement(event) {
-            event.preventDefault();
-            
-            console.log('🔄 saveMovement chiamata');
-            console.log('Tipo movimento selezionato:', selectedMovementType);
-            
-            if (!selectedMovementType) {
-                console.error('❌ Tipo movimento non selezionato');
-                showNotification('Seleziona il tipo di movimento', 'error');
-                return;
-            }
-
-            const componentId = document.getElementById('movementComponent').value;
-            const quantity = parseInt(document.getElementById('movementQuantity').value);
-            const reason = document.getElementById('movementReason').value;
-            const notes = document.getElementById('movementNotes').value;
-
-            console.log('📦 Dati movimento:', {
-                componentId,
-                quantity,
-                tipo: selectedMovementType,
-                reason,
-                notes
-            });
-
-            try {
-                console.log('🚀 Chiamata RPC registra_movimento_magazzino...');
-                
-                // Chiama la funzione database
-                const { data, error } = await window.supabaseClient
-                    .rpc('registra_movimento_magazzino', {
-                        p_component_id: componentId,
-                        p_tipo: selectedMovementType,
-                        p_quantita: quantity,
-                        p_task_id: null,
-                        p_user_id: null,
-                        p_motivo: reason || null,
-                        p_note: notes || null
-                    });
-
-                console.log('📥 Risposta database:', { data, error });
-
-                if (error) throw error;
-
-                console.log('✅ Movimento registrato con successo!');
-                showNotification('✅ Movimento registrato con successo!', 'success');
-                closeMovementModal();
-                await loadProducts();
-            } catch (error) {
-                console.error('❌ Errore registrazione movimento:', error);
-                showNotification('❌ Errore: ' + error.message, 'error');
-            }
+        function creaProdottoDaBarcode() {
+            closeProdottoNonTrovatoModal();
+            showNuovoProdotto();
+            document.getElementById('nuovoBarcode').value = barcodeTemporaneo;
+            // Focus sul campo descrizione per velocizzare l'inserimento
+            setTimeout(() => {
+                document.getElementById('nuovaDescrizione').focus();
+            }, 300);
         }
 
-        // Funzione per eliminare componente
-        async function deleteComponent() {
-            const componentId = document.getElementById('movementComponent').value;
-            
-            if (!componentId) {
-                showNotification('⚠️ Seleziona prima un componente da eliminare', 'error');
-                return;
-            }
-
-            // Trova il componente selezionato
-            const component = allProducts.find(p => p.id === componentId);
-            if (!component) {
-                showNotification('❌ Componente non trovato', 'error');
-                return;
-            }
-
-            // Chiedi conferma
-            const confirmDelete = confirm(`🗑️ ATTENZIONE!\n\nVuoi eliminare definitivamente il componente:\n"${component.nome}" (${component.codice || 'N/D'})?\n\nQuesta azione NON può essere annullata!\nVerranno eliminati anche tutti i movimenti associati.`);
-            
-            if (!confirmDelete) {
-                return;
-            }
-
-            try {
-                console.log('🗑️ Eliminazione componente:', componentId);
-                
-                const { error } = await window.supabaseClient
-                    .from('components')
-                    .delete()
-                    .eq('id', componentId);
-
-                if (error) throw error;
-
-                console.log('✅ Componente eliminato con successo!');
-                showNotification('✅ Componente eliminato con successo!', 'success');
-                closeMovementModal();
-                await loadProducts();
-            } catch (error) {
-                console.error('❌ Errore eliminazione componente:', error);
-                showNotification('❌ Errore: ' + error.message, 'error');
-            }
-        }
+        // Init on load
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 
-    <!-- Movement Modal -->
-    <div id="movementModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header identico al modale prodotto -->
-                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="arrow-right-left" class="w-7 h-7 text-green-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Nuovo Movimento Magazzino</h3>
-                        </div>
-                        <button type="button" onclick="closeMovementModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Content -->
-                <form id="movementForm" onsubmit="saveMovement(event)" class="p-6 overflow-y-auto flex-1 space-y-4">
-                    <!-- Tipo Movimento - Griglia più grande -->
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
-                        <label class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-3">
-                            <i data-lucide="zap" class="w-4 h-4"></i>
-                            Tipo Movimento *
-                        </label>
-                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                            <button type="button" onclick="selectMovementType('carico')" id="btn-carico" 
-                                    class="movement-type-btn p-4 border-2 border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
-                                <i data-lucide="arrow-down" class="w-8 h-8 text-green-600"></i>
-                                <span class="text-sm font-bold text-gray-700">Carico</span>
-                            </button>
-                            <button type="button" onclick="selectMovementType('scarico')" id="btn-scarico"
-                                    class="movement-type-btn p-4 border-2 border-gray-300 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all flex flex-col items-center gap-2">
-                                <i data-lucide="arrow-up" class="w-8 h-8 text-red-600"></i>
-                                <span class="text-sm font-bold text-gray-700">Scarico</span>
-                            </button>
-                            <button type="button" onclick="selectMovementType('rettifica')" id="btn-rettifica"
-                                    class="movement-type-btn p-4 border-2 border-gray-300 rounded-xl hover:border-yellow-500 hover:bg-yellow-50 transition-all flex flex-col items-center gap-2">
-                                <i data-lucide="edit" class="w-8 h-8 text-yellow-600"></i>
-                                <span class="text-sm font-bold text-gray-700">Rettifica</span>
-                            </button>
-                            <button type="button" onclick="selectMovementType('inventario')" id="btn-inventario"
-                                    class="movement-type-btn p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex flex-col items-center gap-2">
-                                <i data-lucide="clipboard-list" class="w-8 h-8 text-blue-600"></i>
-                                <span class="text-sm font-bold text-gray-700">Inventario</span>
-                            </button>
-                            <button type="button" onclick="deleteComponent()" id="btn-elimina"
-                                    class="movement-type-btn p-4 border-2 border-gray-300 rounded-xl hover:border-red-600 hover:bg-red-50 transition-all flex flex-col items-center gap-2">
-                                <i data-lucide="trash-2" class="w-8 h-8 text-red-600"></i>
-                                <span class="text-sm font-bold text-gray-700">Elimina</span>
-                            </button>
-                        </div>
-                        <input type="hidden" id="movementType" required>
-                    </div>
-
-                    <!-- Componente -->
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <label for="movementComponent" class="flex items-center gap-2 text-sm font-bold text-blue-700">
-                                <i data-lucide="box" class="w-4 h-4"></i>
-                                Seleziona Componente *
-                            </label>
-                            <button type="button" onclick="openBarcodeScanner()" 
-                                    class="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all text-sm font-bold shadow-md">
-                                <i data-lucide="scan-line" class="w-4 h-4"></i>
-                                Scan QR/Barcode
-                            </button>
-                        </div>
-                        <select id="movementComponent" required onchange="showCurrentStock()" 
-                                class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium bg-white">
-                            <option value="">Seleziona componente...</option>
-                        </select>
-                        <div id="currentStockInfo" class="hidden mt-3 p-3 bg-blue-100 border-2 border-blue-300 rounded-lg">
-                            <p class="text-sm font-bold text-blue-900">
-                                📦 Stock attuale: <span id="currentStockValue" class="text-blue-700 text-lg"></span>
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Quantità e Documento -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                            <label for="movementQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
-                                <i data-lucide="hash" class="w-4 h-4"></i>
-                                Quantità *
-                            </label>
-                            <input type="number" id="movementQuantity" min="1" required 
-                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 font-bold text-xl">
-                        </div>
-
-                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
-                            <label for="movementDocument" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
-                                <i data-lucide="file-text" class="w-4 h-4"></i>
-                                Documento Rif.
-                            </label>
-                            <input type="text" id="movementDocument" placeholder="DDT, Fattura, N°..."
-                                   class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium">
-                        </div>
-                    </div>
-
-                    <!-- Motivo -->
-                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
-                        <label for="movementReason" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
-                            <i data-lucide="message-square" class="w-4 h-4"></i>
-                            Motivo
-                        </label>
-                        <input type="text" id="movementReason" placeholder="es: Acquisto fornitore XYZ, Uso lavorazione #123..."
-                               class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-medium">
-                    </div>
-
-                    <!-- Note -->
-                    <div class="bg-gradient-to-br from-gray-50 to-slate-100 border-2 border-gray-300 rounded-xl p-4">
-                        <label for="movementNotes" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
-                            <i data-lucide="sticky-note" class="w-4 h-4"></i>
-                            Note Aggiuntive
-                        </label>
-                        <textarea id="movementNotes" rows="2" placeholder="Informazioni extra, ubicazione, lotto..."
-                                  class="w-full px-4 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 font-medium"></textarea>
-                    </div>
-
-                    <!-- Buttons con stile identico al modale prodotto -->
-                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
-                        <button type="button" onclick="closeMovementModal()" 
-                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
-                            Annulla
-                        </button>
-                        <button type="submit" 
-                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
-                            <i data-lucide="save" class="w-5 h-5"></i>
-                            Registra Movimento
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Import CSV Modal -->
-    <div id="importCSVModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-blue-600 via-indigo-700 to-indigo-800 p-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="file-spreadsheet" class="w-7 h-7 text-blue-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Importa Listino CSV</h3>
-                        </div>
-                        <button onclick="closeImportCSVModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Content -->
-                <div class="p-6 overflow-y-auto flex-1">
-                    <!-- Info Box -->
-                    <div class="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                        <div class="flex items-start gap-3">
-                            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
-                            <div class="flex-1">
-                                <p class="font-bold text-blue-900 mb-2">Formato CSV Richiesto</p>
-                                <p class="text-sm text-blue-700 mb-2">Il file CSV deve avere queste colonne (con intestazione nella prima riga):</p>
-                                <div class="bg-white border border-blue-300 rounded-lg p-3 font-mono text-xs mb-2">
-                                    codice,nome,categoria,brand,prezzo,quantita,unita_misura,scorta_minima,descrizione
-                                </div>
-                                <p class="text-sm text-blue-700 mb-2"><strong>Esempio:</strong></p>
-                                <div class="bg-white border border-blue-300 rounded-lg p-3 font-mono text-xs">
-                                    DHI-123,Telecamera Dome 4MP,Videosorveglianza,Dahua,89.90,10,pz,5,Dome IR 30m<br>
-                                    TN-456,Centrale Antifurto 8Z,Antifurti,Tecnoalarm,245.00,3,pz,2,8 zone espandibile<br>
-                                    CLM-789,Climatizzatore 12000 BTU,Climatizzatori,Daikin,650.00,5,pz,1,Split A+++
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Download Template -->
-                    <div class="mb-6">
-                        <button onclick="downloadCSVTemplate()" class="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-bold transition-all shadow-lg flex items-center justify-center gap-2">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                            Scarica Template CSV Vuoto
-                        </button>
-                    </div>
-
-                    <!-- File Upload -->
-                    <div class="mb-6">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i data-lucide="upload-cloud" class="w-4 h-4 inline mr-1"></i>
-                            Seleziona File CSV
-                        </label>
-                        <input type="file" 
-                               id="csvFileInput" 
-                               accept=".csv,.txt" 
-                               onchange="previewCSV()"
-                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold hover:file:bg-blue-700">
-                    </div>
-
-                    <!-- Preview Area -->
-                    <div id="csvPreview" class="hidden">
-                        <h4 class="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                            <i data-lucide="eye" class="w-5 h-5"></i>
-                            Anteprima Importazione
-                        </h4>
-                        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 max-h-96 overflow-auto">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="border-b-2 border-gray-300">
-                                        <th class="text-left p-2 font-bold">Codice</th>
-                                        <th class="text-left p-2 font-bold">Nome</th>
-                                        <th class="text-left p-2 font-bold">Brand</th>
-                                        <th class="text-left p-2 font-bold">Categoria</th>
-                                        <th class="text-left p-2 font-bold">Quantità</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="csvPreviewTable">
-                                    <!-- Populated by JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <p class="text-sm text-gray-600 mt-2">
-                            <span id="csvRowCount" class="font-bold text-blue-600">0</span> prodotti pronti per l'importazione
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="p-6 bg-gray-50 border-t flex justify-between">
-                    <button onclick="closeImportCSVModal()" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 font-medium transition-colors">
-                        Annulla
-                    </button>
-                    <button onclick="importCSVData()" id="importCSVBtn" disabled class="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg font-bold transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i data-lucide="upload" class="w-5 h-5"></i>
-                        Importa Prodotti
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Barcode Scanner Modal -->
-    <div id="barcodeScannerModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-[10000] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="scan-line" class="w-7 h-7 text-indigo-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Scan QR/Barcode</h3>
-                        </div>
-                        <button type="button" onclick="closeBarcodeScanner()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Scanner Area -->
-                <div class="p-6">
-                    <div class="bg-gray-900 rounded-xl overflow-hidden mb-4" style="min-height: 300px;">
-                        <div id="qr-reader" class="w-full"></div>
-                    </div>
-                    
-                    <div id="scanResult" class="hidden">
-                        <div class="bg-green-50 border-2 border-green-500 rounded-xl p-4">
-                            <div class="flex items-center gap-3 mb-3">
-                                <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
-                                <p class="font-bold text-green-900 text-lg">Componente Trovato!</p>
-                            </div>
-                            <div id="scanResultDetails" class="space-y-2 text-sm text-gray-700"></div>
-                            <button onclick="applyScannedComponent()" 
-                                    class="mt-4 w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                                <i data-lucide="check" class="w-5 h-5"></i>
-                                Usa Questo Componente
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="scanError" class="hidden">
-                        <div class="bg-red-50 border-2 border-red-500 rounded-xl p-4">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="alert-circle" class="w-6 h-6 text-red-600"></i>
-                                <p class="font-bold text-red-900">Componente non trovato</p>
-                            </div>
-                            <p class="text-sm text-red-700 mt-2">Il barcode scannerizzato non corrisponde a nessun componente nel database.</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                        <p class="text-sm text-blue-900">
-                            <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-                            <strong>Suggerimento:</strong> Posiziona il QR code o barcode del componente davanti alla camera
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bulk Add Modal -->
-    <div id="bulkAddModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-orange-600 via-orange-700 to-orange-800 p-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="layers" class="w-7 h-7 text-orange-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Carico Multiplo Prodotti</h3>
-                        </div>
-                        <button onclick="closeBulkAddModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Content -->
-                <div class="p-6 overflow-y-auto flex-1">
-                    <div class="mb-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                        <div class="flex items-start gap-3">
-                            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
-                            <div class="flex-1">
-                                <p class="font-bold text-blue-900 mb-1">Aggiungi più prodotti contemporaneamente</p>
-                                <p class="text-sm text-blue-700">Compila i campi e clicca "Aggiungi" per inserire ogni prodotto. I prodotti verranno salvati tutti insieme quando clicchi "Salva Tutti".</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Form per aggiungere prodotti -->
-                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl p-4 mb-4">
-                        <h4 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <i data-lucide="package-plus" class="w-5 h-5"></i>
-                            Nuovo Prodotto
-                        </h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Nome Prodotto *</label>
-                                <input type="text" id="bulkProductName" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="Es: Connettori RJ45">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Codice *</label>
-                                <input type="text" id="bulkProductCode" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="Es: 180.811">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Categoria *</label>
-                                <select id="bulkProductCategory" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white">
-                                    <option value="">Seleziona</option>
-                                    <option value="Componentistica">Componentistica</option>
-                                    <option value="Materiali">Materiali</option>
-                                    <option value="Cavi">Cavi</option>
-                                    <option value="Minuteria">Minuteria</option>
-                                    <option value="Attrezzature">Attrezzature</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Quantità *</label>
-                                <input type="number" id="bulkProductQuantity" min="0" step="1" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="0">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Unità Misura</label>
-                                <input type="text" id="bulkProductUnit" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="pz" value="pz">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-1 block">Scorta Minima</label>
-                                <input type="number" id="bulkProductMinStock" min="0" step="1" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="0">
-                            </div>
-                        </div>
-                        <button onclick="addProductToBulkList()" class="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2">
-                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                            Aggiungi alla Lista
-                        </button>
-                    </div>
-
-                    <!-- Lista prodotti da salvare -->
-                    <div class="bg-white border-2 border-gray-200 rounded-xl p-4">
-                        <h4 class="font-bold text-gray-900 mb-3 flex items-center justify-between">
-                            <span class="flex items-center gap-2">
-                                <i data-lucide="list" class="w-5 h-5"></i>
-                                Prodotti da Salvare
-                            </span>
-                            <span id="bulkProductCount" class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">0</span>
-                        </h4>
-                        <div id="bulkProductsList" class="space-y-2 max-h-60 overflow-y-auto">
-                            <p class="text-gray-500 text-sm text-center py-8">Nessun prodotto aggiunto. Compila il form sopra e clicca "Aggiungi alla Lista"</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="p-6 bg-gray-50 border-t flex justify-between">
-                    <button onclick="closeBulkAddModal()" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 font-medium transition-colors">
-                        Annulla
-                    </button>
-                    <button onclick="saveBulkProducts()" class="px-6 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-lg font-bold transition-all shadow-lg flex items-center gap-2">
-                        <i data-lucide="save" class="w-5 h-5"></i>
-                        Salva Tutti i Prodotti
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- QR Code Display Modal -->
-    <div id="qrCodeModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-[10000] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 p-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="qr-code" class="w-7 h-7 text-purple-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">QR Code Componente</h3>
-                        </div>
-                        <button type="button" onclick="closeQRModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- QR Code Content -->
-                <div class="p-8 text-center">
-                    <!-- Component Info -->
-                    <div id="qrComponentInfo" class="mb-6 p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl">
-                        <h4 id="qrComponentName" class="text-xl font-bold text-gray-900 mb-2"></h4>
-                        <p id="qrComponentCode" class="text-sm text-gray-600 mb-1"></p>
-                        <p id="qrComponentBarcode" class="text-xs font-mono bg-white px-3 py-1 rounded border border-purple-300 inline-block"></p>
-                    </div>
-
-                    <!-- QR Code -->
-                    <div class="flex justify-center mb-6">
-                        <div id="qrcode" class="p-4 bg-white border-4 border-purple-300 rounded-2xl shadow-xl inline-block"></div>
-                    </div>
-
-                    <!-- Buttons -->
-                    <div class="flex gap-3 justify-center">
-                        <button onclick="printQRCode()" 
-                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 font-bold shadow-lg transition-all flex items-center gap-2">
-                            <i data-lucide="printer" class="w-5 h-5"></i>
-                            Stampa Etichetta
-                        </button>
-                        <button onclick="downloadQRCode()" 
-                                class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 font-bold shadow-lg transition-all flex items-center gap-2">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                            Scarica PNG
-                        </button>
-                    </div>
-
-                    <div class="mt-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl text-left">
-                        <p class="text-sm text-blue-900">
-                            <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-                            <strong>Info:</strong> Stampa questo QR code e applicalo sul componente per identificazione rapida con lo scanner
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Logout function
-        function logout() {
-            if (window.AuthHelper && window.AuthHelper.logout) {
-                window.AuthHelper.logout();
-                window.location.href = '/Admin/index.html';
-            } else {
-                localStorage.clear();
-                sessionStorage.clear();
-                window.location.href = '/Admin/index.html';
-            }
-        }
-
-        // Initialize Lucide icons
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    </script>
 </body>
 </html>
