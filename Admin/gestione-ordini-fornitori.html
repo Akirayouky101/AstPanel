@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Ordini Fornitori - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='/admin-functional.html'" class="hover:bg-orange-700 p-2 rounded" title="Torna al menu">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">📦 Gestione Ordini Fornitori</h1>
+                        <p class="text-orange-100 text-sm">Ordini, ricezione merce e carico magazzino</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="text-right">
+                    <p class="text-sm opacity-90" id="userName">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Totali</p>
+                        <p class="text-2xl font-bold text-gray-800" id="statTotal">0</p>
+                    </div>
+                    <i class="fas fa-file-invoice text-gray-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Da Ordinare</p>
+                        <p class="text-2xl font-bold text-red-600" id="statDaOrdinare">0</p>
+                    </div>
+                    <i class="fas fa-clock text-red-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">In Arrivo</p>
+                        <p class="text-2xl font-bold text-blue-600" id="statInArrivo">0</p>
+                    </div>
+                    <i class="fas fa-truck text-blue-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Ricevuti</p>
+                        <p class="text-2xl font-bold text-green-600" id="statRicevuti">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Valore Totale</p>
+                        <p class="text-xl font-bold text-orange-600" id="statValore">€0</p>
+                    </div>
+                    <i class="fas fa-euro-sign text-orange-500 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <button onclick="nuovoOrdine()" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium">
+                    <i class="fas fa-plus mr-2"></i>Nuovo Ordine
+                </button>
+                <div class="flex items-center space-x-3">
+                    <select id="filterStato" onchange="loadOrdini()" class="px-4 py-2 border rounded-lg" title="Filtra per stato">
+                        <option value="">Tutti gli stati</option>
+                        <option value="da_ordinare">Da Ordinare</option>
+                        <option value="ordinato">Ordinato</option>
+                        <option value="in_arrivo">In Arrivo</option>
+                        <option value="ricevuto">Ricevuto</option>
+                        <option value="parzialmente_ricevuto">Parzialmente Ricevuto</option>
+                        <option value="annullato">Annullato</option>
+                    </select>
+                    <select id="filterFornitore" onchange="loadOrdini()" class="px-4 py-2 border rounded-lg" title="Filtra per fornitore">
+                        <option value="">Tutti i fornitori</option>
+                    </select>
+                    <input type="text" id="searchOrdine" placeholder="Cerca ordine..." 
+                        onkeyup="searchOrdini()" class="px-4 py-2 border rounded-lg w-64">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabella Ordini -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fornitore</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oggetto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Ordine</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Consegna</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Importo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordiniTable" class="divide-y divide-gray-200">
+                        <!-- Popolato via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ordine -->
+    <div id="ordineModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-8">
+            <div class="bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 text-white p-6 sticky top-0 z-10 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold" id="modalTitle">📦 Nuovo Ordine Fornitore</h3>
+                        <p class="text-orange-100 text-sm">Crea un ordine per rifornire il magazzino</p>
+                    </div>
+                    <button onclick="closeModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                <input type="hidden" id="ordineId">
+                
+                <!-- Fornitore -->
+                <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-6 rounded-xl border border-orange-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                        <div class="bg-orange-600 text-white w-10 h-10 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        Fornitore
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-search text-orange-600 mr-1"></i>
+                                Seleziona Fornitore *
+                            </label>
+                            <select id="fornitoreId" onchange="fillFornitoreData()" required 
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500" title="Seleziona fornitore">
+                                <option value="">-- Seleziona fornitore --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dettagli Ordine -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Oggetto *</label>
+                        <input type="text" id="oggetto" required placeholder="es: Ordine materiale idraulico"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Data Ordine</label>
+                        <input type="date" id="dataOrdine" 
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Consegna Prevista</label>
+                        <input type="date" id="dataConsegnaPrevista"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+
+                <!-- Prodotti -->
+                <div class="bg-purple-50 p-6 rounded-xl border border-purple-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-gray-800 flex items-center text-lg">
+                            <i class="fas fa-boxes mr-2 text-purple-600"></i>
+                            Prodotti da Ordinare
+                        </h4>
+                        <button onclick="aggiungiProdotto()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                            <i class="fas fa-plus mr-2"></i>Aggiungi Prodotto
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full" id="prodottiTable">
+                            <thead class="bg-purple-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Codice</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Descrizione</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">UM</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Quantità</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Prezzo Acq.</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Totale</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prodottiTableBody">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                        Nessun prodotto aggiunto
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <p class="text-sm text-gray-600">Totale Ordine:</p>
+                            <p class="text-2xl font-bold text-orange-600" id="totaleOrdine">€ 0.00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Note Interne</label>
+                    <textarea id="noteInterne" rows="3" placeholder="Note sull'ordine..."
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-500 focus:border-gray-500"></textarea>
+                </div>
+
+                <!-- Stato -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Stato Ordine</label>
+                    <select id="stato" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500" title="Stato ordine">
+                        <option value="da_ordinare">Da Ordinare</option>
+                        <option value="ordinato">Ordinato</option>
+                        <option value="in_arrivo">In Arrivo</option>
+                        <option value="ricevuto">Ricevuto</option>
+                        <option value="annullato">Annullato</option>
+                    </select>
+                </div>
+
+                <!-- Azioni -->
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t">
+                    <button onclick="closeModal()" class="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 font-medium">
+                        Annulla
+                    </button>
+                    <button onclick="salvaOrdine()" class="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-medium">
+                        <i class="fas fa-save mr-2"></i>Salva Ordine
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Selezione Prodotto -->
+    <div id="prodottoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold">🏪 Magazzino Prodotti</h3>
+                        <p class="text-purple-100 text-sm">Seleziona i prodotti da ordinare</p>
+                    </div>
+                    <button onclick="closeProdottoModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <input type="text" id="searchProdotto" placeholder="🔍 Cerca prodotto..." 
+                        onkeyup="searchProdotti()" 
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div class="overflow-y-auto max-h-[calc(85vh-240px)]" id="prodottiMagazzino">
+                    <!-- Lista prodotti -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ricezione Merce -->
+    <div id="ricezioneModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full">
+            <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold">📥 Ricezione Merce</h3>
+                        <p class="text-green-100 text-sm">Carica la merce ricevuta in magazzino</p>
+                    </div>
+                    <button onclick="closeRicezioneModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="ricezioneOrdineId">
+                <div id="ricezioneItems" class="space-y-4">
+                    <!-- Popolato dinamicamente -->
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button onclick="closeRicezioneModal()" class="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="confermaRicezione()" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">
+                        <i class="fas fa-check mr-2"></i>Conferma Ricezione
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let ordini = [];
+        let fornitori = [];
+        let prodotti = [];
+        let currentItems = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await window.AuthHelper.requireLogin()) return;
+            
+            currentUser = window.AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dataOrdine').value = today;
+
+            await Promise.all([
+                loadOrdini(),
+                loadFornitori(),
+                loadProdotti()
+            ]);
+        });
+
+        async function loadFornitori() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('fornitori')
+                    .select('*')
+                    .eq('attivo', true)
+                    .order('ragione_sociale');
+
+                if (error) throw error;
+                fornitori = data || [];
+
+                // Popola dropdown
+                const selectFornitore = document.getElementById('fornitoreId');
+                selectFornitore.innerHTML = '<option value="">-- Seleziona fornitore --</option>';
+                fornitori.forEach(f => {
+                    selectFornitore.innerHTML += `<option value="${f.id}">${f.ragione_sociale}</option>`;
+                });
+
+                // Popola filtro
+                const filterFornitore = document.getElementById('filterFornitore');
+                filterFornitore.innerHTML = '<option value="">Tutti i fornitori</option>';
+                fornitori.forEach(f => {
+                    filterFornitore.innerHTML += `<option value="${f.id}">${f.ragione_sociale}</option>`;
+                });
+            } catch (error) {
+                console.error('Errore caricamento fornitori:', error);
+            }
+        }
+
+        async function loadProdotti() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('components')
+                    .select('*')
+                    .order('codice');
+
+                if (error) throw error;
+                prodotti = data || [];
+            } catch (error) {
+                console.error('Errore caricamento prodotti:', error);
+            }
+        }
+
+        async function loadOrdini() {
+            try {
+                const filterStato = document.getElementById('filterStato').value;
+                const filterFornitore = document.getElementById('filterFornitore').value;
+
+                let query = window.supabase
+                    .from('ordini_fornitore')
+                    .select('*, fornitore:fornitori(ragione_sociale)')
+                    .order('data_ordine', { ascending: false });
+
+                if (filterStato) query = query.eq('stato', filterStato);
+                if (filterFornitore) query = query.eq('fornitore_id', filterFornitore);
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                ordini = data || [];
+                renderOrdini();
+                updateStats();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento: ' + error.message);
+            }
+        }
+
+        function renderOrdini() {
+            const tbody = document.getElementById('ordiniTable');
+            
+            if (ordini.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fas fa-file-invoice text-6xl text-gray-300 mb-4 block"></i>
+                            <p class="text-lg">Nessun ordine trovato</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = ordini.map(o => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">${o.numero}</div>
+                        ${o.preventivo_id ? '<div class="text-xs text-blue-600"><i class="fas fa-link mr-1"></i>Da preventivo</div>' : ''}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${o.fornitore?.ragione_sociale || o.fornitore_nome || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${o.oggetto || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${new Date(o.data_ordine).toLocaleDateString('it-IT')}
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        ${o.data_consegna_prevista ? 
+                            `<span class="${new Date(o.data_consegna_prevista) < new Date() ? 'text-red-600' : 'text-gray-700'}">
+                                ${new Date(o.data_consegna_prevista).toLocaleDateString('it-IT')}
+                            </span>` : '-'
+                        }
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                        € ${parseFloat(o.totale_ordine || 0).toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4">
+                        ${getStatoBadge(o.stato)}
+                    </td>
+                    <td class="px-6 py-4 text-sm space-x-2">
+                        <button onclick="modificaOrdine('${o.id}')" class="text-orange-600 hover:text-orange-900" title="Modifica">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ${(o.stato === 'ordinato' || o.stato === 'in_arrivo') ? 
+                            `<button onclick="riceviMerce('${o.id}')" class="text-green-600 hover:text-green-900" title="Ricevi merce">
+                                <i class="fas fa-truck-loading"></i>
+                            </button>` : ''
+                        }
+                        <button onclick="eliminaOrdine('${o.id}', '${o.numero}')" class="text-red-600 hover:text-red-900" title="Elimina">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatoBadge(stato) {
+            const badges = {
+                'da_ordinare': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-clock mr-1"></i>Da Ordinare</span>',
+                'ordinato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-paper-plane mr-1"></i>Ordinato</span>',
+                'in_arrivo': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-truck mr-1"></i>In Arrivo</span>',
+                'ricevuto': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Ricevuto</span>',
+                'parzialmente_ricevuto': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-teal-100 text-teal-800"><i class="fas fa-check mr-1"></i>Parz. Ricevuto</span>',
+                'annullato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-times-circle mr-1"></i>Annullato</span>'
+            };
+            return badges[stato] || stato;
+        }
+
+        function updateStats() {
+            const daOrdinare = ordini.filter(o => o.stato === 'da_ordinare').length;
+            const inArrivo = ordini.filter(o => o.stato === 'ordinato' || o.stato === 'in_arrivo').length;
+            const ricevuti = ordini.filter(o => o.stato === 'ricevuto').length;
+            const valoreTotale = ordini.reduce((sum, o) => sum + parseFloat(o.totale_ordine || 0), 0);
+
+            document.getElementById('statTotal').textContent = ordini.length;
+            document.getElementById('statDaOrdinare').textContent = daOrdinare;
+            document.getElementById('statInArrivo').textContent = inArrivo;
+            document.getElementById('statRicevuti').textContent = ricevuti;
+            document.getElementById('statValore').textContent = '€ ' + valoreTotale.toFixed(2);
+        }
+
+        function searchOrdini() {
+            const search = document.getElementById('searchOrdine').value.toLowerCase();
+            const filtered = ordini.filter(o => 
+                o.numero?.toLowerCase().includes(search) ||
+                o.oggetto?.toLowerCase().includes(search) ||
+                o.fornitore_nome?.toLowerCase().includes(search)
+            );
+            
+            const temp = ordini;
+            ordini = filtered;
+            renderOrdini();
+            ordini = temp;
+        }
+
+        function nuovoOrdine() {
+            document.getElementById('ordineId').value = '';
+            document.getElementById('modalTitle').innerHTML = '📦 Nuovo Ordine Fornitore';
+            
+            document.getElementById('fornitoreId').value = '';
+            document.getElementById('oggetto').value = '';
+            document.getElementById('dataOrdine').value = new Date().toISOString().split('T')[0];
+            document.getElementById('dataConsegnaPrevista').value = '';
+            document.getElementById('noteInterne').value = '';
+            document.getElementById('stato').value = 'da_ordinare';
+            
+            currentItems = [];
+            renderProdottiTable();
+            
+            document.getElementById('ordineModal').classList.remove('hidden');
+        }
+
+        function fillFornitoreData() {
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            if (!fornitoreId) return;
+
+            const fornitore = fornitori.find(f => f.id === fornitoreId);
+            if (!fornitore) return;
+
+            // Auto-calcola data consegna prevista
+            if (fornitore.giorni_consegna) {
+                const dataOrdine = new Date(document.getElementById('dataOrdine').value || new Date());
+                const consegna = new Date(dataOrdine);
+                consegna.setDate(consegna.getDate() + fornitore.giorni_consegna);
+                document.getElementById('dataConsegnaPrevista').value = consegna.toISOString().split('T')[0];
+            }
+        }
+
+        function aggiungiProdotto() {
+            renderProdottiMagazzino();
+            document.getElementById('prodottoModal').classList.remove('hidden');
+        }
+
+        function renderProdottiMagazzino() {
+            const search = document.getElementById('searchProdotto').value.toLowerCase();
+            const filtered = prodotti.filter(p => 
+                p.codice?.toLowerCase().includes(search) || 
+                p.descrizione?.toLowerCase().includes(search)
+            );
+
+            const container = document.getElementById('prodottiMagazzino');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16">
+                        <i class="fas fa-box-open text-gray-300 text-6xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nessun prodotto trovato</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(p => `
+                <div onclick="selezionaProdotto('${p.id}')" 
+                    class="border-b border-gray-100 p-4 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 cursor-pointer transition-all group">
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
+                                    ${p.codice || 'N/A'}
+                                </span>
+                                <span class="text-xs ${p.giacenza > 0 ? 'text-green-600' : 'text-red-600'}">
+                                    <i class="fas fa-boxes mr-1"></i>
+                                    Giacenza: ${parseFloat(p.giacenza || 0).toFixed(2)} ${p.um || 'pz'}
+                                </span>
+                            </div>
+                            <p class="font-medium text-gray-800">${p.descrizione || 'Senza descrizione'}</p>
+                        </div>
+                        <div class="text-right ml-6">
+                            <p class="text-lg font-bold text-purple-600">€ ${parseFloat(p.prezzo_acquisto || p.prezzo_vendita || 0).toFixed(2)}</p>
+                            <p class="text-xs text-gray-500">${p.um || 'pz'}</p>
+                            <button class="mt-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i class="fas fa-plus mr-1"></i>Aggiungi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchProdotti() {
+            renderProdottiMagazzino();
+        }
+
+        function selezionaProdotto(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            // Verifica se già presente
+            if (currentItems.some(item => item.prodotto_id === prodottoId)) {
+                alert('Prodotto già aggiunto all\'ordine');
+                return;
+            }
+
+            const item = {
+                id: Date.now().toString(),
+                prodotto_id: prodotto.id,
+                codice: prodotto.codice,
+                descrizione: prodotto.descrizione,
+                um: prodotto.um || 'pz',
+                quantita_ordinata: 1,
+                prezzo_acquisto: parseFloat(prodotto.prezzo_acquisto || prodotto.prezzo_vendita || 0),
+                importo: parseFloat(prodotto.prezzo_acquisto || prodotto.prezzo_vendita || 0)
+            };
+
+            currentItems.push(item);
+            renderProdottiTable();
+            calcolaTotale();
+            
+            closeProdottoModal();
+        }
+
+        function renderProdottiTable() {
+            const tbody = document.getElementById('prodottiTableBody');
+            
+            if (currentItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            Nessun prodotto aggiunto
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = currentItems.map((item, index) => `
+                <tr>
+                    <td class="px-4 py-2 text-sm">${item.codice}</td>
+                    <td class="px-4 py-2 text-sm">${item.descrizione}</td>
+                    <td class="px-4 py-2 text-sm">${item.um}</td>
+                    <td class="px-4 py-2">
+                        <input type="number" value="${item.quantita_ordinata}" min="0.01" step="0.01"
+                            onchange="updateItemQuantita(${index}, this.value)"
+                            class="w-24 px-2 py-1 border rounded">
+                    </td>
+                    <td class="px-4 py-2">
+                        <input type="number" value="${item.prezzo_acquisto}" min="0" step="0.01"
+                            onchange="updateItemPrezzo(${index}, this.value)"
+                            class="w-24 px-2 py-1 border rounded">
+                    </td>
+                    <td class="px-4 py-2 text-sm font-medium">€ ${item.importo.toFixed(2)}</td>
+                    <td class="px-4 py-2">
+                        <button onclick="rimuoviItem(${index})" class="text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateItemQuantita(index, value) {
+            const quantita = parseFloat(value) || 0;
+            currentItems[index].quantita_ordinata = quantita;
+            currentItems[index].importo = quantita * currentItems[index].prezzo_acquisto;
+            renderProdottiTable();
+            calcolaTotale();
+        }
+
+        function updateItemPrezzo(index, value) {
+            const prezzo = parseFloat(value) || 0;
+            currentItems[index].prezzo_acquisto = prezzo;
+            currentItems[index].importo = currentItems[index].quantita_ordinata * prezzo;
+            renderProdottiTable();
+            calcolaTotale();
+        }
+
+        function rimuoviItem(index) {
+            currentItems.splice(index, 1);
+            renderProdottiTable();
+            calcolaTotale();
+        }
+
+        function calcolaTotale() {
+            const totale = currentItems.reduce((sum, item) => sum + item.importo, 0);
+            document.getElementById('totaleOrdine').textContent = '€ ' + totale.toFixed(2);
+        }
+
+        async function salvaOrdine() {
+            try {
+                const fornitoreId = document.getElementById('fornitoreId').value;
+                const oggetto = document.getElementById('oggetto').value.trim();
+
+                if (!fornitoreId) {
+                    alert('Seleziona un fornitore');
+                    return;
+                }
+
+                if (!oggetto) {
+                    alert('Inserisci l\'oggetto dell\'ordine');
+                    return;
+                }
+
+                if (currentItems.length === 0) {
+                    alert('Aggiungi almeno un prodotto');
+                    return;
+                }
+
+                // Recupera dati fornitore
+                const fornitore = fornitori.find(f => f.id === fornitoreId);
+
+                const ordine = {
+                    fornitore_id: fornitoreId,
+                    fornitore_nome: fornitore?.ragione_sociale,
+                    fornitore_email: fornitore?.email,
+                    fornitore_telefono: fornitore?.telefono,
+                    oggetto: oggetto,
+                    data_ordine: document.getElementById('dataOrdine').value,
+                    data_consegna_prevista: document.getElementById('dataConsegnaPrevista').value || null,
+                    stato: document.getElementById('stato').value,
+                    note_interne: document.getElementById('noteInterne').value.trim() || null,
+                    totale_ordine: currentItems.reduce((sum, item) => sum + item.importo, 0),
+                    created_by: currentUser.id
+                };
+
+                const ordineId = document.getElementById('ordineId').value;
+                let savedOrdineId;
+
+                if (ordineId) {
+                    // Update
+                    const { error } = await window.supabase
+                        .from('ordini_fornitore')
+                        .update(ordine)
+                        .eq('id', ordineId);
+
+                    if (error) throw error;
+                    savedOrdineId = ordineId;
+
+                    // Elimina vecchie righe
+                    await window.supabase
+                        .from('ordini_fornitore_items')
+                        .delete()
+                        .eq('ordine_id', ordineId);
+                } else {
+                    // Insert - genera numero
+                    const { data: numeroData, error: numeroError } = await window.supabase
+                        .rpc('generate_ordine_numero');
+
+                    if (numeroError) throw numeroError;
+                    ordine.numero = numeroData;
+
+                    const { data, error } = await window.supabase
+                        .from('ordini_fornitore')
+                        .insert([ordine])
+                        .select();
+
+                    if (error) throw error;
+                    savedOrdineId = data[0].id;
+                }
+
+                // Inserisci righe
+                const items = currentItems.map(item => ({
+                    ordine_id: savedOrdineId,
+                    prodotto_id: item.prodotto_id,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita_ordinata: item.quantita_ordinata,
+                    quantita_ricevuta: 0,
+                    prezzo_acquisto: item.prezzo_acquisto,
+                    importo: item.importo,
+                    stato: 'da_ricevere'
+                }));
+
+                const { error: itemsError } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .insert(items);
+
+                if (itemsError) throw itemsError;
+
+                alert('✅ Ordine salvato con successo!');
+                closeModal();
+                await loadOrdini();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('❌ Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        async function modificaOrdine(id) {
+            try {
+                const ordine = ordini.find(o => o.id === id);
+                if (!ordine) return;
+
+                document.getElementById('ordineId').value = ordine.id;
+                document.getElementById('modalTitle').innerHTML = '✏️ Modifica Ordine';
+                
+                document.getElementById('fornitoreId').value = ordine.fornitore_id || '';
+                document.getElementById('oggetto').value = ordine.oggetto || '';
+                document.getElementById('dataOrdine').value = ordine.data_ordine;
+                document.getElementById('dataConsegnaPrevista').value = ordine.data_consegna_prevista || '';
+                document.getElementById('noteInterne').value = ordine.note_interne || '';
+                document.getElementById('stato').value = ordine.stato;
+
+                // Carica items
+                const { data: items, error } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .select('*')
+                    .eq('ordine_id', id);
+
+                if (error) throw error;
+
+                currentItems = items.map(item => ({
+                    id: item.id,
+                    prodotto_id: item.prodotto_id,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita_ordinata: parseFloat(item.quantita_ordinata),
+                    prezzo_acquisto: parseFloat(item.prezzo_acquisto),
+                    importo: parseFloat(item.importo)
+                }));
+
+                renderProdottiTable();
+                calcolaTotale();
+
+                document.getElementById('ordineModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento ordine: ' + error.message);
+            }
+        }
+
+        async function riceviMerce(ordineId) {
+            try {
+                const { data: items, error } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .select('*')
+                    .eq('ordine_id', ordineId)
+                    .neq('stato', 'ricevuto');
+
+                if (error) throw error;
+
+                if (!items || items.length === 0) {
+                    alert('Tutti gli articoli sono già stati ricevuti');
+                    return;
+                }
+
+                document.getElementById('ricezioneOrdineId').value = ordineId;
+                
+                const container = document.getElementById('ricezioneItems');
+                container.innerHTML = items.map(item => `
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900">${item.codice} - ${item.descrizione}</p>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Ordinati: <span class="font-medium">${item.quantita_ordinata} ${item.um}</span> | 
+                                    Già ricevuti: <span class="font-medium">${item.quantita_ricevuta || 0} ${item.um}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <label class="text-sm font-medium text-gray-700">Quantità da ricevere:</label>
+                            <input type="number" 
+                                id="qta_${item.id}" 
+                                value="${item.quantita_ordinata - (item.quantita_ricevuta || 0)}" 
+                                min="0" 
+                                max="${item.quantita_ordinata - (item.quantita_ricevuta || 0)}"
+                                step="0.01"
+                                class="w-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500">
+                            <span class="text-sm text-gray-600">${item.um}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('ricezioneModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento: ' + error.message);
+            }
+        }
+
+        async function confermaRicezione() {
+            try {
+                const ordineId = document.getElementById('ricezioneOrdineId').value;
+                
+                const { data: items, error: itemsError } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .select('*')
+                    .eq('ordine_id', ordineId)
+                    .neq('stato', 'ricevuto');
+
+                if (itemsError) throw itemsError;
+
+                // Per ogni item, carica in magazzino
+                for (const item of items) {
+                    const qtaInput = document.getElementById(`qta_${item.id}`);
+                    const qtaRicevuta = parseFloat(qtaInput?.value || 0);
+
+                    if (qtaRicevuta > 0) {
+                        const { error: caricaError } = await window.supabase
+                            .rpc('carica_magazzino', {
+                                p_ordine_item_id: item.id,
+                                p_quantita_ricevuta: qtaRicevuta,
+                                p_user_id: currentUser.id
+                            });
+
+                        if (caricaError) throw caricaError;
+                    }
+                }
+
+                alert('✅ Merce ricevuta e caricata in magazzino!');
+                closeRicezioneModal();
+                await loadOrdini();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('❌ Errore nella ricezione: ' + error.message);
+            }
+        }
+
+        async function eliminaOrdine(id, numero) {
+            if (!confirm(`Sei sicuro di voler eliminare l'ordine "${numero}"?`)) return;
+
+            try {
+                const { error } = await window.supabase
+                    .from('ordini_fornitore')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                alert('✅ Ordine eliminato!');
+                await loadOrdini();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('❌ Errore nell\'eliminazione: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('ordineModal').classList.add('hidden');
+            currentItems = [];
+        }
+
+        function closeProdottoModal() {
+            document.getElementById('prodottoModal').classList.add('hidden');
+            document.getElementById('searchProdotto').value = '';
+        }
+
+        function closeRicezioneModal() {
+            document.getElementById('ricezioneModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
