@@ -64,7 +64,7 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '📋 LOGICA PREZZI:';
     RAISE NOTICE '  • Magazzino: solo prezzo_acquisto (esente IVA)';
-    RAISE NOTICE '  • Preventivo: calcola ricarico % sul prezzo_acquisto';
+    RAISE NOTICE '  • Preventivo: calcola ricarico %% sul prezzo_acquisto';
     RAISE NOTICE '  • Ogni preventivo può avere ricarico diverso';
     RAISE NOTICE '';
     RAISE NOTICE '========================================';

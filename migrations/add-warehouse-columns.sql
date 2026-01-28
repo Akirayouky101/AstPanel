@@ -159,7 +159,7 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '💰 NOTA PREZZI:';
     RAISE NOTICE '  • prezzo_acquisto = prezzo esente IVA dal fornitore';
-    RAISE NOTICE '  • Il ricarico % viene calcolato nel preventivo';
+    RAISE NOTICE '  • Il ricarico %% viene calcolato nel preventivo';
     RAISE NOTICE '  • NON esiste prezzo_vendita fisso in magazzino';
     RAISE NOTICE '';
     RAISE NOTICE '🔄 Sincronizzazione automatica attiva:';
