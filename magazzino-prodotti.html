@@ -415,11 +415,18 @@
         // Inizializzazione
         async function init() {
             try {
-                currentUser = await checkAuth();
+                // Verifica autenticazione
+                if (!await window.AuthHelper.requireLogin()) {
+                    window.location.href = '/Admin/index.html';
+                    return;
+                }
+                
+                currentUser = window.AuthHelper.getCurrentUser();
                 if (!currentUser) {
                     window.location.href = '/Admin/index.html';
                     return;
                 }
+                
                 await caricaProdotti();
                 
                 // Registra service worker per PWA
