@@ -504,6 +504,14 @@
                                         <button onclick="modificaPreventivo('${p.id}')" class="text-blue-600 hover:text-blue-800" title="Modifica">
                                             <i class="fas fa-edit"></i>
                                         </button>
+                                        ${p.stato === 'accettato' ? `
+                                            <button onclick="generaOrdiniMateriali('${p.id}')" class="text-orange-600 hover:text-orange-800" title="Genera Ordini Materiali">
+                                                <i class="fas fa-shopping-cart"></i>
+                                            </button>
+                                            <button onclick="creaLavorazione('${p.id}')" class="text-green-600 hover:text-green-800" title="Crea Lavorazione">
+                                                <i class="fas fa-tasks"></i>
+                                            </button>
+                                        ` : ''}
                                         <button onclick="stampaPreventivo('${p.id}')" class="text-green-600 hover:text-green-800" title="Stampa/PDF">
                                             <i class="fas fa-print"></i>
                                         </button>
@@ -1013,6 +1021,111 @@
         async function stampaPreventivo(id) {
             // TODO: Implementare generazione PDF/Stampa
             alert('Funzionalità stampa in sviluppo');
+        }
+
+        // Genera ordini materiali da preventivo
+        async function generaOrdiniMateriali(preventivoId) {
+            if (!confirm('Vuoi generare automaticamente gli ordini per i materiali mancanti?')) return;
+            
+            try {
+                const { data, error } = await supabase.rpc('genera_ordini_da_preventivo', {
+                    p_preventivo_id: preventivoId,
+                    p_user_id: currentUser.id
+                });
+                
+                if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    alert('✅ Nessun ordine necessario - tutti i materiali sono disponibili!');
+                    return;
+                }
+                
+                const ordiniMsg = data.map(o => 
+                    `• ${o.fornitore_nome}: ${o.prodotti_count} prodotti, € ${parseFloat(o.totale_ordine).toFixed(2)}`
+                ).join('\n');
+                
+                alert(`✅ Ordini generati con successo!\n\n${ordiniMsg}\n\nVai su "Ordini Fornitori" per confermare e inviare gli ordini.`);
+                
+            } catch (error) {
+                console.error('Errore generazione ordini:', error);
+                alert('Errore nella generazione ordini: ' + error.message);
+            }
+        }
+
+        // Crea lavorazione da preventivo
+        async function creaLavorazione(preventivoId) {
+            const preventivo = preventivi.find(p => p.id === preventivoId);
+            if (!preventivo) return;
+            
+            // Modal semplice con prompt (in futuro può essere sostituito con modal HTML)
+            const conferma = confirm(
+                `Creare lavorazione da preventivo ${preventivo.numero}?\n\n` +
+                `Cliente: ${preventivo.cliente_nome}\n` +
+                `Oggetto: ${preventivo.oggetto}\n` +
+                `Totale: € ${parseFloat(preventivo.totale).toFixed(2)}\n\n` +
+                `I materiali verranno scaricati automaticamente dal magazzino.`
+            );
+            
+            if (!conferma) return;
+            
+            try {
+                // 1. Crea task (lavorazione)
+                const taskData = {
+                    preventivo_id: preventivoId,
+                    cliente_id: preventivo.cliente_id,
+                    titolo: preventivo.oggetto,
+                    descrizione: `Lavorazione da preventivo ${preventivo.numero}`,
+                    stato: 'da_fare',
+                    data_inizio: new Date().toISOString().split('T')[0],
+                    created_by: currentUser.id
+                };
+                
+                const { data: task, error: taskError } = await supabase
+                    .from('tasks')
+                    .insert(taskData)
+                    .select()
+                    .single();
+                
+                if (taskError) throw taskError;
+                
+                // 2. Scarica materiali dal magazzino
+                const { data: items, error: itemsError } = await supabase
+                    .from('preventivi_items')
+                    .select('prodotto_id, quantita')
+                    .eq('preventivo_id', preventivoId);
+                
+                if (itemsError) throw itemsError;
+                
+                // Scarica ogni prodotto
+                for (const item of items) {
+                    if (item.prodotto_id) {
+                        try {
+                            const { error: scaricoError } = await supabase.rpc('scarica_magazzino', {
+                                p_prodotto_id: item.prodotto_id,
+                                p_quantita: item.quantita,
+                                p_lavorazione_id: task.id,
+                                p_user_id: currentUser.id
+                            });
+                            
+                            if (scaricoError) {
+                                console.warn(`Avviso scarico materiale: ${scaricoError.message}`);
+                            }
+                        } catch (err) {
+                            console.warn('Errore scarico prodotto:', err);
+                        }
+                    }
+                }
+                
+                alert(
+                    `✅ Lavorazione creata con successo!\n\n` +
+                    `I materiali sono stati scaricati dal magazzino.\n` +
+                    `Vai su "Gestione Lavorazioni" per assegnare il team e gestire la commessa.`
+                );
+                
+            } catch (error) {
+                console.error('Errore creazione lavorazione:', error);
+                alert('Errore nella creazione lavorazione: ' + error.message);
+            }
         }
 
         // Search preventivi

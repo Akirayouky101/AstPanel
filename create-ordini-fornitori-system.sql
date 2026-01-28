@@ -160,6 +160,13 @@ BEGIN
                    WHERE table_name = 'components' AND column_name = 'giacenza_minima') THEN
         ALTER TABLE components ADD COLUMN giacenza_minima DECIMAL(10,2) DEFAULT 0;
     END IF;
+    
+    -- Aggiungi fornitore preferito per ordini automatici
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'components' AND column_name = 'fornitore_preferito_id') THEN
+        ALTER TABLE components ADD COLUMN fornitore_preferito_id UUID REFERENCES fornitori(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS idx_components_fornitore ON components(fornitore_preferito_id);
+    END IF;
 END $$;
 
 -- 6. AGGIUNGI CAMPI A PREVENTIVI_ITEMS PER TRACCIARE DISPONIBILITÀ
