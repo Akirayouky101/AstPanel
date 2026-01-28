@@ -24,13 +24,9 @@ ADD COLUMN IF NOT EXISTS giacenza_minima DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE components 
 ADD COLUMN IF NOT EXISTS um VARCHAR(50) DEFAULT 'pz';
 
--- Prezzo acquisto
+-- Prezzo acquisto (esente IVA - il ricarico si calcola nel preventivo)
 ALTER TABLE components 
 ADD COLUMN IF NOT EXISTS prezzo_acquisto DECIMAL(10,2) DEFAULT 0;
-
--- Prezzo vendita
-ALTER TABLE components 
-ADD COLUMN IF NOT EXISTS prezzo_vendita DECIMAL(10,2) DEFAULT 0;
 
 -- Descrizione dettagliata
 ALTER TABLE components 
@@ -54,10 +50,11 @@ UPDATE components
 SET um = COALESCE(unita_misura, 'pz')
 WHERE um IS NULL OR um = '';
 
--- Copia prezzo_unitario -> prezzo_vendita (se non già impostato)
+-- Copia prezzo_unitario -> prezzo_acquisto (se non già impostato)
+-- NOTA: Tutti i prezzi sono esente IVA. Il ricarico si calcola nel preventivo.
 UPDATE components 
-SET prezzo_vendita = COALESCE(prezzo_unitario, 0)
-WHERE prezzo_vendita IS NULL OR prezzo_vendita = 0;
+SET prezzo_acquisto = COALESCE(prezzo_unitario, 0)
+WHERE prezzo_acquisto IS NULL OR prezzo_acquisto = 0;
 
 -- Copia nome -> descrizione (se descrizione vuota)
 UPDATE components 
@@ -143,7 +140,7 @@ BEGIN
     SELECT COUNT(*) INTO col_count
     FROM information_schema.columns
     WHERE table_name = 'components'
-    AND column_name IN ('barcode', 'giacenza', 'giacenza_minima', 'um', 'prezzo_vendita', 'prezzo_acquisto', 'descrizione');
+    AND column_name IN ('barcode', 'giacenza', 'giacenza_minima', 'um', 'prezzo_acquisto', 'descrizione');
     
     RAISE NOTICE '';
     RAISE NOTICE '========================================';
@@ -156,10 +153,14 @@ BEGIN
     RAISE NOTICE '  ✅ giacenza (DECIMAL)';
     RAISE NOTICE '  ✅ giacenza_minima (DECIMAL)';
     RAISE NOTICE '  ✅ um (VARCHAR)';
-    RAISE NOTICE '  ✅ prezzo_acquisto (DECIMAL)';
-    RAISE NOTICE '  ✅ prezzo_vendita (DECIMAL)';
+    RAISE NOTICE '  ✅ prezzo_acquisto (DECIMAL - esente IVA)';
     RAISE NOTICE '  ✅ descrizione (TEXT)';
     RAISE NOTICE '  ✅ fornitore_preferito_id (UUID)';
+    RAISE NOTICE '';
+    RAISE NOTICE '💰 NOTA PREZZI:';
+    RAISE NOTICE '  • prezzo_acquisto = prezzo esente IVA dal fornitore';
+    RAISE NOTICE '  • Il ricarico % viene calcolato nel preventivo';
+    RAISE NOTICE '  • NON esiste prezzo_vendita fisso in magazzino';
     RAISE NOTICE '';
     RAISE NOTICE '🔄 Sincronizzazione automatica attiva:';
     RAISE NOTICE '  • giacenza ↔ quantita_disponibile';
