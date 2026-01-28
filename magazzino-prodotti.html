@@ -393,6 +393,7 @@
         let currentUser = null;
         let html5QrCode = null;
         let tipoMovimentoSelezionato = 'carico';
+        let scannerMode = 'search'; // 'search' o 'fillInput'
 
         // Inizializzazione
         async function init() {
@@ -587,8 +588,16 @@
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 (decodedText) => {
-                    cercaProdottoPerBarcode(decodedText);
-                    toggleScanner();
+                    if (scannerMode === 'fillInput') {
+                        // Riempie il campo barcode nella modal
+                        document.getElementById('nuovoBarcode').value = decodedText;
+                        toggleScanner();
+                        scannerMode = 'search'; // Reset modalità
+                    } else {
+                        // Cerca prodotto normalmente
+                        cercaProdottoPerBarcode(decodedText);
+                        toggleScanner();
+                    }
                 },
                 (errorMessage) => {
                     // Ignora errori di scansione
@@ -614,6 +623,8 @@
             if (prodotto) {
                 apriMovimento(prodotto.id, 'carico');
             } else {
+                // Stoppa lo scanner prima di mostrare la modal
+                stopScanner();
                 mostraProdottoNonTrovato(barcode);
             }
         }
@@ -719,6 +730,10 @@
 
         // Show nuovo prodotto
         function showNuovoProdotto() {
+            // Stoppa lo scanner se è attivo
+            if (html5QrCode) {
+                stopScanner();
+            }
             document.getElementById('nuovoProdottoModal').classList.remove('hidden');
         }
 
@@ -776,8 +791,8 @@
 
         // Scan barcode per nuovo prodotto
         function scanBarcode() {
+            scannerMode = 'fillInput'; // Imposta modalità compilazione campo
             toggleScanner();
-            // Quando scansiona, riempie il campo barcode
         }
 
         // ========================================
