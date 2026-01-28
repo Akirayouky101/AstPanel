@@ -458,7 +458,22 @@
                 
                 if (error) throw error;
                 
-                prodotti = data || [];
+                // Normalizza i campi per gestire più versioni di schema
+                prodotti = (data || []).map(p => {
+                    const normalized = Object.assign({}, p);
+                    // giacenza: supporta 'giacenza', 'quantita_disponibile', 'giacenza_disponibile', 'quantita_magazzino'
+                    normalized.giacenza = (p.giacenza ?? p.quantita_disponibile ?? p.giacenza_disponibile ?? p.quantita_magazzino ?? 0);
+                    // giacenza minima
+                    normalized.giacenza_minima = (p.giacenza_minima ?? p.quantita_minima ?? p.giacenza_minima ?? 0);
+                    // unità di misura
+                    normalized.um = (p.um ?? p.unita_misura ?? p.unita_di_misura ?? 'pz');
+                    // barcode fallback: prefer p.barcode, altrimenti usa codice
+                    normalized.barcode = (p.barcode ?? p.codice ?? null);
+                    // prezzo vendita / unitario
+                    normalized.prezzo_vendita = (p.prezzo_vendita ?? p.prezzo_unitario ?? p.prezzo_acquisto ?? 0);
+                    return normalized;
+                });
+
                 aggiornaStats();
                 renderProdotti();
             } catch (error) {
@@ -722,11 +737,20 @@
                     return;
                 }
 
-                // Aggiorna giacenza
-                const { error: updateError } = await supabase
-                    .from('components')
-                    .update({ giacenza: giacenzaDopo })
-                    .eq('id', prodottoId);
+                // Aggiorna giacenza - proviamo prima il campo 'giacenza', altrimenti 'quantita_disponibile'
+                async function tryUpdateQuantity(id, value) {
+                    // Prova prima con 'giacenza'
+                    let res = await supabase.from('components').update({ giacenza: value }).eq('id', id);
+                    if (!res.error) return res;
+                    // Se l'errore indica colonna mancante, ritenta con 'quantita_disponibile'
+                    if (res.error && res.error.code === 'PGRST204' && /Could not find the '.+' column/.test(res.error.message)) {
+                        return await supabase.from('components').update({ quantita_disponibile: value }).eq('id', id);
+                    }
+                    // Altrimenti ritorna l'errore originale
+                    return res;
+                }
+
+                const { error: updateError } = (await tryUpdateQuantity(prodottoId, giacenzaDopo));
 
                 if (updateError) throw updateError;
 
@@ -780,16 +804,34 @@
             }
 
             try {
+                // Costruiamo l'oggetto con TUTTI i campi (vecchi + nuovi dopo migration)
+                const giacenzaValore = parseFloat(document.getElementById('nuovoGiacenza').value) || 0;
+                const umValore = document.getElementById('nuovoUM').value || 'pz';
+                const prezzoVendita = parseFloat(document.getElementById('nuovoPrezzoVendita').value) || 0;
+                const prezzoAcquisto = parseFloat(document.getElementById('nuovoPrezzoAcquisto').value) || 0;
+                const codiceValore = document.getElementById('nuovoCodice').value.trim() || null;
+                
                 const nuovoProdotto = {
+                    // Campi OBBLIGATORI schema originale
+                    nome: descrizione,
+                    categoria: document.getElementById('nuovoCategoria').value || 'Generale',
+                    
+                    // Campi OPZIONALI schema originale
+                    codice: codiceValore,
+                    quantita_disponibile: giacenzaValore,
+                    unita_misura: umValore,
+                    prezzo_unitario: prezzoVendita || prezzoAcquisto,
+                    fornitore: null,
+                    note: null,
+                    
+                    // Campi NUOVI aggiunti dalla migration
                     barcode: barcode,
                     descrizione: descrizione,
-                    codice: document.getElementById('nuovoCodice').value.trim(),
-                    categoria: document.getElementById('nuovoCategoria').value,
-                    giacenza: parseFloat(document.getElementById('nuovoGiacenza').value) || 0,
-                    um: document.getElementById('nuovoUM').value,
-                    prezzo_acquisto: parseFloat(document.getElementById('nuovoPrezzoAcquisto').value) || 0,
-                    prezzo_vendita: parseFloat(document.getElementById('nuovoPrezzoVendita').value) || 0,
-                    giacenza_minima: parseFloat(document.getElementById('nuovoGiacenzaMin').value) || 0
+                    giacenza: giacenzaValore,
+                    giacenza_minima: parseFloat(document.getElementById('nuovoGiacenzaMin').value) || 0,
+                    um: umValore,
+                    prezzo_vendita: prezzoVendita,
+                    prezzo_acquisto: prezzoAcquisto
                 };
 
                 const { error } = await supabase
