@@ -249,7 +249,7 @@ window.AuthHelper = {
     async requireLogin() {
         const loggedIn = await this.isLoggedIn();
         if (!loggedIn) {
-            window.location.href = 'index.html';
+            window.location.href = '/';
             return false;
         }
         
