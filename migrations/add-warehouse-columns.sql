@@ -86,16 +86,26 @@ ON components USING gin(to_tsvector('italian', descrizione));
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fornitori') THEN
-        ALTER TABLE components 
-        ADD CONSTRAINT fk_components_fornitore 
-        FOREIGN KEY (fornitore_preferito_id) 
-        REFERENCES fornitori(id) 
-        ON DELETE SET NULL;
+        -- Aggiungi FK solo se non esiste già
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints 
+            WHERE constraint_name = 'fk_components_fornitore' 
+            AND table_name = 'components'
+        ) THEN
+            ALTER TABLE components 
+            ADD CONSTRAINT fk_components_fornitore 
+            FOREIGN KEY (fornitore_preferito_id) 
+            REFERENCES fornitori(id) 
+            ON DELETE SET NULL;
+            
+            RAISE NOTICE '✅ FK fornitore_preferito_id creata';
+        ELSE
+            RAISE NOTICE 'ℹ️  FK fornitore_preferito_id già esistente';
+        END IF;
         
         CREATE INDEX IF NOT EXISTS idx_components_fornitore 
         ON components(fornitore_preferito_id);
         
-        RAISE NOTICE '✅ FK fornitore_preferito_id creata';
     ELSE
         RAISE NOTICE '⚠️  Tabella fornitori non trovata, FK non creata';
     END IF;
