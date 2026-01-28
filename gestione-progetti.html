@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Progetti Videosorveglianza</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="supabase-client.js"></script>
+    <style>
+        .planimetria-canvas {
+            border: 2px solid #e5e7eb;
+            cursor: crosshair;
+            background: #ffffff;
+            background-image: 
+                linear-gradient(#f3f4f6 1px, transparent 1px),
+                linear-gradient(90deg, #f3f4f6 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .dispositivo-icon {
+            position: absolute;
+            cursor: move;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        
+        .dispositivo-icon:hover {
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+        }
+        
+        .grid-cell {
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .grid-cell:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .grid-cell.wall {
+            background: #374151;
+        }
+        
+        .grid-cell.room {
+            background: #ffffff;
+        }
+        
+        .grid-cell.door {
+            background: #f59e0b;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-video text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">Progetti Videosorveglianza</h1>
+                        <p class="text-blue-100 text-sm">Gestione completa con planimetrie</p>
+                    </div>
+                </div>
+                <button onclick="nuovoProgetto()" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-bold hover:bg-blue-50 shadow-lg transition-all">
+                    <i class="fas fa-plus mr-2"></i>Nuovo Progetto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="max-w-7xl mx-auto px-6 py-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Progetti Totali</p>
+                        <p class="text-2xl font-bold text-gray-800" id="statTotali">0</p>
+                    </div>
+                    <i class="fas fa-folder text-gray-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">In Corso</p>
+                        <p class="text-2xl font-bold text-blue-600" id="statInCorso">0</p>
+                    </div>
+                    <i class="fas fa-spinner text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Completati</p>
+                        <p class="text-2xl font-bold text-green-600" id="statCompletati">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Valore Totale</p>
+                        <p class="text-xl font-bold text-purple-600" id="statValore">€0</p>
+                    </div>
+                    <i class="fas fa-euro-sign text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtri -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center space-x-4">
+                <select id="filtroStato" onchange="caricaProgetti()" class="px-4 py-2 border rounded-lg">
+                    <option value="">Tutti gli stati</option>
+                    <option value="preventivo">Preventivo</option>
+                    <option value="approvato">Approvato</option>
+                    <option value="in_corso">In Corso</option>
+                    <option value="completato">Completato</option>
+                    <option value="annullato">Annullato</option>
+                </select>
+                <select id="filtroTipologia" onchange="caricaProgetti()" class="px-4 py-2 border rounded-lg">
+                    <option value="">Tutte le tipologie</option>
+                    <option value="Videosorveglianza">Videosorveglianza</option>
+                    <option value="Allarme">Allarme</option>
+                    <option value="Controllo Accessi">Controllo Accessi</option>
+                    <option value="Rete Dati">Rete Dati</option>
+                    <option value="Citofonia">Citofonia</option>
+                    <option value="Automazione">Automazione</option>
+                </select>
+                <input type="text" id="searchProgetto" placeholder="Cerca progetto..." 
+                    onkeyup="caricaProgetti()" class="px-4 py-2 border rounded-lg flex-1">
+            </div>
+        </div>
+
+        <!-- Lista Progetti -->
+        <div id="progettiList" class="bg-white rounded-lg shadow">
+            <!-- Lista progetti popolata dinamicamente -->
+        </div>
+    </div>
+
+    <!-- Modal Progetto -->
+    <div id="progettoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-7xl w-full my-8">
+            <!-- Header Modal -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold" id="modalTitle">Nuovo Progetto</h3>
+                        <p class="text-blue-100 text-sm">Videosorveglianza completa con planimetria</p>
+                    </div>
+                    <button onclick="closeModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-4 px-6" id="tabsNav">
+                    <button onclick="switchTab('info')" id="tab-info" class="tab-button active px-4 py-3 font-medium border-b-2 border-blue-600 text-blue-600">
+                        <i class="fas fa-info-circle mr-2"></i>Info Progetto
+                    </button>
+                    <button onclick="switchTab('planimetria')" id="tab-planimetria" class="tab-button px-4 py-3 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-map mr-2"></i>Planimetria
+                    </button>
+                    <button onclick="switchTab('componenti')" id="tab-componenti" class="tab-button px-4 py-3 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-box mr-2"></i>Componenti
+                    </button>
+                    <button onclick="switchTab('costi')" id="tab-costi" class="tab-button px-4 py-3 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-euro-sign mr-2"></i>Costi
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6 max-h-[70vh] overflow-y-auto">
+                <input type="hidden" id="progettoId">
+                
+                <!-- TAB INFO -->
+                <div id="content-info" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Nome Progetto *</label>
+                            <input type="text" id="nomeProgetto" required
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipologia *</label>
+                            <select id="tipologia" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="Videosorveglianza">Videosorveglianza</option>
+                                <option value="Allarme">Allarme</option>
+                                <option value="Controllo Accessi">Controllo Accessi</option>
+                                <option value="Rete Dati">Rete Dati</option>
+                                <option value="Citofonia">Citofonia</option>
+                                <option value="Automazione">Automazione</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Stato</label>
+                            <select id="stato" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="preventivo">Preventivo</option>
+                                <option value="approvato">Approvato</option>
+                                <option value="in_corso">In Corso</option>
+                                <option value="completato">Completato</option>
+                                <option value="annullato">Annullato</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Cliente</label>
+                            <input type="text" id="clienteNome" 
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Indirizzo Installazione</label>
+                            <input type="text" id="indirizzoInstallazione" 
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Data Prevista Installazione</label>
+                            <input type="date" id="dataPrevista" 
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Data Completamento</label>
+                            <input type="date" id="dataCompletamento" 
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Descrizione</label>
+                            <textarea id="descrizione" rows="3"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB PLANIMETRIA -->
+                <div id="content-planimetria" class="tab-content hidden">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Modalità Planimetria</label>
+                        <div class="flex space-x-4">
+                            <button onclick="setPlanimetriaMode('upload')" id="btn-upload" 
+                                class="flex-1 px-4 py-3 border-2 border-blue-600 bg-blue-50 text-blue-600 rounded-lg font-bold hover:bg-blue-100">
+                                <i class="fas fa-upload mr-2"></i>Upload Immagine
+                            </button>
+                            <button onclick="setPlanimetriaMode('grid')" id="btn-grid"
+                                class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:border-blue-600 hover:text-blue-600">
+                                <i class="fas fa-th mr-2"></i>Griglia
+                            </button>
+                            <button onclick="setPlanimetriaMode('canvas')" id="btn-canvas"
+                                class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:border-blue-600 hover:text-blue-600">
+                                <i class="fas fa-pencil-alt mr-2"></i>Disegno Libero
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upload Mode -->
+                    <div id="planimetria-upload" class="planimetria-mode">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                            <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-4">Carica planimetria cliente (JPG, PNG, PDF)</p>
+                            <input type="file" id="fileUpload" accept="image/*,.pdf" class="hidden" onchange="handleFileUpload(event)">
+                            <button onclick="document.getElementById('fileUpload').click()" 
+                                class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">
+                                Seleziona File
+                            </button>
+                        </div>
+                        <canvas id="canvasUpload" class="planimetria-canvas mt-4 w-full hidden" width="800" height="600"></canvas>
+                    </div>
+
+                    <!-- Grid Mode -->
+                    <div id="planimetria-grid" class="planimetria-mode hidden">
+                        <div class="mb-4 flex items-center space-x-4">
+                            <button onclick="setGridTool('wall')" id="tool-wall" class="px-4 py-2 bg-gray-700 text-white rounded font-bold">
+                                <i class="fas fa-square mr-2"></i>Muro
+                            </button>
+                            <button onclick="setGridTool('room')" id="tool-room" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-square mr-2"></i>Stanza
+                            </button>
+                            <button onclick="setGridTool('door')" id="tool-door" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-door-open mr-2"></i>Porta
+                            </button>
+                            <button onclick="clearGrid()" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-trash mr-2"></i>Pulisci
+                            </button>
+                        </div>
+                        <div id="gridContainer" class="border-2 border-gray-300 inline-block"></div>
+                    </div>
+
+                    <!-- Canvas Mode -->
+                    <div id="planimetria-canvas" class="planimetria-mode hidden">
+                        <div class="mb-4 flex items-center space-x-4">
+                            <button onclick="setCanvasTool('line')" id="canvas-line" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">
+                                <i class="fas fa-minus mr-2"></i>Linea
+                            </button>
+                            <button onclick="setCanvasTool('rect')" id="canvas-rect" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-square mr-2"></i>Rettangolo
+                            </button>
+                            <button onclick="setCanvasTool('text')" id="canvas-text" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-font mr-2"></i>Testo
+                            </button>
+                            <button onclick="clearCanvas()" class="px-4 py-2 border border-gray-300 rounded font-bold">
+                                <i class="fas fa-trash mr-2"></i>Pulisci
+                            </button>
+                        </div>
+                        <canvas id="canvasDraw" class="planimetria-canvas" width="800" height="600"></canvas>
+                    </div>
+
+                    <!-- Dispositivi -->
+                    <div class="mt-6 border-t pt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-lg">Dispositivi sulla Mappa</h4>
+                            <button onclick="aggiungiDispositivo()" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700">
+                                <i class="fas fa-video mr-2"></i>Aggiungi Telecamera
+                            </button>
+                        </div>
+                        <div id="dispositiviList" class="space-y-2">
+                            <!-- Lista dispositivi -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB COMPONENTI -->
+                <div id="content-componenti" class="tab-content hidden">
+                    <div class="mb-4">
+                        <button onclick="aggiungiComponente()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700">
+                            <i class="fas fa-plus mr-2"></i>Aggiungi da Magazzino
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">Componente</th>
+                                    <th class="px-4 py-2 text-left">Qta</th>
+                                    <th class="px-4 py-2 text-left">UM</th>
+                                    <th class="px-4 py-2 text-left">Costo</th>
+                                    <th class="px-4 py-2 text-left">Vendita</th>
+                                    <th class="px-4 py-2 text-left">Totale</th>
+                                    <th class="px-4 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="componentiTable">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                        Nessun componente aggiunto
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-gray-700">Totale Materiali:</span>
+                            <span class="text-2xl font-bold text-blue-600" id="totaleMateriali">€ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB COSTI -->
+                <div id="content-costi" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Ore Previste</label>
+                            <input type="number" id="orePreviste" value="0" step="0.5" min="0"
+                                onchange="calcolaCosti()"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Costo Orario (€/h)</label>
+                            <input type="number" id="costoOrario" value="35" step="0.5" min="0"
+                                onchange="calcolaCosti()"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Costi Extra (trasferte, noleggi, ecc.)</label>
+                            <input type="number" id="costiExtra" value="0" step="0.01" min="0"
+                                onchange="calcolaCosti()"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6">
+                        <h4 class="font-bold text-lg mb-4 text-gray-800">Riepilogo Costi</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Materiali:</span>
+                                <span class="font-bold text-gray-800" id="costoMateriali">€ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Manodopera:</span>
+                                <span class="font-bold text-gray-800" id="costoManodopera">€ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Costi Extra:</span>
+                                <span class="font-bold text-gray-800" id="displayCostiExtra">€ 0,00</span>
+                            </div>
+                            <div class="border-t-2 border-blue-300 pt-3 flex justify-between items-center">
+                                <span class="font-bold text-lg text-gray-800">TOTALE PREVENTIVATO:</span>
+                                <span class="text-3xl font-bold text-blue-600" id="totalePreventivato">€ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="border-t px-6 py-4 bg-gray-50 rounded-b-2xl flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium">
+                    Annulla
+                </button>
+                <button onclick="salvaProgetto()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold">
+                    <i class="fas fa-save mr-2"></i>Salva Progetto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let progetti = [];
+        let currentTab = 'info';
+        let planimetriaMode = 'upload';
+        let gridTool = 'wall';
+        let canvasTool = 'line';
+        let gridData = [];
+        const GRID_SIZE = 30;
+        let componentiProgetto = [];
+
+        // Init
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await window.supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            await caricaProgetti();
+            initGrid();
+            initCanvas();
+        });
+
+        // Carica progetti
+        async function caricaProgetti() {
+            try {
+                const filtroStato = document.getElementById('filtroStato').value;
+                const filtroTipologia = document.getElementById('filtroTipologia').value;
+                const search = document.getElementById('searchProgetto').value.toLowerCase();
+
+                let query = window.supabase
+                    .from('progetti')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (filtroStato) query = query.eq('stato', filtroStato);
+                if (filtroTipologia) query = query.eq('tipologia', filtroTipologia);
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                progetti = data.filter(p => 
+                    !search || 
+                    p.nome?.toLowerCase().includes(search) ||
+                    p.numero?.toLowerCase().includes(search) ||
+                    p.cliente_nome?.toLowerCase().includes(search)
+                );
+
+                renderProgetti();
+                updateStats();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento progetti');
+            }
+        }
+
+        // Render progetti
+        function renderProgetti() {
+            const container = document.getElementById('progettiList');
+            
+            if (progetti.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16">
+                        <i class="fas fa-folder-open text-gray-300 text-6xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nessun progetto trovato</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipologia</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valore</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${progetti.map(p => {
+                            const statoColors = {
+                                preventivo: 'bg-yellow-100 text-yellow-800',
+                                approvato: 'bg-green-100 text-green-800',
+                                in_corso: 'bg-blue-100 text-blue-800',
+                                completato: 'bg-gray-100 text-gray-800',
+                                annullato: 'bg-red-100 text-red-800'
+                            };
+                            
+                            return `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="font-semibold text-blue-600">${p.numero}</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="font-medium text-gray-900">${p.nome}</div>
+                                        ${p.indirizzo_installazione ? `<div class="text-xs text-gray-500">${p.indirizzo_installazione}</div>` : ''}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${p.tipologia}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${p.cliente_nome || '-'}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statoColors[p.stato]}">
+                                            ${p.stato}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                        € ${(p.totale_preventivato || 0).toFixed(2)}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <button onclick="modificaProgetto('${p.id}')" class="text-blue-600 hover:text-blue-900 mr-3">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="eliminaProgetto('${p.id}')" class="text-red-600 hover:text-red-900">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('statTotali').textContent = progetti.length;
+            document.getElementById('statInCorso').textContent = progetti.filter(p => p.stato === 'in_corso').length;
+            document.getElementById('statCompletati').textContent = progetti.filter(p => p.stato === 'completato').length;
+            
+            const valore = progetti.reduce((sum, p) => sum + (p.totale_preventivato || 0), 0);
+            document.getElementById('statValore').textContent = '€ ' + valore.toFixed(2);
+        }
+
+        // Nuovo progetto
+        function nuovoProgetto() {
+            document.getElementById('progettoId').value = '';
+            document.getElementById('modalTitle').textContent = 'Nuovo Progetto';
+            document.getElementById('nomeProgetto').value = '';
+            document.getElementById('tipologia').value = 'Videosorveglianza';
+            document.getElementById('stato').value = 'preventivo';
+            document.getElementById('clienteNome').value = '';
+            document.getElementById('indirizzoInstallazione').value = '';
+            document.getElementById('dataPrevista').value = '';
+            document.getElementById('dataCompletamento').value = '';
+            document.getElementById('descrizione').value = '';
+            document.getElementById('orePreviste').value = '0';
+            document.getElementById('costoOrario').value = '35';
+            document.getElementById('costiExtra').value = '0';
+            
+            componentiProgetto = [];
+            switchTab('info');
+            document.getElementById('progettoModal').classList.remove('hidden');
+        }
+
+        // Switch tab
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600', 'active');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            document.getElementById(`tab-${tab}`).classList.add('border-blue-600', 'text-blue-600', 'active');
+            document.getElementById(`tab-${tab}`).classList.remove('border-transparent', 'text-gray-500');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+        }
+
+        // Set planimetria mode
+        function setPlanimetriaMode(mode) {
+            planimetriaMode = mode;
+            
+            // Update buttons
+            ['upload', 'grid', 'canvas'].forEach(m => {
+                const btn = document.getElementById(`btn-${m}`);
+                if (m === mode) {
+                    btn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                    btn.classList.remove('border-gray-300', 'text-gray-600');
+                } else {
+                    btn.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                    btn.classList.add('border-gray-300', 'text-gray-600');
+                }
+            });
+            
+            // Show/hide modes
+            document.querySelectorAll('.planimetria-mode').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`planimetria-${mode}`).classList.remove('hidden');
+        }
+
+        // Init grid
+        function initGrid() {
+            const container = document.getElementById('gridContainer');
+            gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            
+            let html = '<div style="display: inline-grid; grid-template-columns: repeat(' + GRID_SIZE + ', 20px);">';
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    html += `<div class="grid-cell" data-x="${x}" data-y="${y}" onclick="gridCellClick(${x}, ${y})" style="width:20px; height:20px;"></div>`;
+                }
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Grid cell click
+        function gridCellClick(x, y) {
+            gridData[y][x] = gridTool;
+            updateGridCell(x, y);
+        }
+
+        // Update grid cell
+        function updateGridCell(x, y) {
+            const cell = document.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
+            cell.className = 'grid-cell ' + (gridData[y][x] || '');
+        }
+
+        // Set grid tool
+        function setGridTool(tool) {
+            gridTool = tool;
+            ['wall', 'room', 'door'].forEach(t => {
+                const btn = document.getElementById(`tool-${t}`);
+                if (t === tool) {
+                    btn.classList.add('bg-gray-700', 'text-white');
+                    btn.classList.remove('border', 'border-gray-300');
+                } else {
+                    btn.classList.remove('bg-gray-700', 'text-white');
+                    btn.classList.add('border', 'border-gray-300');
+                }
+            });
+        }
+
+        // Clear grid
+        function clearGrid() {
+            if (confirm('Vuoi cancellare tutta la griglia?')) {
+                gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    cell.className = 'grid-cell';
+                });
+            }
+        }
+
+        // Init canvas
+        function initCanvas() {
+            const canvas = document.getElementById('canvasDraw');
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let startX, startY;
+            
+            canvas.addEventListener('mousedown', (e) => {
+                isDrawing = true;
+                const rect = canvas.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                if (canvasTool === 'line') {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    startX = x;
+                    startY = y;
+                }
+            });
+            
+            canvas.addEventListener('mouseup', (e) => {
+                if (!isDrawing) return;
+                isDrawing = false;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                if (canvasTool === 'rect') {
+                    ctx.strokeRect(startX, startY, x - startX, y - startY);
+                }
+            });
+        }
+
+        // Set canvas tool
+        function setCanvasTool(tool) {
+            canvasTool = tool;
+            ['line', 'rect', 'text'].forEach(t => {
+                const btn = document.getElementById(`canvas-${t}`);
+                if (t === tool) {
+                    btn.classList.add('bg-blue-600', 'text-white');
+                    btn.classList.remove('border', 'border-gray-300');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('border', 'border-gray-300');
+                }
+            });
+        }
+
+        // Clear canvas
+        function clearCanvas() {
+            if (confirm('Vuoi cancellare tutto il disegno?')) {
+                const canvas = document.getElementById('canvasDraw');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Placeholder functions
+        function handleFileUpload(event) {
+            alert('Upload file in sviluppo');
+        }
+
+        function aggiungiDispositivo() {
+            alert('Aggiungi dispositivo in sviluppo');
+        }
+
+        function aggiungiComponente() {
+            alert('Selezione componenti da magazzino in sviluppo');
+        }
+
+        function calcolaCosti() {
+            const orePreviste = parseFloat(document.getElementById('orePreviste').value || 0);
+            const costoOrario = parseFloat(document.getElementById('costoOrario').value || 0);
+            const costiExtra = parseFloat(document.getElementById('costiExtra').value || 0);
+            
+            const costoManodopera = orePreviste * costoOrario;
+            const costoMateriali = componentiProgetto.reduce((sum, c) => sum + c.totale, 0);
+            const totale = costoMateriali + costoManodopera + costiExtra;
+            
+            document.getElementById('costoMateriali').textContent = '€ ' + costoMateriali.toFixed(2);
+            document.getElementById('costoManodopera').textContent = '€ ' + costoManodopera.toFixed(2);
+            document.getElementById('displayCostiExtra').textContent = '€ ' + costiExtra.toFixed(2);
+            document.getElementById('totalePreventivato').textContent = '€ ' + totale.toFixed(2);
+        }
+
+        // Salva progetto
+        async function salvaProgetto() {
+            try {
+                const progettoId = document.getElementById('progettoId').value;
+                const isNew = !progettoId;
+
+                const nome = document.getElementById('nomeProgetto').value.trim();
+                if (!nome) {
+                    alert('Inserisci il nome del progetto');
+                    return;
+                }
+
+                let numero = null;
+                if (isNew) {
+                    const { data: numeroData, error: numeroError } = await window.supabase.rpc('generate_progetto_numero');
+                    if (numeroError) throw numeroError;
+                    numero = numeroData;
+                }
+
+                const orePreviste = parseFloat(document.getElementById('orePreviste').value || 0);
+                const costoOrario = parseFloat(document.getElementById('costoOrario').value || 0);
+                const costiExtra = parseFloat(document.getElementById('costiExtra').value || 0);
+                const costoManodopera = orePreviste * costoOrario;
+                const costoMateriali = componentiProgetto.reduce((sum, c) => sum + c.totale, 0);
+                const totale = costoMateriali + costoManodopera + costiExtra;
+
+                const progettoData = {
+                    nome: nome,
+                    tipologia: document.getElementById('tipologia').value,
+                    stato: document.getElementById('stato').value,
+                    cliente_nome: document.getElementById('clienteNome').value || null,
+                    indirizzo_installazione: document.getElementById('indirizzoInstallazione').value || null,
+                    data_prevista_installazione: document.getElementById('dataPrevista').value || null,
+                    data_completamento: document.getElementById('dataCompletamento').value || null,
+                    descrizione: document.getElementById('descrizione').value || null,
+                    ore_previste: orePreviste,
+                    costo_orario: costoOrario,
+                    costi_extra: costiExtra,
+                    costo_materiali: costoMateriali,
+                    costo_manodopera: costoManodopera,
+                    totale_preventivato: totale,
+                    planimetria_tipo: planimetriaMode,
+                    planimetria_data: JSON.stringify({ grid: gridData })
+                };
+
+                if (isNew) {
+                    progettoData.numero = numero;
+                    progettoData.created_by = currentUser.id;
+                }
+
+                let savedId;
+                if (isNew) {
+                    const { data, error } = await window.supabase
+                        .from('progetti')
+                        .insert([progettoData])
+                        .select()
+                        .single();
+                    
+                    if (error) throw error;
+                    savedId = data.id;
+                } else {
+                    const { error } = await window.supabase
+                        .from('progetti')
+                        .update(progettoData)
+                        .eq('id', progettoId);
+                    
+                    if (error) throw error;
+                    savedId = progettoId;
+                }
+
+                alert('✅ Progetto salvato!');
+                closeModal();
+                await caricaProgetti();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        // Modifica progetto
+        async function modificaProgetto(id) {
+            alert('Modifica progetto in sviluppo - ID: ' + id);
+        }
+
+        // Elimina progetto
+        async function eliminaProgetto(id) {
+            if (!confirm('Vuoi davvero eliminare questo progetto?')) return;
+            
+            try {
+                const { error } = await window.supabase
+                    .from('progetti')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                alert('✅ Progetto eliminato!');
+                await caricaProgetti();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nell\'eliminazione: ' + error.message);
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('progettoModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
