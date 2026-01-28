@@ -52,19 +52,37 @@
         </div>
     </div>
 
-    <!-- Scanner Area (nascosto di default) -->
-    <div id="scannerArea" class="hidden bg-black">
-        <div class="max-w-2xl mx-auto p-4">
-            <div class="bg-white rounded-lg p-4 mb-4">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="font-bold text-lg">📷 Scanner Barcode/QR</h3>
-                    <button onclick="toggleScanner()" class="text-red-600 hover:text-red-800">
+    <!-- Modal Scanner -->
+    <div id="scannerModal" class="hidden fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center">
+        <div class="max-w-2xl w-full mx-4">
+            <!-- Header -->
+            <div class="bg-white rounded-t-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-purple-100 p-2 rounded-lg">
+                            <i class="fas fa-barcode text-purple-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg">Scanner Barcode/QR</h3>
+                            <p class="text-sm text-gray-600">Inquadra il codice del prodotto</p>
+                        </div>
+                    </div>
+                    <button onclick="closeScanner()" title="Chiudi scanner" class="text-red-600 hover:text-red-800 transition-colors">
                         <i class="fas fa-times text-2xl"></i>
                     </button>
                 </div>
-                <p class="text-sm text-gray-600">Inquadra il codice a barre del prodotto</p>
             </div>
-            <div id="reader" class="rounded-lg overflow-hidden shadow-2xl"></div>
+            
+            <!-- Scanner Area -->
+            <div id="reader" class="bg-black"></div>
+            
+            <!-- Footer con istruzioni -->
+            <div class="bg-white rounded-b-lg p-4">
+                <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <i class="fas fa-info-circle text-blue-500"></i>
+                    <span>Posiziona il codice al centro del riquadro per la scansione automatica</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -564,16 +582,26 @@
 
         // Toggle scanner
         function toggleScanner() {
-            const scannerArea = document.getElementById('scannerArea');
-            const isHidden = scannerArea.classList.contains('hidden');
+            const scannerModal = document.getElementById('scannerModal');
+            const isHidden = scannerModal.classList.contains('hidden');
             
             if (isHidden) {
-                scannerArea.classList.remove('hidden');
-                avviaScanner();
+                openScanner();
             } else {
-                scannerArea.classList.add('hidden');
-                stopScanner();
+                closeScanner();
             }
+        }
+
+        // Apri scanner modal
+        function openScanner() {
+            document.getElementById('scannerModal').classList.remove('hidden');
+            avviaScanner();
+        }
+
+        // Chiudi scanner modal
+        function closeScanner() {
+            document.getElementById('scannerModal').classList.add('hidden');
+            stopScanner();
         }
 
         // Avvia scanner
@@ -623,8 +651,6 @@
             if (prodotto) {
                 apriMovimento(prodotto.id, 'carico');
             } else {
-                // Stoppa lo scanner prima di mostrare la modal
-                stopScanner();
                 mostraProdottoNonTrovato(barcode);
             }
         }
@@ -730,10 +756,6 @@
 
         // Show nuovo prodotto
         function showNuovoProdotto() {
-            // Stoppa lo scanner se è attivo
-            if (html5QrCode) {
-                stopScanner();
-            }
             document.getElementById('nuovoProdottoModal').classList.remove('hidden');
         }
 
