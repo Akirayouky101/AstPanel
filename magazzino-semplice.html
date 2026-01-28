@@ -334,6 +334,58 @@
         </div>
     </div>
 
+    <!-- Modal: Prodotto Non Trovato -->
+    <div id="prodottoNonTrovatoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white">Prodotto Non Trovato</h2>
+                    </div>
+                    <button onclick="closeProdottoNonTrovatoModal()" title="Chiudi" class="text-white hover:text-gray-200 transition-colors">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Info Barcode -->
+                <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 mb-6">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-barcode text-orange-500 text-3xl"></i>
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium">Codice Scansionato</p>
+                            <p id="barcodeNonTrovato" class="text-xl font-bold text-gray-900"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messaggio -->
+                <div class="mb-6 text-center">
+                    <p class="text-gray-700 text-lg mb-2">
+                        Questo prodotto non è presente nel magazzino.
+                    </p>
+                    <p class="text-gray-500">
+                        Vuoi aggiungerlo ora al tuo inventario?
+                    </p>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="flex space-x-3">
+                    <button onclick="closeProdottoNonTrovatoModal()" class="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-all">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="creaProdottoDaBarcode()" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                        <i class="fas fa-plus mr-2"></i>Crea Prodotto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
@@ -562,11 +614,7 @@
             if (prodotto) {
                 apriMovimento(prodotto.id, 'carico');
             } else {
-                const conferma = confirm(`Prodotto con barcode "${barcode}" non trovato.\n\nVuoi crearlo?`);
-                if (conferma) {
-                    showNuovoProdotto();
-                    document.getElementById('nuovoBarcode').value = barcode;
-                }
+                mostraProdottoNonTrovato(barcode);
             }
         }
 
@@ -1101,6 +1149,32 @@
         function closeEtichetteModal() {
             document.getElementById('etichetteModal').classList.add('hidden');
             prodottiSelezionatiEtichette = [];
+        }
+
+        // Modal Prodotto Non Trovato
+        let barcodeTemporaneo = '';
+
+        function mostraProdottoNonTrovato(barcode) {
+            barcodeTemporaneo = barcode;
+            document.getElementById('barcodeNonTrovato').textContent = barcode;
+            document.getElementById('prodottoNonTrovatoModal').classList.remove('hidden');
+            document.getElementById('prodottoNonTrovatoModal').classList.add('flex');
+        }
+
+        function closeProdottoNonTrovatoModal() {
+            document.getElementById('prodottoNonTrovatoModal').classList.add('hidden');
+            document.getElementById('prodottoNonTrovatoModal').classList.remove('flex');
+            barcodeTemporaneo = '';
+        }
+
+        function creaProdottoDaBarcode() {
+            closeProdottoNonTrovatoModal();
+            showNuovoProdotto();
+            document.getElementById('nuovoBarcode').value = barcodeTemporaneo;
+            // Focus sul campo descrizione per velocizzare l'inserimento
+            setTimeout(() => {
+                document.getElementById('nuovaDescrizione').focus();
+            }, 300);
         }
 
         // Init on load
