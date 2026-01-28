@@ -424,6 +424,29 @@
         </div>
     </div>
 
+    <!-- Modal Info Generica -->
+    <div id="infoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-fadeIn">
+            <!-- Header Blu -->
+            <div class="bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 p-8 rounded-t-3xl text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white bg-opacity-20 rounded-full mb-4">
+                    <i id="infoModalIcon" class="fas fa-info-circle text-white text-4xl"></i>
+                </div>
+                <h2 id="infoModalTitle" class="text-3xl font-bold text-white mb-2">Info</h2>
+            </div>
+            
+            <div class="p-6">
+                <!-- Messaggio -->
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
+                    <div id="infoModalMessage" class="text-gray-700 text-center"></div>
+                </div>
+
+                <!-- Pulsanti dinamici -->
+                <div id="infoModalButtons" class="flex flex-col space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Prodotto Non Trovato -->
     <div id="prodottoNonTrovatoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
@@ -1062,8 +1085,15 @@
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
-                    alert('Nessun dato disponibile per creare il grafico');
                     closeGraficoModal();
+                    showInfoModal(
+                        '📊 Nessun Movimento Registrato',
+                        `Per vedere il grafico dell'andamento giacenza di <strong>${prodotto.descrizione}</strong>, devi prima registrare almeno un movimento (carico o scarico).`,
+                        [
+                            { text: 'Chiudi', action: 'closeInfoModal()', style: 'gray' },
+                            { text: 'Registra Carico', action: `closeInfoModal(); apriMovimento('${prodottoId}', 'carico')`, style: 'green' }
+                        ]
+                    );
                     return;
                 }
 
@@ -1425,6 +1455,47 @@
                 console.error('Errore eliminazione prodotto:', error);
                 alert('Errore durante l\'eliminazione: ' + error.message);
             }
+        }
+
+        // ========================================
+        // MODAL INFO GENERICA
+        // ========================================
+        function showInfoModal(title, message, buttons = []) {
+            document.getElementById('infoModalTitle').textContent = title;
+            document.getElementById('infoModalMessage').innerHTML = message;
+            
+            // Crea pulsanti dinamici
+            const buttonsContainer = document.getElementById('infoModalButtons');
+            if (buttons.length === 0) {
+                buttons = [{ text: 'OK', action: 'closeInfoModal()', style: 'blue' }];
+            }
+            
+            buttonsContainer.innerHTML = buttons.map(btn => {
+                const colors = {
+                    blue: 'bg-gradient-to-r from-blue-600 to-indigo-600',
+                    green: 'bg-gradient-to-r from-green-600 to-emerald-600',
+                    gray: 'border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                };
+                const colorClass = colors[btn.style] || colors.blue;
+                const textClass = btn.style === 'gray' ? 'text-gray-700' : 'text-white';
+                
+                return `
+                    <button onclick="${btn.action}" 
+                            class="w-full px-6 py-3 ${colorClass} ${textClass} rounded-xl font-bold hover:shadow-lg transition-all">
+                        ${btn.text}
+                    </button>
+                `;
+            }).join('');
+            
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeInfoModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         // Init on load
