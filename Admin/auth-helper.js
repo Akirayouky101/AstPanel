@@ -68,6 +68,19 @@ window.AuthHelper = {
 
             if (userError) {
                 console.error('❌ Errore recupero utente:', userError);
+                // Se l'utente non esiste nel DB ma ha una sessione valida, fai logout
+                if (userError.code === 'PGRST116') { // No rows returned
+                    console.warn('⚠️ Utente non trovato nel database, eseguo logout...');
+                    await this.logout();
+                }
+                this.currentUser = null;
+                return null;
+            }
+
+            // Se non ci sono dati utente (null), fai logout
+            if (!userData) {
+                console.warn('⚠️ Dati utente nulli, eseguo logout...');
+                await this.logout();
                 this.currentUser = null;
                 return null;
             }
