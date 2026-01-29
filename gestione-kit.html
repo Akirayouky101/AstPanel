@@ -1439,24 +1439,23 @@
                 return;
             }
 
-            // 📦 CREA ORDINE FORNITORE SE CI SONO MANCANTI
+            // 📦 TRACCIA COMPONENTI MANCANTI (ordine fornitore da creare manualmente)
             const itemsMancanti = items.filter(i => i.quantita_mancante > 0);
-            if (itemsMancanti.length > 0) {
-                await creaOrdineFornitoreAutomatico(currentKitId, itemsMancanti);
-            }
 
             closeAggiuntaComponentiModal();
             await loadComponentiKit(currentKitId);
             
             const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
             if (totMancanti > 0) {
-                alert(`✅ ${items.length} prodotti aggiunti al kit!\n⚠️ ${itemsMancanti.length} prodotti con giacenza insufficiente (tot: ${totMancanti} unità)\n📋 Ordine fornitore automatico creato!`);
+                alert(`✅ ${items.length} prodotti aggiunti al kit!\n\n⚠️ ATTENZIONE:\n${itemsMancanti.length} prodotti con giacenza insufficiente\nTotale unità mancanti: ${totMancanti}\n\n📋 Ricorda di creare un ordine fornitore per i componenti mancanti!`);
             } else {
                 alert(`✅ ${items.length} prodotti aggiunti al kit!`);
             }
         }
 
+        /*
         // 📦 CREA ORDINE FORNITORE AUTOMATICO
+        // FUNZIONE DISABILITATA - Richiede setup fornitore
         async function creaOrdineFornitoreAutomatico(kitId, itemsMancanti) {
             // Get kit info
             const { data: kit } = await supabase.from('kits').select('codice_kit, nome_kit').eq('id', kitId).single();
@@ -1493,6 +1492,7 @@
 
             await supabase.from('ordini_fornitore_items').insert(righe);
         }
+        */
 
         // ========================================
         // MAGAZZINO MODAL
