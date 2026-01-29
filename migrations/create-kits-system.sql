@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS kits (
 CREATE TABLE IF NOT EXISTS kit_items (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     kit_id uuid NOT NULL REFERENCES kits(id) ON DELETE CASCADE,
-    prodotto_id uuid NOT NULL REFERENCES prodotti(id) ON DELETE RESTRICT,
+    prodotto_id uuid NOT NULL REFERENCES components(id) ON DELETE RESTRICT,
     quantita decimal(10, 2) NOT NULL DEFAULT 1,
     
     -- Info prodotto al momento dell'aggiunta (snapshot)
@@ -221,8 +221,8 @@ CREATE OR REPLACE FUNCTION scala_giacenza_kit()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Scala giacenza dal magazzino
-    UPDATE prodotti 
-    SET giacenza = giacenza - NEW.quantita
+    UPDATE components 
+    SET quantita_disponibile = quantita_disponibile - NEW.quantita
     WHERE id = NEW.prodotto_id;
     
     -- Registra movimento magazzino
@@ -264,8 +264,8 @@ BEGIN
     
     -- Ripristina solo se kit non è consegnato
     IF kit_stato != 'consegnato' THEN
-        UPDATE prodotti 
-        SET giacenza = giacenza + OLD.quantita
+        UPDATE components 
+        SET quantita_disponibile = quantita_disponibile + OLD.quantita
         WHERE id = OLD.prodotto_id;
         
         -- Registra movimento magazzino
@@ -345,13 +345,13 @@ SELECT
     ki.*,
     p.descrizione as prodotto_descrizione_corrente,
     p.codice as prodotto_codice_corrente,
-    p.barcode as prodotto_barcode_corrente,
-    p.giacenza as prodotto_giacenza_corrente,
+    '' as prodotto_barcode_corrente,
+    p.quantita_disponibile as prodotto_giacenza_corrente,
     CONCAT(u.nome, ' ', u.cognome) as aggiunto_da_nome,
     k.codice_kit,
     k.stato as kit_stato
 FROM kit_items ki
-JOIN prodotti p ON ki.prodotto_id = p.id
+JOIN components p ON ki.prodotto_id = p.id
 LEFT JOIN users u ON ki.aggiunto_da = u.id
 JOIN kits k ON ki.kit_id = k.id
 ORDER BY ki.aggiunto_il DESC;
