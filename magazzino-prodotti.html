@@ -728,6 +728,7 @@
                 const { data, error } = await supabase
                     .from('components')
                     .select('*')
+                    .eq('stato', 'attivo')
                     .order('descrizione');
                 
                 if (error) throw error;
@@ -1800,27 +1801,20 @@
             if (!prodottoDaEliminare) return;
 
             try {
-                // Elimina prima i movimenti associati
-                const { error: movError } = await supabase
-                    .from('movimenti_magazzino')
-                    .delete()
-                    .eq('prodotto_id', prodottoDaEliminare);
-
-                // Non bloccare se non ci sono movimenti
-                if (movError && movError.code !== 'PGRST116') {
-                    console.warn('Errore eliminazione movimenti:', movError);
-                }
-
-                // Elimina il prodotto
+                // Soft delete: marca come eliminato invece di cancellare
                 const { error: prodError } = await supabase
                     .from('components')
-                    .delete()
+                    .update({
+                        stato: 'eliminato',
+                        deleted_at: new Date().toISOString(),
+                        deleted_by: currentUserId
+                    })
                     .eq('id', prodottoDaEliminare);
 
                 if (prodError) throw prodError;
 
                 closeConfermaEliminaModal();
-                showSuccessModal('Prodotto eliminato!', 'Il prodotto è stato rimosso dal magazzino');
+                showSuccessModal('Prodotto eliminato!', 'Il prodotto è stato archiviato mantenendo lo storico');
                 
                 await caricaProdotti();
 
