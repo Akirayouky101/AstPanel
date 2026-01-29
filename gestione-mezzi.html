@@ -247,7 +247,12 @@
     <div id="vehicleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-t-xl">
-                <h3 class="text-2xl font-bold" id="modalTitle">Nuovo Mezzo</h3>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-2xl font-bold" id="modalTitle">Nuovo Mezzo</h3>
+                    <button type="button" id="deleteVehicleBtn" onclick="deleteCurrentVehicle()" class="hidden bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-trash mr-2"></i>Elimina
+                    </button>
+                </div>
             </div>
             <form id="vehicleForm" class="p-6 space-y-4">
                 <input type="hidden" id="vehicleId">
@@ -426,59 +431,69 @@
 
             const tipoIcons = {
                 'furgone': '🚚',
+                'FURGONE': '🚚',
                 'auto': '🚗',
+                'AUTO': '🚗',
                 'van': '🚐',
-                'camion': '🚛'
+                'VAN': '🚐',
+                'camion': '🚛',
+                'CAMION': '🚛',
+                'piattaforma_aerea': '🏗️',
+                'PIATTAFORMA_AEREA': '🏗️'
             };
 
             const assignment = assignments.find(a => a.vehicle_id === vehicle.id);
 
             return `
-                <div class="border rounded-lg p-4 hover:shadow-lg transition">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center space-x-2 mb-1">
-                                <span class="text-2xl">${tipoIcons[vehicle.tipo] || '🚗'}</span>
-                                <h3 class="font-bold text-gray-800">${vehicle.nome}</h3>
+                <div onclick="editVehicle('${vehicle.id}')" class="border rounded-lg p-4 hover:shadow-xl transition cursor-pointer bg-white hover:bg-gray-50">
+                    <div class="flex items-start space-x-4">
+                        <!-- Icona Grande -->
+                        <div class="flex-shrink-0">
+                            <div class="text-6xl">${tipoIcons[vehicle.tipo] || '🚗'}</div>
+                        </div>
+                        
+                        <!-- Informazioni Mezzo -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-xl text-gray-800 truncate">${vehicle.nome}</h3>
+                                    <p class="text-sm text-gray-600 font-mono">
+                                        <i class="fas fa-hashtag text-xs"></i> ${vehicle.targa}
+                                    </p>
+                                </div>
+                                <span class="ml-2 px-3 py-1 rounded-full text-xs font-medium ${statusColors[vehicle.stato] || 'bg-gray-100 text-gray-800'}">
+                                    ${vehicle.stato.replace('_', ' ')}
+                                </span>
                             </div>
-                            <p class="text-sm text-gray-600">
-                                <i class="fas fa-hashtag text-xs"></i> ${vehicle.targa}
-                            </p>
-                            ${vehicle.marca ? `<p class="text-xs text-gray-500">${vehicle.marca} ${vehicle.modello || ''}</p>` : ''}
-                        </div>
-                        <span class="px-2 py-1 rounded text-xs font-medium ${statusColors[vehicle.stato] || 'bg-gray-100 text-gray-800'}">
-                            ${vehicle.stato.replace('_', ' ')}
-                        </span>
-                    </div>
+                            
+                            ${vehicle.marca ? `
+                                <p class="text-sm text-gray-500 mb-2">
+                                    <i class="fas fa-car mr-1"></i> ${vehicle.marca} ${vehicle.modello || ''}
+                                </p>
+                            ` : ''}
 
-                    ${assignment ? `
-                        <div class="bg-blue-50 border border-blue-200 rounded p-2 mb-3">
-                            <p class="text-xs font-medium text-blue-800">
-                                <i class="fas fa-user mr-1"></i> ${assignment.user.nome} ${assignment.user.cognome}
-                            </p>
-                            <p class="text-xs text-blue-600">
-                                <i class="fas fa-calendar mr-1"></i> ${new Date(assignment.data_inizio).toLocaleDateString('it-IT')}
-                                ${assignment.destinazione ? `<br><i class="fas fa-map-marker-alt mr-1"></i> ${assignment.destinazione}` : ''}
-                            </p>
-                        </div>
-                    ` : ''}
+                            ${assignment ? `
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
+                                    <p class="text-sm font-medium text-blue-800">
+                                        <i class="fas fa-user mr-1"></i> ${assignment.user.nome} ${assignment.user.cognome}
+                                    </p>
+                                    <p class="text-xs text-blue-600 mt-1">
+                                        <i class="fas fa-calendar mr-1"></i> ${new Date(assignment.data_inizio).toLocaleDateString('it-IT')}
+                                        ${assignment.destinazione ? `<br><i class="fas fa-map-marker-alt mr-1"></i> ${assignment.destinazione}` : ''}
+                                    </p>
+                                </div>
+                            ` : ''}
 
-                    ${vehicle.proprieta === 'noleggio' ? `
-                        <div class="bg-purple-50 border border-purple-200 rounded p-2 mb-3">
-                            <p class="text-xs font-medium text-purple-800">
-                                <i class="fas fa-calendar-alt mr-1"></i> Noleggio fino al ${new Date(vehicle.data_fine_noleggio).toLocaleDateString('it-IT')}
-                            </p>
-                            ${vehicle.azienda_noleggio ? `<p class="text-xs text-purple-600">${vehicle.azienda_noleggio}</p>` : ''}
+                            ${vehicle.proprieta === 'noleggio' ? `
+                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                    <p class="text-sm font-medium text-purple-800">
+                                        <i class="fas fa-calendar-alt mr-1"></i> Noleggio fino al ${new Date(vehicle.data_fine_noleggio).toLocaleDateString('it-IT')}
+                                    </p>
+                                    ${vehicle.azienda_noleggio ? `<p class="text-xs text-purple-600 mt-1">${vehicle.azienda_noleggio}</p>` : ''}
+                                    ${vehicle.costo_giornaliero ? `<p class="text-xs text-purple-600 mt-1">€ ${parseFloat(vehicle.costo_giornaliero).toFixed(2)}/giorno</p>` : ''}
+                                </div>
+                            ` : ''}
                         </div>
-                    ` : ''}
-
-                    <div class="flex space-x-2">
-                        <button onclick="editVehicle('${vehicle.id}')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded">
-                            <i class="fas fa-edit mr-1"></i> Modifica
-                        </button>
-                        <button onclick="deleteVehicle('${vehicle.id}', '${vehicle.nome}')" class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     </div>
                 </div>
             `;
@@ -547,6 +562,16 @@
 
         function closeVehicleModal() {
             document.getElementById('vehicleModal').classList.add('hidden');
+            document.getElementById('deleteVehicleBtn').classList.add('hidden'); // Nascondi pulsante elimina
+        }
+
+        // Elimina il veicolo corrente dalla modale
+        async function deleteCurrentVehicle() {
+            const id = document.getElementById('vehicleId').value;
+            const vehicle = vehicles.find(v => v.id === id);
+            if (!vehicle) return;
+            
+            await deleteVehicle(id, vehicle.nome);
         }
 
         // Modifica mezzo
@@ -558,9 +583,12 @@
             document.getElementById('vehicleProprieta').value = vehicle.proprieta;
             document.getElementById('vehicleNome').value = vehicle.nome;
             document.getElementById('vehicleTarga').value = vehicle.targa;
-            document.getElementById('vehicleTipo').value = vehicle.tipo;
+            document.getElementById('vehicleTipo').value = vehicle.tipo.toLowerCase(); // Converti in lowercase per match con options
             document.getElementById('vehicleMarca').value = vehicle.marca || '';
             document.getElementById('vehicleModello').value = vehicle.modello || '';
+            
+            // Mostra pulsante elimina solo in modifica
+            document.getElementById('deleteVehicleBtn').classList.remove('hidden');
 
             if (vehicle.proprieta === 'noleggio') {
                 document.getElementById('modalTitle').textContent = 'Modifica Noleggio';
@@ -657,6 +685,7 @@
                 if (error) throw error;
 
                 showAlert('Successo', 'Mezzo eliminato con successo!', 'success');
+                closeVehicleModal(); // Chiudi modale se aperta
                 await loadData();
             } catch (error) {
                 console.error('Errore eliminazione:', error);
