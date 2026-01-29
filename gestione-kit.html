@@ -225,17 +225,12 @@
                         Aggiungi Componenti
                     </h3>
                     <div class="flex space-x-2">
-                        <button onclick="toggleScannerKit()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition flex items-center">
-                            <i class="fas fa-barcode mr-2"></i>Scansiona
+                        <button onclick="openAggiuntaComponentiModal()" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition font-semibold flex items-center justify-center">
+                            <i class="fas fa-barcode mr-2"></i>Scansiona & Aggiungi Multipli
                         </button>
-                        <input type="text" id="searchProdottoKit" placeholder="🔍 Cerca prodotto per nome, codice, barcode..." class="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500">
-                        <input type="number" id="quantitaProdotto" value="1" min="0.01" step="0.01" class="w-24 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500" placeholder="Qtà">
-                        <button onclick="aggiungiProdottoAlKit()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
-                            <i class="fas fa-plus mr-2"></i>Aggiungi
+                        <button onclick="openMagazzinoModal()" class="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition font-semibold flex items-center justify-center">
+                            <i class="fas fa-warehouse mr-2"></i>Scegli da Magazzino
                         </button>
-                    </div>
-                    <div id="prodottoTrovatoInfo" class="hidden mt-3 p-3 bg-white rounded-lg border-2 border-green-500">
-                        <!-- Info prodotto trovato -->
                     </div>
                 </div>
 
@@ -953,6 +948,290 @@
             loadKits();
         }
 
+        // ========================================
+        // AGGIUNTA COMPONENTI MULTIPLA
+        // ========================================
+        let prodottiMultiMap = new Map(); // key: prodotto_id, value: {prodotto, quantita}
+        let barcodeNonTrovatiMulti = new Set();
+        let bufferBarcodeMulti = '';
+        let timeoutBarcodeMulti = null;
+
+        async function openAggiuntaComponentiModal() {
+            if (!currentKitId) {
+                alert('Nessun kit selezionato');
+                return;
+            }
+            
+            // Reset
+            prodottiMultiMap.clear();
+            barcodeNonTrovatiMulti.clear();
+            bufferBarcodeMulti = '';
+            
+            document.getElementById('aggiuntaComponentiModal').classList.remove('hidden');
+            updateStatsMulti();
+            renderProdottiMulti();
+            
+            // Attiva listener scanner
+            document.addEventListener('keypress', handleScannerMulti);
+        }
+
+        function closeAggiuntaComponentiModal() {
+            document.getElementById('aggiuntaComponentiModal').classList.add('hidden');
+            document.removeEventListener('keypress', handleScannerMulti);
+        }
+
+        function handleScannerMulti(e) {
+            // Ignora se è un campo input attivo
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            clearTimeout(timeoutBarcodeMulti);
+
+            if (e.key === 'Enter') {
+                if (bufferBarcodeMulti.trim()) {
+                    processBarcodeMulti(bufferBarcodeMulti.trim());
+                    bufferBarcodeMulti = '';
+                }
+            } else {
+                bufferBarcodeMulti += e.key;
+                timeoutBarcodeMulti = setTimeout(() => {
+                    bufferBarcodeMulti = '';
+                }, 100);
+            }
+        }
+
+        async function processBarcodeMulti(barcode) {
+            // Cerca prodotto
+            const { data: prodotti } = await supabase
+                .from('components')
+                .select('*')
+                .or(`codice.eq.${barcode},nome.ilike.%${barcode}%`);
+
+            if (!prodotti || prodotti.length === 0) {
+                // Non trovato
+                barcodeNonTrovatiMulti.add(barcode);
+                showNonTrovatiMulti();
+                updateStatsMulti();
+                return;
+            }
+
+            const prodotto = prodotti[0];
+
+            // Aggiungi o incrementa quantità
+            if (prodottiMultiMap.has(prodotto.id)) {
+                const item = prodottiMultiMap.get(prodotto.id);
+                item.quantita++;
+            } else {
+                prodottiMultiMap.set(prodotto.id, {
+                    prodotto: prodotto,
+                    quantita: 1
+                });
+            }
+
+            // Mostra ultimo scansionato
+            document.getElementById('ultimoScansioneInfo').classList.remove('hidden');
+            document.getElementById('ultimoScansioneNome').textContent = prodotto.nome;
+            document.getElementById('ultimoScansioneDettagli').textContent = `Codice: ${prodotto.codice} • Giacenza: ${prodotto.quantita_disponibile}`;
+
+            updateStatsMulti();
+            renderProdottiMulti();
+        }
+
+        function updateStatsMulti() {
+            const totalScansioni = Array.from(prodottiMultiMap.values()).reduce((sum, item) => sum + item.quantita, 0);
+            const prodottiUnici = prodottiMultiMap.size;
+
+            document.getElementById('statScansioni').textContent = totalScansioni;
+            document.getElementById('statProdottiUnici').textContent = prodottiUnici;
+            document.getElementById('totaleProdottiMulti').textContent = `${prodottiUnici} prodotti`;
+        }
+
+        function renderProdottiMulti() {
+            const container = document.getElementById('listaProdottiMulti');
+            
+            if (prodottiMultiMap.size === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-8">Nessun prodotto scansionato</p>';
+                return;
+            }
+
+            container.innerHTML = Array.from(prodottiMultiMap.values()).map(item => `
+                <div class="bg-white border-2 border-green-300 rounded-lg p-3 flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="font-bold">${item.prodotto.nome}</p>
+                        <p class="text-sm text-gray-600">Codice: ${item.prodotto.codice} • Giacenza: ${item.prodotto.quantita_disponibile}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="cambiaQuantitaMulti('${item.prodotto.id}', -1)" class="bg-red-500 text-white w-8 h-8 rounded-lg hover:bg-red-600">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" value="${item.quantita}" min="1" step="1" 
+                                   onchange="setQuantitaMulti('${item.prodotto.id}', this.value)"
+                                   class="w-16 text-center border-2 border-gray-300 rounded-lg py-1 font-bold">
+                            <button onclick="cambiaQuantitaMulti('${item.prodotto.id}', 1)" class="bg-green-500 text-white w-8 h-8 rounded-lg hover:bg-green-600">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <button onclick="rimuoviProdottoMulti('${item.prodotto.id}')" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function cambiaQuantitaMulti(prodottoId, delta) {
+            if (!prodottiMultiMap.has(prodottoId)) return;
+            
+            const item = prodottiMultiMap.get(prodottoId);
+            item.quantita = Math.max(1, item.quantita + delta);
+            
+            renderProdottiMulti();
+            updateStatsMulti();
+        }
+
+        function setQuantitaMulti(prodottoId, valore) {
+            if (!prodottiMultiMap.has(prodottoId)) return;
+            
+            const qta = parseFloat(valore);
+            if (!qta || qta <= 0) return;
+            
+            const item = prodottiMultiMap.get(prodottoId);
+            item.quantita = qta;
+            
+            renderProdottiMulti();
+            updateStatsMulti();
+        }
+
+        function rimuoviProdottoMulti(prodottoId) {
+            prodottiMultiMap.delete(prodottoId);
+            renderProdottiMulti();
+            updateStatsMulti();
+        }
+
+        function showNonTrovatiMulti() {
+            if (barcodeNonTrovatiMulti.size === 0) {
+                document.getElementById('nonTrovatiInfo').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('nonTrovatiInfo').classList.remove('hidden');
+            document.getElementById('listaNonTrovati').innerHTML = Array.from(barcodeNonTrovatiMulti)
+                .map(b => `<div>• ${b}</div>`)
+                .join('');
+        }
+
+        async function confermaAggiuntaMultipla() {
+            if (prodottiMultiMap.size === 0) {
+                alert('Nessun prodotto da aggiungere');
+                return;
+            }
+
+            // Prepara dati per insert multiplo
+            const items = Array.from(prodottiMultiMap.values()).map(item => ({
+                kit_id: currentKitId,
+                prodotto_id: item.prodotto.id,
+                quantita: item.quantita,
+                prodotto_nome: item.prodotto.nome,
+                prodotto_codice: item.prodotto.codice,
+                prodotto_barcode: '',
+                aggiunto_da: currentUser.id
+            }));
+
+            const { error } = await supabase.from('kit_items').insert(items);
+
+            if (error) {
+                console.error('Error adding components:', error);
+                alert('Errore nell\'aggiungere i componenti');
+                return;
+            }
+
+            closeAggiuntaComponentiModal();
+            await loadComponentiKit(currentKitId);
+            alert(`✅ ${items.length} prodotti aggiunti al kit!`);
+        }
+
+        // ========================================
+        // MAGAZZINO MODAL
+        // ========================================
+        let allProdottiMagazzino = [];
+
+        async function openMagazzinoModal() {
+            if (!currentKitId) {
+                alert('Nessun kit selezionato');
+                return;
+            }
+
+            // Carica tutti i prodotti
+            const { data } = await supabase.from('components').select('*').order('nome');
+            allProdottiMagazzino = data || [];
+
+            document.getElementById('magazzinoModal').classList.remove('hidden');
+            document.getElementById('searchMagazzino').value = '';
+            renderProdottiMagazzino(allProdottiMagazzino);
+        }
+
+        function closeMagazzinoModal() {
+            document.getElementById('magazzinoModal').classList.add('hidden');
+        }
+
+        function renderProdottiMagazzino(prodotti) {
+            const container = document.getElementById('listaProdottiMagazzino');
+            
+            if (prodotti.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nessun prodotto trovato</p>';
+                return;
+            }
+
+            container.innerHTML = prodotti.map(p => `
+                <div class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="font-bold text-lg">${p.nome}</p>
+                        <p class="text-sm text-gray-600">Codice: ${p.codice} • Giacenza: ${p.quantita_disponibile} ${p.unita_misura || 'pz'}</p>
+                    </div>
+                    <button onclick="aggiungiDaMagazzino('${p.id}')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold">
+                        <i class="fas fa-plus mr-2"></i>Aggiungi
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function filterProdottiMagazzino() {
+            const search = document.getElementById('searchMagazzino').value.toLowerCase();
+            const filtered = allProdottiMagazzino.filter(p => 
+                p.nome.toLowerCase().includes(search) ||
+                (p.codice && p.codice.toLowerCase().includes(search)) ||
+                (p.descrizione && p.descrizione.toLowerCase().includes(search))
+            );
+            renderProdottiMagazzino(filtered);
+        }
+
+        async function aggiungiDaMagazzino(prodottoId) {
+            const prodotto = allProdottiMagazzino.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            const quantita = prompt(`Quantità da aggiungere per "${prodotto.nome}":`, '1');
+            if (!quantita || parseFloat(quantita) <= 0) return;
+
+            const { error } = await supabase.from('kit_items').insert([{
+                kit_id: currentKitId,
+                prodotto_id: prodotto.id,
+                quantita: parseFloat(quantita),
+                prodotto_nome: prodotto.nome,
+                prodotto_codice: prodotto.codice,
+                prodotto_barcode: '',
+                aggiunto_da: currentUser.id
+            }]);
+
+            if (error) {
+                console.error('Error adding component:', error);
+                alert('Errore nell\'aggiungere il prodotto');
+                return;
+            }
+
+            await loadComponentiKit(currentKitId);
+            alert(`✅ ${prodotto.nome} aggiunto al kit!`);
+        }
+
         async function stampaQRKit() {
             if (!currentKitId) return;
 
@@ -1198,6 +1477,113 @@
                 </div>
                 <!-- Lista -->
                 <div id="listaDipendenti" class="max-h-[50vh] overflow-y-auto space-y-2">
+                    <!-- Popolata dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Aggiunta Componenti Multi (Split Screen) -->
+    <div id="aggiuntaComponentiModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-t-xl flex justify-between items-center">
+                <h2 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-boxes mr-3"></i>Aggiungi Componenti - Scansione Multipla
+                </h2>
+                <button onclick="closeAggiuntaComponentiModal()" class="text-white hover:bg-white/20 p-2 rounded-lg transition" title="Chiudi">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+                <!-- SINISTRA: Scanner -->
+                <div class="border-2 border-purple-300 rounded-lg p-4">
+                    <h3 class="font-bold text-lg mb-4 flex items-center text-purple-700">
+                        <i class="fas fa-barcode mr-2"></i>Scansiona Barcode
+                    </h3>
+                    
+                    <!-- Info Scanner -->
+                    <div class="bg-purple-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm text-gray-700 mb-2">📱 Scansiona con lettore USB/Bluetooth</p>
+                        <div class="flex items-center space-x-2">
+                            <div id="scannerStatusMulti" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-sm font-semibold text-green-700">Scanner Attivo</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-blue-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-600">Scansioni</p>
+                            <p class="text-2xl font-bold text-blue-600" id="statScansioni">0</p>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-600">Prodotti Unici</p>
+                            <p class="text-2xl font-bold text-green-600" id="statProdottiUnici">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Ultimo scansionato -->
+                    <div id="ultimoScansioneInfo" class="hidden bg-green-100 border-2 border-green-400 rounded-lg p-3 mb-4">
+                        <p class="text-xs text-gray-600 mb-1">Ultimo scansionato:</p>
+                        <p class="font-bold" id="ultimoScansioneNome">-</p>
+                        <p class="text-sm text-gray-700" id="ultimoScansioneDettagli">-</p>
+                    </div>
+
+                    <!-- Non trovati -->
+                    <div id="nonTrovatiInfo" class="hidden bg-red-100 border-2 border-red-400 rounded-lg p-3">
+                        <p class="text-sm font-bold text-red-700 mb-2">⚠️ Barcode non trovati:</p>
+                        <div id="listaNonTrovati" class="text-sm text-red-600 max-h-32 overflow-y-auto">
+                            <!-- Lista barcode non trovati -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DESTRA: Lista Prodotti Scansionati -->
+                <div class="border-2 border-green-300 rounded-lg p-4">
+                    <h3 class="font-bold text-lg mb-4 flex items-center justify-between text-green-700">
+                        <span><i class="fas fa-check-circle mr-2"></i>Prodotti Aggiunti</span>
+                        <span id="totaleProdottiMulti" class="text-sm bg-green-100 px-3 py-1 rounded-full">0 prodotti</span>
+                    </h3>
+                    
+                    <div id="listaProdottiMulti" class="space-y-2 max-h-[500px] overflow-y-auto">
+                        <p class="text-gray-400 text-center py-8">Nessun prodotto scansionato</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="p-6 bg-gray-50 flex space-x-3">
+                <button onclick="closeAggiuntaComponentiModal()" class="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
+                    <i class="fas fa-times mr-2"></i>Annulla
+                </button>
+                <button onclick="confermaAggiuntaMultipla()" class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition">
+                    <i class="fas fa-check mr-2"></i>Conferma e Aggiungi Tutti
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Magazzino (Selezione Manuale) -->
+    <div id="magazzinoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-6 rounded-t-xl flex justify-between items-center">
+                <h2 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-warehouse mr-3"></i>Scegli dal Magazzino
+                </h2>
+                <button onclick="closeMagazzinoModal()" class="text-white hover:bg-white/20 p-2 rounded-lg transition" title="Chiudi">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <!-- Ricerca -->
+                <div class="mb-4">
+                    <input type="text" id="searchMagazzino" placeholder="🔍 Cerca prodotto per nome, codice..." class="w-full border-2 border-blue-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 text-lg" oninput="filterProdottiMagazzino()">
+                </div>
+                
+                <!-- Lista Prodotti -->
+                <div id="listaProdottiMagazzino" class="max-h-[50vh] overflow-y-auto space-y-2">
                     <!-- Popolata dinamicamente -->
                 </div>
             </div>
