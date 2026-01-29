@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS condomini_interventi (
     
     -- Assegnazione
     assegnato_a UUID REFERENCES auth.users(id),
-    squadra_id UUID REFERENCES squadre(id),
+    squadra_id UUID, -- Riferimento opzionale a squadre (se la tabella esiste)
     
     -- Costi
     costo_preventivato DECIMAL(10,2),
