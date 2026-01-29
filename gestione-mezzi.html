@@ -91,6 +91,9 @@
                     <button onclick="switchTab('manutenzioni')" id="tab-manutenzioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
                         <i class="fas fa-wrench mr-2"></i>Manutenzioni
                     </button>
+                    <button onclick="switchTab('documenti')" id="tab-documenti" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-folder-open mr-2"></i>Documenti
+                    </button>
                     <button onclick="switchTab('assegnazioni')" id="tab-assegnazioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
                         <i class="fas fa-users mr-2"></i>Assegnazioni Attive
                     </button>
@@ -156,6 +159,55 @@
                 </div>
                 <div id="maintenanceList" class="space-y-3">
                     <!-- Lista manutenzioni caricate dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Documenti -->
+        <div id="panel-documenti" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">📁 Documenti Veicolo</h2>
+                    <label for="uploadDocumentInput" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer">
+                        <i class="fas fa-upload mr-2"></i>Carica Documento
+                        <input type="file" id="uploadDocumentInput" accept="image/*,.pdf" multiple class="hidden">
+                    </label>
+                </div>
+                
+                <!-- Tipo documento e scadenza -->
+                <div id="documentMetadataForm" class="hidden mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 class="font-bold text-gray-800 mb-3">Informazioni Documento</h3>
+                    <div class="grid grid-cols-3 gap-3 mb-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Documento *</label>
+                            <select id="documentType" required class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                <option value="libretto">📘 Libretto</option>
+                                <option value="assicurazione">🛡️ Assicurazione</option>
+                                <option value="revisione">✅ Revisione</option>
+                                <option value="bollo">💰 Bollo</option>
+                                <option value="contratto_noleggio">📄 Contratto Noleggio</option>
+                                <option value="fattura">🧾 Fattura</option>
+                                <option value="altro">📎 Altro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data Scadenza (opzionale)</label>
+                            <input type="date" id="documentScadenza" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="confirmUploadDocuments()" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">
+                                <i class="fas fa-check mr-2"></i>Conferma Upload
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione (opzionale)</label>
+                        <input type="text" id="documentDescrizione" placeholder="Es: Polizza RC Auto scadenza 2027" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div id="documentsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Lista documenti caricati dinamicamente -->
                 </div>
             </div>
         </div>
@@ -813,9 +865,10 @@
                 document.getElementById('rentalFields').classList.add('hidden');
             }
 
-            // Carica manutenzioni e scadenze
+            // Carica manutenzioni, scadenze e documenti
             await loadMaintenance(id);
             await loadDeadlines(id);
+            await loadDocuments(id);
             await updateDeadlinesBadge();
 
             document.getElementById('vehicleModal').classList.remove('hidden');
@@ -895,12 +948,37 @@
         async function deleteVehicle(id, nome) {
             const confirmed = await showConfirm(
                 'Elimina Mezzo',
-                `Sei sicuro di voler eliminare "${nome}"?`
+                `Sei sicuro di voler eliminare "${nome}"? Verranno eliminati anche tutti i documenti, manutenzioni e scadenze associate.`
             );
 
             if (!confirmed) return;
 
             try {
+                // 1. Recupera tutti i documenti del veicolo
+                const { data: documents, error: docsError } = await window.supabase
+                    .from('vehicle_documents')
+                    .select('url_file')
+                    .eq('vehicle_id', id);
+
+                if (docsError) console.error('Errore recupero documenti:', docsError);
+
+                // 2. Elimina file da storage
+                if (documents && documents.length > 0) {
+                    const filePaths = documents.map(doc => {
+                        const urlParts = doc.url_file.split('/vehicle-documents/');
+                        return urlParts[1];
+                    }).filter(Boolean);
+
+                    if (filePaths.length > 0) {
+                        const { error: storageError } = await window.supabase.storage
+                            .from('vehicle-documents')
+                            .remove(filePaths);
+
+                        if (storageError) console.error('Errore eliminazione file storage:', storageError);
+                    }
+                }
+
+                // 3. Elimina veicolo (CASCADE eliminerà automaticamente documenti, manutenzioni, reminder)
                 const { error } = await window.supabase
                     .from('vehicles')
                     .delete()
@@ -908,7 +986,7 @@
                 
                 if (error) throw error;
 
-                showAlert('Successo', 'Mezzo eliminato con successo!', 'success');
+                showAlert('Successo', 'Mezzo e tutti i dati associati eliminati con successo!', 'success');
                 closeVehicleModal(); // Chiudi modale se aperta
                 await loadData();
             } catch (error) {
@@ -1506,6 +1584,264 @@
 
         // Variabile globale per ID veicolo corrente
         let currentVehicleId = null;
+
+        // ============================================
+        // GESTIONE DOCUMENTI VEICOLI
+        // ============================================
+
+        let pendingFiles = [];
+
+        // Gestione selezione file
+        document.getElementById('uploadDocumentInput').addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            pendingFiles = files;
+            
+            // Mostra form metadata
+            document.getElementById('documentMetadataForm').classList.remove('hidden');
+            
+            // Mostra preview file selezionati
+            showAlert('File Selezionati', `${files.length} file pronti per l'upload. Inserisci le informazioni e clicca "Conferma Upload".`, 'info');
+        });
+
+        // Conferma upload con metadata
+        async function confirmUploadDocuments() {
+            if (!currentVehicleId) {
+                showAlert('Errore', 'Nessun veicolo selezionato', 'error');
+                return;
+            }
+
+            if (pendingFiles.length === 0) {
+                showAlert('Errore', 'Nessun file selezionato', 'error');
+                return;
+            }
+
+            const tipo = document.getElementById('documentType').value;
+            const descrizione = document.getElementById('documentDescrizione').value;
+            const scadenza = document.getElementById('documentScadenza').value || null;
+
+            if (!tipo) {
+                showAlert('Errore', 'Seleziona il tipo di documento', 'error');
+                return;
+            }
+
+            try {
+                for (const file of pendingFiles) {
+                    await uploadDocument(file, tipo, descrizione, scadenza);
+                }
+
+                showAlert('Successo', `${pendingFiles.length} documento/i caricato/i con successo!`, 'success');
+                
+                // Reset form
+                document.getElementById('uploadDocumentInput').value = '';
+                document.getElementById('documentType').value = 'libretto';
+                document.getElementById('documentDescrizione').value = '';
+                document.getElementById('documentScadenza').value = '';
+                document.getElementById('documentMetadataForm').classList.add('hidden');
+                pendingFiles = [];
+
+                // Ricarica documenti
+                await loadDocuments(currentVehicleId);
+
+            } catch (error) {
+                console.error('Errore upload:', error);
+                showAlert('Errore', 'Errore durante l\'upload: ' + error.message, 'error');
+            }
+        }
+
+        window.confirmUploadDocuments = confirmUploadDocuments;
+
+        // Upload singolo documento
+        async function uploadDocument(file, tipo, descrizione, scadenza) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentVehicleId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+            // Upload su Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('vehicle-documents')
+                .upload(fileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Ottieni URL pubblico
+            const { data: { publicUrl } } = supabase.storage
+                .from('vehicle-documents')
+                .getPublicUrl(fileName);
+
+            // Salva metadata nel database
+            const { data: user } = await supabase.auth.getUser();
+            
+            const { error: dbError } = await supabase
+                .from('vehicle_documents')
+                .insert([{
+                    vehicle_id: currentVehicleId,
+                    nome_file: file.name,
+                    tipo_documento: tipo,
+                    descrizione: descrizione || null,
+                    url_file: publicUrl,
+                    mime_type: file.type,
+                    dimensione_kb: Math.round(file.size / 1024),
+                    data_scadenza: scadenza,
+                    uploaded_by: user.user.id
+                }]);
+
+            if (dbError) {
+                // Se errore DB, elimina file da storage
+                await supabase.storage.from('vehicle-documents').remove([fileName]);
+                throw dbError;
+            }
+        }
+
+        // Caricamento documenti
+        async function loadDocuments(vehicleId) {
+            try {
+                const { data, error } = await supabase
+                    .from('vehicle_documents')
+                    .select('*')
+                    .eq('vehicle_id', vehicleId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                renderDocuments(data || []);
+            } catch (error) {
+                console.error('Errore:', error);
+                document.getElementById('documentsList').innerHTML = 
+                    '<div class="col-span-full text-center text-red-500 py-8">Errore caricamento documenti</div>';
+            }
+        }
+
+        window.loadDocuments = loadDocuments;
+
+        // Render documenti
+        function renderDocuments(documents) {
+            const container = document.getElementById('documentsList');
+            
+            if (!documents || documents.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-gray-400 text-6xl mb-4">📁</div>
+                        <p class="text-gray-500">Nessun documento caricato</p>
+                        <p class="text-sm text-gray-400 mt-2">Clicca "Carica Documento" per aggiungere file</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const tipoIcons = {
+                libretto: '📘',
+                assicurazione: '🛡️',
+                revisione: '✅',
+                bollo: '💰',
+                contratto_noleggio: '📄',
+                fattura: '🧾',
+                altro: '📎'
+            };
+
+            let html = '';
+
+            documents.forEach(doc => {
+                const icon = tipoIcons[doc.tipo_documento] || '📎';
+                const isImage = doc.mime_type && doc.mime_type.startsWith('image/');
+                const isPdf = doc.mime_type === 'application/pdf';
+                const dataCreazione = new Date(doc.created_at).toLocaleDateString('it-IT');
+                const scadenza = doc.data_scadenza ? new Date(doc.data_scadenza).toLocaleDateString('it-IT') : null;
+                const isScaduto = doc.data_scadenza && new Date(doc.data_scadenza) < new Date();
+
+                html += `
+                    <div class="border rounded-lg p-4 hover:shadow-md transition bg-white ${isScaduto ? 'border-red-500 border-2' : ''}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-3xl">${icon}</span>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 text-sm">${doc.nome_file}</h4>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${doc.tipo_documento.replace('_', ' ').toUpperCase()}
+                                        ${doc.dimensione_kb ? ` • ${doc.dimensione_kb} KB` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="deleteDocument('${doc.id}', '${doc.url_file}')" class="text-red-500 hover:text-red-700 text-sm">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+
+                        ${isImage ? `
+                            <div class="mb-2 rounded overflow-hidden">
+                                <img src="${doc.url_file}" alt="${doc.nome_file}" class="w-full h-32 object-cover cursor-pointer" onclick="window.open('${doc.url_file}', '_blank')">
+                            </div>
+                        ` : ''}
+
+                        ${doc.descrizione ? `
+                            <p class="text-xs text-gray-600 italic mb-2">${doc.descrizione}</p>
+                        ` : ''}
+
+                        ${scadenza ? `
+                            <div class="mb-2 ${isScaduto ? 'bg-red-100 border-red-400' : 'bg-yellow-50 border-yellow-400'} border-l-4 p-2 rounded text-xs">
+                                <div class="font-semibold ${isScaduto ? 'text-red-800' : 'text-yellow-800'}">
+                                    ${isScaduto ? '🚨 SCADUTO' : '⏰ Scadenza'}
+                                </div>
+                                <div class="${isScaduto ? 'text-red-700' : 'text-yellow-700'}">${scadenza}</div>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex gap-2 mt-3">
+                            <a href="${doc.url_file}" target="_blank" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-center py-2 rounded text-xs">
+                                <i class="fas fa-eye mr-1"></i>Visualizza
+                            </a>
+                            <a href="${doc.url_file}" download="${doc.nome_file}" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-center py-2 rounded text-xs">
+                                <i class="fas fa-download mr-1"></i>Scarica
+                            </a>
+                        </div>
+
+                        <div class="text-xs text-gray-400 mt-2 text-center">
+                            Caricato: ${dataCreazione}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Elimina documento
+        async function deleteDocument(documentId, fileUrl) {
+            if (!confirm('Sei sicuro di voler eliminare questo documento?')) return;
+
+            try {
+                // Estrai path file dall'URL
+                const urlParts = fileUrl.split('/vehicle-documents/');
+                const filePath = urlParts[1];
+
+                // Elimina da storage
+                const { error: storageError } = await supabase.storage
+                    .from('vehicle-documents')
+                    .remove([filePath]);
+
+                if (storageError) console.error('Errore eliminazione storage:', storageError);
+
+                // Elimina da database
+                const { error: dbError } = await supabase
+                    .from('vehicle_documents')
+                    .delete()
+                    .eq('id', documentId);
+
+                if (dbError) throw dbError;
+
+                showAlert('Successo', 'Documento eliminato!', 'success');
+                await loadDocuments(currentVehicleId);
+
+            } catch (error) {
+                console.error('Errore:', error);
+                showAlert('Errore', 'Impossibile eliminare il documento: ' + error.message, 'error');
+            }
+        }
+
+        window.deleteDocument = deleteDocument;
 
     </script>
 </body>
