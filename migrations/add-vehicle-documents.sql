@@ -78,7 +78,7 @@ SELECT
     CONCAT(u.nome, ' ', u.cognome) as uploaded_by_name
 FROM vehicle_documents vd
 JOIN vehicles v ON vd.vehicle_id = v.id
-LEFT JOIN utenti u ON vd.uploaded_by = u.id
+LEFT JOIN users u ON vd.uploaded_by = u.auth_id
 ORDER BY vd.created_at DESC;
 
 -- Commenti
