@@ -139,20 +139,28 @@
                         </select>
                     </div>
 
-                    <!-- Cliente -->
+                    <!-- Cliente (con pulsante modale) -->
                     <div id="clienteContainer" class="hidden">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente</label>
-                        <select id="clienteId" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500">
-                            <option value="">-- Seleziona cliente --</option>
-                        </select>
+                        <div class="flex space-x-2">
+                            <input type="text" id="clienteSelezionato" readonly class="flex-1 border rounded-lg px-4 py-2 bg-gray-50 cursor-pointer" placeholder="Nessun cliente selezionato" onclick="openClienteModal()">
+                            <button type="button" onclick="openClienteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="clienteId">
                     </div>
 
-                    <!-- Dipendente -->
+                    <!-- Dipendente (con pulsante modale) -->
                     <div id="dipendenteContainer" class="hidden">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Dipendente</label>
-                        <select id="dipendenteId" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500">
-                            <option value="">-- Seleziona dipendente --</option>
-                        </select>
+                        <div class="flex space-x-2">
+                            <input type="text" id="dipendenteSelezionato" readonly class="flex-1 border rounded-lg px-4 py-2 bg-gray-50 cursor-pointer" placeholder="Nessun dipendente selezionato" onclick="openDipendenteModal()">
+                            <button type="button" onclick="openDipendenteModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="dipendenteId">
                     </div>
 
                     <!-- Altro -->
@@ -460,18 +468,101 @@
             document.getElementById('statTotale').textContent = stats.totale;
         }
 
+        // ========================================
+        // GESTIONE MODALI CLIENTI/DIPENDENTI
+        // ========================================
+        let allClienti = [];
+        let allDipendenti = [];
+
         async function loadClienti() {
-            const { data } = await supabase.from('clients').select('id, ragione_sociale').order('ragione_sociale');
-            const select = document.getElementById('clienteId');
-            select.innerHTML = '<option value="">-- Seleziona cliente --</option>' + 
-                (data || []).map(c => `<option value="${c.id}">${c.ragione_sociale}</option>`).join('');
+            const { data } = await supabase.from('clients').select('id, ragione_sociale, email, telefono').order('ragione_sociale');
+            allClienti = data || [];
         }
 
         async function loadDipendenti() {
-            const { data } = await supabase.from('users').select('id, nome, cognome').order('nome');
-            const select = document.getElementById('dipendenteId');
-            select.innerHTML = '<option value="">-- Seleziona dipendente --</option>' + 
-                (data || []).map(u => `<option value="${u.id}">${u.nome} ${u.cognome}</option>`).join('');
+            const { data } = await supabase.from('users').select('id, nome, cognome, email').order('nome');
+            allDipendenti = data || [];
+        }
+
+        function openClienteModal() {
+            document.getElementById('clienteModal').classList.remove('hidden');
+            document.getElementById('searchCliente').value = '';
+            renderClienti(allClienti);
+        }
+
+        function closeClienteModal() {
+            document.getElementById('clienteModal').classList.add('hidden');
+        }
+
+        function openDipendenteModal() {
+            document.getElementById('dipendenteModal').classList.remove('hidden');
+            document.getElementById('searchDipendente').value = '';
+            renderDipendenti(allDipendenti);
+        }
+
+        function closeDipendenteModal() {
+            document.getElementById('dipendenteModal').classList.add('hidden');
+        }
+
+        function renderClienti(clienti) {
+            const lista = document.getElementById('listaClienti');
+            if (clienti.length === 0) {
+                lista.innerHTML = '<p class="text-gray-500 text-center py-8">Nessun cliente trovato</p>';
+                return;
+            }
+            lista.innerHTML = clienti.map(c => `
+                <div onclick="selezionaCliente('${c.id}', '${c.ragione_sociale.replace(/'/g, "\\'")}')" 
+                     class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition">
+                    <p class="font-bold text-lg">${c.ragione_sociale}</p>
+                    <p class="text-sm text-gray-600">${c.email || 'Nessuna email'} ${c.telefono ? '• ' + c.telefono : ''}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderDipendenti(dipendenti) {
+            const lista = document.getElementById('listaDipendenti');
+            if (dipendenti.length === 0) {
+                lista.innerHTML = '<p class="text-gray-500 text-center py-8">Nessun dipendente trovato</p>';
+                return;
+            }
+            lista.innerHTML = dipendenti.map(d => `
+                <div onclick="selezionaDipendente('${d.id}', '${d.nome} ${d.cognome}')" 
+                     class="p-4 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 cursor-pointer transition">
+                    <p class="font-bold text-lg">${d.nome} ${d.cognome}</p>
+                    <p class="text-sm text-gray-600">${d.email || 'Nessuna email'}</p>
+                </div>
+            `).join('');
+        }
+
+        function filterClienti() {
+            const search = document.getElementById('searchCliente').value.toLowerCase();
+            const filtered = allClienti.filter(c => 
+                c.ragione_sociale.toLowerCase().includes(search) ||
+                (c.email && c.email.toLowerCase().includes(search)) ||
+                (c.telefono && c.telefono.includes(search))
+            );
+            renderClienti(filtered);
+        }
+
+        function filterDipendenti() {
+            const search = document.getElementById('searchDipendente').value.toLowerCase();
+            const filtered = allDipendenti.filter(d => 
+                (d.nome + ' ' + d.cognome).toLowerCase().includes(search) ||
+                (d.email && d.email.toLowerCase().includes(search))
+            );
+            renderDipendenti(filtered);
+        }
+
+        function selezionaCliente(id, nome) {
+            document.getElementById('clienteId').value = id;
+            document.getElementById('clienteSelezionato').value = nome;
+            closeClienteModal();
+        }
+
+        function selezionaDipendente(id, nome) {
+            document.getElementById('dipendenteId').value = id;
+            document.getElementById('dipendenteSelezionato').value = nome;
+            closeDipendenteModal();
         }
 
         // ========================================
@@ -565,8 +656,14 @@
             
             if (data.destinatario_tipo === 'cliente') {
                 document.getElementById('clienteId').value = data.cliente_id || '';
+                // Trova il nome del cliente
+                const cliente = allClienti.find(c => c.id === data.cliente_id);
+                document.getElementById('clienteSelezionato').value = cliente ? cliente.ragione_sociale : '';
             } else if (data.destinatario_tipo === 'dipendente') {
                 document.getElementById('dipendenteId').value = data.dipendente_id || '';
+                // Trova il nome del dipendente
+                const dipendente = allDipendenti.find(d => d.id === data.dipendente_id);
+                document.getElementById('dipendenteSelezionato').value = dipendente ? `${dipendente.nome} ${dipendente.cognome}` : '';
             } else if (data.destinatario_tipo === 'altro') {
                 document.getElementById('destinatarioAltro').value = data.destinatario_altro || '';
             }
@@ -1058,5 +1155,54 @@
         // ========================================
         init();
     </script>
+
+    <!-- Modal Seleziona Cliente -->
+    <div id="clienteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-6 rounded-t-xl flex justify-between items-center">
+                <h2 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-users mr-3"></i>Seleziona Cliente
+                </h2>
+                <button onclick="closeClienteModal()" class="text-white hover:bg-white/20 p-2 rounded-lg transition" title="Chiudi">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <!-- Ricerca -->
+                <div class="mb-4">
+                    <input type="text" id="searchCliente" placeholder="🔍 Cerca per ragione sociale, email, telefono..." class="w-full border-2 border-blue-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 text-lg" oninput="filterClienti()">
+                </div>
+                <!-- Lista -->
+                <div id="listaClienti" class="max-h-[50vh] overflow-y-auto space-y-2">
+                    <!-- Popolata dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Seleziona Dipendente -->
+    <div id="dipendenteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-xl flex justify-between items-center">
+                <h2 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-user-tie mr-3"></i>Seleziona Dipendente
+                </h2>
+                <button onclick="closeDipendenteModal()" class="text-white hover:bg-white/20 p-2 rounded-lg transition" title="Chiudi">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <!-- Ricerca -->
+                <div class="mb-4">
+                    <input type="text" id="searchDipendente" placeholder="🔍 Cerca per nome, cognome, email..." class="w-full border-2 border-purple-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 text-lg" oninput="filterDipendenti()">
+                </div>
+                <!-- Lista -->
+                <div id="listaDipendenti" class="max-h-[50vh] overflow-y-auto space-y-2">
+                    <!-- Popolata dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
