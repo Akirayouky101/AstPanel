@@ -315,11 +315,13 @@
                 </div>
 
                 <div id="ordineFornitoreInfo" class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 hidden">
-                    <p class="text-blue-800 font-semibold mb-2">📋 Ordine Fornitore Creato</p>
-                    <p class="text-blue-700 text-sm" id="numeroOrdineInfo"></p>
-                    <button onclick="apriOrdineFornitore()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
-                        <i class="fas fa-external-link-alt mr-2"></i>Vai all'ordine
-                    </button>
+                    <p class="text-blue-800 font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-file-invoice"></i>
+                        Ordini Fornitore Automatici
+                    </p>
+                    <div id="listaOrdiniFornitore" class="space-y-2">
+                        <!-- Sarà riempito dinamicamente -->
+                    </div>
                 </div>
             </div>
             <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
@@ -629,7 +631,7 @@
         // ========================================
         // MODAL COMPONENTI MANCANTI
         // ========================================
-        let currentOrdineFornitore = null;
+        let currentOrdiniFornitore = [];
 
         async function viewComponentiMancanti(kitId) {
             // Carica componenti mancanti
@@ -651,17 +653,15 @@
                 return;
             }
 
-            // Cerca ordine fornitore associato
+            // Cerca tutti gli ordini fornitore associati al kit
             const { data: kit } = await supabase.from('kits').select('codice_kit').eq('id', kitId).single();
-            const { data: ordine } = await supabase
+            const { data: ordini } = await supabase
                 .from('ordini_fornitore')
-                .select('id, numero')
+                .select('id, numero, fornitore_nome, stato, created_at')
                 .ilike('descrizione', `%${kit?.codice_kit || kitId}%`)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+                .order('created_at', { ascending: false });
 
-            currentOrdineFornitore = ordine;
+            currentOrdiniFornitore = ordini || [];
 
             // Render lista
             const lista = document.getElementById('listaMancanti');
@@ -695,10 +695,27 @@
                 </div>
             `).join('');
 
-            // Mostra info ordine se esiste
+            // Mostra lista ordini se esistono
             const ordineInfo = document.getElementById('ordineFornitoreInfo');
-            if (ordine) {
-                document.getElementById('numeroOrdineInfo').textContent = `Numero: ${ordine.numero}`;
+            if (currentOrdiniFornitore.length > 0) {
+                const ordiniHtml = currentOrdiniFornitore.map(ord => `
+                    <div class="bg-white border border-blue-200 rounded-lg p-3 hover:bg-blue-50 cursor-pointer transition" onclick="apriOrdineFornitore('${ord.id}')">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <p class="font-bold text-blue-900">${ord.numero}</p>
+                                <p class="text-sm text-gray-600">${ord.fornitore_nome || 'Da Assegnare'}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-1 rounded text-xs font-semibold ${ord.stato === 'da_ordinare' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">
+                                    ${ord.stato}
+                                </span>
+                                <i class="fas fa-external-link-alt text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('listaOrdiniFornitore').innerHTML = ordiniHtml;
                 ordineInfo.classList.remove('hidden');
             } else {
                 ordineInfo.classList.add('hidden');
@@ -712,12 +729,12 @@
         function closeComponentiMancanti() {
             document.getElementById('componentiMancantiModal').classList.add('hidden');
             document.getElementById('componentiMancantiModal').classList.remove('flex');
-            currentOrdineFornitore = null;
+            currentOrdiniFornitore = [];
         }
 
-        function apriOrdineFornitore() {
-            if (currentOrdineFornitore) {
-                window.open(`/Admin/gestione-ordini-fornitore.html?ordine=${currentOrdineFornitore.id}`, '_blank');
+        function apriOrdineFornitore(ordineId) {
+            if (ordineId) {
+                window.open(`/Admin/gestione-ordini-fornitore.html?ordine=${ordineId}`, '_blank');
             }
         }
 
@@ -1439,60 +1456,99 @@
                 return;
             }
 
-            // 📦 TRACCIA COMPONENTI MANCANTI (ordine fornitore da creare manualmente)
+            // 📦 CREA ORDINI FORNITORE SE CI SONO MANCANTI
             const itemsMancanti = items.filter(i => i.quantita_mancante > 0);
+            if (itemsMancanti.length > 0) {
+                await creaOrdiniFornitoreAutomatici(currentKitId, itemsMancanti);
+            }
 
             closeAggiuntaComponentiModal();
             await loadComponentiKit(currentKitId);
             
             const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
             if (totMancanti > 0) {
-                alert(`✅ ${items.length} prodotti aggiunti al kit!\n\n⚠️ ATTENZIONE:\n${itemsMancanti.length} prodotti con giacenza insufficiente\nTotale unità mancanti: ${totMancanti}\n\n📋 Ricorda di creare un ordine fornitore per i componenti mancanti!`);
+                alert(`✅ ${items.length} prodotti aggiunti al kit!\n\n⚠️ ${itemsMancanti.length} prodotti con giacenza insufficiente\nTotale unità mancanti: ${totMancanti}\n\n📋 Ordini fornitore automatici creati!`);
             } else {
                 alert(`✅ ${items.length} prodotti aggiunti al kit!`);
             }
         }
 
-        /*
-        // 📦 CREA ORDINE FORNITORE AUTOMATICO
-        // FUNZIONE DISABILITATA - Richiede setup fornitore
-        async function creaOrdineFornitoreAutomatico(kitId, itemsMancanti) {
+        // 📦 CREA ORDINI FORNITORE AUTOMATICI RAGGRUPPATI PER FORNITORE
+        async function creaOrdiniFornitoreAutomatici(kitId, itemsMancanti) {
             // Get kit info
             const { data: kit } = await supabase.from('kits').select('codice_kit, nome_kit').eq('id', kitId).single();
             if (!kit) return;
 
-            // Genera numero ordine
-            const oggi = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const numeroOrdine = `ORD-AUTO-${oggi}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+            // Ottieni info fornitore per ogni prodotto
+            const prodottiIds = itemsMancanti.map(i => i.prodotto_id);
+            const { data: prodotti } = await supabase
+                .from('components')
+                .select('id, fornitore_id, fornitori(id, nome, email)')
+                .in('id', prodottiIds);
 
-            // Crea ordine fornitore
-            const { data: ordine, error: errOrdine } = await supabase.from('ordini_fornitore').insert([{
-                numero: numeroOrdine,
-                oggetto: `Ordine automatico per Kit ${kit.codice_kit}`,
-                descrizione: `Componenti mancanti per il kit "${kit.nome_kit}"`,
-                data_ordine: new Date().toISOString().slice(0, 10),
-                stato: 'da_ordinare',
-                totale_ordine: 0,
-                created_by: currentUserId
-            }]).select().single();
+            if (!prodotti) return;
 
-            if (errOrdine || !ordine) {
-                console.error('Errore creazione ordine:', errOrdine);
-                return;
+            // Raggruppa per fornitore
+            const gruppiFornitore = new Map();
+            
+            for (const item of itemsMancanti) {
+                const prodotto = prodotti.find(p => p.id === item.prodotto_id);
+                const fornitoreId = prodotto?.fornitore_id || 'nessuno';
+                const fornitoreNome = prodotto?.fornitori?.nome || 'Da Assegnare';
+                
+                if (!gruppiFornitore.has(fornitoreId)) {
+                    gruppiFornitore.set(fornitoreId, {
+                        fornitore_id: fornitoreId !== 'nessuno' ? fornitoreId : null,
+                        fornitore_nome: fornitoreNome,
+                        items: []
+                    });
+                }
+                
+                gruppiFornitore.get(fornitoreId).items.push(item);
             }
 
-            // Aggiungi righe ordine
-            const righe = itemsMancanti.map(item => ({
-                ordine_id: ordine.id,
-                codice: item.prodotto_codice,
-                descrizione: item.prodotto_nome,
-                quantita_ordinata: item.quantita_mancante,
-                stato: 'da_ricevere'
-            }));
+            // Crea un ordine per ogni fornitore
+            let ordiniCreati = 0;
+            for (const [fornitoreId, gruppo] of gruppiFornitore) {
+                const oggi = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                const numeroOrdine = `ORD-AUTO-${oggi}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
 
-            await supabase.from('ordini_fornitore_items').insert(righe);
+                // Crea ordine fornitore
+                const { data: ordine, error: errOrdine } = await supabase.from('ordini_fornitore').insert([{
+                    numero: numeroOrdine,
+                    fornitore_id: gruppo.fornitore_id,
+                    fornitore_nome: gruppo.fornitore_nome,
+                    oggetto: `Ordine automatico per Kit ${kit.codice_kit}`,
+                    descrizione: `Componenti mancanti per il kit "${kit.nome_kit}"${gruppo.fornitore_nome ? ` - Fornitore: ${gruppo.fornitore_nome}` : ''}`,
+                    data_ordine: new Date().toISOString().slice(0, 10),
+                    stato: 'da_ordinare',
+                    totale_ordine: 0,
+                    created_by: currentUserId
+                }]).select().single();
+
+                if (errOrdine || !ordine) {
+                    console.error('Errore creazione ordine:', errOrdine);
+                    continue;
+                }
+
+                // Aggiungi righe ordine
+                const righe = gruppo.items.map(item => ({
+                    ordine_id: ordine.id,
+                    codice: item.prodotto_codice,
+                    descrizione: item.prodotto_nome,
+                    quantita_ordinata: item.quantita_mancante,
+                    stato: 'da_ricevere'
+                }));
+
+                const { error: errRighe } = await supabase.from('ordini_fornitore_items').insert(righe);
+                
+                if (!errRighe) {
+                    ordiniCreati++;
+                }
+            }
+
+            console.log(`✅ Creati ${ordiniCreati} ordini fornitore automatici`);
         }
-        */
 
         // ========================================
         // MAGAZZINO MODAL
