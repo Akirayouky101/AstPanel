@@ -166,16 +166,16 @@ SELECT
     v.tipo,
     'Assicurazione' as tipo_scadenza,
     v.data_scadenza_assicurazione as data_scadenza,
-    EXTRACT(DAY FROM (v.data_scadenza_assicurazione - CURRENT_DATE)) as giorni_mancanti,
+    (v.data_scadenza_assicurazione - CURRENT_DATE) as giorni_mancanti,
     CASE 
         WHEN v.data_scadenza_assicurazione < CURRENT_DATE THEN 'scaduto'
-        WHEN v.data_scadenza_assicurazione <= CURRENT_DATE + INTERVAL '15 days' THEN 'urgente'
-        WHEN v.data_scadenza_assicurazione <= CURRENT_DATE + INTERVAL '30 days' THEN 'attenzione'
+        WHEN v.data_scadenza_assicurazione <= CURRENT_DATE + 15 THEN 'urgente'
+        WHEN v.data_scadenza_assicurazione <= CURRENT_DATE + 30 THEN 'attenzione'
         ELSE 'ok'
     END as priorita
 FROM vehicles v
 WHERE v.data_scadenza_assicurazione IS NOT NULL
-  AND v.data_scadenza_assicurazione <= CURRENT_DATE + INTERVAL '30 days'
+  AND v.data_scadenza_assicurazione <= CURRENT_DATE + 30
 
 UNION ALL
 
@@ -186,16 +186,16 @@ SELECT
     v.tipo,
     'Revisione',
     v.data_scadenza_revisione,
-    EXTRACT(DAY FROM (v.data_scadenza_revisione - CURRENT_DATE)),
+    (v.data_scadenza_revisione - CURRENT_DATE),
     CASE 
         WHEN v.data_scadenza_revisione < CURRENT_DATE THEN 'scaduto'
-        WHEN v.data_scadenza_revisione <= CURRENT_DATE + INTERVAL '15 days' THEN 'urgente'
-        WHEN v.data_scadenza_revisione <= CURRENT_DATE + INTERVAL '30 days' THEN 'attenzione'
+        WHEN v.data_scadenza_revisione <= CURRENT_DATE + 15 THEN 'urgente'
+        WHEN v.data_scadenza_revisione <= CURRENT_DATE + 30 THEN 'attenzione'
         ELSE 'ok'
     END
 FROM vehicles v
 WHERE v.data_scadenza_revisione IS NOT NULL
-  AND v.data_scadenza_revisione <= CURRENT_DATE + INTERVAL '30 days'
+  AND v.data_scadenza_revisione <= CURRENT_DATE + 30
 
 UNION ALL
 
@@ -206,16 +206,16 @@ SELECT
     v.tipo,
     'Bollo',
     v.data_scadenza_bollo,
-    EXTRACT(DAY FROM (v.data_scadenza_bollo - CURRENT_DATE)),
+    (v.data_scadenza_bollo - CURRENT_DATE),
     CASE 
         WHEN v.data_scadenza_bollo < CURRENT_DATE THEN 'scaduto'
-        WHEN v.data_scadenza_bollo <= CURRENT_DATE + INTERVAL '15 days' THEN 'urgente'
-        WHEN v.data_scadenza_bollo <= CURRENT_DATE + INTERVAL '30 days' THEN 'attenzione'
+        WHEN v.data_scadenza_bollo <= CURRENT_DATE + 15 THEN 'urgente'
+        WHEN v.data_scadenza_bollo <= CURRENT_DATE + 30 THEN 'attenzione'
         ELSE 'ok'
     END
 FROM vehicles v
 WHERE v.data_scadenza_bollo IS NOT NULL
-  AND v.data_scadenza_bollo <= CURRENT_DATE + INTERVAL '30 days'
+  AND v.data_scadenza_bollo <= CURRENT_DATE + 30
 
 ORDER BY data_scadenza ASC;
 
