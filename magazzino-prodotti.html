@@ -2089,8 +2089,30 @@
             // al prossimo refresh della lista prodotti
         }
 
-        function resetCaricoMultiplo() {
-            if (confirm('Cancellare tutti i prodotti scansionati?')) {
+        // ========================================
+        // MODAL CONFERMA
+        // ========================================
+        let confirmCallback = null;
+
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmModal').classList.remove('hidden');
+                confirmCallback = resolve;
+            });
+        }
+
+        function closeConfirmModal(result) {
+            document.getElementById('confirmModal').classList.add('hidden');
+            if (confirmCallback) {
+                confirmCallback(result);
+                confirmCallback = null;
+            }
+        }
+
+        async function resetCaricoMultiplo() {
+            const conferma = await showConfirm('Cancellare tutti i prodotti scansionati?');
+            if (conferma) {
                 prodottiTrovatiCM.clear();
                 prodottiNonTrovatiCM.clear();
                 updateListeCM();
@@ -2105,7 +2127,7 @@
                 return;
             }
 
-            const conferma = confirm(`Confermi il carico di ${prodottiTrovatiCM.size} prodotti diversi?`);
+            const conferma = await showConfirm(`Confermi il carico di ${prodottiTrovatiCM.size} prodotti diversi?`);
             if (!conferma) return;
 
             stopScannerCM();
