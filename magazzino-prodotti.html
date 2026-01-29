@@ -678,6 +678,7 @@
     <script>
         let prodotti = [];
         let currentUser = null;
+        let currentUserId = null; // ID dalla tabella users
         let html5QrCode = null;
         let tipoMovimentoSelezionato = 'carico';
         let scannerMode = 'search'; // 'search' o 'fillInput'
@@ -696,6 +697,15 @@
                     window.location.href = '/';
                     return;
                 }
+                
+                // Ottieni l'ID dalla tabella users
+                const { data: userRecord } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('auth_id', currentUser.id)
+                    .single();
+                
+                currentUserId = userRecord?.id || null;
                 
                 await caricaProdotti();
                 
@@ -2136,21 +2146,27 @@
             let caricatiErrore = 0;
 
             for (const [prodottoId, item] of prodottiTrovatiCM.entries()) {
+                const giacenzaPrima = item.prodotto.quantita_disponibile;
+                const nuovaGiacenza = giacenzaPrima + item.quantita;
+                
                 const { error } = await supabase.from('components').update({
-                    quantita_disponibile: item.prodotto.quantita_disponibile + item.quantita
+                    quantita_disponibile: nuovaGiacenza
                 }).eq('id', prodottoId);
 
                 if (error) {
                     console.error('Errore carico:', error);
                     caricatiErrore++;
                 } else {
-                    // Registra movimento
+                    // Registra movimento con giacenze
                     await supabase.from('movimenti_magazzino').insert([{
                         prodotto_id: prodottoId,
                         tipo_movimento: 'entrata',
                         quantita: item.quantita,
+                        giacenza_prima: giacenzaPrima,
+                        giacenza_dopo: nuovaGiacenza,
                         causale: 'Carico Multiplo',
-                        eseguito_da: currentUser?.id
+                        eseguito_da: currentUserId,
+                        data_movimento: new Date().toISOString()
                     }]);
                     caricatiOk++;
                 }
