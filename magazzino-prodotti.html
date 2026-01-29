@@ -784,52 +784,126 @@
             }
         }
 
-        // Apri scanner modal
+        // Apri scanner modal (scanner esterno USB/Bluetooth)
         function openScanner() {
             document.getElementById('scannerModal').classList.remove('hidden');
-            avviaScanner();
+            avviaListenerScannerEsterno();
         }
 
         // Chiudi scanner modal
         function closeScanner() {
             document.getElementById('scannerModal').classList.add('hidden');
-            stopScanner();
+            stopListenerScannerEsterno();
         }
 
-        // Avvia scanner
-        function avviaScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop();
+        // ===================================
+        // SCANNER ESTERNO (USB/Bluetooth)
+        // ===================================
+        let barcodeScannerBuffer = '';
+        let barcodeScannerTimeout = null;
+        let scannerListenerActive = false;
+
+        function avviaListenerScannerEsterno() {
+            if (scannerListenerActive) return;
+            
+            barcodeScannerBuffer = '';
+            scannerListenerActive = true;
+            
+            // Listener per scanner esterno (si comporta come tastiera)
+            document.addEventListener('keypress', handleScannerInput);
+            
+            // Mostra messaggio di attesa
+            const reader = document.getElementById('reader');
+            if (reader) {
+                reader.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-white">
+                        <i class="fas fa-barcode text-6xl mb-4 animate-pulse"></i>
+                        <h3 class="text-xl font-bold mb-2">Scanner Esterno Attivo</h3>
+                        <p class="text-gray-300">Scansiona il codice a barre con lo scanner USB/Bluetooth</p>
+                        <div class="mt-4 bg-white/20 px-6 py-3 rounded-lg">
+                            <p class="text-sm">In attesa di scansione...</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function stopListenerScannerEsterno() {
+            scannerListenerActive = false;
+            document.removeEventListener('keypress', handleScannerInput);
+            barcodeScannerBuffer = '';
+            if (barcodeScannerTimeout) {
+                clearTimeout(barcodeScannerTimeout);
+                barcodeScannerTimeout = null;
+            }
+        }
+
+        function handleScannerInput(e) {
+            if (!scannerListenerActive) return;
+
+            // Lo scanner esterno invia caratteri rapidamente e termina con Enter
+            if (e.key === 'Enter') {
+                if (barcodeScannerBuffer.length > 0) {
+                    processScannedBarcode(barcodeScannerBuffer.trim());
+                    barcodeScannerBuffer = '';
+                }
+            } else {
+                // Accumula caratteri
+                barcodeScannerBuffer += e.key;
+                
+                // Reset timeout (scanner invia velocemente, se passa troppo tempo è digitazione manuale)
+                if (barcodeScannerTimeout) {
+                    clearTimeout(barcodeScannerTimeout);
+                }
+                barcodeScannerTimeout = setTimeout(() => {
+                    barcodeScannerBuffer = ''; // Reset se troppo lento (digitazione manuale)
+                }, 100); // 100ms tra i caratteri
+            }
+        }
+
+        function processScannedBarcode(barcode) {
+            console.log('Barcode scansionato:', barcode);
+            
+            // Mostra feedback visivo
+            const reader = document.getElementById('reader');
+            if (reader) {
+                reader.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-white">
+                        <i class="fas fa-check-circle text-6xl text-green-400 mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">Scansione Completata!</h3>
+                        <p class="text-gray-300">Codice: ${barcode}</p>
+                    </div>
+                `;
             }
             
-            html5QrCode = new Html5Qrcode("reader");
-            
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                (decodedText) => {
-                    if (scannerMode === 'fillInput') {
-                        // Riempie il campo barcode nella modal
-                        document.getElementById('nuovoBarcode').value = decodedText;
-                        toggleScanner();
-                        scannerMode = 'search'; // Reset modalità
-                    } else {
-                        // Cerca prodotto normalmente
-                        cercaProdottoPerBarcode(decodedText);
-                        toggleScanner();
-                    }
-                },
-                (errorMessage) => {
-                    // Ignora errori di scansione
+            // Processa il barcode
+            setTimeout(() => {
+                if (scannerMode === 'fillInput') {
+                    // Riempie il campo barcode nella modal
+                    document.getElementById('nuovoBarcode').value = barcode;
+                    toggleScanner();
+                    scannerMode = 'search'; // Reset modalità
+                } else {
+                    // Cerca prodotto normalmente
+                    cercaProdottoPerBarcode(barcode);
+                    toggleScanner();
                 }
-            ).catch(err => {
-                console.error("Errore scanner:", err);
-                alert("Impossibile avviare la fotocamera");
-            });
+            }, 1000); // Mostra feedback per 1 secondo
+        }
+
+        // Mantieni la funzione legacy per compatibilità (non usata più)
+        function avviaScanner() {
+            // Funzione deprecata - ora si usa scanner esterno
+            console.log('Scanner fotocamera disabilitato - usa scanner esterno USB/Bluetooth');
+            avviaListenerScannerEsterno();
         }
 
         // Stop scanner
         function stopScanner() {
+            // Ferma listener scanner esterno
+            stopListenerScannerEsterno();
+            
+            // Legacy: ferma scanner fotocamera se attivo (non più usato)
             if (html5QrCode) {
                 html5QrCode.stop().catch(err => console.error(err));
                 html5QrCode = null;
