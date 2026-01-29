@@ -9,16 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <style>
-        .planimetria-canvas {
-            border: 2px solid #e5e7eb;
-            cursor: crosshair;
-            background: #ffffff;
-            background-image: 
-                linear-gradient(#f3f4f6 1px, transparent 1px),
-                linear-gradient(90deg, #f3f4f6 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-        
         .dispositivo-icon {
             position: absolute;
             cursor: move;
@@ -28,28 +18,6 @@
         
         .dispositivo-icon:hover {
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
-        }
-        
-        .grid-cell {
-            border: 1px solid #e5e7eb;
-            cursor: pointer;
-            transition: all 0.1s;
-        }
-        
-        .grid-cell:hover {
-            background: rgba(59, 130, 246, 0.1);
-        }
-        
-        .grid-cell.wall {
-            background: #374151;
-        }
-        
-        .grid-cell.room {
-            background: #ffffff;
-        }
-        
-        .grid-cell.door {
-            background: #f59e0b;
         }
     </style>
 </head>
@@ -242,74 +210,22 @@
 
                 <!-- TAB PLANIMETRIA -->
                 <div id="content-planimetria" class="tab-content hidden">
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Modalità Planimetria</label>
-                        <div class="flex space-x-4">
-                            <button onclick="setPlanimetriaMode('upload')" id="btn-upload" 
-                                class="flex-1 px-4 py-3 border-2 border-blue-600 bg-blue-50 text-blue-600 rounded-lg font-bold hover:bg-blue-100">
-                                <i class="fas fa-upload mr-2"></i>Upload Immagine
-                            </button>
-                            <button onclick="setPlanimetriaMode('grid')" id="btn-grid"
-                                class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:border-blue-600 hover:text-blue-600">
-                                <i class="fas fa-th mr-2"></i>Griglia
-                            </button>
-                            <button onclick="setPlanimetriaMode('canvas')" id="btn-canvas"
-                                class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:border-blue-600 hover:text-blue-600">
-                                <i class="fas fa-pencil-alt mr-2"></i>Disegno Libero
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Upload Mode -->
                     <div id="planimetria-upload" class="planimetria-mode">
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                             <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
                             <p class="text-gray-600 mb-4">Carica planimetria cliente (JPG, PNG, PDF)</p>
+                            <p class="text-sm text-gray-500 mb-4">Disegna le planimetrie con strumenti professionali e caricale qui</p>
                             <input type="file" id="fileUpload" accept="image/*,.pdf" class="hidden" onchange="handleFileUpload(event)">
                             <button onclick="document.getElementById('fileUpload').click()" 
                                 class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">
-                                Seleziona File
+                                <i class="fas fa-upload mr-2"></i>Seleziona File
                             </button>
                         </div>
-                        <canvas id="canvasUpload" class="planimetria-canvas mt-4 w-full hidden" width="800" height="600"></canvas>
-                    </div>
-
-                    <!-- Grid Mode -->
-                    <div id="planimetria-grid" class="planimetria-mode hidden">
-                        <div class="mb-4 flex items-center space-x-4">
-                            <button onclick="setGridTool('wall')" id="tool-wall" class="px-4 py-2 bg-gray-700 text-white rounded font-bold">
-                                <i class="fas fa-square mr-2"></i>Muro
-                            </button>
-                            <button onclick="setGridTool('room')" id="tool-room" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-square mr-2"></i>Stanza
-                            </button>
-                            <button onclick="setGridTool('door')" id="tool-door" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-door-open mr-2"></i>Porta
-                            </button>
-                            <button onclick="clearGrid()" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-trash mr-2"></i>Pulisci
-                            </button>
+                        <div id="uploadedImagePreview" class="mt-4 hidden">
+                            <p class="text-sm font-bold text-gray-700 mb-2">Anteprima:</p>
+                            <img id="previewImage" src="" alt="Planimetria" class="max-w-full border-2 border-gray-300 rounded-lg">
                         </div>
-                        <div id="gridContainer" class="border-2 border-gray-300 inline-block"></div>
-                    </div>
-
-                    <!-- Canvas Mode -->
-                    <div id="planimetria-canvas" class="planimetria-mode hidden">
-                        <div class="mb-4 flex items-center space-x-4">
-                            <button onclick="setCanvasTool('line')" id="canvas-line" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">
-                                <i class="fas fa-minus mr-2"></i>Linea
-                            </button>
-                            <button onclick="setCanvasTool('rect')" id="canvas-rect" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-square mr-2"></i>Rettangolo
-                            </button>
-                            <button onclick="setCanvasTool('text')" id="canvas-text" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-font mr-2"></i>Testo
-                            </button>
-                            <button onclick="clearCanvas()" class="px-4 py-2 border border-gray-300 rounded font-bold">
-                                <i class="fas fa-trash mr-2"></i>Pulisci
-                            </button>
-                        </div>
-                        <canvas id="canvasDraw" class="planimetria-canvas" width="800" height="600"></canvas>
                     </div>
 
                     <!-- Dispositivi -->
@@ -426,11 +342,6 @@
         let currentUser = null;
         let progetti = [];
         let currentTab = 'info';
-        let planimetriaMode = 'upload';
-        let gridTool = 'wall';
-        let canvasTool = 'line';
-        let gridData = [];
-        const GRID_SIZE = 30;
         let componentiProgetto = [];
 
         // Init
@@ -442,8 +353,6 @@
             }
             currentUser = user;
             await caricaProgetti();
-            initGrid();
-            initCanvas();
         });
 
         // Carica progetti
@@ -601,151 +510,26 @@
             document.getElementById(`content-${tab}`).classList.remove('hidden');
         }
 
-        // Set planimetria mode
-        function setPlanimetriaMode(mode) {
-            planimetriaMode = mode;
+        // Upload planimetria
+        let uploadedFile = null;
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
             
-            // Update buttons
-            ['upload', 'grid', 'canvas'].forEach(m => {
-                const btn = document.getElementById(`btn-${m}`);
-                if (m === mode) {
-                    btn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-600');
-                    btn.classList.remove('border-gray-300', 'text-gray-600');
-                } else {
-                    btn.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-600');
-                    btn.classList.add('border-gray-300', 'text-gray-600');
-                }
-            });
+            uploadedFile = file;
             
-            // Show/hide modes
-            document.querySelectorAll('.planimetria-mode').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`planimetria-${mode}`).classList.remove('hidden');
-        }
-
-        // Init grid
-        function initGrid() {
-            const container = document.getElementById('gridContainer');
-            gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
-            
-            let html = '<div style="display: inline-grid; grid-template-columns: repeat(' + GRID_SIZE + ', 20px);">';
-            for (let y = 0; y < GRID_SIZE; y++) {
-                for (let x = 0; x < GRID_SIZE; x++) {
-                    html += `<div class="grid-cell" data-x="${x}" data-y="${y}" onclick="gridCellClick(${x}, ${y})" style="width:20px; height:20px;"></div>`;
-                }
-            }
-            html += '</div>';
-            container.innerHTML = html;
-        }
-
-        // Grid cell click
-        function gridCellClick(x, y) {
-            gridData[y][x] = gridTool;
-            updateGridCell(x, y);
-        }
-
-        // Update grid cell
-        function updateGridCell(x, y) {
-            const cell = document.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
-            cell.className = 'grid-cell ' + (gridData[y][x] || '');
-        }
-
-        // Set grid tool
-        function setGridTool(tool) {
-            gridTool = tool;
-            ['wall', 'room', 'door'].forEach(t => {
-                const btn = document.getElementById(`tool-${t}`);
-                if (t === tool) {
-                    btn.classList.add('bg-gray-700', 'text-white');
-                    btn.classList.remove('border', 'border-gray-300');
-                } else {
-                    btn.classList.remove('bg-gray-700', 'text-white');
-                    btn.classList.add('border', 'border-gray-300');
-                }
-            });
-        }
-
-        // Clear grid
-        function clearGrid() {
-            if (confirm('Vuoi cancellare tutta la griglia?')) {
-                gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
-                document.querySelectorAll('.grid-cell').forEach(cell => {
-                    cell.className = 'grid-cell';
-                });
-            }
-        }
-
-        // Init canvas
-        function initCanvas() {
-            const canvas = document.getElementById('canvasDraw');
-            const ctx = canvas.getContext('2d');
-            let isDrawing = false;
-            let startX, startY;
-            
-            canvas.addEventListener('mousedown', (e) => {
-                isDrawing = true;
-                const rect = canvas.getBoundingClientRect();
-                startX = e.clientX - rect.left;
-                startY = e.clientY - rect.top;
-            });
-            
-            canvas.addEventListener('mousemove', (e) => {
-                if (!isDrawing) return;
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                if (canvasTool === 'line') {
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
-                    startX = x;
-                    startY = y;
-                }
-            });
-            
-            canvas.addEventListener('mouseup', (e) => {
-                if (!isDrawing) return;
-                isDrawing = false;
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                if (canvasTool === 'rect') {
-                    ctx.strokeRect(startX, startY, x - startX, y - startY);
-                }
-            });
-        }
-
-        // Set canvas tool
-        function setCanvasTool(tool) {
-            canvasTool = tool;
-            ['line', 'rect', 'text'].forEach(t => {
-                const btn = document.getElementById(`canvas-${t}`);
-                if (t === tool) {
-                    btn.classList.add('bg-blue-600', 'text-white');
-                    btn.classList.remove('border', 'border-gray-300');
-                } else {
-                    btn.classList.remove('bg-blue-600', 'text-white');
-                    btn.classList.add('border', 'border-gray-300');
-                }
-            });
-        }
-
-        // Clear canvas
-        function clearCanvas() {
-            if (confirm('Vuoi cancellare tutto il disegno?')) {
-                const canvas = document.getElementById('canvasDraw');
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('uploadedImagePreview');
+                const img = document.getElementById('previewImage');
+                img.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
         }
 
         // Placeholder functions
-        function handleFileUpload(event) {
-            alert('Upload file in sviluppo');
-        }
-
         function aggiungiDispositivo() {
             alert('Aggiungi dispositivo in sviluppo');
         }
