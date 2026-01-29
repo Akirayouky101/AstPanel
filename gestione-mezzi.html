@@ -584,10 +584,11 @@
             try {
                 const id = document.getElementById('vehicleId').value;
                 const proprieta = document.getElementById('vehicleProprieta').value;
+                const newTarga = document.getElementById('vehicleTarga').value.toUpperCase();
                 
                 const vehicleData = {
                     nome: document.getElementById('vehicleNome').value,
-                    targa: document.getElementById('vehicleTarga').value.toUpperCase(),
+                    targa: newTarga,
                     tipo: document.getElementById('vehicleTipo').value,
                     marca: document.getElementById('vehicleMarca').value || null,
                     modello: document.getElementById('vehicleModello').value || null,
@@ -604,7 +605,14 @@
                 }
 
                 if (id) {
-                    // Update
+                    // Update - verifica se targa è cambiata
+                    const currentVehicle = vehicles.find(v => v.id === id);
+                    
+                    // Se la targa non è cambiata, rimuovila dal vehicleData per evitare errore unique constraint
+                    if (currentVehicle && currentVehicle.targa === newTarga) {
+                        delete vehicleData.targa;
+                    }
+                    
                     const { error } = await window.supabase
                         .from('vehicles')
                         .update(vehicleData)
