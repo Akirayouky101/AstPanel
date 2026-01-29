@@ -259,6 +259,9 @@
                     <button onclick="cambiaStatoKit('pronto')" id="btnPronto" class="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition">
                         <i class="fas fa-check mr-2"></i>Segna come Pronto
                     </button>
+                    <button onclick="confermaEliminaKit()" class="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                        <i class="fas fa-trash mr-2"></i>Elimina
+                    </button>
                 </div>
             </div>
         </div>
@@ -335,6 +338,34 @@
         </div>
     </div>
 
+    <!-- Modal Conferma Eliminazione Kit -->
+    <div id="confermaEliminaKitModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[90]">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+            <div class="bg-gradient-to-r from-red-600 to-pink-600 text-white p-6 rounded-t-xl">
+                <h3 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-trash-alt mr-3"></i>
+                    Conferma Eliminazione Kit
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                    <p class="text-red-800 font-semibold">⚠️ Attenzione</p>
+                    <p class="text-red-700 text-sm mt-1">Stai per eliminare questo kit. I componenti verranno ripristinati in magazzino.</p>
+                </div>
+                <p class="text-gray-700 mb-2">Kit: <span id="confermaKitNome" class="font-bold"></span></p>
+                <p class="text-gray-700">Codice: <span id="confermaKitCodice" class="font-bold"></span></p>
+            </div>
+            <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                <button onclick="closeConfermaEliminaKit()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+                    Annulla
+                </button>
+                <button onclick="eliminaKit()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition">
+                    <i class="fas fa-trash mr-2"></i>Elimina Kit
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let currentUserId = null; // ID dalla tabella users
@@ -385,7 +416,8 @@
 
             let query = supabase
                 .from('v_kits_completi')
-                .select('*');
+                .select('*')
+                .neq('stato', 'eliminato'); // Escludi kit eliminati
 
             if (statoFilter) {
                 query = query.eq('stato', statoFilter);
@@ -942,6 +974,91 @@
             document.getElementById('dettaglioKitModal').classList.remove('flex');
             currentKitId = null;
             prodottoSelezionatoKit = null;
+        }
+
+        // ========================================
+        // ELIMINAZIONE KIT
+        // ========================================
+        async function confermaEliminaKit() {
+            if (!currentKitId) return;
+
+            try {
+                // Carica info kit per mostrare nel modal
+                const { data: kit, error } = await supabase
+                    .from('kits')
+                    .select('nome_kit, codice_kit')
+                    .eq('id', currentKitId)
+                    .single();
+
+                if (error) throw error;
+
+                document.getElementById('confermaKitNome').textContent = kit.nome_kit || 'N/A';
+                document.getElementById('confermaKitCodice').textContent = kit.codice_kit || 'N/A';
+
+                // Mostra modal conferma
+                document.getElementById('confermaEliminaKitModal').classList.remove('hidden');
+                document.getElementById('confermaEliminaKitModal').classList.add('flex');
+
+            } catch (error) {
+                console.error('Errore caricamento info kit:', error);
+                alert('Errore nel caricamento delle informazioni del kit');
+            }
+        }
+
+        function closeConfermaEliminaKit() {
+            document.getElementById('confermaEliminaKitModal').classList.add('hidden');
+            document.getElementById('confermaEliminaKitModal').classList.remove('flex');
+        }
+
+        async function eliminaKit() {
+            if (!currentKitId) return;
+
+            try {
+                // Soft delete: marca come eliminato invece di cancellare
+                const { error } = await supabase
+                    .from('kits')
+                    .update({
+                        stato: 'eliminato',
+                        deleted_at: new Date().toISOString(),
+                        deleted_by: currentUserId
+                    })
+                    .eq('id', currentKitId);
+
+                if (error) throw error;
+
+                // Chiudi i modal
+                closeConfermaEliminaKit();
+                closeDettaglioKit();
+
+                // Mostra messaggio successo
+                showSuccessMessage('Kit eliminato con successo! I componenti sono stati ripristinati in magazzino.');
+
+                // Ricarica lista
+                await loadKits();
+
+            } catch (error) {
+                console.error('Errore eliminazione kit:', error);
+                alert('Errore durante l\'eliminazione del kit: ' + error.message);
+            }
+        }
+
+        function showSuccessMessage(message) {
+            // Crea toast notification
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg z-[100] animate-fade-in-down';
+            toast.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                    <span class="font-semibold">${message}</span>
+                </div>
+            `;
+            document.body.appendChild(toast);
+
+            // Rimuovi dopo 3 secondi
+            setTimeout(() => {
+                toast.classList.add('animate-fade-out-up');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
         async function loadComponentiKit(kitId) {
