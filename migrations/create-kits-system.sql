@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS kits (
     -- Destinatario
     destinatario_tipo varchar(20) NOT NULL, -- 'cliente', 'dipendente', 'altro'
     cliente_id uuid REFERENCES clients(id) ON DELETE SET NULL,
-    dipendente_id uuid REFERENCES users(auth_id) ON DELETE SET NULL,
+    dipendente_id uuid REFERENCES users(id) ON DELETE SET NULL,
     destinatario_altro varchar(255), -- Se tipo = 'altro'
     
     -- Stati
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS kit_items (
     prodotto_barcode varchar(100),
     
     -- Audit
-    aggiunto_da uuid REFERENCES auth.users(id),
+    aggiunto_da uuid REFERENCES users(id),
     aggiunto_il timestamp with time zone DEFAULT now(),
     
     CONSTRAINT kit_items_quantita_positiva CHECK (quantita > 0)
@@ -99,7 +99,7 @@ CREATE POLICY "Admin possono eliminare kit"
         EXISTS (
             SELECT 1 FROM users 
             WHERE auth_id = auth.uid() 
-            AND ruolo IN ('admin', 'superadmin')
+            AND ruolo IN ('admin', 'superadmin', 'tecnico')
         )
     );
 
@@ -284,7 +284,7 @@ BEGIN
             'Rimosso da kit',
             'kit',
             OLD.kit_id,
-            auth.uid()
+            (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
         );
     END IF;
     
@@ -326,10 +326,10 @@ SELECT
     COALESCE(k.consegnato_da_nome, CONCAT(u_consegna.nome, ' ', u_consegna.cognome)) as consegnato_da_nome_completo
 
 FROM kits k
-LEFT JOIN users u_created ON k.created_by = u_created.auth_id
+LEFT JOIN users u_created ON k.created_by = u_created.id
 LEFT JOIN clients c ON k.cliente_id = c.id
-LEFT JOIN users u_dest ON k.dipendente_id = u_dest.auth_id
-LEFT JOIN users u_consegna ON k.consegnato_da_user = u_consegna.auth_id
+LEFT JOIN users u_dest ON k.dipendente_id = u_dest.id
+LEFT JOIN users u_consegna ON k.consegnato_da_user = u_consegna.id
 LEFT JOIN kit_items ki ON k.id = ki.kit_id
 GROUP BY 
     k.id, 
@@ -352,7 +352,7 @@ SELECT
     k.stato as kit_stato
 FROM kit_items ki
 JOIN prodotti p ON ki.prodotto_id = p.id
-LEFT JOIN users u ON ki.aggiunto_da = u.auth_id
+LEFT JOIN users u ON ki.aggiunto_da = u.id
 JOIN kits k ON ki.kit_id = k.id
 ORDER BY ki.aggiunto_il DESC;
 
