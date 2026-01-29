@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Condomini - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <style>
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: -20px;
+            width: 2px;
+            background: #e5e7eb;
+        }
+        .timeline-item:last-child::before {
+            display: none;
+        }
+        .map-marker {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='admin-test.html'" class="hover:bg-blue-700 p-2 rounded-lg transition">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">Gestione Condomini</h1>
+                        <p class="text-blue-100 text-sm">Tracciabilità completa interventi</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="showStats()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-chart-line mr-2"></i>Statistiche
+                    </button>
+                    <button onclick="showNuovoCondominioModal()" class="bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-semibold transition shadow-lg">
+                        <i class="fas fa-plus mr-2"></i>Nuovo Condominio
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cerca condominio</label>
+                    <input type="text" id="searchCondominio" placeholder="Nome o codice..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Città</label>
+                    <select id="filterCitta" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutte</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stato</label>
+                    <select id="filterStato" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti</option>
+                        <option value="attivo">Attivo</option>
+                        <option value="sospeso">Sospeso</option>
+                        <option value="chiuso">Chiuso</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Contratto</label>
+                    <select id="filterContratto" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti</option>
+                        <option value="Manutenzione">Manutenzione</option>
+                        <option value="Assistenza">Assistenza</option>
+                        <option value="Singolo">Singolo Intervento</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Condomini Grid -->
+        <div id="condominimGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Popolato dinamicamente -->
+        </div>
+    </div>
+
+    <!-- Modal Dettaglio Condominio -->
+    <div id="dettaglioModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 flex items-center justify-between">
+                <div>
+                    <h2 id="modalNomeCondominio" class="text-2xl font-bold"></h2>
+                    <p id="modalIndirizzoCondominio" class="text-blue-100"></p>
+                </div>
+                <button onclick="closeDettaglioModal()" class="hover:bg-white/20 p-2 rounded-lg transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+                <div class="flex space-x-1 p-2">
+                    <button onclick="switchTab('info')" data-tab="info" class="tab-btn px-6 py-3 rounded-lg font-medium transition active">
+                        <i class="fas fa-info-circle mr-2"></i>Info
+                    </button>
+                    <button onclick="switchTab('unita')" data-tab="unita" class="tab-btn px-6 py-3 rounded-lg font-medium transition">
+                        <i class="fas fa-door-open mr-2"></i>Unità <span id="unitaCount" class="ml-1 bg-gray-200 px-2 py-1 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('interventi')" data-tab="interventi" class="tab-btn px-6 py-3 rounded-lg font-medium transition">
+                        <i class="fas fa-wrench mr-2"></i>Interventi <span id="interventiCount" class="ml-1 bg-gray-200 px-2 py-1 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('accessi')" data-tab="accessi" class="tab-btn px-6 py-3 rounded-lg font-medium transition">
+                        <i class="fas fa-map-marker-alt mr-2"></i>Accessi <span id="accessiCount" class="ml-1 bg-gray-200 px-2 py-1 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('documenti')" data-tab="documenti" class="tab-btn px-6 py-3 rounded-lg font-medium transition">
+                        <i class="fas fa-file-alt mr-2"></i>Documenti <span id="documentiCount" class="ml-1 bg-gray-200 px-2 py-1 rounded-full text-xs">0</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 200px);">
+                <!-- Tab Info -->
+                <div id="tabInfo" class="tab-content">
+                    <div id="condominioInfoContent"></div>
+                </div>
+
+                <!-- Tab Unità -->
+                <div id="tabUnita" class="tab-content hidden">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Unità Immobiliari</h3>
+                        <button onclick="showNuovaUnitaModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-plus mr-2"></i>Nuova Unità
+                        </button>
+                    </div>
+                    <div id="unitaGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+
+                <!-- Tab Interventi -->
+                <div id="tabInterventi" class="tab-content hidden">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Storico Interventi</h3>
+                        <button onclick="showNuovoInterventoModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-plus mr-2"></i>Nuovo Intervento
+                        </button>
+                    </div>
+                    <div id="interventiTimeline" class="space-y-4"></div>
+                </div>
+
+                <!-- Tab Accessi -->
+                <div id="tabAccessi" class="tab-content hidden">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-semibold">Log Accessi Tecnici</h3>
+                        <p class="text-sm text-gray-600">Tracciabilità GPS e foto per ogni accesso</p>
+                    </div>
+                    <div id="accessiLog" class="space-y-3"></div>
+                </div>
+
+                <!-- Tab Documenti -->
+                <div id="tabDocumenti" class="tab-content hidden">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Documenti e Foto</h3>
+                        <button onclick="showUploadDocumentoModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-upload mr-2"></i>Carica Documento
+                        </button>
+                    </div>
+                    <div id="documentiGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuovo Condominio -->
+    <div id="nuovoCondominioModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-green-600 to-green-800 text-white p-6 flex items-center justify-between">
+                <h2 class="text-2xl font-bold"><i class="fas fa-building mr-3"></i>Nuovo Condominio</h2>
+                <button onclick="closeNuovoCondominioModal()" class="hover:bg-white/20 p-2 rounded-lg transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form id="formNuovoCondominio" class="p-6 space-y-6">
+                <!-- Dati Generali -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800 border-b pb-2">Dati Generali</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Condominio *</label>
+                            <input type="text" name="nome" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Codice (auto)</label>
+                            <input type="text" name="codice" placeholder="Generato automaticamente" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Indirizzo *</label>
+                            <input type="text" name="indirizzo" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Città *</label>
+                            <input type="text" name="citta" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">CAP</label>
+                            <input type="text" name="cap" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Numero Unità</label>
+                            <input type="number" name="numero_unita" value="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Numero Piani</label>
+                            <input type="number" name="numero_piani" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Amministratore -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800 border-b pb-2">Amministratore</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Cognome</label>
+                            <input type="text" name="amministratore_nome" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                            <input type="tel" name="amministratore_telefono" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="amministratore_email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">PEC</label>
+                            <input type="email" name="amministratore_pec" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contratto -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800 border-b pb-2">Contratto</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Contratto</label>
+                            <select name="tipo_contratto" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                <option value="">Nessuno</option>
+                                <option value="Manutenzione">Manutenzione</option>
+                                <option value="Assistenza">Assistenza</option>
+                                <option value="Singolo">Singolo Intervento</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Importo Annuo (€)</label>
+                            <input type="number" step="0.01" name="importo_contratto_annuo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Inizio</label>
+                            <input type="date" name="data_inizio_contratto" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Scadenza</label>
+                            <input type="date" name="data_scadenza_contratto" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                    <textarea name="note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"></textarea>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" onclick="closeNuovoCondominioModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        Annulla
+                    </button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition">
+                        <i class="fas fa-save mr-2"></i>Salva Condominio
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let condomini = [];
+        let currentCondominio = null;
+        let currentUser = null;
+
+        // Init
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadCondomini();
+            setupFilters();
+        });
+
+        async function checkAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = '../index.html';
+                return;
+            }
+            currentUser = user;
+        }
+
+        async function loadCondomini() {
+            try {
+                const { data, error } = await supabase
+                    .from('condomini')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                condomini = data || [];
+                renderCondomini(condomini);
+                populateFilterCitta();
+            } catch (error) {
+                console.error('Errore caricamento condomini:', error);
+                alert('Errore nel caricamento dei condomini');
+            }
+        }
+
+        function renderCondomini(data) {
+            const grid = document.getElementById('condominimGrid');
+            
+            if (data.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-building text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nessun condominio trovato</p>
+                        <button onclick="showNuovoCondominioModal()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition">
+                            <i class="fas fa-plus mr-2"></i>Crea il primo condominio
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = data.map(cond => `
+                <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition cursor-pointer border-l-4 ${getStatoColor(cond.stato)}" 
+                     onclick="openDettaglioCondominio('${cond.id}')">
+                    <div class="p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">${cond.codice}</span>
+                                    <span class="bg-${getStatoBadgeColor(cond.stato)}-100 text-${getStatoBadgeColor(cond.stato)}-800 px-2 py-1 rounded text-xs font-semibold">
+                                        ${cond.stato}
+                                    </span>
+                                </div>
+                                <h3 class="text-lg font-bold text-gray-900 mb-1">${cond.nome}</h3>
+                                <p class="text-sm text-gray-600">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>${cond.indirizzo}, ${cond.citta || ''}
+                                </p>
+                            </div>
+                            <i class="fas fa-building text-3xl text-blue-500"></i>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4 pt-4 border-t">
+                            <div>
+                                <p class="text-xs text-gray-500">Unità</p>
+                                <p class="text-lg font-bold text-gray-900">${cond.numero_unita || 0}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Piani</p>
+                                <p class="text-lg font-bold text-gray-900">${cond.numero_piani || '-'}</p>
+                            </div>
+                        </div>
+
+                        ${cond.amministratore_nome ? `
+                            <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                                <p class="text-xs text-gray-500 mb-1">Amministratore</p>
+                                <p class="text-sm font-semibold text-gray-900">${cond.amministratore_nome}</p>
+                                ${cond.amministratore_telefono ? `<p class="text-xs text-gray-600"><i class="fas fa-phone mr-1"></i>${cond.amministratore_telefono}</p>` : ''}
+                            </div>
+                        ` : ''}
+
+                        ${cond.tipo_contratto ? `
+                            <div class="flex items-center justify-between text-xs text-gray-600">
+                                <span><i class="fas fa-file-contract mr-1"></i>${cond.tipo_contratto}</span>
+                                ${cond.importo_contratto_annuo ? `<span class="font-semibold">€${parseFloat(cond.importo_contratto_annuo).toFixed(2)}/anno</span>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatoColor(stato) {
+            switch(stato) {
+                case 'attivo': return 'border-green-500';
+                case 'sospeso': return 'border-yellow-500';
+                case 'chiuso': return 'border-gray-500';
+                default: return 'border-blue-500';
+            }
+        }
+
+        function getStatoBadgeColor(stato) {
+            switch(stato) {
+                case 'attivo': return 'green';
+                case 'sospeso': return 'yellow';
+                case 'chiuso': return 'gray';
+                default: return 'blue';
+            }
+        }
+
+        function setupFilters() {
+            document.getElementById('searchCondominio').addEventListener('input', filterCondomini);
+            document.getElementById('filterCitta').addEventListener('change', filterCondomini);
+            document.getElementById('filterStato').addEventListener('change', filterCondomini);
+            document.getElementById('filterContratto').addEventListener('change', filterCondomini);
+        }
+
+        function filterCondomini() {
+            const search = document.getElementById('searchCondominio').value.toLowerCase();
+            const citta = document.getElementById('filterCitta').value;
+            const stato = document.getElementById('filterStato').value;
+            const contratto = document.getElementById('filterContratto').value;
+
+            const filtered = condomini.filter(c => {
+                const matchSearch = !search || 
+                    c.nome?.toLowerCase().includes(search) || 
+                    c.codice?.toLowerCase().includes(search);
+                const matchCitta = !citta || c.citta === citta;
+                const matchStato = !stato || c.stato === stato;
+                const matchContratto = !contratto || c.tipo_contratto === contratto;
+
+                return matchSearch && matchCitta && matchStato && matchContratto;
+            });
+
+            renderCondomini(filtered);
+        }
+
+        function populateFilterCitta() {
+            const citta = [...new Set(condomini.map(c => c.citta).filter(Boolean))];
+            const select = document.getElementById('filterCitta');
+            select.innerHTML = '<option value="">Tutte</option>' + 
+                citta.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // Modal Nuovo Condominio
+        function showNuovoCondominioModal() {
+            document.getElementById('nuovoCondominioModal').classList.remove('hidden');
+        }
+
+        function closeNuovoCondominioModal() {
+            document.getElementById('nuovoCondominioModal').classList.add('hidden');
+            document.getElementById('formNuovoCondominio').reset();
+        }
+
+        document.getElementById('formNuovoCondominio').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            // Rimuovi campi vuoti
+            Object.keys(data).forEach(key => {
+                if (data[key] === '') delete data[key];
+            });
+
+            try {
+                const { error } = await supabase
+                    .from('condomini')
+                    .insert([{
+                        ...data,
+                        created_by: currentUser.id,
+                        stato: 'attivo'
+                    }]);
+
+                if (error) throw error;
+
+                alert('Condominio creato con successo!');
+                closeNuovoCondominioModal();
+                await loadCondomini();
+            } catch (error) {
+                console.error('Errore creazione condominio:', error);
+                alert('Errore nella creazione del condominio');
+            }
+        });
+
+        // Modal Dettaglio
+        async function openDettaglioCondominio(id) {
+            currentCondominio = condomini.find(c => c.id === id);
+            if (!currentCondominio) return;
+
+            document.getElementById('modalNomeCondominio').textContent = currentCondominio.nome;
+            document.getElementById('modalIndirizzoCondominio').textContent = `${currentCondominio.indirizzo}, ${currentCondominio.citta || ''}`;
+
+            document.getElementById('dettaglioModal').classList.remove('hidden');
+            
+            // Carica tab attivo
+            switchTab('info');
+        }
+
+        function closeDettaglioModal() {
+            document.getElementById('dettaglioModal').classList.add('hidden');
+            currentCondominio = null;
+        }
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-100', 'text-blue-700');
+                btn.classList.add('text-gray-600');
+            });
+            const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            activeBtn.classList.add('active', 'bg-blue-100', 'text-blue-700');
+            activeBtn.classList.remove('text-gray-600');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
+
+            // Load data
+            switch(tabName) {
+                case 'info':
+                    loadCondominioInfo();
+                    break;
+                case 'unita':
+                    loadUnita();
+                    break;
+                case 'interventi':
+                    loadInterventi();
+                    break;
+                case 'accessi':
+                    loadAccessi();
+                    break;
+                case 'documenti':
+                    loadDocumenti();
+                    break;
+            }
+        }
+
+        function loadCondominioInfo() {
+            const c = currentCondominio;
+            document.getElementById('condominioInfoContent').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-800 mb-3"><i class="fas fa-building mr-2"></i>Dati Condominio</h4>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-600">Codice:</span> <span class="font-semibold">${c.codice}</span></p>
+                            <p><span class="text-gray-600">Indirizzo:</span> ${c.indirizzo}</p>
+                            <p><span class="text-gray-600">Città:</span> ${c.citta || '-'} ${c.cap || ''}</p>
+                            <p><span class="text-gray-600">Unità:</span> ${c.numero_unita || 0}</p>
+                            <p><span class="text-gray-600">Piani:</span> ${c.numero_piani || '-'}</p>
+                            <p><span class="text-gray-600">Anno costruzione:</span> ${c.anno_costruzione || '-'}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-800 mb-3"><i class="fas fa-user-tie mr-2"></i>Amministratore</h4>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-600">Nome:</span> ${c.amministratore_nome || '-'}</p>
+                            <p><span class="text-gray-600">Telefono:</span> ${c.amministratore_telefono || '-'}</p>
+                            <p><span class="text-gray-600">Email:</span> ${c.amministratore_email || '-'}</p>
+                            <p><span class="text-gray-600">PEC:</span> ${c.amministratore_pec || '-'}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-800 mb-3"><i class="fas fa-file-contract mr-2"></i>Contratto</h4>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-600">Tipo:</span> ${c.tipo_contratto || '-'}</p>
+                            <p><span class="text-gray-600">Importo annuo:</span> ${c.importo_contratto_annuo ? '€' + parseFloat(c.importo_contratto_annuo).toFixed(2) : '-'}</p>
+                            <p><span class="text-gray-600">Inizio:</span> ${c.data_inizio_contratto || '-'}</p>
+                            <p><span class="text-gray-600">Scadenza:</span> ${c.data_scadenza_contratto || '-'}</p>
+                        </div>
+                    </div>
+
+                    ${c.note ? `
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-800 mb-3"><i class="fas fa-sticky-note mr-2"></i>Note</h4>
+                            <p class="text-sm text-gray-700">${c.note}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function loadUnita() {
+            // Placeholder - da implementare
+            document.getElementById('unitaGrid').innerHTML = `
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-door-open text-4xl mb-3"></i>
+                    <p>Funzionalità unità in sviluppo</p>
+                </div>
+            `;
+        }
+
+        async function loadInterventi() {
+            // Placeholder - da implementare
+            document.getElementById('interventiTimeline').innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-wrench text-4xl mb-3"></i>
+                    <p>Funzionalità interventi in sviluppo</p>
+                </div>
+            `;
+        }
+
+        async function loadAccessi() {
+            // Placeholder - da implementare
+            document.getElementById('accessiLog').innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-map-marker-alt text-4xl mb-3"></i>
+                    <p>Funzionalità accessi in sviluppo</p>
+                </div>
+            `;
+        }
+
+        async function loadDocumenti() {
+            // Placeholder - da implementare
+            document.getElementById('documentiGallery').innerHTML = `
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-file-alt text-4xl mb-3"></i>
+                    <p>Funzionalità documenti in sviluppo</p>
+                </div>
+            `;
+        }
+
+        function showStats() {
+            const totale = condomini.length;
+            const attivi = condomini.filter(c => c.stato === 'attivo').length;
+            const totaleUnita = condomini.reduce((sum, c) => sum + (c.numero_unita || 0), 0);
+            
+            alert(`📊 Statistiche Condomini\n\nTotale: ${totale}\nAttivi: ${attivi}\nUnità totali: ${totaleUnita}`);
+        }
+
+        // Placeholder functions
+        function showNuovaUnitaModal() {
+            alert('Funzionalità in sviluppo: aggiungi unità');
+        }
+
+        function showNuovoInterventoModal() {
+            alert('Funzionalità in sviluppo: nuovo intervento');
+        }
+
+        function showUploadDocumentoModal() {
+            alert('Funzionalità in sviluppo: carica documento');
+        }
+    </script>
+</body>
+</html>
