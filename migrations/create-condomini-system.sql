@@ -481,7 +481,13 @@ CREATE INDEX idx_documenti_tipo ON condomini_documenti(tipo);
 -- INSERT INTO condomini (nome, indirizzo, citta, cap, numero_unita, amministratore_nome, amministratore_telefono)
 -- VALUES ('Condominio Vista Mare', 'Via Roma 123', 'Milano', '20100', 24, 'Mario Rossi', '333-1234567');
 
-RAISE NOTICE '✅ Sistema Gestione Condomini creato con successo!';
-RAISE NOTICE '📋 Tabelle: condomini, condomini_unita, condomini_interventi, condomini_accessi, condomini_documenti';
-RAISE NOTICE '🔧 Funzioni: generate_condominio_codice(), generate_intervento_numero(), generate_unita_qr()';
-RAISE NOTICE '🔒 RLS attivato su tutte le tabelle';
+-- =====================================================
+-- MESSAGGIO DI SUCCESSO
+-- =====================================================
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Sistema Gestione Condomini creato con successo!';
+    RAISE NOTICE '📋 Tabelle: condomini, condomini_unita, condomini_interventi, condomini_accessi, condomini_documenti';
+    RAISE NOTICE '🔧 Funzioni: generate_condominio_codice(), generate_intervento_numero(), generate_unita_qr()';
+    RAISE NOTICE '🔒 RLS attivato su tutte le tabelle';
+END $$;
