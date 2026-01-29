@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS kits (
     
     -- Destinatario
     destinatario_tipo varchar(20) NOT NULL, -- 'cliente', 'dipendente', 'altro'
-    cliente_id uuid REFERENCES clienti(id) ON DELETE SET NULL,
+    cliente_id uuid REFERENCES clients(id) ON DELETE SET NULL,
     dipendente_id uuid REFERENCES users(auth_id) ON DELETE SET NULL,
     destinatario_altro varchar(255), -- Se tipo = 'altro'
     
@@ -327,7 +327,7 @@ SELECT
 
 FROM kits k
 LEFT JOIN users u_created ON k.created_by = u_created.auth_id
-LEFT JOIN clienti c ON k.cliente_id = c.id
+LEFT JOIN clients c ON k.cliente_id = c.id
 LEFT JOIN users u_dest ON k.dipendente_id = u_dest.auth_id
 LEFT JOIN users u_consegna ON k.consegnato_da_user = u_consegna.auth_id
 LEFT JOIN kit_items ki ON k.id = ki.kit_id
