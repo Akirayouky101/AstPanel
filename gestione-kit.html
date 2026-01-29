@@ -855,9 +855,201 @@
             loadKits();
         }
 
-        function stampaQRKit() {
-            // TODO: Implementare stampa QR
-            alert('Funzionalità stampa QR in sviluppo');
+        async function stampaQRKit() {
+            if (!currentKitId) return;
+
+            // Carica dati kit
+            const { data: kit, error } = await supabase
+                .from('v_kits_completi')
+                .select('*')
+                .eq('id', currentKitId)
+                .single();
+
+            if (error || !kit) {
+                alert('Errore nel caricare i dati del kit');
+                return;
+            }
+
+            // Carica componenti
+            const { data: componenti } = await supabase
+                .from('v_kit_items_dettaglio')
+                .select('*')
+                .eq('kit_id', currentKitId);
+
+            const printWindow = window.open('', '_blank');
+
+            let html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>QR Kit - ${kit.nome_kit}</title>
+                    <style>
+                        @media print {
+                            @page { 
+                                size: 10cm 15cm;
+                                margin: 0;
+                            }
+                            body { 
+                                margin: 0;
+                                padding: 0;
+                            }
+                            .etichetta {
+                                page-break-after: always;
+                            }
+                            .etichetta:last-child {
+                                page-break-after: auto;
+                            }
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .etichetta {
+                            width: 10cm;
+                            height: 15cm;
+                            border: 2px solid #8b5cf6;
+                            padding: 0.5cm;
+                            box-sizing: border-box;
+                            text-align: center;
+                            background: white;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            page-break-inside: avoid;
+                        }
+                        .tipo-qr {
+                            background: #8b5cf6;
+                            color: white;
+                            padding: 0.3cm 0.5cm;
+                            border-radius: 0.3cm;
+                            font-size: 12pt;
+                            font-weight: bold;
+                            margin-bottom: 0.4cm;
+                        }
+                        .tipo-qr.consegna {
+                            background: #10b981;
+                        }
+                        .qr-container {
+                            display: flex;
+                            justify-content: center;
+                            margin-bottom: 0.4cm;
+                        }
+                        .qr-container canvas {
+                            max-width: 7cm !important;
+                            max-height: 7cm !important;
+                        }
+                        .nome-kit {
+                            font-weight: bold;
+                            font-size: 16pt;
+                            margin: 0.3cm 0;
+                            max-width: 9cm;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            display: -webkit-box;
+                            -webkit-line-clamp: 2;
+                            -webkit-box-orient: vertical;
+                            line-height: 1.3;
+                        }
+                        .codice-kit {
+                            font-family: 'Courier New', monospace;
+                            font-size: 11pt;
+                            color: #666;
+                            margin: 0.2cm 0;
+                            font-weight: bold;
+                        }
+                        .info-kit {
+                            font-size: 10pt;
+                            color: #666;
+                            margin-top: 0.3cm;
+                            padding-top: 0.3cm;
+                            border-top: 2px solid #e5e7eb;
+                            width: 100%;
+                        }
+                        .info-kit div {
+                            margin: 0.15cm 0;
+                        }
+                        .componenti-lista {
+                            font-size: 8pt;
+                            max-height: 2cm;
+                            overflow: hidden;
+                            text-align: left;
+                            margin-top: 0.3cm;
+                        }
+                        .istruzioni {
+                            position: absolute;
+                            bottom: 0.3cm;
+                            left: 0;
+                            right: 0;
+                            font-size: 8pt;
+                            color: #999;
+                            text-align: center;
+                        }
+                    </style>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                </head>
+                <body>
+                    <!-- QR IDENTIFICATIVO KIT -->
+                    <div class="etichetta">
+                        <div class="tipo-qr">📦 QR IDENTIFICATIVO KIT</div>
+                        <div id="qr-kit" class="qr-container"></div>
+                        <div class="nome-kit">${kit.nome_kit}</div>
+                        <div class="codice-kit">${kit.codice_kit}</div>
+                        <div class="info-kit">
+                            <div><strong>Destinatario:</strong> ${kit.destinatario_nome || 'Non assegnato'}</div>
+                            <div><strong>Componenti:</strong> ${kit.numero_componenti || 0} (${kit.quantita_totale || 0} pz)</div>
+                            <div><strong>Stato:</strong> ${kit.stato.toUpperCase()}</div>
+                        </div>
+                        ${componenti && componenti.length > 0 ? `
+                            <div class="componenti-lista">
+                                ${componenti.slice(0, 5).map(c => `• ${c.prodotto_nome} (${c.quantita})`).join('<br>')}
+                                ${componenti.length > 5 ? '<br>...' : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- QR CONFERMA CONSEGNA -->
+                    <div class="etichetta">
+                        <div class="tipo-qr consegna">✅ QR CONFERMA CONSEGNA</div>
+                        <div id="qr-consegna" class="qr-container"></div>
+                        <div class="nome-kit">${kit.nome_kit}</div>
+                        <div class="codice-kit">${kit.codice_consegna}</div>
+                        <div class="info-kit">
+                            <div><strong>Destinatario:</strong> ${kit.destinatario_nome || 'Non assegnato'}</div>
+                            <div><strong>Componenti:</strong> ${kit.numero_componenti || 0} prodotti</div>
+                        </div>
+                        <div class="istruzioni">
+                            🔗 Scansiona questo QR per confermare la consegna<br>
+                            URL: ${window.location.origin}/conferma-consegna.html
+                        </div>
+                    </div>
+
+                    <script>
+                        // Genera QR identificativo kit
+                        new QRCode(document.getElementById('qr-kit'), {
+                            text: '${kit.qr_kit}',
+                            width: 250,
+                            height: 250
+                        });
+
+                        // Genera QR conferma consegna
+                        new QRCode(document.getElementById('qr-consegna'), {
+                            text: '${kit.qr_consegna}',
+                            width: 250,
+                            height: 250
+                        });
+                        
+                        setTimeout(() => {
+                            window.print();
+                        }, 500);
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.write(html);
+            printWindow.document.close();
         }
 
         // ========================================
