@@ -1492,41 +1492,69 @@
                     <title>Etichette Barcode</title>
                     <style>
                         @media print {
-                            @page { margin: 10mm; }
-                            body { margin: 0; }
+                            @page { 
+                                size: 10cm 6.4cm;
+                                margin: 0;
+                            }
+                            body { 
+                                margin: 0;
+                                padding: 0;
+                            }
+                            .etichetta {
+                                page-break-after: always;
+                            }
+                            .etichetta:last-child {
+                                page-break-after: auto;
+                            }
                         }
                         body {
                             font-family: Arial, sans-serif;
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            gap: 10px;
-                            padding: 10px;
+                            margin: 0;
+                            padding: 0;
                         }
                         .etichetta {
-                            border: 2px dashed #ccc;
-                            padding: 15px;
+                            width: 10cm;
+                            height: 6.4cm;
+                            border: 1px solid #ccc;
+                            padding: 0.3cm;
+                            box-sizing: border-box;
                             text-align: center;
-                            page-break-inside: avoid;
                             background: white;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            page-break-inside: avoid;
                         }
                         .qr-container {
                             display: flex;
                             justify-content: center;
-                            margin-bottom: 10px;
+                            margin-bottom: 0.2cm;
+                        }
+                        .qr-container canvas {
+                            max-width: 3.5cm !important;
+                            max-height: 3.5cm !important;
                         }
                         .nome {
                             font-weight: bold;
-                            font-size: 12px;
-                            margin: 10px 0 5px 0;
+                            font-size: 11pt;
+                            margin: 0.15cm 0;
+                            max-width: 9cm;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
                         }
                         .codice {
-                            font-size: 10px;
+                            font-size: 9pt;
                             color: #666;
+                            margin: 0.1cm 0;
                         }
                         .barcode {
-                            font-family: monospace;
-                            font-size: 11px;
-                            margin-top: 5px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 10pt;
+                            font-weight: bold;
+                            margin-top: 0.15cm;
+                            letter-spacing: 0.05cm;
                         }
                     </style>
                     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
@@ -1548,7 +1576,7 @@
             html += `
                     <script>
                         ${prodottiSelezionati.map((p, index) => 
-                            p.barcode ? `new QRCode(document.getElementById('qr-print-${index}'), { text: '${p.barcode}', width: 100, height: 100 });` : ''
+                            p.barcode ? `new QRCode(document.getElementById('qr-print-${index}'), { text: '${p.barcode}', width: 128, height: 128 });` : ''
                         ).join('\n')}
                         
                         setTimeout(() => {
@@ -1572,6 +1600,9 @@
         let barcodeTemporaneo = '';
 
         function mostraProdottoNonTrovato(barcode) {
+            // Chiudi modal scanner prima di mostrare l'alert
+            closeScanner();
+            
             barcodeTemporaneo = barcode;
             document.getElementById('barcodeNonTrovato').textContent = barcode;
             document.getElementById('prodottoNonTrovatoModal').classList.remove('hidden');
