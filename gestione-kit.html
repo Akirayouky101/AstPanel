@@ -335,6 +335,7 @@
 
     <script>
         let currentUser = null;
+        let currentUserId = null; // ID dalla tabella users
         let currentKitId = null;
         let prodottoSelezionatoKit = null;
 
@@ -349,6 +350,15 @@
             }
             currentUser = user;
             
+            // Ottieni l'ID dalla tabella users
+            const { data: userRecord } = await supabase
+                .from('users')
+                .select('id')
+                .eq('auth_id', user.id)
+                .single();
+            
+            currentUserId = userRecord?.id || null;
+            
             await Promise.all([
                 loadKits(),
                 loadClienti(),
@@ -357,10 +367,10 @@
             ]);
 
             // Listeners filtri
-            document.getElementById('searchKit').addEventListener('input', loadKits);
-            document.getElementById('filterStato').addEventListener('change', loadKits);
-            document.getElementById('filterDestinatario').addEventListener('change', loadKits);
-            document.getElementById('searchProdottoKit').addEventListener('input', cercaProdottoKit);
+            document.getElementById('searchKit')?.addEventListener('input', loadKits);
+            document.getElementById('filterStato')?.addEventListener('change', loadKits);
+            document.getElementById('filterDestinatario')?.addEventListener('change', loadKits);
+            document.getElementById('searchProdottoKit')?.addEventListener('input', cercaProdottoKit);
         }
 
         // ========================================
@@ -809,7 +819,7 @@
             };
 
             if (!id) {
-                kitData.created_by = currentUser.id;
+                kitData.created_by = currentUserId;
             }
 
             const { data, error } = id 
@@ -1109,7 +1119,7 @@
                 prodotto_nome: prodottoSelezionatoKit.descrizione,
                 prodotto_codice: prodottoSelezionatoKit.codice,
                 prodotto_barcode: prodottoSelezionatoKit.barcode,
-                aggiunto_da: currentUser.id
+                aggiunto_da: currentUserId
             }]);
 
             if (error) {
@@ -1418,7 +1428,7 @@
                 prodotto_nome: item.prodotto.nome,
                 prodotto_codice: item.prodotto.codice,
                 prodotto_barcode: '',
-                aggiunto_da: currentUser.id
+                aggiunto_da: currentUserId
             }));
 
             const { error } = await supabase.from('kit_items').insert(items);
@@ -1464,7 +1474,7 @@
                 data_ordine: new Date().toISOString().slice(0, 10),
                 stato: 'da_ordinare',
                 totale_ordine: 0,
-                created_by: currentUser.id
+                created_by: currentUserId
             }]).select().single();
 
             if (errOrdine || !ordine) {
@@ -1553,7 +1563,7 @@
                 prodotto_nome: prodotto.nome,
                 prodotto_codice: prodotto.codice,
                 prodotto_barcode: '',
-                aggiunto_da: currentUser.id
+                aggiunto_da: currentUserId
             }]);
 
             if (error) {
