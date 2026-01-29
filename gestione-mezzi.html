@@ -85,6 +85,12 @@
                     <button onclick="switchTab('noleggio')" id="tab-noleggio" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
                         <i class="fas fa-handshake mr-2"></i>Mezzi a Noleggio
                     </button>
+                    <button onclick="switchTab('scadenze')" id="tab-scadenze" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-calendar-exclamation mr-2"></i>Scadenze <span id="scadenzeCount" class="ml-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full hidden"></span>
+                    </button>
+                    <button onclick="switchTab('manutenzioni')" id="tab-manutenzioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
+                        <i class="fas fa-wrench mr-2"></i>Manutenzioni
+                    </button>
                     <button onclick="switchTab('assegnazioni')" id="tab-assegnazioni" class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium">
                         <i class="fas fa-users mr-2"></i>Assegnazioni Attive
                     </button>
@@ -120,6 +126,36 @@
                 </div>
                 <div id="vehiclesNoleggio" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <!-- Cards mezzi noleggio -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Scadenze -->
+        <div id="panel-scadenze" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📅 Scadenze Prossime</h2>
+                <div id="scadenzeList" class="space-y-3">
+                    <!-- Lista scadenze caricate dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Manutenzioni -->
+        <div id="panel-manutenzioni" class="tab-panel hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">🔧 Storico Manutenzioni</h2>
+                    <button onclick="openMaintenanceModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-plus mr-2"></i>Nuova Manutenzione
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <select id="filterMaintenanceVehicle" onchange="loadMaintenance()" class="px-3 py-2 border rounded-lg text-sm">
+                        <option value="">Tutti i mezzi</option>
+                    </select>
+                </div>
+                <div id="maintenanceList" class="space-y-3">
+                    <!-- Lista manutenzioni caricate dinamicamente -->
                 </div>
             </div>
         </div>
@@ -284,6 +320,52 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Modello</label>
                         <input type="text" id="vehicleModello" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="es: Ducato">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Km Attuali</label>
+                        <input type="number" id="vehicleKmAttuali" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="120000">
+                    </div>
+                </div>
+
+                <!-- Scadenze Amministrative -->
+                <div class="space-y-4 border-t pt-4">
+                    <h4 class="font-bold text-gray-800">📅 Scadenze Amministrative</h4>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Scadenza Assicurazione</label>
+                            <input type="date" id="vehicleScadenzaAssicurazione" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Scadenza Revisione</label>
+                            <input type="date" id="vehicleScadenzaRevisione" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Scadenza Bollo</label>
+                            <input type="date" id="vehicleScadenzaBollo" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manutenzioni -->
+                <div class="space-y-4 border-t pt-4">
+                    <h4 class="font-bold text-gray-800">🔧 Manutenzioni</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ultimo Tagliando (Km)</label>
+                            <input type="number" id="vehicleUltimoTagliandoKm" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="100000">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Ultimo Tagliando</label>
+                            <input type="date" id="vehicleDataUltimoTagliando" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Prossimo Tagliando (Km)</label>
+                            <input type="number" id="vehicleProssimoTagliandoKm" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="120000">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Ultima Revisione</label>
+                            <input type="date" id="vehicleDataUltimaRevisione" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
                     </div>
                 </div>
 
@@ -587,6 +669,16 @@
             document.getElementById('vehicleMarca').value = vehicle.marca || '';
             document.getElementById('vehicleModello').value = vehicle.modello || '';
             
+            // Scadenze e km
+            document.getElementById('vehicleKmAttuali').value = vehicle.km_attuali || '';
+            document.getElementById('vehicleScadenzaAssicurazione').value = vehicle.data_scadenza_assicurazione || '';
+            document.getElementById('vehicleScadenzaRevisione').value = vehicle.data_scadenza_revisione || '';
+            document.getElementById('vehicleScadenzaBollo').value = vehicle.data_scadenza_bollo || '';
+            document.getElementById('vehicleUltimoTagliandoKm').value = vehicle.ultimo_tagliando_km || '';
+            document.getElementById('vehicleDataUltimoTagliando').value = vehicle.data_ultimo_tagliando || '';
+            document.getElementById('vehicleProssimoTagliandoKm').value = vehicle.prossimo_tagliando_km || '';
+            document.getElementById('vehicleDataUltimaRevisione').value = vehicle.data_ultima_revisione || '';
+            
             // Mostra pulsante elimina solo in modifica
             document.getElementById('deleteVehicleBtn').classList.remove('hidden');
 
@@ -622,7 +714,16 @@
                     marca: document.getElementById('vehicleMarca').value ? document.getElementById('vehicleMarca').value.toUpperCase() : null,
                     modello: document.getElementById('vehicleModello').value ? document.getElementById('vehicleModello').value.toUpperCase() : null,
                     proprieta: proprieta,
-                    stato: 'disponibile'
+                    stato: 'disponibile',
+                    // Km e scadenze
+                    km_attuali: document.getElementById('vehicleKmAttuali').value || null,
+                    data_scadenza_assicurazione: document.getElementById('vehicleScadenzaAssicurazione').value || null,
+                    data_scadenza_revisione: document.getElementById('vehicleScadenzaRevisione').value || null,
+                    data_scadenza_bollo: document.getElementById('vehicleScadenzaBollo').value || null,
+                    ultimo_tagliando_km: document.getElementById('vehicleUltimoTagliandoKm').value || null,
+                    data_ultimo_tagliando: document.getElementById('vehicleDataUltimoTagliando').value || null,
+                    prossimo_tagliando_km: document.getElementById('vehicleProssimoTagliandoKm').value || null,
+                    data_ultima_revisione: document.getElementById('vehicleDataUltimaRevisione').value || null
                 };
 
                 if (proprieta === 'noleggio') {
