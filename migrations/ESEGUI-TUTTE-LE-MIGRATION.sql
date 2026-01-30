@@ -220,7 +220,7 @@ CREATE TRIGGER trigger_verifica_giacenza_kit
     FOR EACH ROW
     EXECUTE FUNCTION verifica_giacenza_libera_kit();
 
-RAISE NOTICE '✅ Migration 1/4 completata: Sistema base impegni creato';
+DO $$ BEGIN RAISE NOTICE '✅ Migration 1/4 completata: Sistema base impegni creato'; END $$;
 
 -- ============================================
 -- MIGRATION 2/4: Fix Colonne Preventivi
@@ -276,7 +276,7 @@ CREATE TRIGGER trigger_impegna_preventivo
     FOR EACH ROW
     EXECUTE FUNCTION impegna_preventivo();
 
-RAISE NOTICE '✅ Migration 2/4 completata: Fix colonne preventivi';
+DO $$ BEGIN RAISE NOTICE '✅ Migration 2/4 completata: Fix colonne preventivi'; END $$;
 
 -- ============================================
 -- MIGRATION 3/4: Fix Colonne Tasks
@@ -350,7 +350,7 @@ CREATE TRIGGER trigger_completa_lavorazione_impegno
     FOR EACH ROW
     EXECUTE FUNCTION completa_lavorazione_con_impegno();
 
-RAISE NOTICE '✅ Migration 3/4 completata: Fix colonne tasks';
+DO $$ BEGIN RAISE NOTICE '✅ Migration 3/4 completata: Fix colonne tasks'; END $$;
 
 -- ============================================
 -- MIGRATION 4/4: Sistema Impegni Kit
@@ -567,7 +567,7 @@ CREATE TRIGGER trigger_completa_kit
     FOR EACH ROW
     EXECUTE FUNCTION completa_impegni_kit();
 
-RAISE NOTICE '✅ Migration 4/4 completata: Sistema impegni kit';
+DO $$ BEGIN RAISE NOTICE '✅ Migration 4/4 completata: Sistema impegni kit'; END $$;
 
 -- ============================================
 -- RIEPILOGO FINALE
