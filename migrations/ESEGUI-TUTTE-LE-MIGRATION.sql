@@ -37,8 +37,9 @@ CREATE INDEX IF NOT EXISTS idx_impegni_preventivo ON impegni_magazzino(preventiv
 CREATE INDEX IF NOT EXISTS idx_impegni_lavorazione ON impegni_magazzino(lavorazione_id);
 CREATE INDEX IF NOT EXISTS idx_impegni_kit ON impegni_magazzino(kit_id);
 
--- Vista giacenze complete
-CREATE OR REPLACE VIEW v_giacenze_complete AS
+-- Vista giacenze complete (drop e ricrea per evitare conflitti colonne)
+DROP VIEW IF EXISTS v_giacenze_complete;
+CREATE VIEW v_giacenze_complete AS
 SELECT 
     c.id,
     c.nome,
