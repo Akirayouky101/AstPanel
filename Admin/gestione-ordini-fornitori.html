@@ -9,6 +9,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-client.js"></script>
     <script src="auth-helper.js"></script>
+    <style>
+        @keyframes bounce-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.3s ease-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
@@ -322,6 +332,68 @@
         </div>
     </div>
 
+    <!-- Modal Conferma Eliminazione -->
+    <div id="confirmDeleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-exclamation-triangle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Conferma Eliminazione</h2>
+            </div>
+            <div class="p-6">
+                <div class="text-center text-gray-700 mb-6">
+                    <p id="confirmDeleteMessage" class="text-lg"></p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmDeleteModal()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="confermaEliminazione()" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                        <i class="fas fa-trash mr-2"></i>Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Successo -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-check-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Successo!</h2>
+            </div>
+            <div class="p-6">
+                <p id="successMessage" class="text-center text-gray-800 text-lg font-semibold mb-6"></p>
+                <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold">
+                    <i class="fas fa-check mr-2"></i>OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Errore -->
+    <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-red-500 to-red-700 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-times-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Errore</h2>
+            </div>
+            <div class="p-6">
+                <p id="errorMessage" class="text-center text-gray-800 text-lg font-semibold mb-2"></p>
+                <p id="errorDetails" class="text-center text-gray-600 text-sm mb-6"></p>
+                <button onclick="closeErrorModal()" class="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                    <i class="fas fa-times mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
         let ordini = [];
@@ -607,7 +679,7 @@
 
             // Verifica se già presente
             if (currentItems.some(item => item.prodotto_id === prodottoId)) {
-                alert('Prodotto già aggiunto all\'ordine');
+                showErrorModal('Prodotto già aggiunto', 'Questo prodotto è già presente nell\'ordine');
                 return;
             }
 
@@ -701,17 +773,17 @@
                 const oggetto = document.getElementById('oggetto').value.trim();
 
                 if (!fornitoreId) {
-                    alert('Seleziona un fornitore');
+                    showErrorModal('Seleziona un fornitore', 'È necessario selezionare un fornitore per creare l\'ordine');
                     return;
                 }
 
                 if (!oggetto) {
-                    alert('Inserisci l\'oggetto dell\'ordine');
+                    showErrorModal('Inserisci l\'oggetto dell\'ordine', 'L\'oggetto dell\'ordine è obbligatorio');
                     return;
                 }
 
                 if (currentItems.length === 0) {
-                    alert('Aggiungi almeno un prodotto');
+                    showErrorModal('Aggiungi almeno un prodotto', 'Non puoi creare un ordine vuoto');
                     return;
                 }
 
@@ -787,12 +859,12 @@
 
                 if (itemsError) throw itemsError;
 
-                alert('✅ Ordine salvato con successo!');
+                showSuccessModal('Ordine salvato con successo!');
                 closeModal();
                 await loadOrdini();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('❌ Errore nel salvataggio: ' + error.message);
+                showErrorModal('Errore nel salvataggio dell\'ordine', error.message);
             }
         }
 
@@ -919,33 +991,19 @@
                     }
                 }
 
-                alert('✅ Merce ricevuta e caricata in magazzino!');
+                showSuccessModal('Merce ricevuta e caricata in magazzino!');
                 closeRicezioneModal();
                 await loadOrdini();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('❌ Errore nella ricezione: ' + error.message);
+                showErrorModal('Errore nella ricezione della merce', error.message);
             }
         }
 
         async function eliminaOrdine(id, numero) {
-            if (!confirm(`Sei sicuro di voler eliminare l'ordine "${numero}"?`)) return;
-
-            try {
-                const { error } = await window.supabase
-                    .from('ordini_fornitore')
-                    .delete()
-                    .eq('id', id);
-
-                if (error) throw error;
-
-                alert('✅ Ordine eliminato!');
-                await loadOrdini();
-            } catch (error) {
-                console.error('Errore:', error);
-                alert('❌ Errore nell\'eliminazione: ' + error.message);
-            }
+            mostraConfermaEliminazione(id, numero);
         }
+
 
         function closeModal() {
             document.getElementById('ordineModal').classList.add('hidden');
@@ -959,6 +1017,67 @@
 
         function closeRicezioneModal() {
             document.getElementById('ricezioneModal').classList.add('hidden');
+        }
+
+        // ========================================
+        // MODAL SYSTEM
+        // ========================================
+        let ordineIdDaEliminare = null;
+        let ordineNumeroDaEliminare = '';
+
+        function mostraConfermaEliminazione(id, numero) {
+            ordineIdDaEliminare = id;
+            ordineNumeroDaEliminare = numero;
+            document.getElementById('confirmDeleteMessage').textContent = 
+                `Sei sicuro di voler eliminare l'ordine "${numero}"?`;
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+        function closeConfirmDeleteModal() {
+            document.getElementById('confirmDeleteModal').classList.add('hidden');
+            ordineIdDaEliminare = null;
+            ordineNumeroDaEliminare = '';
+        }
+
+        async function confermaEliminazione() {
+            if (!ordineIdDaEliminare) return;
+
+            try {
+                const { error } = await window.supabase
+                    .from('ordini_fornitore')
+                    .delete()
+                    .eq('id', ordineIdDaEliminare);
+
+                if (error) throw error;
+
+                closeConfirmDeleteModal();
+                showSuccessModal('Ordine eliminato con successo!');
+                await loadOrdini();
+            } catch (error) {
+                console.error('Errore:', error);
+                closeConfirmDeleteModal();
+                showErrorModal('Errore nell\'eliminazione dell\'ordine', error.message);
+            }
+        }
+
+        function showSuccessModal(message) {
+            document.getElementById('successMessage').textContent = message;
+            document.getElementById('successModal').classList.remove('hidden');
+            setTimeout(() => closeSuccessModal(), 2500);
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+        }
+
+        function showErrorModal(message, details = '') {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDetails').textContent = details;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.add('hidden');
         }
     </script>
 </body>
