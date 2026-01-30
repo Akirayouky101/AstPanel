@@ -1016,13 +1016,22 @@
                     .select('*');
                 
                 if (giacError) {
-                    console.warn('Vista giacenze non disponibile, uso dati base:', giacError);
+                    console.warn('⚠️ Vista v_giacenze_complete non disponibile:', giacError);
+                    console.warn('💡 Esegui migration: migrations/add-impegni-magazzino-system.sql');
+                    showErrorModal(
+                        'Sistema impegni non configurato',
+                        'Esegui la migration add-impegni-magazzino-system.sql su Supabase per abilitare il tracking impegni magazzino'
+                    );
                     // Fallback se vista non esiste ancora
                     prodotti = (componentsData || []).map(p => normalizzaProdotto(p, null));
                 } else {
+                    console.log('✅ Vista giacenze caricata:', giacenzeData?.length || 0, 'prodotti');
                     // Merge dati components con giacenze
                     prodotti = (componentsData || []).map(p => {
                         const giacenza = giacenzeData.find(g => g.id === p.id);
+                        if (!giacenza) {
+                            console.warn('⚠️ Prodotto non trovato in vista:', p.nome || p.codice);
+                        }
                         return normalizzaProdotto(p, giacenza);
                     });
                 }
