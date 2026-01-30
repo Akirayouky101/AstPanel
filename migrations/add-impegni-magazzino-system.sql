@@ -137,11 +137,11 @@ BEGIN
                 NEW.id,
                 'attivo',
                 v_user_id,
-                'Impegno automatico per preventivo ' || NEW.numero_preventivo
+                'Impegno automatico per preventivo ' || NEW.numero
             );
         END LOOP;
         
-        RAISE NOTICE '✅ Impegnati prodotti per preventivo %', NEW.numero_preventivo;
+        RAISE NOTICE '✅ Impegnati prodotti per preventivo %', NEW.numero;
     END IF;
     
     -- Se preventivo viene annullato o rifiutato, libera impegni
@@ -150,7 +150,7 @@ BEGIN
         SET stato = 'annullato'
         WHERE preventivo_id = NEW.id AND stato = 'attivo';
         
-        RAISE NOTICE '🔓 Liberati prodotti per preventivo annullato %', NEW.numero_preventivo;
+        RAISE NOTICE '🔓 Liberati prodotti per preventivo annullato %', NEW.numero;
     END IF;
     
     RETURN NEW;
