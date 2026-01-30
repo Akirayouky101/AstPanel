@@ -1775,23 +1775,63 @@
                     continue;
                 }
 
-                // Aggiungi righe ordine con timestamp
-                const adesso = new Date().toISOString();
-                const righe = gruppo.items.map(item => ({
-                    ordine_id: ordine.id,
-                    codice: item.prodotto_codice,
-                    descrizione: item.prodotto_nome,
-                    quantita_ordinata: item.quantita_mancante,
-                    prezzo_acquisto: 0, // Prezzo da definire
-                    stato: 'da_ricevere',
-                    created_at: adesso // Timestamp per sapere quando è stato aggiunto
-                }));
+                // 🔄 GESTIONE INTELLIGENTE RIGHE ORDINE
+                // Prima carica le righe esistenti
+                const { data: righeEsistenti } = await supabase
+                    .from('ordini_fornitore_items')
+                    .select('id, codice, quantita_ordinata, prodotto_id')
+                    .eq('ordine_id', ordine.id);
 
-                const { error: errRighe } = await supabase.from('ordini_fornitore_items').insert(righe);
+                const adesso = new Date().toISOString();
+                const righeMap = new Map(righeEsistenti?.map(r => [r.codice, r]) || []);
                 
-                if (errRighe) {
-                    console.error('Errore inserimento righe ordine:', errRighe);
-                    continue;
+                const righeNuove = [];
+                const righeAggiornate = [];
+
+                for (const item of gruppo.items) {
+                    const rigaEsistente = righeMap.get(item.prodotto_codice);
+                    
+                    if (rigaEsistente) {
+                        // ✅ PRODOTTO GIÀ PRESENTE - Aggiungi solo la differenza
+                        const nuovaQuantita = rigaEsistente.quantita_ordinata + item.quantita_mancante;
+                        righeAggiornate.push({
+                            id: rigaEsistente.id,
+                            quantita_ordinata: nuovaQuantita
+                        });
+                        console.log(`📝 Aggiorno ${item.prodotto_codice}: ${rigaEsistente.quantita_ordinata} + ${item.quantita_mancante} = ${nuovaQuantita}`);
+                    } else {
+                        // 🆕 PRODOTTO NUOVO - Aggiungi riga
+                        righeNuove.push({
+                            ordine_id: ordine.id,
+                            codice: item.prodotto_codice,
+                            descrizione: item.prodotto_nome,
+                            quantita_ordinata: item.quantita_mancante,
+                            prezzo_acquisto: 0,
+                            stato: 'da_ricevere',
+                            created_at: adesso
+                        });
+                        console.log(`➕ Aggiungo nuovo ${item.prodotto_codice}: ${item.quantita_mancante}`);
+                    }
+                }
+
+                // Esegui aggiornamenti
+                for (const riga of righeAggiornate) {
+                    await supabase
+                        .from('ordini_fornitore_items')
+                        .update({ quantita_ordinata: riga.quantita_ordinata })
+                        .eq('id', riga.id);
+                }
+
+                // Inserisci nuove righe
+                if (righeNuove.length > 0) {
+                    const { error: errRighe } = await supabase
+                        .from('ordini_fornitore_items')
+                        .insert(righeNuove);
+                
+                    if (errRighe) {
+                        console.error('Errore inserimento righe ordine:', errRighe);
+                        continue;
+                    }
                 }
                 
                 ordiniCreati++;
