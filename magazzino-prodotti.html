@@ -203,7 +203,7 @@
     </div>
 
     <!-- Modal Nuovo Prodotto -->
-    <div id="nuovoProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div id="nuovoProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="gradient-bg p-6 rounded-t-2xl sticky top-0">
                 <h3 class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
@@ -262,14 +262,35 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Minima</label>
                         <input type="number" id="nuovoGiacenzaMin" value="0" step="0.01" class="w-full px-4 py-2 border rounded-lg">
                     </div>
-                    <div>
+                    <div class="col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             Fornitore
                             <span class="text-xs text-gray-500 font-normal ml-2">Per ordini automatici</span>
                         </label>
-                        <select id="nuovoFornitore" class="w-full px-4 py-2 border rounded-lg">
-                            <option value="">-- Nessun fornitore --</option>
-                        </select>
+                        <div class="flex space-x-2">
+                            <input 
+                                type="text" 
+                                id="nuovoFornitoreNome" 
+                                class="flex-1 px-4 py-2 border-2 rounded-lg bg-gray-50" 
+                                placeholder="Nessun fornitore selezionato"
+                                readonly
+                            >
+                            <button 
+                                type="button"
+                                onclick="apriRicercaFornitore('nuovo')" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button 
+                                type="button"
+                                onclick="rimuoviFornitoreSelezionato('nuovo')" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+                            >
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="nuovoFornitoreId">
                     </div>
                 </div>
                 <div class="flex space-x-3 mt-6">
@@ -285,7 +306,7 @@
     </div>
 
     <!-- Modal Modifica Prodotto -->
-    <div id="modificaProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div id="modificaProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-t-2xl sticky top-0">
                 <h3 class="text-2xl font-bold text-white"><i class="fas fa-edit mr-2"></i>Modifica Prodotto</h3>
@@ -341,14 +362,35 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Minima</label>
                         <input type="number" id="modificaGiacenzaMin" step="0.01" class="w-full px-4 py-2 border rounded-lg">
                     </div>
-                    <div>
+                    <div class="col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             Fornitore
                             <span class="text-xs text-gray-500 font-normal ml-2">Per ordini automatici</span>
                         </label>
-                        <select id="modificaFornitore" class="w-full px-4 py-2 border rounded-lg">
-                            <option value="">-- Nessun fornitore --</option>
-                        </select>
+                        <div class="flex space-x-2">
+                            <input 
+                                type="text" 
+                                id="modificaFornitoreNome" 
+                                class="flex-1 px-4 py-2 border-2 rounded-lg bg-gray-50" 
+                                placeholder="Nessun fornitore selezionato"
+                                readonly
+                            >
+                            <button 
+                                type="button"
+                                onclick="apriRicercaFornitore('modifica')" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button 
+                                type="button"
+                                onclick="rimuoviFornitoreSelezionato('modifica')" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+                            >
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="modificaFornitoreId">
                     </div>
                 </div>
                 <div class="flex space-x-3 mt-6">
@@ -691,6 +733,43 @@
         </div>
     </div>
 
+    <!-- Modal Ricerca Fornitore -->
+    <div id="ricercaFornitoreModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[80] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl">
+                <h3 class="text-2xl font-bold text-white flex items-center">
+                    <i class="fas fa-search mr-3"></i>
+                    Cerca Fornitore
+                </h3>
+            </div>
+            <div class="p-6">
+                <!-- Input ricerca -->
+                <div class="mb-4">
+                    <input 
+                        type="text" 
+                        id="searchFornitoreInput" 
+                        placeholder="Cerca per nome azienda, codice, P.IVA..." 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onkeyup="filtraFornitori()"
+                    >
+                </div>
+                
+                <!-- Lista fornitori -->
+                <div class="overflow-y-auto max-h-96 space-y-2" id="listaFornitoriModal">
+                    <!-- Sarà popolato dinamicamente -->
+                </div>
+            </div>
+            <div class="p-6 border-t bg-gray-50 flex justify-between">
+                <button onclick="selezionaFornitore(null)" class="px-6 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition">
+                    <i class="fas fa-times mr-2"></i>Nessun Fornitore
+                </button>
+                <button onclick="closeRicercaFornitore()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
@@ -745,11 +824,13 @@
         // ========================================
         // CARICAMENTO FORNITORI
         // ========================================
+        let fornitoreModalMode = 'nuovo'; // 'nuovo' o 'modifica'
+        
         async function caricaFornitori() {
             try {
                 const { data, error } = await supabase
                     .from('fornitori')
-                    .select('id, nome_azienda, codice_fornitore')
+                    .select('id, nome_azienda, codice_fornitore, partita_iva, email, telefono')
                     .order('nome_azienda');
                 
                 if (error) {
@@ -759,7 +840,7 @@
                 }
                 
                 fornitori = data || [];
-                popolaSelectFornitori();
+                console.log('Fornitori caricati:', fornitori.length);
                 
             } catch (error) {
                 console.error('Errore caricamento fornitori:', error);
@@ -767,24 +848,88 @@
             }
         }
 
-        function popolaSelectFornitori() {
-            const selects = ['nuovoFornitore', 'modificaFornitore'];
+        function apriRicercaFornitore(mode) {
+            fornitoreModalMode = mode;
+            document.getElementById('searchFornitoreInput').value = '';
+            filtraFornitori();
+            document.getElementById('ricercaFornitoreModal').classList.remove('hidden');
+            document.getElementById('ricercaFornitoreModal').classList.add('flex');
             
-            selects.forEach(selectId => {
-                const select = document.getElementById(selectId);
-                if (!select) return;
-                
-                // Mantieni l'opzione "Nessun fornitore"
-                select.innerHTML = '<option value="">-- Nessun fornitore --</option>';
-                
-                // Aggiungi fornitori
-                fornitori.forEach(f => {
-                    const option = document.createElement('option');
-                    option.value = f.id;
-                    option.textContent = f.nome_azienda + (f.codice_fornitore ? ` (${f.codice_fornitore})` : '');
-                    select.appendChild(option);
-                });
-            });
+            // Auto-focus su search
+            setTimeout(() => {
+                document.getElementById('searchFornitoreInput').focus();
+            }, 100);
+        }
+
+        function closeRicercaFornitore() {
+            document.getElementById('ricercaFornitoreModal').classList.add('hidden');
+            document.getElementById('ricercaFornitoreModal').classList.remove('flex');
+        }
+
+        function filtraFornitori() {
+            const search = document.getElementById('searchFornitoreInput').value.toLowerCase();
+            const container = document.getElementById('listaFornitoriModal');
+            
+            const filtrati = fornitori.filter(f => 
+                f.nome_azienda?.toLowerCase().includes(search) ||
+                f.codice_fornitore?.toLowerCase().includes(search) ||
+                f.partita_iva?.toLowerCase().includes(search) ||
+                f.email?.toLowerCase().includes(search)
+            );
+
+            if (filtrati.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-2"></i>
+                        <p>Nessun fornitore trovato</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtrati.map(f => `
+                <div 
+                    onclick="selezionaFornitore('${f.id}', '${f.nome_azienda}', '${f.codice_fornitore || ''}')" 
+                    class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                >
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold text-lg">${f.nome_azienda}</p>
+                            ${f.codice_fornitore ? `<p class="text-sm text-gray-600">Codice: ${f.codice_fornitore}</p>` : ''}
+                            ${f.partita_iva ? `<p class="text-sm text-gray-600">P.IVA: ${f.partita_iva}</p>` : ''}
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                    ${f.email || f.telefono ? `
+                        <div class="mt-2 text-sm text-gray-500">
+                            ${f.email ? `<span class="mr-3"><i class="fas fa-envelope mr-1"></i>${f.email}</span>` : ''}
+                            ${f.telefono ? `<span><i class="fas fa-phone mr-1"></i>${f.telefono}</span>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function selezionaFornitore(fornitoreId, nomeAzienda = null, codiceFornitore = null) {
+            const prefix = fornitoreModalMode; // 'nuovo' o 'modifica'
+            
+            if (fornitoreId) {
+                // Fornitore selezionato
+                document.getElementById(`${prefix}FornitoreId`).value = fornitoreId;
+                const displayName = nomeAzienda + (codiceFornitore ? ` (${codiceFornitore})` : '');
+                document.getElementById(`${prefix}FornitoreNome`).value = displayName;
+            } else {
+                // Nessun fornitore
+                document.getElementById(`${prefix}FornitoreId`).value = '';
+                document.getElementById(`${prefix}FornitoreNome`).value = '';
+            }
+            
+            closeRicercaFornitore();
+        }
+
+        function rimuoviFornitoreSelezionato(mode) {
+            document.getElementById(`${mode}FornitoreId`).value = '';
+            document.getElementById(`${mode}FornitoreNome`).value = '';
         }
 
         // Carica prodotti
@@ -1230,7 +1375,7 @@
                 const umValore = document.getElementById('nuovoUM').value || 'pz';
                 const prezzoAcquisto = parseFloat(document.getElementById('nuovoPrezzoAcquisto').value) || 0;
                 const codiceValore = document.getElementById('nuovoCodice').value.trim() || null;
-                const fornitoreId = document.getElementById('nuovoFornitore').value || null;
+                const fornitoreId = document.getElementById('nuovoFornitoreId').value || null; // Cambiato da nuovoFornitore a nuovoFornitoreId
                 
                 const nuovoProdotto = {
                     // Campi OBBLIGATORI schema originale
@@ -1303,7 +1448,20 @@
             document.getElementById('modificaUM').value = prodotto.um || prodotto.unita_misura || 'pz';
             document.getElementById('modificaPrezzoAcquisto').value = (prodotto.prezzo_acquisto || prodotto.prezzo_unitario || 0).toFixed(2);
             document.getElementById('modificaGiacenzaMin').value = (prodotto.giacenza_minima || 0).toFixed(2);
-            document.getElementById('modificaFornitore').value = prodotto.fornitore_id || '';
+            
+            // Precompila fornitore
+            document.getElementById('modificaFornitoreId').value = prodotto.fornitore_id || '';
+            if (prodotto.fornitore_id && fornitori.length > 0) {
+                const fornitore = fornitori.find(f => f.id === prodotto.fornitore_id);
+                if (fornitore) {
+                    const displayName = fornitore.nome_azienda + (fornitore.codice_fornitore ? ` (${fornitore.codice_fornitore})` : '');
+                    document.getElementById('modificaFornitoreNome').value = displayName;
+                } else {
+                    document.getElementById('modificaFornitoreNome').value = '';
+                }
+            } else {
+                document.getElementById('modificaFornitoreNome').value = '';
+            }
 
             // Apri modal
             document.getElementById('modificaProdottoModal').classList.remove('hidden');
@@ -1327,7 +1485,7 @@
                 const umValore = document.getElementById('modificaUM').value || 'pz';
                 const prezzoAcquisto = parseFloat(document.getElementById('modificaPrezzoAcquisto').value) || 0;
                 const codiceValore = document.getElementById('modificaCodice').value.trim() || null;
-                const fornitoreId = document.getElementById('modificaFornitore').value || null;
+                const fornitoreId = document.getElementById('modificaFornitoreId').value || null; // Cambiato da modificaFornitore a modificaFornitoreId
                 
                 const datiAggiornati = {
                     // Campi OBBLIGATORI schema originale
