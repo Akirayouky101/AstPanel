@@ -1294,17 +1294,31 @@
             await loadComponentiKit(currentKitId);
         }
 
-        async function rimuoviComponente(itemId) {
-            if (!confirm('Rimuovere questo componente dal kit?')) return;
+        let componenteIdDaRimuovere = null;
 
-            const { error } = await supabase.from('kit_items').delete().eq('id', itemId);
+        async function rimuoviComponente(itemId) {
+            componenteIdDaRimuovere = itemId;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            componenteIdDaRimuovere = null;
+        }
+
+        async function confermaRimozione() {
+            if (!componenteIdDaRimuovere) return;
+
+            const { error } = await supabase.from('kit_items').delete().eq('id', componenteIdDaRimuovere);
 
             if (error) {
                 console.error('Error removing component:', error);
-                alert('Errore nella rimozione');
+                closeConfirmModal();
+                showErrorModal('Errore nella rimozione del componente', error.message);
                 return;
             }
 
+            closeConfirmModal();
             await loadComponentiKit(currentKitId);
         }
 
@@ -1930,6 +1944,18 @@
             document.getElementById('successModal').classList.add('hidden');
         }
 
+        function showErrorModal(message, details = '') {
+            const modal = document.getElementById('errorModal');
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDetails').textContent = details;
+            modal.classList.remove('hidden');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.add('hidden');
+        }
+
+
 
         function renderProdottiMagazzino(prodotti) {
             const container = document.getElementById('listaProdottiMagazzino');
@@ -2347,6 +2373,31 @@
         </div>
     </div>
 
+    <!-- Modal Conferma Rimozione -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-exclamation-triangle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Conferma Rimozione</h2>
+            </div>
+            <div class="p-6">
+                <div id="confirmMessage" class="text-center text-gray-700 mb-6">
+                    <p class="text-lg">Sei sicuro di voler rimuovere questo componente dal kit?</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="confermaRimozione()" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                        <i class="fas fa-trash mr-2"></i>Rimuovi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Successo Aggiunta Componenti -->
     <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
@@ -2367,5 +2418,25 @@
         </div>
     </div>
 
+    <!-- Modal Errore -->
+    <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-red-500 to-red-700 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-times-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Errore</h2>
+            </div>
+            <div class="p-6">
+                <p id="errorMessage" class="text-center text-gray-800 text-lg font-semibold mb-2"></p>
+                <p id="errorDetails" class="text-center text-gray-600 text-sm mb-6"></p>
+                <button onclick="closeErrorModal()" class="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                    <i class="fas fa-times mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
+
