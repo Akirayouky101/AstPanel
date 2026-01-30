@@ -1409,33 +1409,18 @@
 
             // Aggiungi o incrementa quantità
             if (prodottiMultiMap.has(prodotto.id)) {
+                // ✅ PRODOTTO GIÀ SCANSIONATO - INCREMENTA SENZA MODAL
                 const item = prodottiMultiMap.get(prodotto.id);
                 item.quantita++;
                 
-                // ⚠️ SUPERATO IL LIMITE GIACENZA
+                // Calcola quantità mancante
                 if (quantitaRichiesta > giacenzaDisponibile) {
-                    const mancante = quantitaRichiesta - giacenzaDisponibile;
-                    item.quantita_mancante = (item.quantita_mancante || 0) + 1;
-                    
-                    // Alert all'utente
-                    const conferma = await showConfirmGiacenza(
-                        `⚠️ ATTENZIONE: Giacenza insufficiente!`,
-                        `Prodotto: ${prodotto.nome}\nDisponibile: ${giacenzaDisponibile}\nRichiesto: ${quantitaRichiesta}\nMancante: ${mancante}\n\nVuoi continuare comunque?\n(Verrà creato un ordine fornitore automatico)`
-                    );
-                    
-                    if (!conferma) {
-                        // Rimuovi l'ultimo incremento
-                        item.quantita--;
-                        item.quantita_mancante = Math.max(0, (item.quantita_mancante || 0) - 1);
-                        renderProdottiMulti();
-                        updateStatsMulti();
-                        return;
-                    }
+                    item.quantita_mancante = quantitaRichiesta - giacenzaDisponibile;
                 }
             } else {
+                // 🆕 PRIMA SCANSIONE - CHIEDI CONFERMA SE MANCA GIACENZA
                 const quantitaMancante = Math.max(0, 1 - giacenzaDisponibile);
                 
-                // ⚠️ PRIMA SCANSIONE MA GIÀ SENZA GIACENZA
                 if (quantitaMancante > 0) {
                     const conferma = await showConfirmGiacenza(
                         `⚠️ ATTENZIONE: Prodotto non disponibile!`,
@@ -1672,7 +1657,7 @@
             // Ottieni info fornitore per ogni prodotto
             const prodottiIds = itemsMancanti.map(i => i.prodotto_id);
             const { data: prodotti, error: errProdotti } = await supabase
-                .from('prodotti')
+                .from('components')
                 .select('id, fornitore_id, fornitori(id, ragione_sociale, email)')
                 .in('id', prodottiIds);
 
