@@ -830,8 +830,9 @@
             try {
                 const { data, error } = await supabase
                     .from('fornitori')
-                    .select('id, nome_azienda, codice_fornitore, partita_iva, email, telefono')
-                    .order('nome_azienda');
+                    .select('id, ragione_sociale, codice_fornitore, partita_iva, email, telefono, cellulare')
+                    .eq('attivo', true)
+                    .order('ragione_sociale');
                 
                 if (error) {
                     console.warn('Errore caricamento fornitori:', error);
@@ -871,7 +872,7 @@
             const container = document.getElementById('listaFornitoriModal');
             
             const filtrati = fornitori.filter(f => 
-                f.nome_azienda?.toLowerCase().includes(search) ||
+                f.ragione_sociale?.toLowerCase().includes(search) ||
                 f.codice_fornitore?.toLowerCase().includes(search) ||
                 f.partita_iva?.toLowerCase().includes(search) ||
                 f.email?.toLowerCase().includes(search)
@@ -889,21 +890,22 @@
 
             container.innerHTML = filtrati.map(f => `
                 <div 
-                    onclick="selezionaFornitore('${f.id}', '${f.nome_azienda}', '${f.codice_fornitore || ''}')" 
+                    onclick="selezionaFornitore('${f.id}', '${f.ragione_sociale?.replace(/'/g, "\\'")}', '${f.codice_fornitore || ''}')" 
                     class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
                 >
                     <div class="flex justify-between items-start">
                         <div>
-                            <p class="font-bold text-lg">${f.nome_azienda}</p>
+                            <p class="font-bold text-lg">${f.ragione_sociale || 'N/A'}</p>
                             ${f.codice_fornitore ? `<p class="text-sm text-gray-600">Codice: ${f.codice_fornitore}</p>` : ''}
                             ${f.partita_iva ? `<p class="text-sm text-gray-600">P.IVA: ${f.partita_iva}</p>` : ''}
                         </div>
                         <i class="fas fa-chevron-right text-gray-400"></i>
                     </div>
-                    ${f.email || f.telefono ? `
+                    ${f.email || f.telefono || f.cellulare ? `
                         <div class="mt-2 text-sm text-gray-500">
                             ${f.email ? `<span class="mr-3"><i class="fas fa-envelope mr-1"></i>${f.email}</span>` : ''}
-                            ${f.telefono ? `<span><i class="fas fa-phone mr-1"></i>${f.telefono}</span>` : ''}
+                            ${f.telefono ? `<span class="mr-3"><i class="fas fa-phone mr-1"></i>${f.telefono}</span>` : ''}
+                            ${f.cellulare && f.cellulare !== f.telefono ? `<span><i class="fas fa-mobile mr-1"></i>${f.cellulare}</span>` : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -1454,7 +1456,7 @@
             if (prodotto.fornitore_id && fornitori.length > 0) {
                 const fornitore = fornitori.find(f => f.id === prodotto.fornitore_id);
                 if (fornitore) {
-                    const displayName = fornitore.nome_azienda + (fornitore.codice_fornitore ? ` (${fornitore.codice_fornitore})` : '');
+                    const displayName = fornitore.ragione_sociale + (fornitore.codice_fornitore ? ` (${fornitore.codice_fornitore})` : '');
                     document.getElementById('modificaFornitoreNome').value = displayName;
                 } else {
                     document.getElementById('modificaFornitoreNome').value = '';

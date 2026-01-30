@@ -1600,7 +1600,7 @@
             const prodottiIds = itemsMancanti.map(i => i.prodotto_id);
             const { data: prodotti } = await supabase
                 .from('components')
-                .select('id, fornitore_id, fornitori(id, nome, email)')
+                .select('id, fornitore_id, fornitori(id, ragione_sociale, email)')
                 .in('id', prodottiIds);
 
             if (!prodotti) return;
@@ -1611,7 +1611,7 @@
             for (const item of itemsMancanti) {
                 const prodotto = prodotti.find(p => p.id === item.prodotto_id);
                 const fornitoreId = prodotto?.fornitore_id || 'nessuno';
-                const fornitoreNome = prodotto?.fornitori?.nome || 'Da Assegnare';
+                const fornitoreNome = prodotto?.fornitori?.ragione_sociale || 'Da Assegnare';
                 
                 if (!gruppiFornitore.has(fornitoreId)) {
                     gruppiFornitore.set(fornitoreId, {
