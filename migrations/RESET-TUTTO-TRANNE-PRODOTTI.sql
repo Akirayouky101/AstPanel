@@ -2,9 +2,9 @@
 -- RESET COMPLETO SISTEMA (TRANNE PRODOTTI)
 -- ============================================
 -- ATTENZIONE: Questo script CANCELLA TUTTI I DATI da:
--- - Preventivi e preventivo_items
+-- - Preventivi e preventivi_items
 -- - Kit e kit_items  
--- - Ordini fornitori e ordini_fornitori_items
+-- - Ordini fornitori e ordini_fornitore_items
 -- - Impegni magazzino
 -- - Movimenti magazzino
 -- - Tasks/Lavorazioni
@@ -107,12 +107,12 @@ DECLARE
     v_count_ordini INTEGER;
 BEGIN
     -- Prima le righe ordine (per FK)
-    SELECT COUNT(*) INTO v_count_items FROM ordini_fornitori_items;
-    DELETE FROM ordini_fornitori_items;
+    SELECT COUNT(*) INTO v_count_items FROM ordini_fornitore_items;
+    DELETE FROM ordini_fornitore_items;
     
     -- Poi gli ordini
-    SELECT COUNT(*) INTO v_count_ordini FROM ordini_fornitori;
-    DELETE FROM ordini_fornitori;
+    SELECT COUNT(*) INTO v_count_ordini FROM ordini_fornitore;
+    DELETE FROM ordini_fornitore;
     
     RAISE NOTICE '✅ Cancellati % ordini fornitori e % righe', v_count_ordini, v_count_items;
 END $$;
