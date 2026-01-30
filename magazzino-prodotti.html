@@ -2377,22 +2377,27 @@
                     caricatiErrore++;
                 } else {
                     // Registra movimento con giacenze
-                    await supabase.from('movimenti_magazzino').insert([{
+                    const { error: movError } = await supabase.from('movimenti_magazzino').insert([{
                         prodotto_id: prodottoId,
                         tipo_movimento: 'entrata',
                         quantita: item.quantita,
                         giacenza_prima: giacenzaPrima,
                         giacenza_dopo: nuovaGiacenza,
                         causale: 'Carico Multiplo',
-                        eseguito_da: currentUserId,
+                        created_by: currentUserId,
                         data_movimento: new Date().toISOString()
                     }]);
+                    
+                    if (movError) {
+                        console.error('Errore registrazione movimento:', movError);
+                    }
+                    
                     caricatiOk++;
                 }
             }
 
             // Ricarica prodotti
-            await ricercaProdotti();
+            await caricaProdotti();
 
             // Mostra risultato
             showSuccessModal(
