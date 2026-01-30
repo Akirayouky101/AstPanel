@@ -229,7 +229,7 @@ DO $$ BEGIN RAISE NOTICE '✅ Migration 1/4 completata: Sistema base impegni cre
 -- Corregge uso di preventivi.numero invece di numero_preventivo
 
 DROP TRIGGER IF EXISTS trigger_impegna_preventivo ON preventivi;
-DROP FUNCTION IF EXISTS impegna_preventivo();
+DROP FUNCTION IF EXISTS impegna_preventivo() CASCADE;
 
 CREATE OR REPLACE FUNCTION impegna_preventivo()
 RETURNS TRIGGER AS $$
@@ -285,7 +285,7 @@ DO $$ BEGIN RAISE NOTICE '✅ Migration 2/4 completata: Fix colonne preventivi';
 -- Corregge uso di tasks.titolo invece di codice_lavorazione
 
 DROP TRIGGER IF EXISTS trigger_trasferisci_impegno ON tasks;
-DROP FUNCTION IF EXISTS trasferisci_impegno_a_lavorazione();
+DROP FUNCTION IF EXISTS trasferisci_impegno_a_lavorazione() CASCADE;
 
 CREATE OR REPLACE FUNCTION trasferisci_impegno_a_lavorazione()
 RETURNS TRIGGER AS $$
@@ -312,7 +312,7 @@ CREATE TRIGGER trigger_trasferisci_impegno
     EXECUTE FUNCTION trasferisci_impegno_a_lavorazione();
 
 DROP TRIGGER IF EXISTS trigger_completa_lavorazione_impegno ON tasks;
-DROP FUNCTION IF EXISTS completa_lavorazione_con_impegno();
+DROP FUNCTION IF EXISTS completa_lavorazione_con_impegno() CASCADE;
 
 CREATE OR REPLACE FUNCTION completa_lavorazione_con_impegno()
 RETURNS TRIGGER AS $$
