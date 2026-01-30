@@ -1671,20 +1671,38 @@
 
             // Ottieni info fornitore per ogni prodotto
             const prodottiIds = itemsMancanti.map(i => i.prodotto_id);
-            const { data: prodotti } = await supabase
-                .from('components')
+            const { data: prodotti, error: errProdotti } = await supabase
+                .from('prodotti')
                 .select('id, fornitore_id, fornitori(id, ragione_sociale, email)')
                 .in('id', prodottiIds);
 
-            if (!prodotti) return;
+            if (errProdotti) {
+                console.error('Errore caricamento prodotti per ordini:', errProdotti);
+                return 0;
+            }
+
+            if (!prodotti || prodotti.length === 0) {
+                console.warn('Nessun prodotto trovato per creare ordini fornitore');
+                return 0;
+            }
+
+            console.log('Prodotti caricati per ordini fornitore:', prodotti);
 
             // Raggruppa per fornitore
             const gruppiFornitore = new Map();
             
             for (const item of itemsMancanti) {
                 const prodotto = prodotti.find(p => p.id === item.prodotto_id);
+                
+                if (!prodotto) {
+                    console.warn(`Prodotto ${item.prodotto_id} non trovato`);
+                    continue;
+                }
+                
                 const fornitoreId = prodotto?.fornitore_id || 'nessuno';
                 const fornitoreNome = prodotto?.fornitori?.ragione_sociale || 'Da Assegnare';
+                
+                console.log(`Prodotto ${prodotto.id}: fornitore_id=${fornitoreId}, nome=${fornitoreNome}`);
                 
                 if (!gruppiFornitore.has(fornitoreId)) {
                     gruppiFornitore.set(fornitoreId, {
@@ -1699,7 +1717,18 @@
 
             // Crea un ordine per ogni fornitore
             let ordiniCreati = 0;
+            
+            console.log(`Gruppi fornitore trovati: ${gruppiFornitore.size}`);
+            
             for (const [fornitoreId, gruppo] of gruppiFornitore) {
+                console.log(`Creando ordine per fornitore: ${fornitoreId} (${gruppo.fornitore_nome})`);
+                
+                // Salta se non c'è un fornitore valido
+                if (!gruppo.fornitore_id) {
+                    console.warn(`Saltato gruppo senza fornitore valido: ${gruppo.fornitore_nome}`);
+                    continue;
+                }
+                
                 const oggi = new Date().toISOString().slice(0, 10).replace(/-/g, '');
                 const numeroOrdine = `ORD-AUTO-${oggi}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
 
