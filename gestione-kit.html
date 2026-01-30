@@ -1714,35 +1714,77 @@
                     continue;
                 }
                 
-                const oggi = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-                const numeroOrdine = `ORD-AUTO-${oggi}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+                // 🔍 CERCA ORDINE ESISTENTE NON EVASO
+                const { data: ordineEsistente } = await supabase
+                    .from('ordini_fornitore')
+                    .select('id, numero, created_at')
+                    .eq('fornitore_id', gruppo.fornitore_id)
+                    .in('stato', ['da_ordinare', 'ordinato', 'in_transito'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                let ordine = null;
+                
+                if (ordineEsistente) {
+                    // ✅ ORDINE ESISTENTE - Aggiorna descrizione
+                    console.log(`📦 Trovato ordine esistente: ${ordineEsistente.numero}`);
+                    
+                    const { data: ordineAggiornato } = await supabase
+                        .from('ordini_fornitore')
+                        .update({
+                            descrizione: `Componenti mancanti per kit multipli - Ultimo aggiornamento: ${new Date().toLocaleString('it-IT')}\nFornitore: ${gruppo.fornitore_nome}`,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', ordineEsistente.id)
+                        .select()
+                        .single();
+                    
+                    ordine = ordineAggiornato;
+                    console.log(`✅ Ordine esistente aggiornato`);
+                    
+                } else {
+                    // 🆕 CREA NUOVO ORDINE
+                    const oggi = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                    const numeroOrdine = `ORD-AUTO-${oggi}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
 
-                // Crea ordine fornitore
-                const { data: ordine, error: errOrdine } = await supabase.from('ordini_fornitore').insert([{
-                    numero: numeroOrdine,
-                    fornitore_id: gruppo.fornitore_id,
-                    fornitore_nome: gruppo.fornitore_nome,
-                    oggetto: `Ordine automatico per Kit ${kit.codice_kit}`,
-                    descrizione: `Componenti mancanti per il kit "${kit.nome_kit}"${gruppo.fornitore_nome ? ` - Fornitore: ${gruppo.fornitore_nome}` : ''}`,
-                    data_ordine: new Date().toISOString().slice(0, 10),
-                    stato: 'da_ordinare',
-                    totale_ordine: 0,
-                    created_by: currentUserId
-                }]).select().single();
+                    const { data: nuovoOrdine, error: errOrdine } = await supabase.from('ordini_fornitore').insert([{
+                        numero: numeroOrdine,
+                        fornitore_id: gruppo.fornitore_id,
+                        fornitore_nome: gruppo.fornitore_nome,
+                        oggetto: `Ordine automatico per Kit ${kit.codice_kit}`,
+                        descrizione: `Componenti mancanti per il kit "${kit.nome_kit}" - Creato: ${new Date().toLocaleString('it-IT')}\nFornitore: ${gruppo.fornitore_nome}`,
+                        data_ordine: new Date().toISOString().slice(0, 10),
+                        stato: 'da_ordinare',
+                        totale_ordine: 0,
+                        created_by: currentUserId
+                    }]).select().single();
 
-                if (errOrdine || !ordine) {
-                    console.error('Errore creazione ordine:', errOrdine);
+                    if (errOrdine || !nuovoOrdine) {
+                        console.error('Errore creazione ordine:', errOrdine);
+                        continue;
+                    }
+                    
+                    ordine = nuovoOrdine;
+                    console.log(`✅ Nuovo ordine creato: ${numeroOrdine}`);
+                    ordiniCreati++;
+                }
+
+                if (!ordine) {
+                    console.error('Nessun ordine disponibile');
                     continue;
                 }
 
-                // Aggiungi righe ordine
+                // Aggiungi righe ordine con timestamp
+                const adesso = new Date().toISOString();
                 const righe = gruppo.items.map(item => ({
                     ordine_id: ordine.id,
                     codice: item.prodotto_codice,
                     descrizione: item.prodotto_nome,
                     quantita_ordinata: item.quantita_mancante,
                     prezzo_acquisto: 0, // Prezzo da definire
-                    stato: 'da_ricevere'
+                    stato: 'da_ricevere',
+                    created_at: adesso // Timestamp per sapere quando è stato aggiunto
                 }));
 
                 const { error: errRighe } = await supabase.from('ordini_fornitore_items').insert(righe);
