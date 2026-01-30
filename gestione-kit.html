@@ -1566,8 +1566,56 @@
 
             document.getElementById('nonTrovatiInfo').classList.remove('hidden');
             document.getElementById('listaNonTrovati').innerHTML = Array.from(barcodeNonTrovatiMulti)
-                .map(b => `<div>• ${b}</div>`)
+                .map(b => `
+                    <div class="flex items-center justify-between bg-white p-2 rounded border border-red-300 mb-1">
+                        <span class="font-mono text-sm">${b}</span>
+                        <button onclick="aggiungiProdottoNonTrovato('${b}')" class="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 transition">
+                            <i class="fas fa-plus mr-1"></i>Aggiungi al Magazzino
+                        </button>
+                    </div>
+                `)
                 .join('');
+        }
+
+        async function aggiungiProdottoNonTrovato(barcode) {
+            const nome = prompt(`Inserisci il nome del prodotto per il barcode "${barcode}":`);
+            if (!nome || !nome.trim()) return;
+
+            const codice = prompt(`Inserisci il codice prodotto (lascia vuoto per usare il barcode):`) || barcode;
+
+            // Inserisci nel magazzino
+            const { data: newProduct, error } = await supabase.from('prodotti').insert([{
+                nome: nome.trim(),
+                codice: codice.trim(),
+                barcode: barcode,
+                quantita_disponibile: 0,
+                quantita_minima: 1,
+                attivo: true,
+                created_by: currentUserId
+            }]).select().single();
+
+            if (error) {
+                console.error('Errore aggiunta prodotto:', error);
+                alert('Errore nell\'aggiungere il prodotto al magazzino');
+                return;
+            }
+
+            // Rimuovi dai non trovati
+            barcodeNonTrovatiMulti.delete(barcode);
+            
+            // Aggiungi ai prodotti scansionati
+            prodottiMultiMap.set(newProduct.id, {
+                prodotto: newProduct,
+                quantita: 1,
+                quantita_mancante: 1 // Giacenza 0, quindi tutto mancante
+            });
+
+            // Aggiorna UI
+            showNonTrovatiMulti();
+            renderProdottiMulti();
+            updateStatsMulti();
+
+            alert(`✅ Prodotto "${nome}" aggiunto al magazzino!`);
         }
 
         async function confermaAggiuntaMultipla() {
@@ -1598,8 +1646,9 @@
 
             // 📦 CREA ORDINI FORNITORE SE CI SONO MANCANTI
             const itemsMancanti = items.filter(i => i.quantita_mancante > 0);
+            let ordiniCreati = 0;
             if (itemsMancanti.length > 0) {
-                await creaOrdiniFornitoreAutomatici(currentKitId, itemsMancanti);
+                ordiniCreati = await creaOrdiniFornitoreAutomatici(currentKitId, itemsMancanti);
             }
 
             closeAggiuntaComponentiModal();
@@ -1608,7 +1657,7 @@
             // Mostra modal di successo
             const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
             if (totMancanti > 0) {
-                showSuccessModal(items.length, itemsMancanti);
+                showSuccessModal(items.length, itemsMancanti, ordiniCreati);
             } else {
                 showSuccessModal(items.length);
             }
@@ -1678,17 +1727,22 @@
                     codice: item.prodotto_codice,
                     descrizione: item.prodotto_nome,
                     quantita_ordinata: item.quantita_mancante,
+                    prezzo_acquisto: 0, // Prezzo da definire
                     stato: 'da_ricevere'
                 }));
 
                 const { error: errRighe } = await supabase.from('ordini_fornitore_items').insert(righe);
                 
-                if (!errRighe) {
-                    ordiniCreati++;
+                if (errRighe) {
+                    console.error('Errore inserimento righe ordine:', errRighe);
+                    continue;
                 }
+                
+                ordiniCreati++;
             }
 
             console.log(`✅ Creati ${ordiniCreati} ordini fornitore automatici`);
+            return ordiniCreati;
         }
 
         // ========================================
@@ -1718,7 +1772,7 @@
         // ========================================
         // MODAL SUCCESSO
         // ========================================
-        function showSuccessModal(prodottiAggiunti, itemsMancanti = []) {
+        function showSuccessModal(prodottiAggiunti, itemsMancanti = [], ordiniCreati = 0) {
             const modal = document.getElementById('successModal');
             const messageContainer = document.getElementById('successMessage');
             
@@ -1745,14 +1799,31 @@
                             Totale unità mancanti: ${totMancanti}
                         </p>
                     </div>
-                    
-                    <div class="bg-blue-100 border-2 border-blue-300 rounded-lg p-4 mt-3">
-                        <p class="text-blue-800 font-bold">
-                            <i class="fas fa-truck mr-2"></i>
-                            Ordini fornitore automatici creati!
-                        </p>
-                    </div>
                 `;
+                
+                // Mostra info ordini fornitore
+                if (ordiniCreati > 0) {
+                    html += `
+                        <div class="bg-blue-100 border-2 border-blue-300 rounded-lg p-4 mt-3">
+                            <p class="text-blue-800 font-bold">
+                                <i class="fas fa-truck mr-2"></i>
+                                ${ordiniCreati} ordin${ordiniCreati === 1 ? 'e' : 'i'} fornitore creat${ordiniCreati === 1 ? 'o' : 'i'}!
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="bg-red-100 border-2 border-red-300 rounded-lg p-4 mt-3">
+                            <p class="text-red-800 font-bold">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                Nessun ordine fornitore creato
+                            </p>
+                            <p class="text-red-700 text-sm mt-1">
+                                Verifica che i prodotti abbiano un fornitore assegnato
+                            </p>
+                        </div>
+                    `;
+                }
             }
             
             messageContainer.innerHTML = html;
