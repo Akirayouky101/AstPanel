@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Impegni Magazzino - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.history.back()" class="hover:bg-orange-700 p-2 rounded">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">🔒 Gestione Impegni Magazzino</h1>
+                        <p class="text-orange-100 text-sm">Visualizza e gestisci impegni per preventivi, lavorazioni e kit</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="text-right">
+                    <p class="text-sm opacity-90" id="userName">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="container mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Impegni Attivi</p>
+                        <p class="text-3xl font-bold text-orange-600" id="statAttivi">0</p>
+                    </div>
+                    <i class="fas fa-lock text-4xl text-orange-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Da Preventivi</p>
+                        <p class="text-3xl font-bold text-blue-600" id="statPreventivi">0</p>
+                    </div>
+                    <i class="fas fa-file-invoice text-4xl text-blue-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Da Lavorazioni</p>
+                        <p class="text-3xl font-bold text-purple-600" id="statLavorazioni">0</p>
+                    </div>
+                    <i class="fas fa-wrench text-4xl text-purple-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Prodotti Impegnati</p>
+                        <p class="text-3xl font-bold text-green-600" id="statProdotti">0</p>
+                    </div>
+                    <i class="fas fa-box text-4xl text-green-200"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtri -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Cerca</label>
+                    <input type="text" id="searchInput" placeholder="Prodotto, codice..." 
+                           class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-orange-500"
+                           oninput="filtraImpegni()">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo Impegno</label>
+                    <select id="filtroTipo" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-orange-500"
+                            onchange="filtraImpegni()">
+                        <option value="">Tutti</option>
+                        <option value="preventivo">Preventivi</option>
+                        <option value="lavorazione">Lavorazioni</option>
+                        <option value="kit">Kit</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Stato</label>
+                    <select id="filtroStato" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-orange-500"
+                            onchange="filtraImpegni()">
+                        <option value="attivo">Attivi</option>
+                        <option value="">Tutti</option>
+                        <option value="completato">Completati</option>
+                        <option value="annullato">Annullati</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-end">
+                    <button onclick="loadImpegni()" class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition">
+                        <i class="fas fa-sync mr-2"></i>Aggiorna
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabella Impegni -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-100 border-b-2">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-gray-700">Prodotto</th>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-gray-700">Tipo</th>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-gray-700">Riferimento</th>
+                            <th class="px-4 py-3 text-right text-sm font-bold text-gray-700">Quantità</th>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-gray-700">Data</th>
+                            <th class="px-4 py-3 text-center text-sm font-bold text-gray-700">Stato</th>
+                            <th class="px-4 py-3 text-center text-sm font-bold text-gray-700">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="impegniTableBody">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                                <p>Caricamento impegni...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Conferma Liberazione -->
+    <div id="confermaLiberaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-unlock text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Liberare Impegno?</h2>
+            </div>
+            <div class="p-6">
+                <p class="text-center text-gray-700 mb-2" id="liberaMessage"></p>
+                <p class="text-sm text-center text-gray-500 mb-6">Questa azione annullerà l'impegno e renderà disponibile la giacenza.</p>
+                <div class="flex gap-3">
+                    <button onclick="closeLiberaModal()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="confermaLiberazione()" class="flex-1 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition font-semibold">
+                        <i class="fas fa-unlock mr-2"></i>Libera
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let impegni = [];
+        let impegnoIdDaLiberare = null;
+
+        async function init() {
+            // Verifica autenticazione
+            const { data: { user } } = await window.supabase.auth.getUser();
+            if (!user) {
+                window.location.href = '/setup-admin.html';
+                return;
+            }
+
+            // Carica user info
+            const { data: userData } = await window.supabase
+                .from('users')
+                .select('nome, cognome')
+                .eq('auth_id', user.id)
+                .single();
+
+            if (userData) {
+                document.getElementById('userName').textContent = `${userData.nome} ${userData.cognome}`;
+            }
+
+            await loadImpegni();
+        }
+
+        async function loadImpegni() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('impegni_magazzino')
+                    .select(`
+                        *,
+                        components:prodotto_id(id, codice, nome, unita_misura),
+                        preventivi:preventivo_id(numero_preventivo, cliente_nome),
+                        tasks:lavorazione_id(codice_lavorazione, titolo),
+                        kits:kit_id(codice_kit)
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                impegni = data || [];
+                aggiornaStats();
+                filtraImpegni();
+            } catch (error) {
+                console.error('Errore caricamento impegni:', error);
+                alert('Errore nel caricamento degli impegni: ' + error.message);
+            }
+        }
+
+        function aggiornaStats() {
+            const attivi = impegni.filter(i => i.stato === 'attivo');
+            const preventivi = attivi.filter(i => i.tipo_impegno === 'preventivo');
+            const lavorazioni = attivi.filter(i => i.tipo_impegno === 'lavorazione');
+            const prodottiUnici = new Set(attivi.map(i => i.prodotto_id)).size;
+
+            document.getElementById('statAttivi').textContent = attivi.length;
+            document.getElementById('statPreventivi').textContent = preventivi.length;
+            document.getElementById('statLavorazioni').textContent = lavorazioni.length;
+            document.getElementById('statProdotti').textContent = prodottiUnici;
+        }
+
+        function filtraImpegni() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const tipo = document.getElementById('filtroTipo').value;
+            const stato = document.getElementById('filtroStato').value;
+
+            let filtrati = impegni.filter(imp => {
+                const matchSearch = !search || 
+                    imp.components?.nome?.toLowerCase().includes(search) ||
+                    imp.components?.codice?.toLowerCase().includes(search);
+                
+                const matchTipo = !tipo || imp.tipo_impegno === tipo;
+                const matchStato = !stato || imp.stato === stato;
+
+                return matchSearch && matchTipo && matchStato;
+            });
+
+            renderImpegni(filtrati);
+        }
+
+        function renderImpegni(lista) {
+            const tbody = document.getElementById('impegniTableBody');
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>Nessun impegno trovato</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = lista.map(imp => {
+                const data = new Date(imp.created_at).toLocaleDateString('it-IT');
+                let riferimento = '';
+                let tipoIcon = '';
+                let tipoBadge = '';
+
+                if (imp.tipo_impegno === 'preventivo' && imp.preventivi) {
+                    riferimento = imp.preventivi.numero_preventivo;
+                    tipoIcon = '<i class="fas fa-file-invoice text-blue-600"></i>';
+                    tipoBadge = '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">Preventivo</span>';
+                } else if (imp.tipo_impegno === 'lavorazione' && imp.tasks) {
+                    riferimento = imp.tasks.codice_lavorazione;
+                    tipoIcon = '<i class="fas fa-wrench text-purple-600"></i>';
+                    tipoBadge = '<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">Lavorazione</span>';
+                } else if (imp.tipo_impegno === 'kit' && imp.kits) {
+                    riferimento = imp.kits.codice_kit;
+                    tipoIcon = '<i class="fas fa-box text-green-600"></i>';
+                    tipoBadge = '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Kit</span>';
+                }
+
+                let statoBadge = '';
+                if (imp.stato === 'attivo') {
+                    statoBadge = '<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">Attivo</span>';
+                } else if (imp.stato === 'completato') {
+                    statoBadge = '<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">Completato</span>';
+                } else {
+                    statoBadge = '<span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">Annullato</span>';
+                }
+
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3">
+                            <div class="font-semibold text-gray-900">${imp.components?.nome || 'N/A'}</div>
+                            <div class="text-sm text-gray-500">${imp.components?.codice || ''}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center space-x-2">
+                                ${tipoIcon}
+                                ${tipoBadge}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="font-semibold">${riferimento}</div>
+                            ${imp.note ? `<div class="text-xs text-gray-500">${imp.note}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="font-bold text-orange-600">${imp.quantita_impegnata}</span>
+                            <span class="text-sm text-gray-500">${imp.components?.unita_misura || 'pz'}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <i class="fas fa-calendar mr-1"></i>${data}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${statoBadge}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${imp.stato === 'attivo' ? `
+                                <button onclick="apriLiberaModal('${imp.id}', '${imp.components?.nome}')" 
+                                        class="bg-orange-100 text-orange-700 px-3 py-1 rounded hover:bg-orange-200 transition text-sm font-semibold">
+                                    <i class="fas fa-unlock mr-1"></i>Libera
+                                </button>
+                            ` : '<span class="text-gray-400 text-sm">-</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function apriLiberaModal(impegnoId, prodottoNome) {
+            impegnoIdDaLiberare = impegnoId;
+            document.getElementById('liberaMessage').textContent = 
+                `Vuoi liberare l'impegno su "${prodottoNome}"?`;
+            document.getElementById('confermaLiberaModal').classList.remove('hidden');
+        }
+
+        function closeLiberaModal() {
+            document.getElementById('confermaLiberaModal').classList.add('hidden');
+            impegnoIdDaLiberare = null;
+        }
+
+        async function confermaLiberazione() {
+            if (!impegnoIdDaLiberare) return;
+
+            try {
+                const { error } = await window.supabase
+                    .from('impegni_magazzino')
+                    .update({ 
+                        stato: 'annullato',
+                        completed_at: new Date().toISOString()
+                    })
+                    .eq('id', impegnoIdDaLiberare);
+
+                if (error) throw error;
+
+                closeLiberaModal();
+                await loadImpegni();
+                
+                // Mostra successo
+                alert('✅ Impegno liberato con successo!');
+            } catch (error) {
+                console.error('Errore liberazione impegno:', error);
+                alert('Errore: ' + error.message);
+            }
+        }
+
+        // Init
+        init();
+    </script>
+</body>
+</html>
