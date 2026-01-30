@@ -644,6 +644,38 @@
         </div>
     </div>
 
+    <!-- Modal Dettaglio Impegni -->
+    <div id="impegniModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden transform transition-all animate-fadeIn">
+            <!-- Header -->
+            <div class="bg-gradient-to-br from-orange-400 via-orange-500 to-amber-600 p-6 rounded-t-3xl">
+                <div class="flex items-center justify-between text-white">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-1" id="impegniTitle">Dettaglio Impegni</h2>
+                        <p class="text-orange-100">Prodotti prenotati per preventivi e lavorazioni</p>
+                    </div>
+                    <button onclick="closeImpegniModal()" class="hover:bg-white hover:bg-opacity-20 p-3 rounded-full transition">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Contenuto Scrollabile -->
+            <div class="p-6 overflow-y-auto max-h-[60vh]">
+                <div id="impegniContainer" class="space-y-3">
+                    <!-- Popolato dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="border-t p-4 bg-gray-50 rounded-b-3xl">
+                <button onclick="closeImpegniModal()" class="w-full px-6 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition">
+                    <i class="fas fa-check mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Conferma Eliminazione -->
     <div id="confermaEliminaModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
         <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-fadeIn">
@@ -966,32 +998,34 @@
             document.getElementById(`${mode}FornitoreNome`).value = '';
         }
 
-        // Carica prodotti
+        // Carica prodotti con giacenze complete (fisica + impegnata + libera)
         async function caricaProdotti() {
             try {
-                const { data, error } = await supabase
+                // Prima carica i dati base con fornitore
+                const { data: componentsData, error: compError } = await supabase
                     .from('components')
                     .select('*, fornitori!components_fornitore_id_fkey(id, ragione_sociale, codice_fornitore)')
                     .eq('stato', 'attivo')
-                    .order('descrizione');
+                    .order('nome');
                 
-                if (error) throw error;
+                if (compError) throw compError;
+
+                // Poi carica giacenze complete con impegni
+                const { data: giacenzeData, error: giacError } = await supabase
+                    .from('v_giacenze_complete')
+                    .select('*');
                 
-                // Normalizza i campi per gestire più versioni di schema
-                prodotti = (data || []).map(p => {
-                    const normalized = Object.assign({}, p);
-                    // giacenza: supporta 'giacenza', 'quantita_disponibile', 'giacenza_disponibile', 'quantita_magazzino'
-                    normalized.giacenza = (p.giacenza ?? p.quantita_disponibile ?? p.giacenza_disponibile ?? p.quantita_magazzino ?? 0);
-                    // giacenza minima
-                    normalized.giacenza_minima = (p.giacenza_minima ?? p.quantita_minima ?? p.giacenza_minima ?? 0);
-                    // unità di misura
-                    normalized.um = (p.um ?? p.unita_misura ?? p.unita_di_misura ?? 'pz');
-                    // barcode fallback: prefer p.barcode, altrimenti usa codice
-                    normalized.barcode = (p.barcode ?? p.codice ?? null);
-                    // prezzo acquisto (esente IVA)
-                    normalized.prezzo_acquisto = (p.prezzo_acquisto ?? p.prezzo_unitario ?? 0);
-                    return normalized;
-                });
+                if (giacError) {
+                    console.warn('Vista giacenze non disponibile, uso dati base:', giacError);
+                    // Fallback se vista non esiste ancora
+                    prodotti = (componentsData || []).map(p => normalizzaProdotto(p, null));
+                } else {
+                    // Merge dati components con giacenze
+                    prodotti = (componentsData || []).map(p => {
+                        const giacenza = giacenzeData.find(g => g.id === p.id);
+                        return normalizzaProdotto(p, giacenza);
+                    });
+                }
 
                 aggiornaStats();
                 renderProdotti();
@@ -1001,42 +1035,84 @@
             }
         }
 
-        // Aggiorna statistiche
+        // Normalizza prodotto con giacenze
+        function normalizzaProdotto(p, giacenza) {
+            const normalized = Object.assign({}, p);
+            
+            // Se abbiamo dati giacenze complete
+            if (giacenza) {
+                normalized.giacenza_fisica = giacenza.giacenza_fisica || 0;
+                normalized.giacenza_impegnata = giacenza.giacenza_impegnata || 0;
+                normalized.giacenza_libera = giacenza.giacenza_libera || 0;
+                normalized.stato_giacenza = giacenza.stato_giacenza || 'OK';
+                normalized.giacenza = giacenza.giacenza_fisica || 0; // Per compatibilità
+            } else {
+                // Fallback su dati base
+                normalized.giacenza = (p.giacenza ?? p.quantita_disponibile ?? 0);
+                normalized.giacenza_fisica = normalized.giacenza;
+                normalized.giacenza_impegnata = 0;
+                normalized.giacenza_libera = normalized.giacenza;
+                normalized.stato_giacenza = 'OK';
+            }
+            
+            // Altri campi
+            normalized.giacenza_minima = (p.giacenza_minima ?? p.scorta_minima ?? 0);
+            normalized.um = (p.um ?? p.unita_misura ?? 'pz');
+            normalized.barcode = (p.barcode ?? p.codice ?? null);
+            normalized.prezzo_acquisto = (p.prezzo_acquisto ?? p.prezzo_unitario ?? 0);
+            
+            return normalized;
+        }
+
+        // Aggiorna statistiche (usa giacenza LIBERA)
         function aggiornaStats() {
             const totale = prodotti.length;
-            const disponibili = prodotti.filter(p => (p.giacenza || 0) > (p.giacenza_minima || 0)).length;
+            const disponibili = prodotti.filter(p => (p.giacenza_libera || 0) > (p.giacenza_minima || 0)).length;
             const bassa = prodotti.filter(p => {
-                const giacenza = p.giacenza || 0;
+                const giacenza = p.giacenza_libera || 0;
                 const min = p.giacenza_minima || 0;
                 return giacenza > 0 && giacenza <= min;
             }).length;
-            const esauriti = prodotti.filter(p => (p.giacenza || 0) === 0).length;
+            const esauriti = prodotti.filter(p => (p.giacenza_libera || 0) <= 0).length;
+            const impegnati = prodotti.filter(p => (p.giacenza_impegnata || 0) > 0).length;
 
             document.getElementById('statTotal').textContent = totale;
             document.getElementById('statDisponibili').textContent = disponibili;
             document.getElementById('statBassa').textContent = bassa;
             document.getElementById('statEsauriti').textContent = esauriti;
+            
+            // Aggiungi badge impegnati se > 0
+            const esauritiCard = document.querySelector('#statEsauriti').closest('.bg-white');
+            if (impegnati > 0 && esauritiCard) {
+                const badge = `<span class="ml-2 bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">
+                    ${impegnati} impegnati
+                </span>`;
+                if (!esauritiCard.querySelector('.bg-orange-100')) {
+                    esauritiCard.querySelector('p').innerHTML += badge;
+                }
+            }
         }
 
-        // Render prodotti
+        // Render prodotti (usa giacenza LIBERA per filtri)
         function renderProdotti() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const filtroStock = document.getElementById('filtroStock').value;
 
             let filtrati = prodotti.filter(p => {
                 const matchSearch = !search || 
+                    p.nome?.toLowerCase().includes(search) ||
                     p.descrizione?.toLowerCase().includes(search) ||
                     p.codice?.toLowerCase().includes(search) ||
                     p.barcode?.toLowerCase().includes(search);
                 
                 if (!matchSearch) return false;
 
-                const giacenza = p.giacenza || 0;
+                const giacenza = p.giacenza_libera || 0;  // USA GIACENZA LIBERA
                 const min = p.giacenza_minima || 0;
 
                 if (filtroStock === 'disponibili') return giacenza > min;
                 if (filtroStock === 'bassa') return giacenza > 0 && giacenza <= min;
-                if (filtroStock === 'esauriti') return giacenza === 0;
+                if (filtroStock === 'esauriti') return giacenza <= 0;
                 return true;
             });
 
@@ -1053,29 +1129,41 @@
             }
 
             container.innerHTML = filtrati.map(p => {
-                const giacenza = p.giacenza || 0;
+                const giacenzaFisica = p.giacenza_fisica || 0;
+                const giacenzaImpegnata = p.giacenza_impegnata || 0;
+                const giacenzaLibera = p.giacenza_libera || 0;
                 const min = p.giacenza_minima || 0;
                 const um = p.um || 'pz';
+                const statoGiacenza = p.stato_giacenza || 'OK';
                 
+                // Colori basati su giacenza LIBERA
                 let badgeColor = 'bg-green-100 text-green-700';
                 let iconColor = 'text-green-600';
                 let statoText = 'Disponibile';
+                let borderColor = 'border-green-500';
                 
-                if (giacenza === 0) {
+                if (statoGiacenza.startsWith('CRITICO')) {
                     badgeColor = 'bg-red-100 text-red-700';
                     iconColor = 'text-red-600';
-                    statoText = 'Esaurito';
-                } else if (giacenza <= min) {
+                    statoText = 'CRITICO';
+                    borderColor = 'border-red-500';
+                } else if (giacenzaLibera <= 0) {
+                    badgeColor = 'bg-red-100 text-red-700';
+                    iconColor = 'text-red-600';
+                    statoText = 'Tutto Impegnato';
+                    borderColor = 'border-red-500';
+                } else if (giacenzaLibera <= min) {
                     badgeColor = 'bg-orange-100 text-orange-700';
                     iconColor = 'text-orange-600';
                     statoText = 'Scorta Bassa';
+                    borderColor = 'border-orange-500';
                 }
 
                 return `
-                    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-4 border-l-4 ${giacenza === 0 ? 'border-red-500' : giacenza <= min ? 'border-orange-500' : 'border-green-500'}">
+                    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-4 border-l-4 ${borderColor}">
                         <div class="flex items-start justify-between mb-3">
                             <div class="flex-1">
-                                <h3 class="font-bold text-gray-900 mb-1">${p.descrizione || 'Senza nome'}</h3>
+                                <h3 class="font-bold text-gray-900 mb-1">${p.nome || p.descrizione || 'Senza nome'}</h3>
                                 <div class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
                                     ${p.codice ? `<span class="bg-gray-100 px-2 py-0.5 rounded">${p.codice}</span>` : ''}
                                     ${p.barcode ? `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs"><i class="fas fa-barcode mr-1"></i>${p.barcode}</span>` : ''}
@@ -1087,10 +1175,38 @@
                         </div>
                         
                         <div class="border-t pt-3 mt-3">
+                            <!-- Giacenza LIBERA (principale) -->
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-sm text-gray-600">Giacenza:</span>
-                                <span class="text-2xl font-bold ${iconColor}">${giacenza.toFixed(2)} <span class="text-base">${um}</span></span>
+                                <span class="text-sm text-gray-600 font-semibold">Giacenza Libera:</span>
+                                <span class="text-2xl font-bold ${iconColor}">
+                                    ${giacenzaLibera.toFixed(2)} <span class="text-base">${um}</span>
+                                </span>
                             </div>
+                            
+                            <!-- Dettaglio giacenze -->
+                            ${giacenzaImpegnata > 0 ? `
+                                <div class="bg-gray-50 rounded-lg p-3 mb-3 space-y-1.5">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">📦 Fisica:</span>
+                                        <span class="font-semibold text-gray-900">${giacenzaFisica.toFixed(2)} ${um}</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-orange-600">🔒 Impegnata:</span>
+                                        <span class="font-semibold text-orange-600">${giacenzaImpegnata.toFixed(2)} ${um}</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm border-t pt-1.5">
+                                        <span class="text-green-600">✅ Disponibile:</span>
+                                        <span class="font-bold text-green-600">${giacenzaLibera.toFixed(2)} ${um}</span>
+                                    </div>
+                                    <button onclick="mostraImpegni('${p.id}')" class="w-full mt-2 text-xs text-orange-600 hover:text-orange-700 font-semibold">
+                                        <i class="fas fa-info-circle mr-1"></i>Vedi dettaglio impegni
+                                    </button>
+                                </div>
+                            ` : `
+                                <div class="text-xs text-gray-500 mb-3 text-center">
+                                    Nessun impegno attivo
+                                </div>
+                            `}
                             
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <button onclick="apriMovimento('${p.id}', 'carico')" class="px-3 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-all text-sm">
@@ -2056,6 +2172,99 @@
 
         function closeErrorModal() {
             const modal = document.getElementById('errorModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // ========================================
+        // MOSTRA IMPEGNI PRODOTTO
+        // ========================================
+        async function mostraImpegni(prodottoId) {
+            try {
+                const { data: impegni, error } = await supabase
+                    .from('impegni_magazzino')
+                    .select(`
+                        *,
+                        preventivi:preventivo_id(numero_preventivo, cliente_nome),
+                        tasks:lavorazione_id(codice_lavorazione, titolo),
+                        kits:kit_id(codice_kit)
+                    `)
+                    .eq('prodotto_id', prodottoId)
+                    .eq('stato', 'attivo')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const prodotto = prodotti.find(p => p.id === prodottoId);
+                const modal = document.getElementById('impegniModal');
+                const container = document.getElementById('impegniContainer');
+                const title = document.getElementById('impegniTitle');
+
+                title.textContent = `Impegni: ${prodotto?.nome || prodotto?.descrizione || 'Prodotto'}`;
+
+                if (!impegni || impegni.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-check-circle text-green-500 text-5xl mb-3"></i>
+                            <p class="text-gray-600">Nessun impegno attivo per questo prodotto</p>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = impegni.map(imp => {
+                        const data = new Date(imp.created_at).toLocaleDateString('it-IT');
+                        let riferimento = '';
+                        let icon = '';
+                        let bgColor = '';
+
+                        if (imp.tipo_impegno === 'preventivo' && imp.preventivi) {
+                            riferimento = `Preventivo ${imp.preventivi.numero_preventivo}`;
+                            icon = 'fa-file-invoice';
+                            bgColor = 'bg-blue-50 border-blue-200';
+                        } else if (imp.tipo_impegno === 'lavorazione' && imp.tasks) {
+                            riferimento = `Lavorazione ${imp.tasks.codice_lavorazione}`;
+                            icon = 'fa-wrench';
+                            bgColor = 'bg-purple-50 border-purple-200';
+                        } else if (imp.tipo_impegno === 'kit' && imp.kits) {
+                            riferimento = `Kit ${imp.kits.codice_kit}`;
+                            icon = 'fa-box';
+                            bgColor = 'bg-green-50 border-green-200';
+                        } else {
+                            riferimento = imp.tipo_impegno;
+                            icon = 'fa-question';
+                            bgColor = 'bg-gray-50 border-gray-200';
+                        }
+
+                        return `
+                            <div class="${bgColor} border-2 rounded-lg p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas ${icon} text-lg"></i>
+                                        <span class="font-bold">${riferimento}</span>
+                                    </div>
+                                    <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold">
+                                        ${imp.quantita_impegnata} ${prodotto?.um || 'pz'}
+                                    </span>
+                                </div>
+                                ${imp.note ? `<p class="text-sm text-gray-600 mb-2">${imp.note}</p>` : ''}
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span><i class="fas fa-calendar mr-1"></i>${data}</span>
+                                    <span class="bg-orange-50 text-orange-600 px-2 py-1 rounded">${imp.stato}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } catch (error) {
+                console.error('Errore caricamento impegni:', error);
+                showErrorModal('Errore nel caricamento degli impegni', error.message);
+            }
+        }
+
+        function closeImpegniModal() {
+            const modal = document.getElementById('impegniModal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
