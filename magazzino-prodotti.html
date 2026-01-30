@@ -620,6 +620,30 @@
         </div>
     </div>
 
+    <!-- Modal Errore -->
+    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-fadeIn">
+            <!-- Animazione Errore -->
+            <div class="bg-gradient-to-br from-red-400 via-red-500 to-orange-600 p-8 rounded-t-3xl text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white bg-opacity-20 rounded-full mb-4 animate-pulse">
+                    <i class="fas fa-exclamation-triangle text-white text-4xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-2">Attenzione!</h2>
+                <p id="errorMessage" class="text-red-50 text-lg font-semibold"></p>
+            </div>
+            
+            <div class="p-6 text-center">
+                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
+                    <div class="text-red-700 whitespace-pre-line" id="errorDetails"></div>
+                </div>
+                
+                <button onclick="closeErrorModal()" class="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all transform hover:scale-105">
+                    <i class="fas fa-times mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Conferma Eliminazione -->
     <div id="confermaEliminaModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[110] fade-in">
         <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-fadeIn">
@@ -1308,7 +1332,10 @@
                     : giacenzaPrima - quantita;
 
                 if (giacenzaDopo < 0) {
-                    alert('Giacenza insufficiente per lo scarico!');
+                    showErrorModal(
+                        'Giacenza insufficiente per lo scarico!',
+                        `Giacenza attuale: ${giacenzaPrima} ${prodotto.um || 'pz'}\nQuantità richiesta: ${quantita} ${prodotto.um || 'pz'}\nMancanti: ${Math.abs(giacenzaDopo)} ${prodotto.um || 'pz'}`
+                    );
                     return;
                 }
 
@@ -2015,6 +2042,20 @@
 
         function closeSuccessModal() {
             const modal = document.getElementById('successModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function showErrorModal(message, details = '') {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDetails').textContent = details;
+            const modal = document.getElementById('errorModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeErrorModal() {
+            const modal = document.getElementById('errorModal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
