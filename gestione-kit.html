@@ -8,6 +8,27 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
+    <style>
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        .animate-bounce-in {
+            animation: bounceIn 0.5s ease-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
@@ -868,6 +889,8 @@
             };
 
             if (!id) {
+                console.log('Creating new kit with currentUserId:', currentUserId);
+                console.log('Current user from auth:', currentUser?.id);
                 kitData.created_by = currentUserId;
             }
 
@@ -1582,11 +1605,12 @@
             closeAggiuntaComponentiModal();
             await loadComponentiKit(currentKitId);
             
+            // Mostra modal di successo
             const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
             if (totMancanti > 0) {
-                alert(`✅ ${items.length} prodotti aggiunti al kit!\n\n⚠️ ${itemsMancanti.length} prodotti con giacenza insufficiente\nTotale unità mancanti: ${totMancanti}\n\n📋 Ordini fornitore automatici creati!`);
+                showSuccessModal(items.length, itemsMancanti);
             } else {
-                alert(`✅ ${items.length} prodotti aggiunti al kit!`);
+                showSuccessModal(items.length);
             }
         }
 
@@ -1690,6 +1714,55 @@
         function closeMagazzinoModal() {
             document.getElementById('magazzinoModal').classList.add('hidden');
         }
+
+        // ========================================
+        // MODAL SUCCESSO
+        // ========================================
+        function showSuccessModal(prodottiAggiunti, itemsMancanti = []) {
+            const modal = document.getElementById('successModal');
+            const messageContainer = document.getElementById('successMessage');
+            
+            const totMancanti = itemsMancanti.reduce((sum, i) => sum + (i.quantita_mancante || 0), 0);
+            
+            let html = `
+                <div class="text-green-700">
+                    <p class="text-4xl font-bold mb-2">${prodottiAggiunti}</p>
+                    <p class="text-lg">prodott${prodottiAggiunti === 1 ? 'o aggiunto' : 'i aggiunti'} al kit!</p>
+                </div>
+            `;
+            
+            if (totMancanti > 0) {
+                html += `
+                    <div class="bg-orange-100 border-2 border-orange-300 rounded-lg p-4 mt-4">
+                        <p class="text-orange-800 font-bold text-lg mb-2">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            Giacenza Insufficiente
+                        </p>
+                        <p class="text-orange-700">
+                            ${itemsMancanti.length} prodott${itemsMancanti.length === 1 ? 'o' : 'i'} con giacenza insufficiente
+                        </p>
+                        <p class="text-orange-700 font-semibold mt-1">
+                            Totale unità mancanti: ${totMancanti}
+                        </p>
+                    </div>
+                    
+                    <div class="bg-blue-100 border-2 border-blue-300 rounded-lg p-4 mt-3">
+                        <p class="text-blue-800 font-bold">
+                            <i class="fas fa-truck mr-2"></i>
+                            Ordini fornitore automatici creati!
+                        </p>
+                    </div>
+                `;
+            }
+            
+            messageContainer.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+        }
+
 
         function renderProdottiMagazzino(prodotti) {
             const container = document.getElementById('listaProdottiMagazzino');
@@ -2103,6 +2176,26 @@
                 <div id="listaProdottiMagazzino" class="max-h-[50vh] overflow-y-auto space-y-2">
                     <!-- Popolata dinamicamente -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Successo Aggiunta Componenti -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div id="successHeader" class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-check-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center" id="successTitle">Componenti Aggiunti!</h2>
+            </div>
+            <div class="p-6">
+                <div id="successMessage" class="text-center space-y-4">
+                    <!-- Contenuto dinamico -->
+                </div>
+                <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition mt-6 font-semibold">
+                    <i class="fas fa-check mr-2"></i>OK
+                </button>
             </div>
         </div>
     </div>
