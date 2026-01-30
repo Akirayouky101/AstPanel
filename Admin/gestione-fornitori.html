@@ -553,9 +553,11 @@
 
                 const fornitoreId = document.getElementById('fornitoreId').value;
                 let result;
+                let isEdit = false;
 
                 if (fornitoreId) {
                     // Update
+                    isEdit = true;
                     result = await window.supabase
                         .from('fornitori')
                         .update(fornitore)
@@ -569,9 +571,9 @@
 
                 if (result.error) throw result.error;
 
-                alert('✅ Fornitore salvato con successo!');
                 closeModal();
                 await loadFornitori();
+                showSuccessModal('Il fornitore è stato salvato correttamente', isEdit);
             } catch (error) {
                 console.error('Errore:', error);
                 alert('❌ Errore nel salvataggio: ' + error.message);
@@ -602,6 +604,68 @@
         function closeModal() {
             document.getElementById('fornitoreModal').classList.add('hidden');
         }
+
+        // ========================================
+        // MODAL SUCCESSO
+        // ========================================
+        function showSuccessModal(message = 'Operazione completata!', isEdit = false) {
+            const modal = document.getElementById('successModal');
+            const icon = document.getElementById('successIcon');
+            const title = document.getElementById('successTitle');
+            const messageEl = document.getElementById('successMessage');
+            
+            icon.innerHTML = '<i class="fas fa-check-circle text-6xl"></i>';
+            title.textContent = isEdit ? 'Fornitore Aggiornato!' : 'Fornitore Creato!';
+            messageEl.textContent = message;
+            
+            modal.classList.remove('hidden');
+            
+            // Auto-chiudi dopo 2 secondi
+            setTimeout(() => {
+                closeSuccessModal();
+            }, 2000);
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+        }
     </script>
+
+    <!-- Modal Successo -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-xl">
+                <div id="successIcon" class="flex items-center justify-center mb-2">
+                    <i class="fas fa-check-circle text-6xl"></i>
+                </div>
+                <h2 id="successTitle" class="text-2xl font-bold text-center">Fornitore Salvato!</h2>
+            </div>
+            <div class="p-6 text-center">
+                <p id="successMessage" class="text-gray-700 text-lg">Operazione completata con successo</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        .animate-bounce-in {
+            animation: bounceIn 0.5s ease-out;
+        }
+    </style>
 </body>
 </html>
