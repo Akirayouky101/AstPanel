@@ -69,8 +69,8 @@ DECLARE
     v_count_preventivi INTEGER;
 BEGIN
     -- Prima gli items (per FK)
-    SELECT COUNT(*) INTO v_count_items FROM preventivo_items;
-    DELETE FROM preventivo_items;
+    SELECT COUNT(*) INTO v_count_items FROM preventivi_items;
+    DELETE FROM preventivi_items;
     
     -- Poi i preventivi
     SELECT COUNT(*) INTO v_count_preventivi FROM preventivi;
