@@ -430,6 +430,9 @@
                         }
                     </td>
                     <td class="px-6 py-4 text-sm">
+                        <button onclick="vediProdottiFornitore('${f.id}', '${f.ragione_sociale.replace(/'/g, "\\'")}')" class="text-green-600 hover:text-green-900 mr-3" title="Vedi Prodotti">
+                            <i class="fas fa-boxes"></i>
+                        </button>
                         <button onclick="modificaFornitore('${f.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3" title="Modifica">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -629,7 +632,106 @@
         function closeSuccessModal() {
             document.getElementById('successModal').classList.add('hidden');
         }
+
+        // ========================================
+        // MODAL PRODOTTI FORNITORE
+        // ========================================
+        async function vediProdottiFornitore(fornitoreId, fornitoreNome) {
+            const modal = document.getElementById('prodottiFornitoreModal');
+            const title = document.getElementById('prodottiFornitoreTitle');
+            const container = document.getElementById('prodottiFornitoreList');
+            
+            title.textContent = fornitoreNome;
+            container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-3xl text-gray-400"></i></div>';
+            modal.classList.remove('hidden');
+            
+            try {
+                const { data: prodotti, error } = await window.supabase
+                    .from('components')
+                    .select('id, nome, codice, barcode, descrizione, quantita_disponibile, unita_misura, prezzo_acquisto, categoria')
+                    .eq('fornitore_id', fornitoreId)
+                    .eq('stato', 'attivo')
+                    .order('nome');
+                
+                if (error) throw error;
+                
+                if (!prodotti || prodotti.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">Nessun prodotto associato a questo fornitore</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="mb-4 text-sm text-gray-600">
+                        <i class="fas fa-box mr-2"></i>${prodotti.length} prodott${prodotti.length === 1 ? 'o' : 'i'} trovat${prodotti.length === 1 ? 'o' : 'i'}
+                    </div>
+                    <div class="space-y-2">
+                        ${prodotti.map(p => `
+                            <div class="p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-400 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <p class="font-bold text-gray-900">${p.descrizione || p.nome}</p>
+                                        <div class="text-sm text-gray-600 mt-1 space-y-1">
+                                            ${p.codice ? `<div><i class="fas fa-tag mr-1 text-blue-500"></i>Codice: ${p.codice}</div>` : ''}
+                                            ${p.barcode ? `<div><i class="fas fa-barcode mr-1 text-green-500"></i>Barcode: ${p.barcode}</div>` : ''}
+                                            ${p.categoria ? `<div><i class="fas fa-folder mr-1 text-orange-500"></i>${p.categoria}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-4">
+                                        <div class="text-sm font-semibold ${(p.quantita_disponibile || 0) > 0 ? 'text-green-600' : 'text-red-600'}">
+                                            <i class="fas fa-warehouse mr-1"></i>${(p.quantita_disponibile || 0)} ${p.unita_misura || 'pz'}
+                                        </div>
+                                        ${p.prezzo_acquisto ? `<div class="text-xs text-gray-500 mt-1">€ ${parseFloat(p.prezzo_acquisto).toFixed(2)}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Errore caricamento prodotti fornitore:', error);
+                container.innerHTML = `
+                    <div class="text-center py-12 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                        <p>Errore nel caricamento dei prodotti</p>
+                    </div>
+                `;
+            }
+        }
+
+        function closeProdottiFornitoreModal() {
+            document.getElementById('prodottiFornitoreModal').classList.add('hidden');
+        }
     </script>
+
+    <!-- Modal Prodotti Fornitore -->
+    <div id="prodottiFornitoreModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold flex items-center">
+                            <i class="fas fa-boxes mr-3"></i>
+                            Prodotti - <span id="prodottiFornitoreTitle">Fornitore</span>
+                        </h3>
+                        <p class="text-green-100 text-sm">Lista prodotti associati</p>
+                    </div>
+                    <button onclick="closeProdottiFornitoreModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="prodottiFornitoreList" class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <!-- Popolato dinamicamente -->
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Successo -->
     <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
