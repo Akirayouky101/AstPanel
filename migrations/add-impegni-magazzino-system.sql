@@ -176,11 +176,11 @@ BEGIN
         SET 
             lavorazione_id = NEW.id,
             tipo_impegno = 'lavorazione',
-            note = note || ' → Trasferito a lavorazione ' || NEW.codice_lavorazione
+            note = note || ' → Trasferito a lavorazione ' || NEW.titolo
         WHERE preventivo_id = NEW.preventivo_id 
         AND stato = 'attivo';
         
-        RAISE NOTICE '🔄 Impegni trasferiti da preventivo a lavorazione %', NEW.codice_lavorazione;
+        RAISE NOTICE '🔄 Impegni trasferiti da preventivo a lavorazione %', NEW.titolo;
     END IF;
     
     RETURN NEW;
@@ -233,7 +233,7 @@ BEGIN
                 -v_impegno.quantita_impegnata,
                 c.quantita_disponibile + v_impegno.quantita_impegnata,
                 c.quantita_disponibile,
-                'Completamento lavorazione ' || NEW.codice_lavorazione,
+                'Completamento lavorazione ' || NEW.titolo,
                 NOW(),
                 v_user_id
             FROM components c WHERE c.id = v_impegno.prodotto_id;
@@ -246,7 +246,7 @@ BEGIN
             WHERE id = v_impegno.id;
         END LOOP;
         
-        RAISE NOTICE '✅ Scalata giacenza per lavorazione completata %', NEW.codice_lavorazione;
+        RAISE NOTICE '✅ Scalata giacenza per lavorazione completata %', NEW.titolo;
     END IF;
     
     RETURN NEW;
