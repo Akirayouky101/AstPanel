@@ -1,9 +1,14 @@
 # 🧪 GUIDA COMPLETA TEST SISTEMA IMPEGNI MAGAZZINO
 
-## 📋 PREREQUISITI
-- ✅ Database resettato (RESET-TOTALE-TUTTO.sql eseguito)
-- ✅ Trigger eliminazione kit installati (add-trigger-elimina-kit-completo.sql eseguito)
-- ✅ Pulizia righe orfane eseguita (pulisci-righe-orfane-kit.sql eseguito)
+## 📋 PREREQUISITI - ORDINE DI ESECUZIONE
+
+**Esegui questi script su Supabase IN ORDINE**:
+
+1. ✅ **RESET-TOTALE-TUTTO.sql** - Cancella tutto il database
+2. ✅ **ESEGUI-TUTTE-LE-MIGRATION.sql** - Crea tabelle impegni_magazzino, viste, trigger base
+3. ✅ **add-trigger-elimina-kit-completo.sql** - Aggiunge trigger per eliminazione kit
+4. ✅ **fix-trigger-order-kit-impegni.sql** - Corregge ordine esecuzione trigger
+5. ✅ **pulisci-righe-orfane-kit.sql** - Pulizia finale (opzionale, dovrebbe trovare 0)
 
 ---
 
