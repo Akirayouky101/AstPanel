@@ -49,7 +49,6 @@ SELECT
     c.categoria,
     c.fornitore_id,
     c.prezzo_acquisto,
-    c.prezzo_vendita,
     c.giacenza_minima,
     c.stato,
     c.quantita_disponibile as giacenza_fisica,
