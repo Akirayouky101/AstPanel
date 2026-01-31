@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
     -- Chi e quando
     user_id UUID REFERENCES users(id),
     user_name VARCHAR(255),
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     
     -- Cosa
     entity_type VARCHAR(50) NOT NULL, -- 'kit', 'component', 'client', 'task', 'user', ecc
@@ -38,10 +38,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
     ))
 );
 
-CREATE INDEX idx_audit_log_user ON audit_log(user_id, timestamp DESC);
-CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id, timestamp DESC);
-CREATE INDEX idx_audit_log_timestamp ON audit_log(timestamp DESC);
-CREATE INDEX idx_audit_log_action ON audit_log(action, timestamp DESC);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id, created_at DESC);
+CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id, created_at DESC);
+CREATE INDEX idx_audit_log_timestamp ON audit_log(created_at DESC);
+CREATE INDEX idx_audit_log_action ON audit_log(action, created_at DESC);
 
 COMMENT ON TABLE audit_log IS 'Log completo di tutte le operazioni nel sistema';
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS kit_audit (
     -- Chi e quando
     user_id UUID REFERENCES users(id),
     user_name VARCHAR(255),
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     
     -- Tipo operazione
     operation VARCHAR(50) NOT NULL,
@@ -74,9 +74,9 @@ CREATE TABLE IF NOT EXISTS kit_audit (
     extra_data JSONB
 );
 
-CREATE INDEX idx_kit_audit_kit ON kit_audit(kit_id, timestamp DESC);
-CREATE INDEX idx_kit_audit_user ON kit_audit(user_id, timestamp DESC);
-CREATE INDEX idx_kit_audit_operation ON kit_audit(operation, timestamp DESC);
+CREATE INDEX idx_kit_audit_kit ON kit_audit(kit_id, created_at DESC);
+CREATE INDEX idx_kit_audit_user ON kit_audit(user_id, created_at DESC);
+CREATE INDEX idx_kit_audit_operation ON kit_audit(operation, created_at DESC);
 
 COMMENT ON TABLE kit_audit IS 'Storico dettagliato operazioni sui kit';
 
@@ -137,7 +137,7 @@ COMMENT ON VIEW v_movimenti_dettagliato IS 'Vista completa movimenti magazzino c
 CREATE OR REPLACE VIEW v_kit_storico_completo AS
 SELECT 
     ka.id,
-    ka.timestamp,
+    ka.created_at,
     ka.operation,
     ka.description,
     
@@ -167,7 +167,7 @@ SELECT
 FROM kit_audit ka
 LEFT JOIN kits k ON ka.kit_id = k.id
 LEFT JOIN clients cl ON k.cliente_id = cl.id
-ORDER BY ka.timestamp DESC;
+ORDER BY ka.created_at DESC;
 
 COMMENT ON VIEW v_kit_storico_completo IS 'Vista completa storico kit con tutte le operazioni';
 
@@ -349,7 +349,7 @@ CREATE TRIGGER trigger_audit_kit_item_delete
 -- ============================================
 CREATE OR REPLACE FUNCTION get_kit_audit(p_kit_id UUID, p_limit INT DEFAULT 50)
 RETURNS TABLE (
-    timestamp TIMESTAMPTZ,
+    audit_timestamp TIMESTAMPTZ,
     operation VARCHAR,
     description TEXT,
     user_name VARCHAR,
@@ -361,7 +361,7 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT 
-        ka.timestamp,
+        ka.created_at,
         ka.operation,
         ka.description,
         ka.user_name,
@@ -371,7 +371,7 @@ BEGIN
         ka.new_value
     FROM kit_audit ka
     WHERE ka.kit_id = p_kit_id
-    ORDER BY ka.timestamp DESC
+    ORDER BY ka.created_at DESC
     LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql;
