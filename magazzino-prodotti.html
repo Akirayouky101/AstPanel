@@ -1456,46 +1456,19 @@
             if (!prodotto) return;
 
             try {
-                const giacenzaPrima = prodotto.giacenza || 0;
-                const giacenzaDopo = tipoMovimentoSelezionato === 'carico' 
-                    ? giacenzaPrima + quantita 
-                    : giacenzaPrima - quantita;
-
-                if (giacenzaDopo < 0) {
-                    showErrorModal(
-                        'Giacenza insufficiente per lo scarico!',
-                        `Giacenza attuale: ${giacenzaPrima} ${prodotto.um || 'pz'}\nQuantità richiesta: ${quantita} ${prodotto.um || 'pz'}\nMancanti: ${Math.abs(giacenzaDopo)} ${prodotto.um || 'pz'}`
-                    );
-                    return;
-                }
-
-                // Aggiorna giacenza - proviamo prima il campo 'giacenza', altrimenti 'quantita_disponibile'
-                async function tryUpdateQuantity(id, value) {
-                    // Prova prima con 'giacenza'
-                    let res = await supabase.from('components').update({ giacenza: value }).eq('id', id);
-                    if (!res.error) return res;
-                    // Se l'errore indica colonna mancante, ritenta con 'quantita_disponibile'
-                    if (res.error && res.error.code === 'PGRST204' && /Could not find the '.+' column/.test(res.error.message)) {
-                        return await supabase.from('components').update({ quantita_disponibile: value }).eq('id', id);
-                    }
-                    // Altrimenti ritorna l'errore originale
-                    return res;
-                }
-
-                const { error: updateError } = (await tryUpdateQuantity(prodottoId, giacenzaDopo));
-
-                if (updateError) throw updateError;
-
-                // Crea movimento
+                // RIMOSSO controllo giacenza negativa - il trigger gestisce tutto
+                // RIMOSSO aggiornamento manuale giacenza - il trigger lo fa automaticamente
+                
+                // Inserisce solo il movimento - il trigger aggiorna la giacenza automaticamente
                 const { error: movError } = await supabase
                     .from('movimenti_magazzino')
                     .insert({
                         prodotto_id: prodottoId,
                         tipo_movimento: tipoMovimentoSelezionato,
                         quantita: tipoMovimentoSelezionato === 'carico' ? quantita : -quantita,
-                        giacenza_prima: giacenzaPrima,
-                        giacenza_dopo: giacenzaDopo,
-                        causale: causale || (tipoMovimentoSelezionato === 'carico' ? 'Carico manuale' : 'Scarico manuale')
+                        causale: causale || (tipoMovimentoSelezionato === 'carico' ? 'Carico manuale' : 'Scarico manuale'),
+                        created_by: currentUserId,
+                        data_movimento: new Date().toISOString()
                     });
 
                 if (movError) throw movError;
@@ -2831,32 +2804,26 @@
 
             for (const [prodottoId, item] of prodottiTrovatiCM.entries()) {
                 const giacenzaPrima = item.prodotto.quantita_disponibile;
-                const nuovaGiacenza = giacenzaPrima + item.quantita;
                 
-                const { error } = await supabase.from('components').update({
-                    quantita_disponibile: nuovaGiacenza
-                }).eq('id', prodottoId);
+                // NON aggiornare manualmente - il trigger lo fa automaticamente!
+                // const { error } = await supabase.from('components').update({
+                //     quantita_disponibile: nuovaGiacenza
+                // }).eq('id', prodottoId);
 
-                if (error) {
-                    console.error('Errore carico:', error);
+                // Registra movimento - il trigger aggiorna automaticamente la giacenza
+                const { error: movError } = await supabase.from('movimenti_magazzino').insert([{
+                    prodotto_id: prodottoId,
+                    tipo_movimento: 'carico',
+                    quantita: item.quantita,
+                    causale: 'Carico Multiplo',
+                    created_by: currentUserId,
+                    data_movimento: new Date().toISOString()
+                }]);
+                
+                if (movError) {
+                    console.error('Errore registrazione movimento:', movError);
                     caricatiErrore++;
                 } else {
-                    // Registra movimento con giacenze
-                    const { error: movError } = await supabase.from('movimenti_magazzino').insert([{
-                        prodotto_id: prodottoId,
-                        tipo_movimento: 'entrata',
-                        quantita: item.quantita,
-                        giacenza_prima: giacenzaPrima,
-                        giacenza_dopo: nuovaGiacenza,
-                        causale: 'Carico Multiplo',
-                        created_by: currentUserId,
-                        data_movimento: new Date().toISOString()
-                    }]);
-                    
-                    if (movError) {
-                        console.error('Errore registrazione movimento:', movError);
-                    }
-                    
                     caricatiOk++;
                 }
             }
