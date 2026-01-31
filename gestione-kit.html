@@ -1988,17 +1988,49 @@
             renderProdottiMagazzino(filtered);
         }
 
+        let pendingProdottoAggiunta = null;
+
         async function aggiungiDaMagazzino(prodottoId) {
             const prodotto = allProdottiMagazzino.find(p => p.id === prodottoId);
             if (!prodotto) return;
 
-            const quantita = prompt(`Quantità da aggiungere per "${prodotto.nome}":`, '1');
-            if (!quantita || parseFloat(quantita) <= 0) return;
+            // Salva prodotto temporaneo e apri modal
+            pendingProdottoAggiunta = prodotto;
+            document.getElementById('quantitaModalProdotto').textContent = `Prodotto: ${prodotto.nome}`;
+            document.getElementById('quantitaInput').value = '1';
+            document.getElementById('quantitaModal').classList.remove('hidden');
+            
+            // Focus sull'input
+            setTimeout(() => {
+                const input = document.getElementById('quantitaInput');
+                input.focus();
+                input.select();
+            }, 100);
+        }
+
+        function closeQuantitaModal() {
+            document.getElementById('quantitaModal').classList.add('hidden');
+            pendingProdottoAggiunta = null;
+        }
+
+        async function confermaQuantita() {
+            if (!pendingProdottoAggiunta) return;
+
+            const quantitaInput = document.getElementById('quantitaInput');
+            const quantita = parseFloat(quantitaInput.value);
+
+            if (!quantita || quantita <= 0) {
+                alert('Inserisci una quantità valida');
+                quantitaInput.focus();
+                return;
+            }
+
+            const prodotto = pendingProdottoAggiunta;
 
             const { error } = await supabase.from('kit_items').insert([{
                 kit_id: currentKitId,
                 prodotto_id: prodotto.id,
-                quantita: parseFloat(quantita),
+                quantita: quantita,
                 prodotto_nome: prodotto.nome,
                 prodotto_codice: prodotto.codice,
                 prodotto_barcode: '',
@@ -2007,13 +2039,33 @@
 
             if (error) {
                 console.error('Error adding component:', error);
+                closeQuantitaModal();
                 alert('Errore nell\'aggiungere il prodotto');
                 return;
             }
 
             await loadComponentiKit(currentKitId);
-            alert(`✅ ${prodotto.nome} aggiunto al kit!`);
+            closeQuantitaModal();
+            
+            // Mostra notifica successo
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] flex items-center gap-2';
+            notification.innerHTML = `<i class="fas fa-check-circle"></i><span>✅ ${prodotto.nome} aggiunto al kit!</span>`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
         }
+
+        // Gestione Enter nella modal quantità
+        document.addEventListener('DOMContentLoaded', function() {
+            const quantitaInput = document.getElementById('quantitaInput');
+            if (quantitaInput) {
+                quantitaInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        confermaQuantita();
+                    }
+                });
+            }
+        });
 
         async function stampaQRKit() {
             if (!currentKitId) return;
@@ -2429,6 +2481,43 @@
                 <p id="errorDetails" class="text-center text-gray-600 text-sm mb-6"></p>
                 <button onclick="closeErrorModal()" class="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
                     <i class="fas fa-times mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Input Quantità -->
+    <div id="quantitaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+                <i class="fas fa-sort-numeric-up text-blue-600"></i>
+                <span id="quantitaModalTitle">Inserisci Quantità</span>
+            </h3>
+            
+            <p class="text-sm text-gray-600 mb-4" id="quantitaModalProdotto"></p>
+            
+            <div class="mb-6">
+                <label for="quantitaInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    Quantità da aggiungere
+                </label>
+                <input 
+                    type="number" 
+                    id="quantitaInput" 
+                    min="0.01" 
+                    step="0.01" 
+                    value="1"
+                    class="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Es: 1, 2.5, 10"
+                    autofocus
+                />
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="closeQuantitaModal()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                    <i class="fas fa-times mr-2"></i>Annulla
+                </button>
+                <button onclick="confermaQuantita()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">
+                    <i class="fas fa-check mr-2"></i>Conferma
                 </button>
             </div>
         </div>
