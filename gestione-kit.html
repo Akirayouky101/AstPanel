@@ -1037,7 +1037,23 @@
             if (!currentKitId) return;
 
             try {
-                // Soft delete: marca come eliminato invece di cancellare
+                // 1. Annulla tutti gli impegni magazzino associati al kit
+                const { error: impegniError } = await supabase
+                    .from('impegni_magazzino')
+                    .update({
+                        stato: 'annullato',
+                        note: 'Kit eliminato',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('kit_id', currentKitId)
+                    .eq('stato', 'attivo'); // Solo quelli attivi
+
+                if (impegniError) {
+                    console.error('Errore annullamento impegni:', impegniError);
+                    throw new Error('Errore durante l\'annullamento degli impegni');
+                }
+
+                // 2. Soft delete del kit
                 const { error } = await supabase
                     .from('kits')
                     .update({
@@ -1054,7 +1070,7 @@
                 closeDettaglioKit();
 
                 // Mostra messaggio successo
-                showSuccessMessage('Kit eliminato con successo! I componenti sono stati ripristinati in magazzino.');
+                showSuccessMessage('✅ Kit eliminato! Impegni annullati e componenti ripristinati in magazzino.');
 
                 // Ricarica lista
                 await loadKits();
