@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storico Audit - Sistema Completo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-history text-blue-600 text-2xl"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Storico Audit Sistema</h1>
+                </div>
+                <button onclick="window.history.back()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-arrow-left mr-2"></i>Indietro
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo Entità</label>
+                    <select id="filterEntityType" onchange="loadAudit()" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Tutti</option>
+                        <option value="kit">Kit</option>
+                        <option value="kit_item">Componenti Kit</option>
+                        <option value="component">Componenti</option>
+                        <option value="movimento">Movimenti Magazzino</option>
+                        <option value="impegno">Impegni</option>
+                        <option value="client">Clienti</option>
+                        <option value="task">Lavorazioni</option>
+                        <option value="user">Utenti</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Azione</label>
+                    <select id="filterAction" onchange="loadAudit()" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Tutte</option>
+                        <option value="create">Creazione</option>
+                        <option value="update">Modifica</option>
+                        <option value="delete">Eliminazione</option>
+                        <option value="state_change">Cambio Stato</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Utente</label>
+                    <select id="filterUser" onchange="loadAudit()" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Tutti</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
+                    <select id="filterPeriod" onchange="loadAudit()" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="7">Ultimi 7 giorni</option>
+                        <option value="30">Ultimi 30 giorni</option>
+                        <option value="90">Ultimi 90 giorni</option>
+                        <option value="">Tutti</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow-sm mb-6">
+            <div class="border-b">
+                <div class="flex">
+                    <button onclick="switchTab('general')" id="tabGeneral" class="tab-btn px-6 py-4 font-semibold border-b-2 border-blue-600 text-blue-600">
+                        <i class="fas fa-list mr-2"></i>Audit Generale
+                    </button>
+                    <button onclick="switchTab('kit')" id="tabKit" class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-box mr-2"></i>Audit Kit
+                    </button>
+                    <button onclick="switchTab('movimenti')" id="tabMovimenti" class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-exchange-alt mr-2"></i>Movimenti Magazzino
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenuto Tab General -->
+        <div id="contentGeneral" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data/Ora</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azione</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrizione</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Dettagli</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditGeneralBody" class="divide-y divide-gray-200">
+                            <!-- Popolato da JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenuto Tab Kit -->
+        <div id="contentKit" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data/Ora</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kit</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Operazione</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrizione</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Componente</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditKitBody" class="divide-y divide-gray-200">
+                            <!-- Popolato da JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenuto Tab Movimenti -->
+        <div id="contentMovimenti" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prodotto</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantità</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Causale</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kit/Ordine</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movimentiBody" class="divide-y divide-gray-200">
+                            <!-- Popolato da JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'general';
+        let currentUserId = null;
+
+        async function init() {
+            // Verifica autenticazione
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Get current user ID
+            const { data: userData } = await supabase
+                .from('users')
+                .select('id')
+                .eq('auth_id', user.id)
+                .single();
+            
+            currentUserId = userData?.id;
+
+            await loadUsers();
+            await loadAudit();
+        }
+
+        async function loadUsers() {
+            const { data } = await supabase
+                .from('users')
+                .select('id, nome, cognome')
+                .order('nome');
+            
+            const select = document.getElementById('filterUser');
+            data?.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.nome} ${user.cognome}`;
+                select.appendChild(option);
+            });
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('text-gray-600');
+            });
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('border-blue-600', 'text-blue-600');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.remove('text-gray-600');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`content${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.remove('hidden');
+            
+            loadAudit();
+        }
+
+        async function loadAudit() {
+            if (currentTab === 'general') await loadAuditGeneral();
+            if (currentTab === 'kit') await loadAuditKit();
+            if (currentTab === 'movimenti') await loadMovimenti();
+        }
+
+        async function loadAuditGeneral() {
+            let query = supabase
+                .from('audit_log')
+                .select('*')
+                .order('timestamp', { ascending: false })
+                .limit(100);
+
+            const entityType = document.getElementById('filterEntityType').value;
+            const action = document.getElementById('filterAction').value;
+            const userId = document.getElementById('filterUser').value;
+            const period = document.getElementById('filterPeriod').value;
+
+            if (entityType) query = query.eq('entity_type', entityType);
+            if (action) query = query.eq('action', action);
+            if (userId) query = query.eq('user_id', userId);
+            if (period) {
+                const date = new Date();
+                date.setDate(date.getDate() - parseInt(period));
+                query = query.gte('timestamp', date.toISOString());
+            }
+
+            const { data, error } = await query;
+
+            const tbody = document.getElementById('auditGeneralBody');
+            tbody.innerHTML = '';
+
+            data?.forEach(item => {
+                const actionBadge = getActionBadge(item.action);
+                const typeBadge = getTypeBadge(item.entity_type);
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDateTime(item.timestamp)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${item.user_name || 'Sistema'}</td>
+                        <td class="px-6 py-4">${typeBadge}</td>
+                        <td class="px-6 py-4">${actionBadge}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.description}</td>
+                        <td class="px-6 py-4 text-center">
+                            ${item.old_values || item.new_values ? `<button onclick='showDetails(${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function loadAuditKit() {
+            const { data } = await supabase
+                .from('v_kit_storico_completo')
+                .select('*')
+                .order('timestamp', { ascending: false })
+                .limit(100);
+
+            const tbody = document.getElementById('auditKitBody');
+            tbody.innerHTML = '';
+
+            data?.forEach(item => {
+                const operationBadge = getOperationBadge(item.operation);
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDateTime(item.timestamp)}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${item.codice_kit || '-'}</td>
+                        <td class="px-6 py-4">${operationBadge}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${item.user_name || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.description}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            ${item.component_name ? `${item.component_name} ${item.quantity ? `(${item.quantity})` : ''}` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function loadMovimenti() {
+            const { data } = await supabase
+                .from('v_movimenti_dettagliato')
+                .select('*')
+                .order('data_movimento', { ascending: false })
+                .limit(100);
+
+            const tbody = document.getElementById('movimentiBody');
+            tbody.innerHTML = '';
+
+            data?.forEach(item => {
+                const tipoClass = item.tipo_movimento === 'carico' ? 'text-green-600' : 'text-red-600';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDate(item.data_movimento)}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-semibold rounded ${tipoClass}">${item.tipo_movimento}</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.prodotto_nome || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right font-semibold ${tipoClass}">${item.quantita > 0 ? '+' : ''}${item.quantita}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${item.causale || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${item.created_by_name || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${item.codice_kit || item.ordine_numero || '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function getActionBadge(action) {
+            const badges = {
+                'create': '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">Creazione</span>',
+                'update': '<span class="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Modifica</span>',
+                'delete': '<span class="px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-800">Eliminazione</span>',
+                'state_change': '<span class="px-2 py-1 text-xs font-semibold rounded bg-purple-100 text-purple-800">Cambio Stato</span>'
+            };
+            return badges[action] || `<span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">${action}</span>`;
+        }
+
+        function getTypeBadge(type) {
+            const badges = {
+                'kit': '<span class="px-2 py-1 text-xs font-semibold rounded bg-indigo-100 text-indigo-800">Kit</span>',
+                'kit_item': '<span class="px-2 py-1 text-xs font-semibold rounded bg-cyan-100 text-cyan-800">Componente</span>',
+                'component': '<span class="px-2 py-1 text-xs font-semibold rounded bg-teal-100 text-teal-800">Prodotto</span>',
+                'movimento': '<span class="px-2 py-1 text-xs font-semibold rounded bg-orange-100 text-orange-800">Movimento</span>'
+            };
+            return badges[type] || `<span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">${type}</span>`;
+        }
+
+        function getOperationBadge(operation) {
+            const badges = {
+                'created': '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800"><i class="fas fa-plus mr-1"></i>Creato</span>',
+                'component_added': '<span class="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800"><i class="fas fa-box mr-1"></i>Componente Aggiunto</span>',
+                'component_removed': '<span class="px-2 py-1 text-xs font-semibold rounded bg-orange-100 text-orange-800"><i class="fas fa-minus mr-1"></i>Componente Rimosso</span>',
+                'state_changed': '<span class="px-2 py-1 text-xs font-semibold rounded bg-purple-100 text-purple-800"><i class="fas fa-exchange-alt mr-1"></i>Cambio Stato</span>'
+            };
+            return badges[operation] || `<span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">${operation}</span>`;
+        }
+
+        function formatDateTime(date) {
+            return new Date(date).toLocaleString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('it-IT');
+        }
+
+        function showDetails(item) {
+            alert('Dettagli:\n\n' + JSON.stringify(item, null, 2));
+        }
+
+        init();
+    </script>
+</body>
+</html>
