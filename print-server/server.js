@@ -64,19 +64,11 @@ async function createBarcodePDF(barcode, nomeProdotto, codice) {
     const stream = fs.createWriteStream(pdfPath);
     doc.pipe(stream);
     
-    // Salva stato per rotazione
-    doc.save();
+    // Nessuna rotazione - layout diretto landscape
+    const width = 226.77;  // 80mm
+    const height = 141.73; // 50mm
     
-    // Ruota 90 gradi (per compensare orientamento stampante)
-    doc.translate(226.77, 0);
-    doc.rotate(90);
-    
-    // Ora lavoriamo in spazio 141.73 (larghezza) x 226.77 (altezza) dopo rotazione
-    // Ma pensiamo come se fosse 80mm x 50mm landscape
-    const width = 141.73;
-    const height = 226.77;
-    
-    let y = 20;
+    let y = 15;
     
     // Nome prodotto (header)
     doc.fontSize(10)
@@ -122,7 +114,6 @@ async function createBarcodePDF(barcode, nomeProdotto, codice) {
            align: 'center'
        });
     
-    doc.restore();
     doc.end();
     
     // Cleanup barcode temp
@@ -152,48 +143,47 @@ async function createQRPDF(barcode, nomeProdotto, codice) {
     const stream = fs.createWriteStream(pdfPath);
     doc.pipe(stream);
     
-    doc.save();
-    doc.translate(226.77, 0);
-    doc.rotate(90);
+    // Nessuna rotazione - layout diretto landscape
+    const width = 226.77;  // 80mm
+    const height = 141.73; // 50mm
     
-    const width = 141.73;
-    let y = 20;
+    let y = 10;
     
     // Nome prodotto
-    doc.fontSize(10)
+    doc.fontSize(9)
        .font('Helvetica-Bold')
        .text(nomeProdotto, 10, y, {
            width: width - 20,
            align: 'center',
-           lineGap: 2
+           lineGap: 1
        });
     
-    y += 25;
+    y += 20;
     
     // Codice prodotto
     if (codice) {
-        doc.fontSize(7)
+        doc.fontSize(6)
            .font('Helvetica')
            .fillColor('#666666')
            .text(`Cod: ${codice}`, 10, y, {
                width: width - 20,
                align: 'center'
            });
-        y += 12;
+        y += 10;
     }
     
-    // QR Code
+    // QR Code (più piccolo per entrare nell'etichetta)
     const qrDataURL = await generateQRDataURL(barcode);
     const qrBuffer = Buffer.from(qrDataURL.split(',')[1], 'base64');
     const qrTempPath = path.join(TEMP_DIR, `qr_temp_${Date.now()}.png`);
     fs.writeFileSync(qrTempPath, qrBuffer);
     
-    doc.image(qrTempPath, (width - 90) / 2, y, {
-        width: 90,
-        height: 90
+    doc.image(qrTempPath, (width - 70) / 2, y, {
+        width: 70,
+        height: 70
     });
     
-    y += 95;
+    y += 75;
     
     // Numero sotto QR
     doc.fontSize(9)
@@ -204,7 +194,6 @@ async function createQRPDF(barcode, nomeProdotto, codice) {
            align: 'center'
        });
     
-    doc.restore();
     doc.end();
     
     setTimeout(() => {
