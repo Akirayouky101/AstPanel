@@ -74,14 +74,10 @@ CREATE TRIGGER trigger_impegna_kit
 CREATE OR REPLACE FUNCTION libera_impegno_kit()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_user_id UUID;
     v_kit_codice VARCHAR(50);
     v_prodotto_nome VARCHAR(255);
     v_quantita_liberata DECIMAL(10,2);
 BEGIN
-    -- Trova user_id
-    SELECT id INTO v_user_id FROM users WHERE auth_id = auth.uid();
-    
     -- Prendi info per storico
     SELECT codice_kit INTO v_kit_codice FROM kits WHERE id = OLD.kit_id;
     SELECT nome INTO v_prodotto_nome FROM components WHERE id = OLD.prodotto_id;
@@ -103,7 +99,7 @@ BEGIN
     AND prodotto_id = OLD.prodotto_id
     AND stato = 'attivo';
     
-    -- Registra storico movimento
+    -- Registra storico movimento (usa OLD.aggiunto_da come created_by)
     IF v_quantita_liberata IS NOT NULL AND v_quantita_liberata > 0 THEN
         INSERT INTO movimenti_magazzino (
             prodotto_id,
@@ -115,7 +111,7 @@ BEGIN
             OLD.prodotto_id,
             'reintegro',
             v_quantita_liberata,
-            v_user_id,
+            OLD.aggiunto_da,  -- USA L'UTENTE CHE HA AGGIUNTO IL COMPONENTE
             'Componente rimosso da kit ' || COALESCE(v_kit_codice, OLD.kit_id::TEXT) || 
             ' - Materiale reintegrato: ' || v_quantita_liberata || ' unità di ' || COALESCE(v_prodotto_nome, 'prodotto')
         );
@@ -139,14 +135,14 @@ CREATE TRIGGER trigger_libera_impegno_kit
 CREATE OR REPLACE FUNCTION libera_impegni_kit_eliminato()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_user_id UUID;
     v_kit_codice VARCHAR(50);
     v_componente RECORD;
+    v_user_deleting UUID;
 BEGIN
-    -- Trova user_id
-    SELECT id INTO v_user_id FROM users WHERE auth_id = auth.uid();
-    
     v_kit_codice := OLD.codice_kit;
+    
+    -- Usa deleted_by se disponibile, altrimenti created_by del kit
+    v_user_deleting := COALESCE(OLD.deleted_by, OLD.created_by);
     
     -- Per ogni componente con impegno attivo
     FOR v_componente IN 
@@ -179,7 +175,7 @@ BEGIN
             v_componente.prodotto_id,
             'reintegro',
             v_componente.quantita_impegnata,
-            v_user_id,
+            v_user_deleting,  -- USA deleted_by o created_by del kit
             'Kit eliminato: ' || COALESCE(v_kit_codice, OLD.id::TEXT) || 
             ' - Materiale reintegrato: ' || v_componente.quantita_impegnata || 
             ' unità di ' || COALESCE(v_componente.prodotto_nome, 'prodotto')
