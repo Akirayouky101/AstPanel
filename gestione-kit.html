@@ -1330,17 +1330,27 @@
                 // 1. Recupera info del componente per sapere il prodotto_id
                 const { data: kitItem, error: fetchError } = await supabase
                     .from('kit_items')
-                    .select('kit_id, prodotto_id')
+                    .select('kit_id, prodotto_id, quantita, prodotto_nome')
                     .eq('id', componenteIdDaRimuovere)
                     .single();
 
                 if (fetchError) throw fetchError;
 
-                // 2. Annulla l'impegno per questo specifico prodotto (COME eliminaKit)
+                // 2. Recupera codice kit
+                const { data: kit, error: kitError } = await supabase
+                    .from('kits')
+                    .select('codice_kit')
+                    .eq('id', kitItem.kit_id)
+                    .single();
+
+                if (kitError) throw kitError;
+
+                // 3. Annulla l'impegno per questo specifico prodotto (COME eliminaKit)
                 const { error: impegniError } = await supabase
                     .from('impegni_magazzino')
                     .update({
                         stato: 'annullato',
+                        completed_at: new Date().toISOString(),
                         note: 'Componente rimosso dal kit'
                     })
                     .eq('kit_id', kitItem.kit_id)
@@ -1352,7 +1362,23 @@
                     throw new Error('Errore durante l\'annullamento dell\'impegno');
                 }
 
-                // 3. Elimina il componente dal kit (invece di eliminare il kit intero)
+                // 4. Crea movimento di reintegro MANUALMENTE (evita problemi con trigger)
+                const { error: movimentoError } = await supabase
+                    .from('movimenti_magazzino')
+                    .insert({
+                        prodotto_id: kitItem.prodotto_id,
+                        tipo_movimento: 'reintegro',
+                        quantita: kitItem.quantita,
+                        causale: `Componente rimosso da kit ${kit.codice_kit} - Prodotto: ${kitItem.prodotto_nome}`,
+                        created_by: currentUserId  // USA L'UUID CHE SAPPIAMO FUNZIONARE!
+                    });
+
+                if (movimentoError) {
+                    console.warn('Movimento non creato:', movimentoError);
+                    // Non bloccare l'operazione se il movimento fallisce
+                }
+
+                // 5. Elimina il componente dal kit
                 const { error } = await supabase
                     .from('kit_items')
                     .delete()
@@ -1364,7 +1390,7 @@
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
 
-                console.log('✅ Componente rimosso e impegno annullato');
+                console.log('✅ Componente rimosso, impegno annullato e movimento creato');
 
             } catch (error) {
                 console.error('Errore rimozione componente:', error);
