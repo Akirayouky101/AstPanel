@@ -1112,7 +1112,25 @@
                 return;
             }
 
-            const componenti = data || [];
+            const rawComponenti = data || [];
+            
+            // RAGGRUPPA componenti con stesso prodotto_id sommando le quantità
+            const componentiGrouped = {};
+            rawComponenti.forEach(c => {
+                if (!componentiGrouped[c.prodotto_id]) {
+                    componentiGrouped[c.prodotto_id] = {
+                        ...c,
+                        quantita: parseFloat(c.quantita || 0),
+                        ids: [c.id] // Array di ID per eliminazione multipla se necessario
+                    };
+                } else {
+                    // Somma le quantità
+                    componentiGrouped[c.prodotto_id].quantita += parseFloat(c.quantita || 0);
+                    componentiGrouped[c.prodotto_id].ids.push(c.id);
+                }
+            });
+
+            const componenti = Object.values(componentiGrouped);
             document.getElementById('totalComponenti').textContent = `${componenti.length} componenti`;
 
             const container = document.getElementById('componentiKitContainer');
@@ -1137,6 +1155,7 @@
                             <span><i class="fas fa-barcode mr-1"></i>${c.prodotto_barcode || 'N/A'}</span>
                             <span><i class="fas fa-tag mr-1"></i>${c.prodotto_codice || 'N/A'}</span>
                             <span class="font-semibold text-purple-600">Qtà: ${c.quantita}</span>
+                            ${c.ids.length > 1 ? `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">${c.ids.length} voci unite</span>` : ''}
                         </div>
                     </div>
                     ${canEdit ? `
