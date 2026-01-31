@@ -310,72 +310,160 @@
                 return;
             }
 
-            tbody.innerHTML = lista.map(imp => {
-                const data = new Date(imp.created_at).toLocaleDateString('it-IT');
-                let riferimento = '';
-                let tipoIcon = '';
-                let tipoBadge = '';
-
-                if (imp.tipo_impegno === 'preventivo' && imp.preventivi) {
-                    riferimento = imp.preventivi.numero;
-                    tipoIcon = '<i class="fas fa-file-invoice text-blue-600"></i>';
-                    tipoBadge = '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">Preventivo</span>';
-                } else if (imp.tipo_impegno === 'lavorazione' && imp.tasks) {
-                    riferimento = imp.tasks.titolo || `LAV-${imp.tasks.id.substring(0, 8)}`;
-                    tipoIcon = '<i class="fas fa-wrench text-purple-600"></i>';
-                    tipoBadge = '<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">Lavorazione</span>';
-                } else if (imp.tipo_impegno === 'kit' && imp.kits) {
-                    riferimento = imp.kits.codice_kit;
-                    tipoIcon = '<i class="fas fa-box text-green-600"></i>';
-                    tipoBadge = '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Kit</span>';
+            // RAGGRUPPA per tipo_impegno + riferimento (kit_id, lavorazione_id, preventivo_id)
+            const gruppi = {};
+            
+            lista.forEach(imp => {
+                let chiaveGruppo = '';
+                let nomeGruppo = '';
+                let iconaGruppo = '';
+                let badgeGruppo = '';
+                
+                if (imp.tipo_impegno === 'kit' && imp.kit_id) {
+                    chiaveGruppo = `kit_${imp.kit_id}`;
+                    nomeGruppo = `Kit: ${imp.kits?.codice_kit || imp.kit_id.substring(0, 8)}`;
+                    iconaGruppo = '<i class="fas fa-box text-green-600"></i>';
+                    badgeGruppo = '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Kit</span>';
+                } else if (imp.tipo_impegno === 'lavorazione' && imp.lavorazione_id) {
+                    chiaveGruppo = `lav_${imp.lavorazione_id}`;
+                    nomeGruppo = `Lavorazione: ${imp.tasks?.titolo || 'LAV-' + imp.lavorazione_id.substring(0, 8)}`;
+                    iconaGruppo = '<i class="fas fa-wrench text-purple-600"></i>';
+                    badgeGruppo = '<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">Lavorazione</span>';
+                } else if (imp.tipo_impegno === 'preventivo' && imp.preventivo_id) {
+                    chiaveGruppo = `prev_${imp.preventivo_id}`;
+                    nomeGruppo = `Preventivo: ${imp.preventivi?.numero || imp.preventivo_id.substring(0, 8)}`;
+                    iconaGruppo = '<i class="fas fa-file-invoice text-blue-600"></i>';
+                    badgeGruppo = '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">Preventivo</span>';
+                } else {
+                    // Fallback per impegni senza riferimento
+                    chiaveGruppo = `other_${imp.id}`;
+                    nomeGruppo = 'Impegno generico';
+                    iconaGruppo = '<i class="fas fa-question-circle text-gray-600"></i>';
+                    badgeGruppo = '<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">Altro</span>';
                 }
+                
+                if (!gruppi[chiaveGruppo]) {
+                    gruppi[chiaveGruppo] = {
+                        nome: nomeGruppo,
+                        icona: iconaGruppo,
+                        badge: badgeGruppo,
+                        impegni: [],
+                        created_at: imp.created_at,
+                        stato: imp.stato
+                    };
+                }
+                
+                gruppi[chiaveGruppo].impegni.push(imp);
+            });
 
+            // Ordina gruppi per data (più recenti prima)
+            const gruppiOrdinati = Object.entries(gruppi).sort((a, b) => 
+                new Date(b[1].created_at) - new Date(a[1].created_at)
+            );
+
+            // Renderizza gruppi espandibili
+            tbody.innerHTML = gruppiOrdinati.map(([chiave, gruppo]) => {
+                const dataGruppo = new Date(gruppo.created_at).toLocaleDateString('it-IT');
+                const totaleComponenti = gruppo.impegni.length;
+                const totaleQuantita = gruppo.impegni.reduce((sum, imp) => sum + parseFloat(imp.quantita_impegnata || 0), 0);
+                
                 let statoBadge = '';
-                if (imp.stato === 'attivo') {
+                if (gruppo.stato === 'attivo') {
                     statoBadge = '<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">Attivo</span>';
-                } else if (imp.stato === 'completato') {
+                } else if (gruppo.stato === 'completato') {
                     statoBadge = '<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">Completato</span>';
                 } else {
                     statoBadge = '<span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">Annullato</span>';
                 }
 
                 return `
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <div class="font-semibold text-gray-900">${imp.components?.nome || 'N/A'}</div>
-                            <div class="text-sm text-gray-500">${imp.components?.codice || ''}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center space-x-2">
-                                ${tipoIcon}
-                                ${tipoBadge}
+                    <!-- RIGA GRUPPO (header espandibile) -->
+                    <tr class="bg-gradient-to-r from-gray-100 to-gray-50 border-b-2 border-gray-300 cursor-pointer hover:from-gray-200 hover:to-gray-100 transition"
+                        onclick="toggleGruppo('${chiave}')">
+                        <td colspan="7" class="px-4 py-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <i id="icon-${chiave}" class="fas fa-chevron-down text-gray-500 transition-transform"></i>
+                                    ${gruppo.icona}
+                                    <span class="font-bold text-gray-800 text-lg">${gruppo.nome}</span>
+                                    ${gruppo.badge}
+                                    <span class="bg-white px-3 py-1 rounded-full text-xs font-semibold text-gray-600">
+                                        ${totaleComponenti} componenti
+                                    </span>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <span class="text-sm text-gray-600">
+                                        <i class="fas fa-calendar mr-1"></i>${dataGruppo}
+                                    </span>
+                                    ${statoBadge}
+                                </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="font-semibold">${riferimento}</div>
-                            ${imp.note ? `<div class="text-xs text-gray-500">${imp.note}</div>` : ''}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <span class="font-bold text-orange-600">${imp.quantita_impegnata}</span>
-                            <span class="text-sm text-gray-500">${imp.components?.unita_misura || 'pz'}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">
-                            <i class="fas fa-calendar mr-1"></i>${data}
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            ${statoBadge}
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            ${imp.stato === 'attivo' ? `
-                                <button onclick="apriLiberaModal('${imp.id}', '${imp.components?.nome}')" 
-                                        class="bg-orange-100 text-orange-700 px-3 py-1 rounded hover:bg-orange-200 transition text-sm font-semibold">
-                                    <i class="fas fa-unlock mr-1"></i>Libera
-                                </button>
-                            ` : '<span class="text-gray-400 text-sm">-</span>'}
-                        </td>
                     </tr>
+                    
+                    <!-- RIGHE COMPONENTI (espandibili) -->
+                    <tbody id="gruppo-${chiave}" class="gruppo-componenti hidden">
+                        ${gruppo.impegni.map(imp => {
+                            const data = new Date(imp.created_at).toLocaleDateString('it-IT');
+                            
+                            let statoImpBadge = '';
+                            if (imp.stato === 'attivo') {
+                                statoImpBadge = '<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">Attivo</span>';
+                            } else if (imp.stato === 'completato') {
+                                statoImpBadge = '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Completato</span>';
+                            } else {
+                                statoImpBadge = '<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">Annullato</span>';
+                            }
+
+                            return `
+                                <tr class="border-b bg-white hover:bg-gray-50">
+                                    <td class="px-4 py-3 pl-16">
+                                        <div class="font-semibold text-gray-900">${imp.components?.nome || 'N/A'}</div>
+                                        <div class="text-sm text-gray-500">${imp.components?.codice || ''}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-gray-600">${imp.components?.unita_misura || 'pz'}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        ${imp.note ? `<div class="text-xs text-gray-500">${imp.note}</div>` : '<span class="text-gray-400">-</span>'}
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="font-bold text-orange-600">${imp.quantita_impegnata}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <i class="fas fa-clock mr-1"></i>${data}
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        ${statoImpBadge}
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        ${imp.stato === 'attivo' ? `
+                                            <button onclick="apriLiberaModal('${imp.id}', '${imp.components?.nome}')" 
+                                                    class="bg-orange-100 text-orange-700 px-3 py-1 rounded hover:bg-orange-200 transition text-sm font-semibold">
+                                                <i class="fas fa-unlock mr-1"></i>Libera
+                                            </button>
+                                        ` : '<span class="text-gray-400 text-sm">-</span>'}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
                 `;
             }).join('');
+        }
+
+        // Funzione per espandere/comprimere gruppi
+        function toggleGruppo(chiave) {
+            const gruppo = document.getElementById(`gruppo-${chiave}`);
+            const icon = document.getElementById(`icon-${chiave}`);
+            
+            if (gruppo.classList.contains('hidden')) {
+                gruppo.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            } else {
+                gruppo.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+            }
         }
 
         function apriLiberaModal(impegnoId, prodottoNome) {
