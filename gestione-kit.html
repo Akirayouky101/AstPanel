@@ -1325,10 +1325,31 @@
             if (!componenteIdDaRimuovere) return;
 
             try {
-                // Usa la funzione RPC che fa tutto in modo atomico
+                console.log('Tentativo rimozione kit_item:', componenteIdDaRimuovere);
+
+                // Prova con la funzione RPC atomica
                 const { data, error } = await supabase.rpc('rimuovi_componente_da_kit', {
                     p_kit_item_id: componenteIdDaRimuovere
                 });
+
+                console.log('RPC response:', { data, error });
+
+                // Se la RPC non esiste (errore 42883), usa il metodo diretto
+                if (error && error.code === '42883') {
+                    console.warn('RPC non trovata, uso DELETE diretta');
+                    
+                    // Fallback: elimina direttamente (gli impegni sono già annullati dal trigger)
+                    const { error: deleteError } = await supabase
+                        .from('kit_items')
+                        .delete()
+                        .eq('id', componenteIdDaRimuovere);
+
+                    if (deleteError) throw deleteError;
+                    
+                    closeConfirmModal();
+                    await loadComponentiKit(currentKitId);
+                    return;
+                }
 
                 if (error) throw error;
 
@@ -1336,13 +1357,13 @@
                     throw new Error(data.error || 'Errore nella rimozione');
                 }
 
-                console.log('Componente rimosso:', data);
+                console.log('✅ Componente rimosso con successo:', data);
 
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
 
             } catch (error) {
-                console.error('Error removing component:', error);
+                console.error('❌ Error removing component:', error);
                 closeConfirmModal();
                 showErrorModal('Errore nella rimozione del componente', error.message);
             }
