@@ -1304,12 +1304,13 @@
                 return;
             }
 
-            // CONTROLLA SE IL PRODOTTO ESISTE GIA' NEL KIT
+            // CONTROLLA SE IL PRODOTTO ESISTE GIA' NEL KIT (escludi eliminati)
             const { data: existingItem } = await supabase
                 .from('kit_items')
                 .select('id, quantita')
                 .eq('kit_id', currentKitId)
                 .eq('prodotto_id', prodottoSelezionatoKit.id)
+                .is('deleted_at', null)  // IMPORTANTE: escludi componenti soft-deleted
                 .single();
 
             if (existingItem) {
