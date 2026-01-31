@@ -106,14 +106,14 @@ BEGIN
             tipo_movimento,
             quantita,
             created_by,
-            note
+            causale
         ) VALUES (
             OLD.prodotto_id,
             'reintegro',
             v_quantita_liberata,
             OLD.aggiunto_da,  -- USA L'UTENTE CHE HA AGGIUNTO IL COMPONENTE
             'Componente rimosso da kit ' || COALESCE(v_kit_codice, OLD.kit_id::TEXT) || 
-            ' - Materiale reintegrato: ' || v_quantita_liberata || ' unità di ' || COALESCE(v_prodotto_nome, 'prodotto')
+            ' (' || COALESCE(v_prodotto_nome, 'prodotto') || ': ' || v_quantita_liberata || ' unità reintegrate)'
         );
     END IF;
     
@@ -170,15 +170,15 @@ BEGIN
             tipo_movimento,
             quantita,
             created_by,
-            note
+            causale
         ) VALUES (
             v_componente.prodotto_id,
             'reintegro',
             v_componente.quantita_impegnata,
             v_user_deleting,  -- USA deleted_by o created_by del kit
             'Kit eliminato: ' || COALESCE(v_kit_codice, OLD.id::TEXT) || 
-            ' - Materiale reintegrato: ' || v_componente.quantita_impegnata || 
-            ' unità di ' || COALESCE(v_componente.prodotto_nome, 'prodotto')
+            ' (' || COALESCE(v_componente.prodotto_nome, 'prodotto') || ': ' || 
+            v_componente.quantita_impegnata || ' unità reintegrate)'
         );
     END LOOP;
     
