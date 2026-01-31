@@ -2770,223 +2770,34 @@
         }
 
         function stampaBarcodeQR() {
-            const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
+            // Chiedi quale etichetta stampare con dialog nativo
+            const risposta = window.confirm('Quale etichetta vuoi stampare?\n\n✅ OK = QR Code\n❌ Annulla = Barcode');
             
-            // Ottieni l'immagine QR dal container
+            const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
             const qrContainer = document.getElementById('qrTempContainer');
             const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
             const qrDataURL = qrImg ? qrImg.src : '';
             
-            // Apri finestra con scelta
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            // Apri finestra nascosta
+            const printWindow = window.open('', '_blank', 'width=1,height=1');
             
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Stampa Etichette - ${currentBarcodeData.nomeProdotto}</title>
-                    <style>
-                        /* Layout scelta */
-                        .scelta-container {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            min-height: 100vh;
-                            font-family: Arial, sans-serif;
-                            background: #f5f5f5;
-                        }
-                        .scelta-title {
-                            font-size: 24px;
-                            font-weight: bold;
-                            color: #333;
-                            margin-bottom: 30px;
-                        }
-                        .scelta-buttons {
-                            display: flex;
-                            gap: 20px;
-                            margin-bottom: 20px;
-                        }
-                        .btn-scelta {
-                            padding: 20px 40px;
-                            font-size: 18px;
-                            font-weight: bold;
-                            border: none;
-                            border-radius: 12px;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        }
-                        .btn-barcode {
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                        }
-                        .btn-barcode:hover {
-                            transform: translateY(-2px);
-                            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-                        }
-                        .btn-qr {
-                            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                            color: white;
-                        }
-                        .btn-qr:hover {
-                            transform: translateY(-2px);
-                            box-shadow: 0 6px 12px rgba(240, 147, 251, 0.4);
-                        }
-                        .btn-entrambe {
-                            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                            color: white;
-                        }
-                        .btn-entrambe:hover {
-                            transform: translateY(-2px);
-                            box-shadow: 0 6px 12px rgba(79, 172, 254, 0.4);
-                        }
-                        
-                        /* Etichette 80x50mm ORIZZONTALE */
-                        @page { 
-                            size: 80mm 50mm landscape;
-                            margin: 0;
-                        }
-                        .etichetta {
-                            width: 80mm;
-                            height: 50mm;
-                            padding: 2mm;
-                            box-sizing: border-box;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            page-break-after: always;
-                            background: white;
-                        }
-                        .etichetta:last-child {
-                            page-break-after: auto;
-                        }
-                        .etichetta-header {
-                            font-size: 6pt;
-                            font-weight: bold;
-                            text-align: center;
-                            margin-bottom: 1mm;
-                            max-width: 75mm;
-                            white-space: nowrap;
-                            overflow: hidden;
-                            text-overflow: ellipsis;
-                        }
-                        .etichetta-codice {
-                            font-size: 5pt;
-                            color: #666;
-                            text-align: center;
-                            margin-bottom: 1mm;
-                        }
-                        .etichetta-barcode {
-                            width: 70mm;
-                            height: 20mm;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            margin-bottom: 1mm;
-                        }
-                        .etichetta-barcode svg {
-                            max-width: 70mm;
-                            max-height: 20mm;
-                        }
-                        .etichetta-qr {
-                            width: 30mm;
-                            height: 30mm;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            margin-bottom: 1mm;
-                        }
-                        .etichetta-qr img {
-                            width: 30mm;
-                            height: 30mm;
-                        }
-                        .etichetta-testo {
-                            font-size: 5pt;
-                            font-family: monospace;
-                            font-weight: bold;
-                            text-align: center;
-                        }
-                        
-                        @media print {
-                            .scelta-container { display: none !important; }
-                            body { margin: 0; padding: 0; }
-                        }
-                        
-                        .hidden { display: none; }
-                    </style>
-                </head>
-                <body>
-                    <!-- Scelta tipo stampa -->
-                    <div class="scelta-container" id="sceltaContainer">
-                        <div class="scelta-title">Seleziona cosa stampare</div>
-                        <div class="scelta-buttons">
-                            <button class="btn-scelta btn-barcode" onclick="stampaBarcode()">
-                                <i style="font-size: 24px; display: block; margin-bottom: 10px;">📊</i>
-                                Solo Barcode
-                            </button>
-                            <button class="btn-scelta btn-qr" onclick="stampaQR()">
-                                <i style="font-size: 24px; display: block; margin-bottom: 10px;">📱</i>
-                                Solo QR Code
-                            </button>
-                            <button class="btn-scelta btn-entrambe" onclick="stampaEntrambe()">
-                                <i style="font-size: 24px; display: block; margin-bottom: 10px;">📋</i>
-                                Entrambe
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Etichetta BARCODE -->
-                    <div class="etichetta hidden" id="etichettaBarcode">
-                        <div class="etichetta-header">` + currentBarcodeData.nomeProdotto + `</div>
-                        ` + (currentBarcodeData.codice ? `<div class="etichetta-codice">Cod: ` + currentBarcodeData.codice + `</div>` : '') + `
-                        <div class="etichetta-barcode">
-                            ${barcodeSVG}
-                        </div>
-                        <div class="etichetta-testo">` + currentBarcodeData.barcode + `</div>
-                    </div>
-                    
-                    <!-- Etichetta QR CODE -->
-                    <div class="etichetta hidden" id="etichettaQR">
-                        <div class="etichetta-header">` + currentBarcodeData.nomeProdotto + `</div>
-                        ` + (currentBarcodeData.codice ? `<div class="etichetta-codice">Cod: ` + currentBarcodeData.codice + `</div>` : '') + `
-                        <div class="etichetta-qr">
-                            <img src="${qrDataURL}" alt="QR Code">
-                        </div>
-                        <div class="etichetta-testo">` + currentBarcodeData.barcode + `</div>
-                    </div>
-                    
-                    <script>
-                        function stampaBarcode() {
-                            document.getElementById('sceltaContainer').classList.add('hidden');
-                            document.getElementById('etichettaBarcode').classList.remove('hidden');
-                            setTimeout(function() { window.print(); }, 100);
-                        }
-                        
-                        function stampaQR() {
-                            document.getElementById('sceltaContainer').classList.add('hidden');
-                            document.getElementById('etichettaQR').classList.remove('hidden');
-                            setTimeout(function() { window.print(); }, 100);
-                        }
-                        
-                        function stampaEntrambe() {
-                            document.getElementById('sceltaContainer').classList.add('hidden');
-                            document.getElementById('etichettaBarcode').classList.remove('hidden');
-                            document.getElementById('etichettaQR').classList.remove('hidden');
-                            setTimeout(function() { window.print(); }, 100);
-                        }
-                        
-                        // Ricarica pagina dopo stampa per resettare scelta
-                        window.onafterprint = function() {
-                            window.close();
-                        };
-                    <\/script>
-                </body>
-                </html>
-            `);
+            const htmlContent = risposta ? 
+                // QR CODE
+                '<!DOCTYPE html><html><head><title>Stampa QR</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-qr{width:30mm;height:30mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-qr img{width:30mm;height:30mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-qr"><img src="' + qrDataURL + '" alt="QR"/></div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>'
+                :
+                // BARCODE
+                '<!DOCTYPE html><html><head><title>Stampa Barcode</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-barcode{width:70mm;height:20mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-barcode svg{max-width:70mm;max-height:20mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-barcode">' + barcodeSVG + '</div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
+            
+            printWindow.document.write(htmlContent);
             printWindow.document.close();
+            
+            // Stampa automatica appena caricato
+            setTimeout(function() {
+                printWindow.print();
+                printWindow.onafterprint = function() { printWindow.close(); };
+            }, 250);
         }
+
 
         function scaricaBarcodeQR() {
             // Crea un canvas temporaneo per combinare barcode e QR
