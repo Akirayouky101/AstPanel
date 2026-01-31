@@ -3548,21 +3548,36 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Componenti/Materiali Necessari</label>
                         
-                        <!-- Bottone Selezione Prodotti -->
+                        <!-- Bottone Selezione Multipla Moderna -->
                         <button type="button" 
-                                onclick="window.productScanner.mostraSelezioneProdotti()"
-                                class="w-full mb-4 px-6 py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:shadow-xl transition-all flex items-center justify-center gap-3 font-semibold">
-                            <i data-lucide="scan-barcode" class="w-6 h-6"></i>
-                            <span>Seleziona Prodotti / Scansiona QR</span>
-                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                                onclick="openWizardComponentSelector()"
+                                class="w-full mb-4 px-6 py-4 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3 font-bold text-lg hover:scale-[1.02]">
+                            <i class="fas fa-boxes text-2xl"></i>
+                            <span>Selezione Multipla Componenti</span>
+                            <i class="fas fa-barcode text-xl"></i>
                         </button>
+
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <button type="button"
+                                    onclick="componentSelector?.startScanner()"
+                                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold flex items-center justify-center gap-2">
+                                <i class="fas fa-qrcode"></i>
+                                Scanner Rapido
+                            </button>
+                            <button type="button"
+                                    onclick="window.productScanner?.mostraSelezioneProdotti()"
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-semibold flex items-center justify-center gap-2">
+                                <i data-lucide="package"></i>
+                                Sistema Classico
+                            </button>
+                        </div>
 
                         <!-- Lista Prodotti Selezionati -->
                         <div id="wizard-componenti-selezionati">
                             <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
                                 <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
                                 <p class="text-sm">Nessun prodotto selezionato</p>
-                                <p class="text-xs mt-1">Clicca il bottone sopra per aggiungere materiali</p>
+                                <p class="text-xs mt-1">Usa uno dei pulsanti sopra per aggiungere componenti</p>
                             </div>
                         </div>
                     </div>
@@ -3637,6 +3652,100 @@
             if (menu) {
                 menu.classList.remove('hidden');
                 lucide.createIcons();
+            }
+        }
+
+        // NUOVO: Apri selettore componenti dal wizard
+        async function openWizardComponentSelector() {
+            if (!componentSelector) {
+                console.error('ComponentMultiSelector non inizializzato');
+                return;
+            }
+            
+            // Ottieni componenti dal wizard (se esistono)
+            const wizardComponents = window.taskWizard?.wizardData?.componenti || [];
+            const formattedComponents = wizardComponents.map(c => ({
+                id: c.prodotto_id || c.id,
+                quantita: c.quantita || 1
+            }));
+            
+            // Configura callback per aggiornare wizard
+            componentSelector.onComponentsChanged = (selectedComponents) => {
+                // Aggiorna dati wizard
+                if (window.taskWizard) {
+                    window.taskWizard.wizardData.componenti = selectedComponents.map(item => ({
+                        prodotto_id: item.id,
+                        quantita: item.quantita,
+                        nome: item.component.nome,
+                        codice: item.component.codice
+                    }));
+                    
+                    // Ricarica la visualizzazione
+                    updateWizardComponentsList(selectedComponents);
+                }
+            };
+            
+            await componentSelector.open(formattedComponents);
+        }
+
+        // Aggiorna lista componenti nel wizard
+        function updateWizardComponentsList(components) {
+            const container = document.getElementById('wizard-componenti-selezionati');
+            if (!container) return;
+
+            if (components.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                        <p class="text-sm">Nessun prodotto selezionato</p>
+                        <p class="text-xs mt-1">Usa uno dei pulsanti sopra per aggiungere componenti</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="space-y-2">
+                    ${components.map(item => `
+                        <div class="flex items-center justify-between p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-900">${item.component.nome}</p>
+                                <p class="text-sm text-gray-600">${item.component.codice || 'N/A'}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="px-3 py-1 bg-purple-600 text-white rounded-lg font-bold">
+                                    ${item.quantita} ${item.component.unita_misura || 'pz'}
+                                </span>
+                                <button onclick="removeWizardComponent('${item.id}')"
+                                        class="text-red-600 hover:text-red-800 transition">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            lucide.createIcons();
+        }
+
+        function removeWizardComponent(componentId) {
+            if (window.taskWizard) {
+                window.taskWizard.wizardData.componenti = window.taskWizard.wizardData.componenti.filter(
+                    c => (c.prodotto_id || c.id) !== componentId
+                );
+                
+                const formattedComponents = window.taskWizard.wizardData.componenti.map(c => ({
+                    id: c.prodotto_id || c.id,
+                    quantita: c.quantita,
+                    component: {
+                        nome: c.nome,
+                        codice: c.codice,
+                        unita_misura: c.unita_misura || 'pz'
+                    }
+                }));
+                
+                updateWizardComponentsList(formattedComponents);
             }
         }
 
