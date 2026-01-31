@@ -2782,74 +2782,86 @@
             document.getElementById('sceltaStampaModal').classList.add('hidden');
         }
         
-        function stampaBarcode() {
+        async function stampaBarcode() {
             if (!currentBarcodeData) {
                 alert('Errore: dati prodotto non disponibili');
                 return;
             }
             
-            const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
-            
-            // Crea iframe nascosto per stampa automatica
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'absolute';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = 'none';
-            document.body.appendChild(iframe);
-            
-            const htmlContent = '<!DOCTYPE html><html><head><title>Stampa Barcode</title><style>@page{size:80mm 50mm;margin:0}*{margin:0;padding:0;box-sizing:border-box}body{margin:0;padding:0;width:80mm;height:50mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.etichetta{width:76mm;height:46mm;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;transform:rotate(90deg);transform-origin:center center}.etichetta-header{font-size:8pt;font-weight:bold;text-align:center;margin-bottom:1mm;width:100%;line-height:1.2}.etichetta-codice{font-size:6pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-barcode{display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-barcode svg{width:auto;height:24mm}.etichetta-testo{font-size:7pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-barcode">' + barcodeSVG + '</div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
-            
-            const doc = iframe.contentWindow.document;
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
-            
-            // Stampa automatica quando caricato
-            iframe.contentWindow.onload = function() {
-                iframe.contentWindow.print();
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                }, 1000);
-            };
+            try {
+                // Chiama API print server locale
+                const response = await fetch('http://localhost:3000/api/stampa-barcode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        barcode: currentBarcodeData.barcode,
+                        nomeProdotto: currentBarcodeData.nomeProdotto,
+                        codice: currentBarcodeData.codice || ''
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Mostra notifica successo
+                    const notification = document.createElement('div');
+                    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] flex items-center gap-2';
+                    notification.innerHTML = '<i class="fas fa-check-circle"></i><span>✅ Etichetta barcode inviata alla stampante!</span>';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => notification.remove(), 3000);
+                } else {
+                    throw new Error(result.error || 'Errore stampa');
+                }
+                
+            } catch (error) {
+                console.error('Errore stampa:', error);
+                alert('❌ Errore stampa: ' + error.message + '\n\nAssicurati che il print server sia attivo (npm start in print-server/)');
+            }
             
             closeSceltaStampaModal();
+            closeBarcodeQRModal();
         }
         
-        function stampaQR() {
+        async function stampaQR() {
             if (!currentBarcodeData) {
                 alert('Errore: dati prodotto non disponibili');
                 return;
             }
             
-            const qrContainer = document.getElementById('qrTempContainer');
-            const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
-            const qrDataURL = qrImg ? qrImg.src : '';
-            
-            // Crea iframe nascosto per stampa automatica
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'absolute';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = 'none';
-            document.body.appendChild(iframe);
-            
-            const htmlContent = '<!DOCTYPE html><html><head><title>Stampa QR</title><style>@page{size:80mm 50mm;margin:0}*{margin:0;padding:0;box-sizing:border-box}body{margin:0;padding:0;width:80mm;height:50mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.etichetta{width:76mm;height:46mm;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;transform:rotate(90deg);transform-origin:center center}.etichetta-header{font-size:8pt;font-weight:bold;text-align:center;margin-bottom:1mm;width:100%;line-height:1.2}.etichetta-codice{font-size:6pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-qr{display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-qr img{width:34mm;height:34mm}.etichetta-testo{font-size:7pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-qr"><img src="' + qrDataURL + '" alt="QR"/></div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
-            
-            const doc = iframe.contentWindow.document;
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
-            
-            // Stampa automatica quando caricato
-            iframe.contentWindow.onload = function() {
-                iframe.contentWindow.print();
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                }, 1000);
-            };
+            try {
+                // Chiama API print server locale
+                const response = await fetch('http://localhost:3000/api/stampa-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        barcode: currentBarcodeData.barcode,
+                        nomeProdotto: currentBarcodeData.nomeProdotto,
+                        codice: currentBarcodeData.codice || ''
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Mostra notifica successo
+                    const notification = document.createElement('div');
+                    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] flex items-center gap-2';
+                    notification.innerHTML = '<i class="fas fa-check-circle"></i><span>✅ Etichetta QR inviata alla stampante!</span>';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => notification.remove(), 3000);
+                } else {
+                    throw new Error(result.error || 'Errore stampa');
+                }
+                
+            } catch (error) {
+                console.error('Errore stampa QR:', error);
+                alert('❌ Errore stampa: ' + error.message + '\n\nAssicurati che il print server sia attivo (npm start in print-server/)');
+            }
             
             closeSceltaStampaModal();
+            closeBarcodeQRModal();
         }
 
 
