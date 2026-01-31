@@ -97,18 +97,9 @@ SELECT
     c.nome AS prodotto_nome,
     c.categoria AS prodotto_categoria,
     
-    -- Kit (se collegato)
-    m.kit_id,
-    k.codice_kit,
-    k.nome_kit,
-    
-    -- Ordine fornitore (se collegato)
+    -- Riferimenti
     m.ordine_fornitore_id,
-    of.numero_ordine AS ordine_numero,
-    
-    -- Lavorazione (se collegato)
     m.lavorazione_id,
-    t.titolo AS lavorazione_titolo,
     
     -- Utente
     m.created_by,
@@ -117,17 +108,11 @@ SELECT
     
     -- Giacenze
     m.giacenza_prima,
-    m.giacenza_dopo,
-    
-    -- Metadata
-    m.created_at
+    m.giacenza_dopo
 FROM movimenti_magazzino m
 LEFT JOIN components c ON m.prodotto_id = c.id
-LEFT JOIN kits k ON m.kit_id = k.id
-LEFT JOIN ordini_fornitore of ON m.ordine_fornitore_id = of.id
-LEFT JOIN tasks t ON m.lavorazione_id = t.id
 LEFT JOIN users u ON m.created_by = u.id
-ORDER BY m.data_movimento DESC, m.created_at DESC;
+ORDER BY m.data_movimento DESC;
 
 COMMENT ON VIEW v_movimenti_dettagliato IS 'Vista completa movimenti magazzino con tutti i dettagli';
 
