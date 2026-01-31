@@ -1325,45 +1325,49 @@
             if (!componenteIdDaRimuovere) return;
 
             try {
-                console.log('Tentativo rimozione kit_item:', componenteIdDaRimuovere);
+                // STESSA LOGICA DI eliminaKit() ma per un singolo componente
+                
+                // 1. Recupera info del componente per sapere il prodotto_id
+                const { data: kitItem, error: fetchError } = await supabase
+                    .from('kit_items')
+                    .select('kit_id, prodotto_id')
+                    .eq('id', componenteIdDaRimuovere)
+                    .single();
 
-                // Prova con la funzione RPC atomica
-                const { data, error } = await supabase.rpc('rimuovi_componente_da_kit', {
-                    p_kit_item_id: componenteIdDaRimuovere
-                });
+                if (fetchError) throw fetchError;
 
-                console.log('RPC response:', { data, error });
+                // 2. Annulla l'impegno per questo specifico prodotto (COME eliminaKit)
+                const { error: impegniError } = await supabase
+                    .from('impegni_magazzino')
+                    .update({
+                        stato: 'annullato',
+                        note: 'Componente rimosso dal kit'
+                    })
+                    .eq('kit_id', kitItem.kit_id)
+                    .eq('prodotto_id', kitItem.prodotto_id)
+                    .eq('stato', 'attivo');
 
-                // Se la RPC non esiste (errore 42883), usa il metodo diretto
-                if (error && error.code === '42883') {
-                    console.warn('RPC non trovata, uso DELETE diretta');
-                    
-                    // Fallback: elimina direttamente (gli impegni sono già annullati dal trigger)
-                    const { error: deleteError } = await supabase
-                        .from('kit_items')
-                        .delete()
-                        .eq('id', componenteIdDaRimuovere);
-
-                    if (deleteError) throw deleteError;
-                    
-                    closeConfirmModal();
-                    await loadComponentiKit(currentKitId);
-                    return;
+                if (impegniError) {
+                    console.error('Errore annullamento impegno:', impegniError);
+                    throw new Error('Errore durante l\'annullamento dell\'impegno');
                 }
+
+                // 3. Elimina il componente dal kit (invece di eliminare il kit intero)
+                const { error } = await supabase
+                    .from('kit_items')
+                    .delete()
+                    .eq('id', componenteIdDaRimuovere);
 
                 if (error) throw error;
 
-                if (data && !data.success) {
-                    throw new Error(data.error || 'Errore nella rimozione');
-                }
-
-                console.log('✅ Componente rimosso con successo:', data);
-
+                // Chiudi modal e ricarica
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
 
+                console.log('✅ Componente rimosso e impegno annullato');
+
             } catch (error) {
-                console.error('❌ Error removing component:', error);
+                console.error('Errore rimozione componente:', error);
                 closeConfirmModal();
                 showErrorModal('Errore nella rimozione del componente', error.message);
             }
