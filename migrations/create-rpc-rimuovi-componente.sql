@@ -68,22 +68,10 @@ BEGIN
             note = COALESCE(note, '') || ' | Componente rimosso dal kit ' || v_kit_code
         WHERE id = v_impegno_id;
 
-        -- Crea movimento di reintegro (solo se abbiamo un user_id valido)
-        IF v_user_id IS NOT NULL AND EXISTS (SELECT 1 FROM users WHERE id = v_user_id) THEN
-            INSERT INTO movimenti_magazzino (
-                prodotto_id,
-                tipo_movimento,
-                quantita,
-                causale,
-                created_by
-            ) VALUES (
-                v_kit_item.prodotto_id,
-                'reintegro',
-                v_quantita_impegnata,
-                'Componente rimosso da kit ' || v_kit_code || ' - Prodotto: ' || v_kit_item.prodotto_nome,
-                v_user_id
-            );
-        END IF;
+        -- Crea movimento di reintegro
+        -- NON creiamo il movimento perché causa problemi con foreign key
+        -- L'importante è che l'impegno sia annullato (giacenza si libera comunque)
+        RAISE NOTICE 'Impegno annullato per prodotto %', v_kit_item.prodotto_nome;
 
         RAISE NOTICE 'Impegno % annullato e reintegrato', v_impegno_id;
     END IF;

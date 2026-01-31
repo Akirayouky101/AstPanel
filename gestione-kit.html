@@ -1104,6 +1104,7 @@
                 .from('v_kit_items_dettaglio')
                 .select('*')
                 .eq('kit_id', kitId)
+                .is('deleted_at', null)  // Escludi componenti eliminati
                 .order('aggiunto_il', { ascending: false });
 
             if (error) {
@@ -1284,29 +1285,45 @@
                 return;
             }
 
-            const { error } = await supabase.from('kit_items').insert([{
-                kit_id: currentKitId,
-                prodotto_id: prodottoSelezionatoKit.id,
-                quantita: quantita,
-                prodotto_nome: prodottoSelezionatoKit.descrizione,
-                prodotto_codice: prodottoSelezionatoKit.codice,
-                prodotto_barcode: prodottoSelezionatoKit.barcode,
-                aggiunto_da: currentUserId
-            }]);
+            try {
+                // 1. Aggiungi componente al kit
+                const { error: kitError } = await supabase.from('kit_items').insert([{
+                    kit_id: currentKitId,
+                    prodotto_id: prodottoSelezionatoKit.id,
+                    quantita: quantita,
+                    prodotto_nome: prodottoSelezionatoKit.descrizione,
+                    prodotto_codice: prodottoSelezionatoKit.codice,
+                    prodotto_barcode: prodottoSelezionatoKit.barcode,
+                    aggiunto_da: currentUserId
+                }]);
 
-            if (error) {
+                if (kitError) throw kitError;
+
+                // 2. Crea impegno magazzino
+                const { error: impegnoError } = await supabase.from('impegni_magazzino').insert([{
+                    prodotto_id: prodottoSelezionatoKit.id,
+                    kit_id: currentKitId,
+                    quantita: quantita,
+                    stato: 'attivo',
+                    created_by: currentUserId
+                }]);
+
+                if (impegnoError) throw impegnoError;
+
+                // Reset
+                document.getElementById('searchProdottoKit').value = '';
+                document.getElementById('quantitaProdotto').value = '1';
+                prodottoSelezionatoKit = null;
+                document.getElementById('prodottoTrovatoInfo').classList.add('hidden');
+
+                await loadComponentiKit(currentKitId);
+
+                console.log('✅ Componente aggiunto e impegno creato');
+
+            } catch (error) {
                 console.error('Error adding component:', error);
-                alert('Errore nell\'aggiungere il componente');
-                return;
+                alert('Errore nell\'aggiungere il componente: ' + error.message);
             }
-
-            // Reset
-            document.getElementById('searchProdottoKit').value = '';
-            document.getElementById('quantitaProdotto').value = '1';
-            prodottoSelezionatoKit = null;
-            document.getElementById('prodottoTrovatoInfo').classList.add('hidden');
-
-            await loadComponentiKit(currentKitId);
         }
 
         let componenteIdDaRimuovere = null;
@@ -1327,7 +1344,7 @@
             try {
                 // STESSA LOGICA DI eliminaKit() ma per un singolo componente
                 
-                // 1. Recupera info del componente per sapere il prodotto_id
+                // 1. Recupera info del componente
                 const { data: kitItem, error: fetchError } = await supabase
                     .from('kit_items')
                     .select('kit_id, prodotto_id, quantita, prodotto_nome')
@@ -1336,16 +1353,7 @@
 
                 if (fetchError) throw fetchError;
 
-                // 2. Recupera codice kit
-                const { data: kit, error: kitError } = await supabase
-                    .from('kits')
-                    .select('codice_kit')
-                    .eq('id', kitItem.kit_id)
-                    .single();
-
-                if (kitError) throw kitError;
-
-                // 3. Annulla l'impegno per questo specifico prodotto (COME eliminaKit)
+                // 2. Annulla l'impegno per questo specifico prodotto
                 const { error: impegniError } = await supabase
                     .from('impegni_magazzino')
                     .update({
@@ -1357,31 +1365,15 @@
                     .eq('prodotto_id', kitItem.prodotto_id)
                     .eq('stato', 'attivo');
 
-                if (impegniError) {
-                    console.error('Errore annullamento impegno:', impegniError);
-                    throw new Error('Errore durante l\'annullamento dell\'impegno');
-                }
+                if (impegniError) throw impegniError;
 
-                // 4. Crea movimento di reintegro MANUALMENTE (evita problemi con trigger)
-                const { error: movimentoError } = await supabase
-                    .from('movimenti_magazzino')
-                    .insert({
-                        prodotto_id: kitItem.prodotto_id,
-                        tipo_movimento: 'reintegro',
-                        quantita: kitItem.quantita,
-                        causale: `Componente rimosso da kit ${kit.codice_kit} - Prodotto: ${kitItem.prodotto_nome}`,
-                        created_by: currentUserId  // USA L'UUID CHE SAPPIAMO FUNZIONARE!
-                    });
-
-                if (movimentoError) {
-                    console.warn('Movimento non creato:', movimentoError);
-                    // Non bloccare l'operazione se il movimento fallisce
-                }
-
-                // 5. Elimina il componente dal kit
+                // 3. Soft delete del componente (traccia chi e quando)
                 const { error } = await supabase
                     .from('kit_items')
-                    .delete()
+                    .update({
+                        deleted_at: new Date().toISOString(),
+                        deleted_by: currentUserId
+                    })
                     .eq('id', componenteIdDaRimuovere);
 
                 if (error) throw error;
@@ -1390,7 +1382,7 @@
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
 
-                console.log('✅ Componente rimosso, impegno annullato e movimento creato');
+                console.log('✅ Componente rimosso e impegno annullato');
 
             } catch (error) {
                 console.error('Errore rimozione componente:', error);
@@ -1700,42 +1692,58 @@
                 return;
             }
 
-            // Prepara dati per insert multiplo
-            const items = Array.from(prodottiMultiMap.values()).map(item => ({
-                kit_id: currentKitId,
-                prodotto_id: item.prodotto.id,
-                quantita: item.quantita,
-                quantita_mancante: item.quantita_mancante || 0,
-                prodotto_nome: item.prodotto.nome,
-                prodotto_codice: item.prodotto.codice,
-                prodotto_barcode: '',
-                aggiunto_da: currentUserId
-            }));
+            try {
+                // Prepara dati per insert multiplo
+                const items = Array.from(prodottiMultiMap.values()).map(item => ({
+                    kit_id: currentKitId,
+                    prodotto_id: item.prodotto.id,
+                    quantita: item.quantita,
+                    quantita_mancante: item.quantita_mancante || 0,
+                    prodotto_nome: item.prodotto.nome,
+                    prodotto_codice: item.prodotto.codice,
+                    prodotto_barcode: '',
+                    aggiunto_da: currentUserId
+                }));
 
-            const { error } = await supabase.from('kit_items').insert(items);
+                // 1. Aggiungi componenti al kit
+                const { error: kitError } = await supabase.from('kit_items').insert(items);
+                if (kitError) throw kitError;
 
-            if (error) {
+                // 2. Crea impegni magazzino per tutti i componenti
+                const impegni = items.map(item => ({
+                    prodotto_id: item.prodotto_id,
+                    kit_id: currentKitId,
+                    quantita: item.quantita,
+                    stato: 'attivo',
+                    created_by: currentUserId
+                }));
+
+                const { error: impegniError } = await supabase.from('impegni_magazzino').insert(impegni);
+                if (impegniError) throw impegniError;
+
+                // 📦 CREA ORDINI FORNITORE SE CI SONO MANCANTI
+                const itemsMancanti = items.filter(i => i.quantita_mancante > 0);
+                let ordiniCreati = 0;
+                if (itemsMancanti.length > 0) {
+                    ordiniCreati = await creaOrdiniFornitoreAutomatici(currentKitId, itemsMancanti);
+                }
+
+                closeAggiuntaComponentiModal();
+                await loadComponentiKit(currentKitId);
+                
+                // Mostra modal di successo
+                const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
+                if (totMancanti > 0) {
+                    showSuccessModal(items.length, itemsMancanti, ordiniCreati);
+                } else {
+                    showSuccessModal(items.length);
+                }
+
+                console.log(`✅ ${items.length} componenti aggiunti e ${impegni.length} impegni creati`);
+
+            } catch (error) {
                 console.error('Error adding components:', error);
-                alert('Errore nell\'aggiungere i componenti');
-                return;
-            }
-
-            // 📦 CREA ORDINI FORNITORE SE CI SONO MANCANTI
-            const itemsMancanti = items.filter(i => i.quantita_mancante > 0);
-            let ordiniCreati = 0;
-            if (itemsMancanti.length > 0) {
-                ordiniCreati = await creaOrdiniFornitoreAutomatici(currentKitId, itemsMancanti);
-            }
-
-            closeAggiuntaComponentiModal();
-            await loadComponentiKit(currentKitId);
-            
-            // Mostra modal di successo
-            const totMancanti = itemsMancanti.reduce((sum, i) => sum + i.quantita_mancante, 0);
-            if (totMancanti > 0) {
-                showSuccessModal(items.length, itemsMancanti, ordiniCreati);
-            } else {
-                showSuccessModal(items.length);
+                alert('Errore nell\'aggiungere i componenti: ' + error.message);
             }
         }
 
