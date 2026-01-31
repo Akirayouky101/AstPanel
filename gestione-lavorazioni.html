@@ -463,10 +463,11 @@
                                 <i class="fas fa-box mr-2"></i>
                                 Componenti Necessari
                             </label>
-                            <button type="button" onclick="openComponentSelector()" 
-                                    class="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 text-sm transition-colors font-medium">
-                                <i class="fas fa-plus mr-1"></i>
-                                Aggiungi Componente
+                            <button type="button" onclick="openMultiComponentSelector()" 
+                                    class="px-4 py-2 bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:via-blue-600 hover:to-indigo-600 text-sm transition-colors font-bold shadow-lg flex items-center gap-2">
+                                <i class="fas fa-boxes mr-1"></i>
+                                Selezione Multipla
+                                <span class="bg-white text-purple-600 px-2 py-0.5 rounded-full text-xs font-bold">NUOVO</span>
                             </button>
                         </div>
                         <div id="taskComponentsList" class="space-y-2">
@@ -624,6 +625,20 @@
             setupFilters();
             await loadTeamsDropdown();
             await loadUsersDropdown();
+            
+            // Inizializza Component Multi Selector
+            componentSelector = new ComponentMultiSelector({
+                modalId: 'componentMultiSelectorModal',
+                onComponentsChanged: (selectedComponents) => {
+                    // Aggiorna taskComponents con la nuova selezione
+                    taskComponents = selectedComponents.map(item => ({
+                        id: item.id,
+                        quantita: item.quantita
+                    }));
+                    updateTaskComponentsList();
+                }
+            });
+            await componentSelector.initialize();
             
             // Set default deadline to next week
             const nextWeek = new Date();
@@ -2751,6 +2766,17 @@
         // Component Management Functions
         // taskComponents is now declared at the top of the script
 
+        // NUOVO: Apri selettore multiplo componenti
+        async function openMultiComponentSelector() {
+            if (!componentSelector) {
+                console.error('ComponentMultiSelector non inizializzato');
+                return;
+            }
+            
+            // Passa i componenti già selezionati
+            await componentSelector.open(taskComponents);
+        }
+
         async function openComponentSelector() {
             document.getElementById('componentModal').classList.remove('hidden');
             await loadComponents();
@@ -4059,6 +4085,112 @@
             </div>
         </div>
     </div>
+
+    <!-- ========================================= -->
+    <!-- MODAL SELEZIONE MULTIPLA COMPONENTI      -->
+    <!-- ========================================= -->
+    <div id="componentMultiSelectorModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[60] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                <div>
+                    <h3 class="text-2xl font-bold flex items-center gap-3">
+                        <i class="fas fa-boxes"></i>
+                        Selezione Multipla Componenti
+                    </h3>
+                    <p class="text-purple-100 text-sm mt-1">Seleziona tutti i componenti necessari con checkbox e scanner</p>
+                </div>
+                <button onclick="componentSelector?.close()" class="text-white hover:text-gray-200 text-2xl transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Toolbar con filtri e scanner -->
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div class="flex gap-3 items-center flex-wrap">
+                    <!-- Ricerca -->
+                    <div class="flex-1 min-w-[200px]">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" 
+                                   id="multiSelectorSearch"
+                                   placeholder="Cerca per nome, codice, barcode..."
+                                   class="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                    </div>
+
+                    <!-- Filtro categoria -->
+                    <select id="multiSelectorCategoryFilter"
+                            class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">Tutte le categorie</option>
+                        <option value="Elettrico">Elettrico</option>
+                        <option value="Idraulico">Idraulico</option>
+                        <option value="Meccanico">Meccanico</option>
+                        <option value="Edile">Edile</option>
+                        <option value="Ferramenta">Ferramenta</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+
+                    <!-- Pulsante scanner -->
+                    <button onclick="componentSelector?.startScanner()"
+                            class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition font-semibold flex items-center gap-2 shadow-lg">
+                        <i class="fas fa-barcode text-lg"></i>
+                        Scanner
+                    </button>
+                </div>
+
+                <!-- Summary selezione -->
+                <div id="multiSelectorSummary" class="mt-3 p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                    <p class="text-gray-600 text-center">Nessun componente selezionato</p>
+                </div>
+            </div>
+
+            <!-- Lista componenti (scrollabile) -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <div id="multiSelectorComponentsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- I componenti verranno inseriti qui dal JS -->
+                </div>
+            </div>
+
+            <!-- Footer con azioni -->
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex justify-between items-center gap-3">
+                <button onclick="componentSelector?.close()"
+                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold">
+                    <i class="fas fa-times mr-2"></i>
+                    Annulla
+                </button>
+                <button onclick="componentSelector?.confirm()"
+                        class="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition font-bold shadow-lg text-lg">
+                    <i class="fas fa-check mr-2"></i>
+                    Conferma Selezione
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Scanner -->
+    <div id="multiSelectorScannerModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-[70] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div class="mb-6">
+                <i class="fas fa-barcode text-6xl text-green-600 animate-pulse"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Scanner Attivo</h3>
+            <p class="text-gray-600 mb-6">Scansiona il barcode del componente</p>
+            
+            <div id="multiSelectorScanFeedback" class="mb-6 min-h-[50px] flex items-center justify-center">
+                <!-- Feedback scansione -->
+            </div>
+
+            <button onclick="componentSelector?.stopScanner()"
+                    class="w-full px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-bold">
+                <i class="fas fa-times mr-2"></i>
+                Chiudi Scanner
+            </button>
+        </div>
+    </div>
+
+    <!-- Includi il nuovo script -->
+    <script src="component-multi-selector.js"></script>
 
 </body>
 </html>
