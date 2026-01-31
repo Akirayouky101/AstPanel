@@ -2769,33 +2769,59 @@
             currentBarcodeData = null;
         }
 
-        function stampaBarcodeQR() {
-            // Chiedi quale etichetta stampare con dialog nativo
-            const risposta = window.confirm('Quale etichetta vuoi stampare?\n\n✅ OK = QR Code\n❌ Annulla = Barcode');
-            
+        // STAMPA BARCODE/QR
+        function mostraSceltaStampa() {
+            document.getElementById('sceltaStampaModal').classList.remove('hidden');
+        }
+        
+        function closeSceltaStampaModal() {
+            document.getElementById('sceltaStampaModal').classList.add('hidden');
+        }
+        
+        function stampaBarcode() {
             const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
-            const qrContainer = document.getElementById('qrTempContainer');
-            const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
-            const qrDataURL = qrImg ? qrImg.src : '';
             
-            // Apri finestra nascosta
             const printWindow = window.open('', '_blank', 'width=1,height=1');
+            if (!printWindow) {
+                alert('Popup bloccato! Abilita i popup per stampare.');
+                return;
+            }
             
-            const htmlContent = risposta ? 
-                // QR CODE
-                '<!DOCTYPE html><html><head><title>Stampa QR</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-qr{width:30mm;height:30mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-qr img{width:30mm;height:30mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-qr"><img src="' + qrDataURL + '" alt="QR"/></div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>'
-                :
-                // BARCODE
-                '<!DOCTYPE html><html><head><title>Stampa Barcode</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-barcode{width:70mm;height:20mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-barcode svg{max-width:70mm;max-height:20mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-barcode">' + barcodeSVG + '</div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
+            const htmlContent = '<!DOCTYPE html><html><head><title>Stampa Barcode</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-barcode{width:70mm;height:20mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-barcode svg{max-width:70mm;max-height:20mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-barcode">' + barcodeSVG + '</div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
             
             printWindow.document.write(htmlContent);
             printWindow.document.close();
             
-            // Stampa automatica appena caricato
             setTimeout(function() {
                 printWindow.print();
                 printWindow.onafterprint = function() { printWindow.close(); };
             }, 250);
+            
+            closeSceltaStampaModal();
+        }
+        
+        function stampaQR() {
+            const qrContainer = document.getElementById('qrTempContainer');
+            const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
+            const qrDataURL = qrImg ? qrImg.src : '';
+            
+            const printWindow = window.open('', '_blank', 'width=1,height=1');
+            if (!printWindow) {
+                alert('Popup bloccato! Abilita i popup per stampare.');
+                return;
+            }
+            
+            const htmlContent = '<!DOCTYPE html><html><head><title>Stampa QR</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-qr{width:30mm;height:30mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-qr img{width:30mm;height:30mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-qr"><img src="' + qrDataURL + '" alt="QR"/></div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
+            
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            
+            setTimeout(function() {
+                printWindow.print();
+                printWindow.onafterprint = function() { printWindow.close(); };
+            }, 250);
+            
+            closeSceltaStampaModal();
         }
 
 
@@ -2957,11 +2983,39 @@
 
                 <!-- Pulsanti Azione -->
                 <div class="grid grid-cols-2 gap-4 mt-8">
-                    <button onclick="stampaBarcodeQR()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition">
+                    <button onclick="mostraSceltaStampa()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition">
                         <i class="fas fa-print mr-2"></i>Stampa
                     </button>
                     <button onclick="scaricaBarcodeQR()" class="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition">
                         <i class="fas fa-download mr-2"></i>Scarica
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Scelta Stampa -->
+    <div id="sceltaStampaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target === this) closeSceltaStampaModal()">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-t-2xl relative">
+                <button onclick="closeSceltaStampaModal()" class="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                <h2 class="text-2xl font-bold text-white text-center">🖨️ Scegli Etichetta</h2>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-8">
+                <p class="text-gray-600 text-center mb-6">Quale etichetta vuoi stampare?</p>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="stampaBarcode()" class="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl transition transform hover:scale-105 shadow-lg">
+                        <i class="fas fa-barcode text-4xl mb-3"></i>
+                        <span class="font-semibold">Barcode</span>
+                    </button>
+                    <button onclick="stampaQR()" class="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl transition transform hover:scale-105 shadow-lg">
+                        <i class="fas fa-qrcode text-4xl mb-3"></i>
+                        <span class="font-semibold">QR Code</span>
                     </button>
                 </div>
             </div>
