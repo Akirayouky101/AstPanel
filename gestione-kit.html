@@ -1285,21 +1285,49 @@
                 return;
             }
 
-            // Aggiungi componente al kit (il trigger crea automaticamente l'impegno)
-            const { error } = await supabase.from('kit_items').insert([{
-                kit_id: currentKitId,
-                prodotto_id: prodottoSelezionatoKit.id,
-                quantita: quantita,
-                prodotto_nome: prodottoSelezionatoKit.descrizione,
-                prodotto_codice: prodottoSelezionatoKit.codice,
-                prodotto_barcode: prodottoSelezionatoKit.barcode,
-                aggiunto_da: currentUserId
-            }]);
+            // CONTROLLA SE IL PRODOTTO ESISTE GIA' NEL KIT
+            const { data: existingItem } = await supabase
+                .from('kit_items')
+                .select('id, quantita')
+                .eq('kit_id', currentKitId)
+                .eq('prodotto_id', prodottoSelezionatoKit.id)
+                .single();
 
-            if (error) {
-                console.error('Error adding component:', error);
-                alert('Errore nell\'aggiungere il componente');
-                return;
+            if (existingItem) {
+                // PRODOTTO GIA' PRESENTE: AGGIORNA LA QUANTITA' (somma)
+                const nuovaQuantita = parseFloat(existingItem.quantita) + quantita;
+                
+                const { error } = await supabase
+                    .from('kit_items')
+                    .update({ quantita: nuovaQuantita })
+                    .eq('id', existingItem.id);
+
+                if (error) {
+                    console.error('Error updating component:', error);
+                    alert('Errore nell\'aggiornare la quantità');
+                    return;
+                }
+                
+                showToast(`Quantità aggiornata: ${existingItem.quantita} + ${quantita} = ${nuovaQuantita}`, 'success');
+            } else {
+                // PRODOTTO NUOVO: INSERISCI
+                const { error } = await supabase.from('kit_items').insert([{
+                    kit_id: currentKitId,
+                    prodotto_id: prodottoSelezionatoKit.id,
+                    quantita: quantita,
+                    prodotto_nome: prodottoSelezionatoKit.descrizione,
+                    prodotto_codice: prodottoSelezionatoKit.codice,
+                    prodotto_barcode: prodottoSelezionatoKit.barcode,
+                    aggiunto_da: currentUserId
+                }]);
+
+                if (error) {
+                    console.error('Error adding component:', error);
+                    alert('Errore nell\'aggiungere il componente');
+                    return;
+                }
+                
+                showToast('Componente aggiunto al kit', 'success');
             }
 
             // Reset
