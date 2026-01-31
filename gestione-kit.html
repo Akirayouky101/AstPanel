@@ -1328,13 +1328,22 @@
                 // 1. Recupera informazioni del kit_item prima di eliminarlo
                 const { data: kitItem, error: fetchError } = await supabase
                     .from('kit_items')
-                    .select('kit_id, prodotto_id')
+                    .select('kit_id, prodotto_id, quantita, prodotto_nome')
                     .eq('id', componenteIdDaRimuovere)
                     .single();
 
                 if (fetchError) throw fetchError;
 
-                // 2. Annulla l'impegno magazzino per questo prodotto
+                // 2. Recupera codice kit
+                const { data: kit, error: kitError } = await supabase
+                    .from('kits')
+                    .select('codice_kit')
+                    .eq('id', kitItem.kit_id)
+                    .single();
+
+                if (kitError) throw kitError;
+
+                // 3. Annulla l'impegno magazzino per questo prodotto
                 const { error: impegnoError } = await supabase
                     .from('impegni_magazzino')
                     .update({
@@ -1348,18 +1357,33 @@
 
                 if (impegnoError) {
                     console.error('Error annulling impegno:', impegnoError);
-                    // Continua comunque con la rimozione
                 }
 
-                // 3. Elimina il kit_item
-                // Il trigger libera_impegno_kit() creerà automaticamente
-                // il movimento di reintegro in movimenti_magazzino
+                // 4. Elimina il kit_item
+                // Il trigger annullerà anche l'impegno (doppia sicurezza)
                 const { error } = await supabase
                     .from('kit_items')
                     .delete()
                     .eq('id', componenteIdDaRimuovere);
 
                 if (error) throw error;
+
+                // 5. Crea movimento di reintegro DOPO la delete
+                // (evita problemi con foreign key nel trigger)
+                const { error: movimentoError } = await supabase
+                    .from('movimenti_magazzino')
+                    .insert({
+                        prodotto_id: kitItem.prodotto_id,
+                        tipo_movimento: 'reintegro',
+                        quantita: kitItem.quantita,
+                        causale: `Componente rimosso da kit ${kit.codice_kit} - Prodotto: ${kitItem.prodotto_nome}`,
+                        created_by: currentUserId
+                    });
+
+                if (movimentoError) {
+                    console.warn('Movimento non creato:', movimentoError);
+                    // Non bloccare l'operazione se il movimento fallisce
+                }
 
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
@@ -1368,6 +1392,8 @@
                 console.error('Error removing component:', error);
                 closeConfirmModal();
                 showErrorModal('Errore nella rimozione del componente', error.message);
+            }
+        }
             }
         }
 
