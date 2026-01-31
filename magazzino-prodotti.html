@@ -2790,21 +2790,28 @@
             
             const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
             
-            const printWindow = window.open('', '_blank', 'width=1,height=1');
-            if (!printWindow) {
-                alert('Popup bloccato! Abilita i popup per stampare.');
-                return;
-            }
+            // Crea iframe nascosto per stampa automatica
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = 'none';
+            document.body.appendChild(iframe);
             
             const htmlContent = '<!DOCTYPE html><html><head><title>Stampa Barcode</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-barcode{width:70mm;height:20mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-barcode svg{max-width:70mm;max-height:20mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-barcode">' + barcodeSVG + '</div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
             
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
             
-            setTimeout(function() {
-                printWindow.print();
-                printWindow.onafterprint = function() { printWindow.close(); };
-            }, 250);
+            // Stampa automatica quando caricato
+            iframe.contentWindow.onload = function() {
+                iframe.contentWindow.print();
+                setTimeout(function() {
+                    document.body.removeChild(iframe);
+                }, 1000);
+            };
             
             closeSceltaStampaModal();
         }
@@ -2819,21 +2826,28 @@
             const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
             const qrDataURL = qrImg ? qrImg.src : '';
             
-            const printWindow = window.open('', '_blank', 'width=1,height=1');
-            if (!printWindow) {
-                alert('Popup bloccato! Abilita i popup per stampare.');
-                return;
-            }
+            // Crea iframe nascosto per stampa automatica
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = 'none';
+            document.body.appendChild(iframe);
             
             const htmlContent = '<!DOCTYPE html><html><head><title>Stampa QR</title><style>@page{size:80mm 50mm landscape;margin:0}body{margin:0;padding:0}.etichetta{width:80mm;height:50mm;padding:2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.etichetta-header{font-size:6pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:75mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.etichetta-codice{font-size:5pt;color:#666;text-align:center;margin-bottom:1mm}.etichetta-qr{width:30mm;height:30mm;display:flex;align-items:center;justify-content:center;margin-bottom:1mm}.etichetta-qr img{width:30mm;height:30mm}.etichetta-testo{font-size:5pt;font-family:monospace;font-weight:bold;text-align:center}</style></head><body><div class="etichetta"><div class="etichetta-header">' + currentBarcodeData.nomeProdotto + '</div>' + (currentBarcodeData.codice ? '<div class="etichetta-codice">Cod: ' + currentBarcodeData.codice + '</div>' : '') + '<div class="etichetta-qr"><img src="' + qrDataURL + '" alt="QR"/></div><div class="etichetta-testo">' + currentBarcodeData.barcode + '</div></div></body></html>';
             
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
             
-            setTimeout(function() {
-                printWindow.print();
-                printWindow.onafterprint = function() { printWindow.close(); };
-            }, 250);
+            // Stampa automatica quando caricato
+            iframe.contentWindow.onload = function() {
+                iframe.contentWindow.print();
+                setTimeout(function() {
+                    document.body.removeChild(iframe);
+                }, 1000);
+            };
             
             closeSceltaStampaModal();
         }
