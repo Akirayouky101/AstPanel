@@ -1324,17 +1324,48 @@
         async function confermaRimozione() {
             if (!componenteIdDaRimuovere) return;
 
-            const { error } = await supabase.from('kit_items').delete().eq('id', componenteIdDaRimuovere);
+            try {
+                // 1. Recupera informazioni del kit_item prima di eliminarlo
+                const { data: kitItem, error: fetchError } = await supabase
+                    .from('kit_items')
+                    .select('kit_id, prodotto_id')
+                    .eq('id', componenteIdDaRimuovere)
+                    .single();
 
-            if (error) {
+                if (fetchError) throw fetchError;
+
+                // 2. Annulla l'impegno magazzino per questo prodotto
+                const { error: impegnoError } = await supabase
+                    .from('impegni_magazzino')
+                    .update({
+                        stato: 'annullato',
+                        note: 'Prodotto rimosso dal kit'
+                    })
+                    .eq('kit_id', kitItem.kit_id)
+                    .eq('prodotto_id', kitItem.prodotto_id)
+                    .eq('stato', 'attivo');
+
+                if (impegnoError) {
+                    console.error('Error annulling impegno:', impegnoError);
+                    // Continua comunque con la rimozione
+                }
+
+                // 3. Elimina il kit_item
+                const { error } = await supabase
+                    .from('kit_items')
+                    .delete()
+                    .eq('id', componenteIdDaRimuovere);
+
+                if (error) throw error;
+
+                closeConfirmModal();
+                await loadComponentiKit(currentKitId);
+
+            } catch (error) {
                 console.error('Error removing component:', error);
                 closeConfirmModal();
                 showErrorModal('Errore nella rimozione del componente', error.message);
-                return;
             }
-
-            closeConfirmModal();
-            await loadComponentiKit(currentKitId);
         }
 
         // ========================================
