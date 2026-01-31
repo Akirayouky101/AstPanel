@@ -1328,35 +1328,59 @@
                 // 1. Recupera informazioni del kit_item prima di eliminarlo
                 const { data: kitItem, error: fetchError } = await supabase
                     .from('kit_items')
-                    .select('kit_id, prodotto_id')
+                    .select('kit_id, prodotto_id, quantita, prodotto_nome')
                     .eq('id', componenteIdDaRimuovere)
                     .single();
 
                 if (fetchError) throw fetchError;
 
-                // 2. Annulla l'impegno magazzino per questo prodotto
-                const { error: impegnoError } = await supabase
+                // 2. Recupera codice kit per il movimento
+                const { data: kit, error: kitError } = await supabase
+                    .from('kits')
+                    .select('codice_kit')
+                    .eq('id', kitItem.kit_id)
+                    .single();
+
+                if (kitError) throw kitError;
+
+                // 3. Annulla l'impegno magazzino
+                await supabase
                     .from('impegni_magazzino')
                     .update({
                         stato: 'annullato',
-                        note: 'Prodotto rimosso dal kit'
+                        completed_at: new Date().toISOString(),
+                        note: `Componente rimosso dal kit ${kit.codice_kit}`
                     })
                     .eq('kit_id', kitItem.kit_id)
                     .eq('prodotto_id', kitItem.prodotto_id)
                     .eq('stato', 'attivo');
 
-                if (impegnoError) {
-                    console.error('Error annulling impegno:', impegnoError);
-                    // Continua comunque con la rimozione
+                // 4. Registra movimento di reintegro manualmente
+                await supabase
+                    .from('movimenti_magazzino')
+                    .insert({
+                        prodotto_id: kitItem.prodotto_id,
+                        tipo_movimento: 'reintegro',
+                        quantita: kitItem.quantita,
+                        causale: `Componente rimosso da kit ${kit.codice_kit} - Prodotto: ${kitItem.prodotto_nome}`,
+                        created_by: currentUserId
+                    });
+
+                // 5. Ora elimina il kit_item (il trigger non creerà movimento duplicato)
+                // Usiamo rpc per evitare il trigger
+                const { error: deleteError } = await supabase.rpc('elimina_kit_item', {
+                    p_kit_item_id: componenteIdDaRimuovere
+                });
+
+                // Se la RPC non esiste, usa delete normale
+                if (deleteError && deleteError.code === '42883') {
+                    await supabase
+                        .from('kit_items')
+                        .delete()
+                        .eq('id', componenteIdDaRimuovere);
+                } else if (deleteError) {
+                    throw deleteError;
                 }
-
-                // 3. Elimina il kit_item
-                const { error } = await supabase
-                    .from('kit_items')
-                    .delete()
-                    .eq('id', componenteIdDaRimuovere);
-
-                if (error) throw error;
 
                 closeConfirmModal();
                 await loadComponentiKit(currentKitId);
