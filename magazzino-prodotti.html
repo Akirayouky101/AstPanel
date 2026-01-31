@@ -1895,12 +1895,25 @@
 
                 document.getElementById('storicoContent').innerHTML = html;
 
-                // Calcola statistiche
-                const carichi = data.filter(m => m.tipo_movimento === 'carico').reduce((sum, m) => sum + parseFloat(m.quantita || 0), 0);
-                const scarichi = Math.abs(data.filter(m => m.tipo_movimento === 'scarico').reduce((sum, m) => sum + parseFloat(m.quantita || 0), 0));
+                // Calcola statistiche CORRETTE
+                let totalCarichi = 0;
+                let totalScarichi = 0;
+                let countCarichi = 0;
+                let countScarichi = 0;
                 
-                document.getElementById('totalCarichi').textContent = carichi.toFixed(2);
-                document.getElementById('totalScarichi').textContent = scarichi.toFixed(2);
+                data.forEach(m => {
+                    const qty = parseFloat(m.quantita || 0);
+                    if (m.tipo_movimento === 'carico') {
+                        totalCarichi += qty;
+                        countCarichi++;
+                    } else if (m.tipo_movimento === 'scarico') {
+                        totalScarichi += Math.abs(qty); // Converti in positivo
+                        countScarichi++;
+                    }
+                });
+                
+                document.getElementById('totalCarichi').textContent = totalCarichi.toFixed(2);
+                document.getElementById('totalScarichi').textContent = totalScarichi.toFixed(2);
 
             } catch (error) {
                 console.error('Errore caricamento storico:', error);
