@@ -14,8 +14,8 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Barcode Generator -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <!-- QR Code Generator -->
-    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- QR Code Generator (usando qrcodejs invece di qrcode-generator) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="/supabase-client.js"></script>
     <script src="/Admin/auth-helper.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2733,24 +2733,24 @@
             
             // Genera QR Code
             const qrCanvas = document.getElementById('qrCanvas');
-            qrCanvas.width = 300;
-            qrCanvas.height = 300;
+            qrCanvas.width = 0;
+            qrCanvas.height = 0;
+            qrCanvas.innerHTML = ''; // Pulisci canvas
             
-            QRCode.toCanvas(qrCanvas, barcode, {
+            // QRCodeJS usa un div container, non canvas diretto
+            const qrContainer = document.createElement('div');
+            qrContainer.id = 'qrTempContainer';
+            qrContainer.style.display = 'flex';
+            qrContainer.style.justifyContent = 'center';
+            qrCanvas.parentElement.replaceChild(qrContainer, qrCanvas);
+            
+            new QRCode(qrContainer, {
+                text: barcode,
                 width: 300,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#FFFFFF'
-                }
-            }, (error) => {
-                if (error) {
-                    console.error('Errore generazione QR:', error);
-                    const ctx = qrCanvas.getContext('2d');
-                    ctx.fillStyle = '#FF0000';
-                    ctx.font = '14px Arial';
-                    ctx.fillText('Errore generazione QR', 50, 150);
-                }
+                height: 300,
+                colorDark: "#000000",
+                colorLight: "#FFFFFF",
+                correctLevel: QRCode.CorrectLevel.H
             });
             
             // Mostra modal
@@ -2759,14 +2759,24 @@
 
         function closeBarcodeQRModal() {
             document.getElementById('barcodeQRModal').classList.add('hidden');
+            // Ripristina il canvas
+            const qrTempContainer = document.getElementById('qrTempContainer');
+            if (qrTempContainer) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'qrCanvas';
+                qrTempContainer.parentElement.replaceChild(newCanvas, qrTempContainer);
+            }
             currentBarcodeData = null;
         }
 
         function stampaBarcodeQR() {
             const printWindow = window.open('', '_blank');
             const barcodeSVG = document.getElementById('barcodeCanvas').outerHTML;
-            const qrCanvas = document.getElementById('qrCanvas');
-            const qrDataURL = qrCanvas.toDataURL('image/png');
+            
+            // Ottieni l'immagine QR dal container
+            const qrContainer = document.getElementById('qrTempContainer');
+            const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
+            const qrDataURL = qrImg ? qrImg.src : '';
             
             printWindow.document.write(`
                 <!DOCTYPE html>
@@ -2861,30 +2871,41 @@
                 ctx.font = 'bold 20px monospace';
                 ctx.fillText(currentBarcodeData.barcode, tempCanvas.width / 2, barcodeY + barcodeHeight + 30);
                 
-                // QR Code
-                const qrCanvas = document.getElementById('qrCanvas');
-                const qrY = barcodeY + barcodeHeight + 80;
-                const qrSize = 400;
-                ctx.drawImage(qrCanvas, (tempCanvas.width - qrSize) / 2, qrY, qrSize, qrSize);
+                // QR Code (ottieni immagine dal container)
+                const qrContainer = document.getElementById('qrTempContainer');
+                const qrImg = qrContainer ? qrContainer.querySelector('img') : null;
                 
-                // Testo QR
-                ctx.font = '18px monospace';
-                ctx.fillText(currentBarcodeData.barcode, tempCanvas.width / 2, qrY + qrSize + 30);
-                
-                // Scarica immagine
-                tempCanvas.toBlob(function(blob) {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `codici_${currentBarcodeData.barcode}.png`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    URL.revokeObjectURL(svgUrl);
-                    
-                    showSuccessModal('Download completato', 'Immagine salvata con successo!');
-                });
+                if (qrImg) {
+                    const qrImage = new Image();
+                    qrImage.onload = function() {
+                        const qrY = barcodeY + barcodeHeight + 80;
+                        const qrSize = 400;
+                        ctx.drawImage(qrImage, (tempCanvas.width - qrSize) / 2, qrY, qrSize, qrSize);
+                        
+                        // Testo QR
+                        ctx.font = '18px monospace';
+                        ctx.fillText(currentBarcodeData.barcode, tempCanvas.width / 2, qrY + qrSize + 30);
+                        
+                        // Scarica immagine
+                        tempCanvas.toBlob(function(blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `codici_${currentBarcodeData.barcode}.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            URL.revokeObjectURL(svgUrl);
+                            
+                            showSuccessModal('Download completato', 'Immagine salvata con successo!');
+                        });
+                    };
+                    qrImage.src = qrImg.src;
+                } else {
+                    console.error('QR Code image not found');
+                    showErrorModal('Errore', 'Impossibile trovare il QR Code');
+                }
             };
             barcodeImg.src = svgUrl;
         }
