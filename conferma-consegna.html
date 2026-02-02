@@ -81,6 +81,15 @@
             0%, 100% { top: 20%; }
             50% { top: 80%; }
         }
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 min-h-screen">
@@ -408,8 +417,7 @@
 
             // Verifica se già consegnato
             if (data.stato === 'consegnato') {
-                updateStatus('⚠️ Kit già consegnato!');
-                setTimeout(() => updateStatus('In attesa di scansione...'), 2000);
+                mostraModalKitGiaConsegnato(data);
                 return;
             }
 
@@ -426,6 +434,75 @@
         function updateStatusCamera(message) {
             const el = document.getElementById('statusCamera');
             if (el) el.innerHTML = `<i class="fas fa-camera mr-2"></i>${message}`;
+        }
+
+        // ========================================
+        // MODAL KIT GIÀ CONSEGNATO
+        // ========================================
+        function mostraModalKitGiaConsegnato(kit) {
+            // Stop scanner
+            if (isMobile) {
+                stopScannerMobile();
+            } else {
+                stopScannerDesktop();
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-bounce-in">
+                    <div class="text-center mb-6">
+                        <div class="bg-yellow-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 text-4xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Kit Già Consegnato</h3>
+                        <p class="text-gray-600">Il kit scansionato è già stato consegnato</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Kit:</span>
+                            <span class="font-bold text-gray-800">${kit.codice_kit || 'N/A'}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Nome:</span>
+                            <span class="font-semibold text-gray-800">${kit.nome_kit}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Destinatario:</span>
+                            <span class="font-semibold text-gray-800">${kit.destinatario_nome || 'N/A'}</span>
+                        </div>
+                        ${kit.data_consegna ? `
+                        <div class="flex justify-between items-center border-t pt-2 mt-2">
+                            <span class="text-sm text-gray-600">Consegnato il:</span>
+                            <span class="font-semibold text-green-700">${new Date(kit.data_consegna).toLocaleString('it-IT')}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <button onclick="chiudiModalGiaConsegnato()" class="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-purple-700 transition">
+                        <i class="fas fa-arrow-left mr-2"></i>Torna allo Scanner
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            window.currentModal = modal;
+        }
+
+        function chiudiModalGiaConsegnato() {
+            if (window.currentModal) {
+                window.currentModal.remove();
+                window.currentModal = null;
+            }
+            
+            // Riavvia scanner
+            if (isMobile) {
+                avviaScannerMobile();
+            } else {
+                avviaScannerDesktop();
+                updateStatus('In attesa di scansione...');
+            }
         }
 
         // ========================================

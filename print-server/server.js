@@ -524,38 +524,24 @@ async function createConsegnaQRPDF(nomeKit, codiceConsegna, destinatario, compon
         height: 85
     });
     
-    // Nome kit
-    doc.fontSize(9)
+    // Codice consegna (sotto il QR)
+    doc.fontSize(8)
        .fillColor('#000000')
-       .font('Helvetica-Bold')
-       .text(nomeKit, 10, 120, {
+       .font('Courier-Bold')
+       .text(codiceConsegna || '', 10, 120, {
            width: width - 20,
            align: 'center'
        });
     
-    // Codice consegna
-    if (codiceConsegna) {
-        doc.fontSize(7)
-           .fillColor('#666666')
-           .font('Courier-Bold')
-           .text(codiceConsegna, 10, 132, {
-               width: width - 20,
-               align: 'center'
-           });
-    }
-    
-    // Info
-    let y = height - 20;
-    doc.fontSize(6)
+    // Nome kit (più piccolo)
+    doc.fontSize(7)
        .fillColor('#666666')
-       .font('Helvetica');
-    
-    if (destinatario) {
-        doc.text(`Destinatario: ${destinatario} • ${componenti || 0} prodotti`, 10, y, {
-            width: width - 20,
-            align: 'center'
-        });
-    }
+       .font('Helvetica')
+       .text(nomeKit, 10, 132, {
+           width: width - 20,
+           align: 'center',
+           lineGap: 0
+       });
     
     doc.end();
     
