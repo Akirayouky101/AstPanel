@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="supabase-client.js"></script>
     <style>
         body {
@@ -91,8 +92,8 @@
             <p class="text-purple-200">Scansiona il QR di consegna</p>
         </div>
 
-        <!-- Scanner Section -->
-        <div id="scannerSection" class="bg-white rounded-2xl shadow-2xl p-6 mb-4">
+        <!-- Scanner Section DESKTOP -->
+        <div id="scannerSectionDesktop" class="hidden bg-white rounded-2xl shadow-2xl p-6 mb-4">
             <div class="flex justify-center mb-6">
                 <div class="scanner-frame">
                     <div class="scanner-corners"><div></div></div>
@@ -105,12 +106,12 @@
 
             <div class="text-center">
                 <h3 class="font-bold text-xl text-gray-800 mb-2">Scanner Attivo</h3>
-                <p class="text-gray-600 mb-4">Inquadra il QR di consegna nel riquadro</p>
+                <p class="text-gray-600 mb-4">Usa il lettore barcode USB/Bluetooth</p>
                 
                 <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 mb-4">
                     <p class="text-sm text-purple-700 mb-2">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Utilizza lo scanner USB/Bluetooth
+                        <i class="fas fa-barcode mr-2"></i>
+                        Scansiona il QR verde di consegna
                     </p>
                     <p id="statusScanner" class="text-xs text-gray-600 font-mono">In attesa...</p>
                 </div>
@@ -119,6 +120,29 @@
                     <i class="fas fa-keyboard mr-2"></i>Inserisci Codice Manualmente
                 </button>
             </div>
+        </div>
+
+        <!-- Scanner Section MOBILE -->
+        <div id="scannerSectionMobile" class="hidden bg-white rounded-2xl shadow-2xl p-6 mb-4">
+            <div class="text-center mb-4">
+                <h3 class="font-bold text-xl text-gray-800 mb-2">Scansiona QR Consegna</h3>
+                <p class="text-gray-600 text-sm">Inquadra il QR verde con la fotocamera</p>
+            </div>
+
+            <!-- Video Camera -->
+            <div class="relative mb-4 rounded-xl overflow-hidden bg-black">
+                <div id="qrReader" class="w-full"></div>
+            </div>
+
+            <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 mb-4">
+                <p id="statusCamera" class="text-sm text-purple-700 text-center">
+                    <i class="fas fa-camera mr-2"></i>Avvio fotocamera...
+                </p>
+            </div>
+
+            <button onclick="inserisciManualmente()" class="w-full bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 transition font-semibold">
+                <i class="fas fa-keyboard mr-2"></i>Inserisci Codice Manualmente
+            </button>
         </div>
 
         <!-- Info Section -->
@@ -213,11 +237,26 @@
         let scannerActive = false;
         let barcodeBuffer = '';
         let barcodeTimeout = null;
+        let html5QrCode = null;
+        let isMobile = false;
 
         // ========================================
         // INIT
         // ========================================
         async function init() {
+            // Rileva se è mobile
+            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                       (window.innerWidth <= 768);
+            
+            // Mostra interfaccia corretta
+            if (isMobile) {
+                document.getElementById('scannerSectionMobile').classList.remove('hidden');
+                await avviaScannerMobile();
+            } else {
+                document.getElementById('scannerSectionDesktop').classList.remove('hidden');
+                avviaScannerDesktop();
+            }
+
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 // Per mobile, permetti anche accesso senza login (usa nome da form)
@@ -227,9 +266,6 @@
             
             // Richiedi permessi GPS
             await getGPSPosition();
-            
-            // Avvia scanner
-            avviaScanner();
         }
 
         async function getGPSPosition() {
@@ -259,9 +295,9 @@
         }
 
         // ========================================
-        // SCANNER
+        // SCANNER DESKTOP (Barcode reader USB/Bluetooth)
         // ========================================
-        function avviaScanner() {
+        function avviaScannerDesktop() {
             if (scannerActive) return;
             
             barcodeBuffer = '';
@@ -270,7 +306,7 @@
             updateStatus('In attesa di scansione...');
         }
 
-        function stopScanner() {
+        function stopScannerDesktop() {
             scannerActive = false;
             document.removeEventListener('keypress', handleScannerInput);
             barcodeBuffer = '';
@@ -291,6 +327,66 @@
                 barcodeTimeout = setTimeout(() => {
                     barcodeBuffer = '';
                 }, 100);
+            }
+        }
+
+        // ========================================
+        // SCANNER MOBILE (Fotocamera QR)
+        // ========================================
+        async function avviaScannerMobile() {
+            try {
+                updateStatusCamera('Avvio fotocamera...');
+                
+                html5QrCode = new Html5Qrcode("qrReader");
+                
+                const config = { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+                
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    onQRScanSuccess,
+                    onQRScanFailure
+                );
+                
+                updateStatusCamera('Fotocamera attiva - Inquadra il QR');
+            } catch (err) {
+                console.error('Errore avvio camera:', err);
+                updateStatusCamera('❌ Impossibile avviare fotocamera');
+                
+                // Fallback: mostra input manuale
+                setTimeout(() => {
+                    inserisciManualmente();
+                }, 2000);
+            }
+        }
+
+        function onQRScanSuccess(decodedText, decodedResult) {
+            console.log(`QR scansionato: ${decodedText}`);
+            
+            // Stop scanner
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    processScannedCode(decodedText);
+                }).catch(err => {
+                    console.error('Errore stop scanner:', err);
+                    processScannedCode(decodedText);
+                });
+            } else {
+                processScannedCode(decodedText);
+            }
+        }
+
+        function onQRScanFailure(error) {
+            // Ignora errori di scan non riusciti (troppo frequenti)
+        }
+
+        function stopScannerMobile() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error('Errore stop:', err));
             }
         }
 
@@ -323,14 +419,25 @@
         }
 
         function updateStatus(message) {
-            document.getElementById('statusScanner').textContent = message;
+            const el = document.getElementById('statusScanner');
+            if (el) el.textContent = message;
+        }
+
+        function updateStatusCamera(message) {
+            const el = document.getElementById('statusCamera');
+            if (el) el.innerHTML = `<i class="fas fa-camera mr-2"></i>${message}`;
         }
 
         // ========================================
         // DETTAGLIO KIT
         // ========================================
         async function mostraDettaglioKit(kit) {
-            stopScanner();
+            // Stop scanner appropriato
+            if (isMobile) {
+                stopScannerMobile();
+            } else {
+                stopScannerDesktop();
+            }
 
             document.getElementById('kitNome').textContent = kit.nome_kit;
             document.getElementById('kitCodice').textContent = `Codice: ${kit.codice_kit}`;
@@ -355,7 +462,8 @@
             `).join('');
 
             // Nascondi scanner, mostra dettaglio
-            document.getElementById('scannerSection').classList.add('hidden');
+            document.getElementById('scannerSectionDesktop').classList.add('hidden');
+            document.getElementById('scannerSectionMobile').classList.add('hidden');
             document.getElementById('kitDettaglioSection').classList.remove('hidden');
         }
 
@@ -417,9 +525,15 @@
         function resetScanner() {
             currentKit = null;
             document.getElementById('successSection').classList.add('hidden');
-            document.getElementById('scannerSection').classList.remove('hidden');
-            updateStatus('In attesa di scansione...');
-            avviaScanner();
+            
+            if (isMobile) {
+                document.getElementById('scannerSectionMobile').classList.remove('hidden');
+                avviaScannerMobile();
+            } else {
+                document.getElementById('scannerSectionDesktop').classList.remove('hidden');
+                updateStatus('In attesa di scansione...');
+                avviaScannerDesktop();
+            }
         }
 
         // ========================================
