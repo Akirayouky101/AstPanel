@@ -330,6 +330,248 @@ app.post('/api/stampa-qr', async (req, res) => {
 });
 
 // ========================================
+// STAMPA KIT (2 etichette QR)
+// ========================================
+app.post('/api/stampa-kit', async (req, res) => {
+    try {
+        const { 
+            kit_id,
+            nome_kit, 
+            codice_kit, 
+            destinatario, 
+            componenti_count,
+            quantita_totale,
+            stato,
+            qr_kit,
+            qr_consegna,
+            codice_consegna,
+            stampante 
+        } = req.body;
+        
+        if (!kit_id || !nome_kit || !qr_kit || !qr_consegna) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Dati kit mancanti' 
+            });
+        }
+        
+        console.log(`📦 Stampa Kit: ${nome_kit} (ID: ${kit_id})`);
+        
+        // 1. Stampa QR Identificativo Kit
+        const pdfKit = await createKitQRPDF(
+            nome_kit,
+            codice_kit,
+            destinatario,
+            componenti_count,
+            quantita_totale,
+            stato,
+            qr_kit,
+            '📦 QR IDENTIFICATIVO KIT',
+            '#8b5cf6'
+        );
+        printPDF(pdfKit, stampante);
+        
+        // 2. Stampa QR Conferma Consegna
+        const pdfConsegna = await createConsegnaQRPDF(
+            nome_kit,
+            codice_consegna,
+            destinatario,
+            componenti_count,
+            qr_consegna
+        );
+        printPDF(pdfConsegna, stampante);
+        
+        res.json({ 
+            success: true, 
+            message: '2 etichette kit inviate alla stampante',
+            kit_id,
+            nome_kit
+        });
+        
+    } catch (error) {
+        console.error('Errore stampa kit:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
+// ========================================
+// UTILITY: Crea PDF QR Kit
+// ========================================
+async function createKitQRPDF(nomeKit, codiceKit, destinatario, componenti, quantita, stato, qrData, tipoLabel, colore) {
+    const pdfPath = path.join(TEMP_DIR, `kit_${Date.now()}.pdf`);
+    
+    const doc = new PDFDocument({
+        size: [226.77, 141.73],
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+    });
+    
+    const stream = fs.createWriteStream(pdfPath);
+    doc.pipe(stream);
+    
+    const width = 226.77;
+    const height = 141.73;
+    
+    // Badge tipo (colorato)
+    doc.rect(10, 10, width - 20, 15).fillAndStroke(colore, colore);
+    doc.fontSize(8)
+       .fillColor('#ffffff')
+       .font('Helvetica-Bold')
+       .text(tipoLabel, 10, 14, {
+           width: width - 20,
+           align: 'center'
+       });
+    
+    // QR Code
+    const qrDataURL = await generateQRDataURL(qrData);
+    const qrBuffer = Buffer.from(qrDataURL.split(',')[1], 'base64');
+    const qrTempPath = path.join(TEMP_DIR, `qr_kit_temp_${Date.now()}.png`);
+    fs.writeFileSync(qrTempPath, qrBuffer);
+    
+    doc.image(qrTempPath, (width - 85) / 2, 30, {
+        width: 85,
+        height: 85
+    });
+    
+    // Nome kit
+    doc.fontSize(9)
+       .fillColor('#000000')
+       .font('Helvetica-Bold')
+       .text(nomeKit, 10, 120, {
+           width: width - 20,
+           align: 'center',
+           lineGap: 1
+       });
+    
+    // Codice kit
+    if (codiceKit) {
+        doc.fontSize(7)
+           .fillColor('#666666')
+           .font('Courier-Bold')
+           .text(codiceKit, 10, 132, {
+               width: width - 20,
+               align: 'center'
+           });
+    }
+    
+    // Info kit (piccolo)
+    let y = height - 28;
+    doc.fontSize(6)
+       .fillColor('#666666')
+       .font('Helvetica');
+    
+    if (destinatario) {
+        doc.text(`Destinatario: ${destinatario}`, 10, y, { width: width - 20, align: 'center' });
+        y += 8;
+    }
+    
+    doc.text(`Componenti: ${componenti || 0} (${quantita || 0} pz) • Stato: ${stato ? stato.toUpperCase() : 'N/A'}`, 10, y, {
+        width: width - 20,
+        align: 'center'
+    });
+    
+    doc.end();
+    
+    setTimeout(() => {
+        if (fs.existsSync(qrTempPath)) {
+            fs.unlinkSync(qrTempPath);
+        }
+    }, 2000);
+    
+    return new Promise((resolve, reject) => {
+        stream.on('finish', () => resolve(pdfPath));
+        stream.on('error', reject);
+    });
+}
+
+// ========================================
+// UTILITY: Crea PDF QR Consegna
+// ========================================
+async function createConsegnaQRPDF(nomeKit, codiceConsegna, destinatario, componenti, qrData) {
+    const pdfPath = path.join(TEMP_DIR, `consegna_${Date.now()}.pdf`);
+    
+    const doc = new PDFDocument({
+        size: [226.77, 141.73],
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+    });
+    
+    const stream = fs.createWriteStream(pdfPath);
+    doc.pipe(stream);
+    
+    const width = 226.77;
+    const height = 141.73;
+    
+    // Badge verde per consegna
+    doc.rect(10, 10, width - 20, 15).fillAndStroke('#10b981', '#10b981');
+    doc.fontSize(8)
+       .fillColor('#ffffff')
+       .font('Helvetica-Bold')
+       .text('✅ QR CONFERMA CONSEGNA', 10, 14, {
+           width: width - 20,
+           align: 'center'
+       });
+    
+    // QR Code
+    const qrDataURL = await generateQRDataURL(qrData);
+    const qrBuffer = Buffer.from(qrDataURL.split(',')[1], 'base64');
+    const qrTempPath = path.join(TEMP_DIR, `qr_consegna_temp_${Date.now()}.png`);
+    fs.writeFileSync(qrTempPath, qrBuffer);
+    
+    doc.image(qrTempPath, (width - 85) / 2, 30, {
+        width: 85,
+        height: 85
+    });
+    
+    // Nome kit
+    doc.fontSize(9)
+       .fillColor('#000000')
+       .font('Helvetica-Bold')
+       .text(nomeKit, 10, 120, {
+           width: width - 20,
+           align: 'center'
+       });
+    
+    // Codice consegna
+    if (codiceConsegna) {
+        doc.fontSize(7)
+           .fillColor('#666666')
+           .font('Courier-Bold')
+           .text(codiceConsegna, 10, 132, {
+               width: width - 20,
+               align: 'center'
+           });
+    }
+    
+    // Info
+    let y = height - 20;
+    doc.fontSize(6)
+       .fillColor('#666666')
+       .font('Helvetica');
+    
+    if (destinatario) {
+        doc.text(`Destinatario: ${destinatario} • ${componenti || 0} prodotti`, 10, y, {
+            width: width - 20,
+            align: 'center'
+        });
+    }
+    
+    doc.end();
+    
+    setTimeout(() => {
+        if (fs.existsSync(qrTempPath)) {
+            fs.unlinkSync(qrTempPath);
+        }
+    }, 2000);
+    
+    return new Promise((resolve, reject) => {
+        stream.on('finish', () => resolve(pdfPath));
+        stream.on('error', reject);
+    });
+}
+
+// ========================================
 // START SERVER
 // ========================================
 app.listen(PORT, () => {
@@ -343,6 +585,7 @@ app.listen(PORT, () => {
 ║  • GET  /api/stampanti                           ║
 ║  • POST /api/stampa-barcode                      ║
 ║  • POST /api/stampa-qr                           ║
+║  • POST /api/stampa-kit                          ║
 ╚═══════════════════════════════════════════════════╝
     `);
 });

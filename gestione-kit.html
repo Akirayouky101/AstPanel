@@ -2157,183 +2157,43 @@
                 return;
             }
 
-            // Carica componenti
-            const { data: componenti } = await supabase
-                .from('v_kit_items_dettaglio')
-                .select('*')
-                .eq('kit_id', currentKitId);
-
-            const printWindow = window.open('', '_blank');
-
-            let html = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>QR Kit - ${kit.nome_kit}</title>
-                    <style>
-                        @media print {
-                            @page { 
-                                size: 8cm 5cm;
-                                margin: 0;
-                            }
-                            body { 
-                                margin: 0;
-                                padding: 0;
-                            }
-                            .etichetta {
-                                page-break-after: always;
-                            }
-                            .etichetta:last-child {
-                                page-break-after: auto;
-                            }
-                        }
-                        body {
-                            font-family: Arial, sans-serif;
-                            margin: 0;
-                            padding: 0;
-                        }
-                        .etichetta {
-                            width: 8cm;
-                            height: 5cm;
-                            border: 2px solid #8b5cf6;
-                            padding: 0.3cm;
-                            box-sizing: border-box;
-                            text-align: center;
-                            background: white;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            align-items: center;
-                            page-break-inside: avoid;
-                        }
-                        .tipo-qr {
-                            background: #8b5cf6;
-                            color: white;
-                            padding: 0.15cm 0.3cm;
-                            border-radius: 0.2cm;
-                            font-size: 8pt;
-                            font-weight: bold;
-                            margin-bottom: 0.2cm;
-                        }
-                        .tipo-qr.consegna {
-                            background: #10b981;
-                        }
-                        .qr-container {
-                            display: flex;
-                            justify-content: center;
-                            margin-bottom: 0.2cm;
-                        }
-                        .qr-container canvas {
-                            max-width: 3cm !important;
-                            max-height: 3cm !important;
-                        }
-                        .nome-kit {
-                            font-weight: bold;
-                            font-size: 9pt;
-                            margin: 0.1cm 0;
-                            max-width: 7cm;
-                            overflow: hidden;
-                            text-overflow: ellipsis;
-                            display: -webkit-box;
-                            -webkit-line-clamp: 2;
-                            -webkit-box-orient: vertical;
-                            line-height: 1.2;
-                        }
-                        .codice-kit {
-                            font-family: 'Courier New', monospace;
-                            font-size: 7pt;
-                            color: #666;
-                            margin: 0.1cm 0;
-                            font-weight: bold;
-                        }
-                        .info-kit {
-                            font-size: 6pt;
-                            color: #666;
-                            margin-top: 0.15cm;
-                            padding-top: 0.15cm;
-                            border-top: 1px solid #e5e7eb;
-                            width: 100%;
-                        }
-                        .info-kit div {
-                            margin: 0.08cm 0;
-                            font-size: 6pt;
-                        }
-                        .componenti-lista {
-                            display: none; /* Troppo piccolo per 80x50mm */
-                        }
-                        .istruzioni {
-                            position: absolute;
-                            bottom: 0.2cm;
-                            left: 0;
-                            right: 0;
-                            font-size: 5pt;
-                            color: #999;
-                            text-align: center;
-                        }
-                    </style>
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-                </head>
-                <body>
-                    <!-- QR IDENTIFICATIVO KIT -->
-                    <div class="etichetta">
-                        <div class="tipo-qr">📦 QR IDENTIFICATIVO KIT</div>
-                        <div id="qr-kit" class="qr-container"></div>
-                        <div class="nome-kit">${kit.nome_kit}</div>
-                        <div class="codice-kit">${kit.codice_kit}</div>
-                        <div class="info-kit">
-                            <div><strong>Destinatario:</strong> ${kit.destinatario_nome || 'Non assegnato'}</div>
-                            <div><strong>Componenti:</strong> ${kit.numero_componenti || 0} (${kit.quantita_totale || 0} pz)</div>
-                            <div><strong>Stato:</strong> ${kit.stato.toUpperCase()}</div>
-                        </div>
-                        ${componenti && componenti.length > 0 ? `
-                            <div class="componenti-lista">
-                                ${componenti.slice(0, 5).map(c => `• ${c.prodotto_nome} (${c.quantita})`).join('<br>')}
-                                ${componenti.length > 5 ? '<br>...' : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-
-                    <!-- QR CONFERMA CONSEGNA -->
-                    <div class="etichetta">
-                        <div class="tipo-qr consegna">✅ QR CONFERMA CONSEGNA</div>
-                        <div id="qr-consegna" class="qr-container"></div>
-                        <div class="nome-kit">${kit.nome_kit}</div>
-                        <div class="codice-kit">${kit.codice_consegna}</div>
-                        <div class="info-kit">
-                            <div><strong>Destinatario:</strong> ${kit.destinatario_nome || 'Non assegnato'}</div>
-                            <div><strong>Componenti:</strong> ${kit.numero_componenti || 0} prodotti</div>
-                        </div>
-                        <div class="istruzioni">
-                            🔗 Scansiona questo QR per confermare la consegna<br>
-                            URL: ${window.location.origin}/conferma-consegna.html
-                        </div>
-                    </div>
-
-                    <script>
-                        // Genera QR identificativo kit
-                        new QRCode(document.getElementById('qr-kit'), {
-                            text: '${kit.qr_kit}',
-                            width: 250,
-                            height: 250
-                        });
-
-                        // Genera QR conferma consegna
-                        new QRCode(document.getElementById('qr-consegna'), {
-                            text: '${kit.qr_consegna}',
-                            width: 250,
-                            height: 250
-                        });
-                        
-                        setTimeout(() => {
-                            window.print();
-                        }, 500);
-                    <\/script>
-                </body>
-                </html>
-            `;
-
-            printWindow.document.write(html);
-            printWindow.document.close();
+            try {
+                // Chiama API print server per stampare entrambe le etichette
+                const response = await fetch('http://localhost:3000/api/stampa-kit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        kit_id: kit.id,
+                        nome_kit: kit.nome_kit,
+                        codice_kit: kit.codice_kit,
+                        destinatario: kit.destinatario_nome || 'Non assegnato',
+                        componenti_count: kit.numero_componenti || 0,
+                        quantita_totale: kit.quantita_totale || 0,
+                        stato: kit.stato,
+                        qr_kit: kit.qr_kit,
+                        qr_consegna: kit.qr_consegna,
+                        codice_consegna: kit.codice_consegna
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Mostra notifica successo
+                    const notification = document.createElement('div');
+                    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] flex items-center gap-2';
+                    notification.innerHTML = '<i class="fas fa-check-circle"></i><span>✅ 2 etichette kit inviate alla stampante!</span>';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => notification.remove(), 3000);
+                } else {
+                    throw new Error(result.error || 'Errore stampa');
+                }
+                
+            } catch (error) {
+                console.error('Errore stampa kit:', error);
+                alert('❌ Errore stampa: ' + error.message + '\n\nAssicurati che il print server sia attivo (npm start in print-server/)');
+            }
         }
 
         // ========================================

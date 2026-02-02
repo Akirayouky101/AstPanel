@@ -73,6 +73,17 @@ class ComponentMultiScanner {
                 }
             }, 100);
 
+            // 🆕 Event listener per input manuale (INVIO)
+            const manualInput = document.getElementById('componentManualSearchInput');
+            if (manualInput) {
+                manualInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.searchManual();
+                    }
+                });
+            }
+
             this.updateLists();
             this.updateStats();
             this.startScanner();
@@ -111,18 +122,27 @@ class ComponentMultiScanner {
     handleScan(event) {
         if (!this.scannerActive) return;
 
+        // Previeni comportamento default per evitare problemi
         if (event.key === 'Enter') {
+            event.preventDefault();
             const barcode = this.scanBuffer.trim();
             this.scanBuffer = '';
             if (barcode) {
                 this.processBarcode(barcode);
             }
         } else {
+            // Aggiungi carattere al buffer
             this.scanBuffer += event.key;
+            
+            // Reset timeout - se passano più di 50ms, considera il barcode completo
             clearTimeout(this.scanTimeout);
             this.scanTimeout = setTimeout(() => {
+                const barcode = this.scanBuffer.trim();
+                if (barcode && barcode.length >= 3) { // Minimo 3 caratteri per essere un barcode valido
+                    this.processBarcode(barcode);
+                }
                 this.scanBuffer = '';
-            }, 100);
+            }, 50); // Ridotto a 50ms per maggiore reattività
         }
     }
 
@@ -173,6 +193,28 @@ class ComponentMultiScanner {
             statusEl.textContent = message;
             statusEl.className = `px-4 py-2 rounded-lg font-mono text-sm ${colorClass} text-white`;
         }
+    }
+
+    // 🆕 RICERCA MANUALE
+    searchManual() {
+        const inputEl = document.getElementById('componentManualSearchInput');
+        if (!inputEl) return;
+
+        const searchTerm = inputEl.value.trim();
+        if (!searchTerm || searchTerm.length < 3) {
+            this.updateScannerStatus('❌ Inserisci almeno 3 caratteri', 'bg-red-500');
+            setTimeout(() => {
+                this.updateScannerStatus('In attesa...', 'bg-white/30');
+            }, 2000);
+            return;
+        }
+
+        // Processa come se fosse scansionato
+        this.processBarcode(searchTerm);
+
+        // Pulisci input
+        inputEl.value = '';
+        inputEl.focus();
     }
 
     // Aggiorna liste componenti
