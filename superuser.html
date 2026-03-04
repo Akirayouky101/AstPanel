@@ -1345,7 +1345,22 @@
         async function deleteSingle(tableName, id) {
             showConfirmModal('Sei sicuro di voler eliminare questo record?', async () => {
                 try {
-                    await supabaseClient.from(tableName).delete().eq('id', id);
+                    // Elimina prima le dipendenze figlie per questo specifico id
+                    const fkDeps = {
+                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }, { t: 'impegni_magazzino', col: 'prodotto_id' }, { t: 'movimenti_magazzino', col: 'prodotto_id' }],
+                        'kits':             [{ t: 'kit_items', col: 'kit_id' }, { t: 'impegni_magazzino', col: 'kit_id' }],
+                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }, { t: 'impegni_magazzino', col: 'lavorazione_id' }],
+                        'teams':            [{ t: 'team_members', col: 'team_id' }],
+                        'fornitori':        [{ t: 'ordini_fornitore', col: 'fornitore_id' }],
+                        'ordini_fornitore': [{ t: 'ordini_fornitore_items', col: 'ordine_id' }],
+                        'progetti':         [{ t: 'progetti_componenti', col: 'progetto_id' }, { t: 'progetti_dispositivi', col: 'progetto_id' }, { t: 'progetti_checklist', col: 'progetto_id' }],
+                        'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
+                    };
+                    for (const dep of (fkDeps[tableName] || [])) {
+                        try { await supabaseClient.from(dep.t).delete().eq(dep.col, id); } catch(e) {}
+                    }
+                    const { error } = await supabaseClient.from(tableName).delete().eq('id', id);
+                    if (error) throw error;
                     showAlert('✅ Record eliminato!', 'success');
                     viewTable(tableName);
                     loadAllCounts();
@@ -1363,10 +1378,24 @@
             
             showConfirmModal(`Eliminare ${selectedItems.size} record selezionati?`, async () => {
                 try {
-                    for (const id of selectedItems) {
-                        await supabaseClient.from(currentTable).delete().eq('id', id);
+                    const ids = Array.from(selectedItems);
+                    // Prima elimina dipendenze figlie per questi id
+                    const fkDeps = {
+                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }, { t: 'impegni_magazzino', col: 'prodotto_id' }, { t: 'movimenti_magazzino', col: 'prodotto_id' }],
+                        'kits':             [{ t: 'kit_items', col: 'kit_id' }, { t: 'impegni_magazzino', col: 'kit_id' }],
+                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }, { t: 'impegni_magazzino', col: 'lavorazione_id' }],
+                        'teams':            [{ t: 'team_members', col: 'team_id' }],
+                        'fornitori':        [{ t: 'ordini_fornitore', col: 'fornitore_id' }],
+                        'ordini_fornitore': [{ t: 'ordini_fornitore_items', col: 'ordine_id' }],
+                        'progetti':         [{ t: 'progetti_componenti', col: 'progetto_id' }, { t: 'progetti_dispositivi', col: 'progetto_id' }, { t: 'progetti_checklist', col: 'progetto_id' }],
+                        'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
+                    };
+                    for (const dep of (fkDeps[currentTable] || [])) {
+                        try { await supabaseClient.from(dep.t).delete().in(dep.col, ids); } catch(e) {}
                     }
-                    showAlert(`✅ ${selectedItems.size} record eliminati!`, 'success');
+                    const { error } = await supabaseClient.from(currentTable).delete().in('id', ids);
+                    if (error) throw error;
+                    showAlert(`✅ ${ids.length} record eliminati!`, 'success');
                     viewTable(currentTable);
                     loadAllCounts();
                 } catch (error) {
@@ -1379,6 +1408,31 @@
             viewTable(tableName);
         }
 
+        // Mappa delle tabelle figlie da svuotare PRIMA di eliminare la tabella madre
+        // necessario quando le FK non hanno ON DELETE CASCADE
+        const TABLE_DEPENDENCIES = {
+            'components': ['kit_items', 'task_components', 'impegni_magazzino', 'movimenti_magazzino'],
+            'movimenti_magazzino': [], // ha prodotto_id -> components ON DELETE CASCADE, ok
+            'kits':       ['kit_items', 'impegni_magazzino'],
+            'tasks':      ['task_components', 'task_assignments', 'impegni_magazzino'],
+            'teams':      ['team_members'],
+            'users':      ['team_members', 'task_assignments', 'timbrature', 'timbrature_modifiche', 'user_availability'],
+            'clients':    ['preventivi'],
+            'fornitori':  ['ordini_fornitore'],
+            'ordini_fornitore': ['ordini_fornitore_items'],
+            'progetti':   ['progetti_componenti', 'progetti_dispositivi', 'progetti_checklist'],
+            'condomini':  ['condomini_unita', 'condomini_interventi', 'condomini_accessi', 'condomini_documenti'],
+        };
+
+        async function bulkDeleteTable(tableName) {
+            // Elimina tutto con una singola query server-side (molto più efficiente e affidabile)
+            const { error } = await supabaseClient
+                .from(tableName)
+                .delete()
+                .neq('id', '00000000-0000-0000-0000-000000000000');
+            if (error) throw new Error(`[${tableName}] ${error.message}`);
+        }
+
         async function deleteAllTable(tableName) {
             showConfirmModal(
                 `⚠️ ATTENZIONE!\n\nSei sicuro di voler eliminare TUTTI i record dalla tabella "${tableName}"?\n\nQuesta azione è IRREVERSIBILE!`,
@@ -1388,10 +1442,13 @@
                         `DELETE ${tableName.toUpperCase()}`,
                         async () => {
                             try {
-                                const { data } = await supabaseClient.from(tableName).select('id');
-                                for (const item of data) {
-                                    await supabaseClient.from(tableName).delete().eq('id', item.id);
+                                // 1. Elimina prima le tabelle dipendenti (FK senza CASCADE)
+                                const deps = TABLE_DEPENDENCIES[tableName] || [];
+                                for (const dep of deps) {
+                                    try { await bulkDeleteTable(dep); } catch(e) { console.warn(`Dipendenza ${dep}:`, e.message); }
                                 }
+                                // 2. Elimina la tabella principale con singola query bulk
+                                await bulkDeleteTable(tableName);
                                 showAlert(`✅ Tutti i record di "${tableName}" sono stati eliminati!`, 'success');
                                 loadAllCounts();
                             } catch (error) {
@@ -1462,10 +1519,7 @@
                                         ];
                                         
                                         for (const table of tables) {
-                                            const { data } = await supabaseClient.from(table).select('id');
-                                            for (const item of data) {
-                                                await supabaseClient.from(table).delete().eq('id', item.id);
-                                            }
+                                            try { await bulkDeleteTable(table); } catch(e) { console.warn(`Nuke skip ${table}:`, e.message); }
                                         }
                                         
                                         showAlert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥', 'success');
