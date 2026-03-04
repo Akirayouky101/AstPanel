@@ -394,30 +394,6 @@
                     </div>
                 </div>
 
-                <!-- Ordini Fornitori Table -->
-                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
-                    <div class="bg-rose-900 p-4 border-b border-rose-800">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <i class="fas fa-file-invoice text-rose-300 text-xl mr-3"></i>
-                                <h3 class="text-white font-bold text-lg">Ordini Fornitori</h3>
-                            </div>
-                            <span id="ordiniFornitoriCount" class="bg-rose-700 text-white px-3 py-1 rounded-full text-sm font-bold">0</span>
-                        </div>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <button onclick="viewTable('ordini_fornitori')" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            <i class="fas fa-eye mr-2"></i>Visualizza
-                        </button>
-                        <button onclick="deleteSelected('ordini_fornitori')" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                            <i class="fas fa-trash-alt mr-2"></i>Elimina Selezionati
-                        </button>
-                        <button onclick="deleteAllTable('ordini_fornitori')" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
-                            <i class="fas fa-bomb mr-2"></i>Elimina TUTTI
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Ordini Fornitore Table -->
                 <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
                     <div class="bg-rose-900 p-4 border-b border-rose-800">
@@ -1231,7 +1207,6 @@
                     { name: 'movimenti_magazzino',       id: 'movimentiCount' },
                     { name: 'impegni_magazzino',         id: 'impegniCount' },
                     { name: 'fornitori',                 id: 'fornitoriCount' },
-                    { name: 'ordini_fornitori',          id: 'ordiniFornitoriCount' },
                     { name: 'ordini_fornitore',          id: 'ordiniFornitoreCount' },
                     { name: 'ordini_fornitore_items',    id: 'ordiniFornitoreItemsCount' },
                     { name: 'preventivi',                id: 'preventiviCount' },
@@ -1345,16 +1320,18 @@
         async function deleteSingle(tableName, id) {
             showConfirmModal('Sei sicuro di voler eliminare questo record?', async () => {
                 try {
-                    // Elimina prima le dipendenze figlie per questo specifico id
+                    // Elimina prima le dipendenze figlie per questo specifico id (solo FK RESTRICT)
                     const fkDeps = {
-                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }, { t: 'impegni_magazzino', col: 'prodotto_id' }, { t: 'movimenti_magazzino', col: 'prodotto_id' }],
-                        'kits':             [{ t: 'kit_items', col: 'kit_id' }, { t: 'impegni_magazzino', col: 'kit_id' }],
-                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }, { t: 'impegni_magazzino', col: 'lavorazione_id' }],
+                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'ordini_fornitore_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }],
+                        'kits':             [{ t: 'kit_items', col: 'kit_id' }],
+                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }],
                         'teams':            [{ t: 'team_members', col: 'team_id' }],
                         'fornitori':        [{ t: 'ordini_fornitore', col: 'fornitore_id' }],
                         'ordini_fornitore': [{ t: 'ordini_fornitore_items', col: 'ordine_id' }],
+                        'preventivi':       [{ t: 'preventivi_items', col: 'preventivo_id' }],
                         'progetti':         [{ t: 'progetti_componenti', col: 'progetto_id' }, { t: 'progetti_dispositivi', col: 'progetto_id' }, { t: 'progetti_checklist', col: 'progetto_id' }],
                         'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
+                        'clients':          [{ t: 'preventivi', col: 'cliente_id' }],
                     };
                     for (const dep of (fkDeps[tableName] || [])) {
                         try { await supabaseClient.from(dep.t).delete().eq(dep.col, id); } catch(e) {}
@@ -1379,16 +1356,18 @@
             showConfirmModal(`Eliminare ${selectedItems.size} record selezionati?`, async () => {
                 try {
                     const ids = Array.from(selectedItems);
-                    // Prima elimina dipendenze figlie per questi id
+                    // Prima elimina dipendenze figlie per questi id (solo FK RESTRICT)
                     const fkDeps = {
-                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }, { t: 'impegni_magazzino', col: 'prodotto_id' }, { t: 'movimenti_magazzino', col: 'prodotto_id' }],
-                        'kits':             [{ t: 'kit_items', col: 'kit_id' }, { t: 'impegni_magazzino', col: 'kit_id' }],
-                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }, { t: 'impegni_magazzino', col: 'lavorazione_id' }],
+                        'components':       [{ t: 'kit_items', col: 'prodotto_id' }, { t: 'ordini_fornitore_items', col: 'prodotto_id' }, { t: 'task_components', col: 'prodotto_id' }],
+                        'kits':             [{ t: 'kit_items', col: 'kit_id' }],
+                        'tasks':            [{ t: 'task_components', col: 'task_id' }, { t: 'task_assignments', col: 'task_id' }],
                         'teams':            [{ t: 'team_members', col: 'team_id' }],
                         'fornitori':        [{ t: 'ordini_fornitore', col: 'fornitore_id' }],
                         'ordini_fornitore': [{ t: 'ordini_fornitore_items', col: 'ordine_id' }],
+                        'preventivi':       [{ t: 'preventivi_items', col: 'preventivo_id' }],
                         'progetti':         [{ t: 'progetti_componenti', col: 'progetto_id' }, { t: 'progetti_dispositivi', col: 'progetto_id' }, { t: 'progetti_checklist', col: 'progetto_id' }],
                         'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
+                        'clients':          [{ t: 'preventivi', col: 'cliente_id' }],
                     };
                     for (const dep of (fkDeps[currentTable] || [])) {
                         try { await supabaseClient.from(dep.t).delete().in(dep.col, ids); } catch(e) {}
@@ -1409,19 +1388,19 @@
         }
 
         // Mappa delle tabelle figlie da svuotare PRIMA di eliminare la tabella madre
-        // necessario quando le FK non hanno ON DELETE CASCADE
+        // Solo per FK con ON DELETE RESTRICT (bloccano il delete fisico)
         const TABLE_DEPENDENCIES = {
-            'components': ['kit_items', 'task_components', 'impegni_magazzino', 'movimenti_magazzino'],
-            'movimenti_magazzino': [], // ha prodotto_id -> components ON DELETE CASCADE, ok
-            'kits':       ['kit_items', 'impegni_magazzino'],
-            'tasks':      ['task_components', 'task_assignments', 'impegni_magazzino'],
-            'teams':      ['team_members'],
-            'users':      ['team_members', 'task_assignments', 'timbrature', 'timbrature_modifiche', 'user_availability'],
-            'clients':    ['preventivi'],
-            'fornitori':  ['ordini_fornitore'],
+            // kit_items.prodotto_id → components ON DELETE RESTRICT → blocca!
+            'components':       ['kit_items', 'ordini_fornitore_items', 'task_components'],
+            'kits':             ['kit_items'],
+            'tasks':            ['task_components', 'task_assignments'],
+            'teams':            ['team_members'],
+            'fornitori':        ['ordini_fornitore'],
             'ordini_fornitore': ['ordini_fornitore_items'],
-            'progetti':   ['progetti_componenti', 'progetti_dispositivi', 'progetti_checklist'],
-            'condomini':  ['condomini_unita', 'condomini_interventi', 'condomini_accessi', 'condomini_documenti'],
+            'preventivi':       ['preventivi_items'],
+            'progetti':         ['progetti_componenti', 'progetti_dispositivi', 'progetti_checklist'],
+            'condomini':        ['condomini_unita', 'condomini_interventi', 'condomini_accessi', 'condomini_documenti'],
+            'clients':          ['preventivi'],
         };
 
         async function bulkDeleteTable(tableName) {
@@ -1490,7 +1469,6 @@
                                             'movimenti_magazzino',
                                             'ordini_fornitore_items',
                                             'ordini_fornitore',
-                                            'ordini_fornitori',
                                             'fornitori',
                                             'preventivi_items',
                                             'preventivi',
