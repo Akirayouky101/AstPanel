@@ -1388,10 +1388,11 @@
         }
 
         // Mappa delle tabelle figlie da svuotare PRIMA di eliminare la tabella madre
-        // Solo per FK con ON DELETE RESTRICT (bloccano il delete fisico)
+        // Include tutte le FK bloccanti (RESTRICT o NOT NULL senza CASCADE)
         const TABLE_DEPENDENCIES = {
             // kit_items.prodotto_id → components ON DELETE RESTRICT → blocca!
-            'components':       ['kit_items', 'ordini_fornitore_items', 'task_components'],
+            // Esegui migration fix-kit-items-fk-cascade.sql per risolvere definitivamente
+            'components':       ['kit_items', 'ordini_fornitore_items', 'task_components', 'inventory_movements', 'impegni_magazzino', 'movimenti_magazzino'],
             'kits':             ['kit_items'],
             'tasks':            ['task_components', 'task_assignments'],
             'teams':            ['team_members'],
@@ -1404,12 +1405,15 @@
         };
 
         async function bulkDeleteTable(tableName) {
-            // Elimina tutto con una singola query server-side (molto più efficiente e affidabile)
             const { error } = await supabaseClient
                 .from(tableName)
                 .delete()
                 .neq('id', '00000000-0000-0000-0000-000000000000');
-            if (error) throw new Error(`[${tableName}] ${error.message}`);
+            if (error) {
+                // Mostra il dettaglio dell'errore 409 (FK violation) per debug
+                const detail = error.details || error.hint || error.message;
+                throw new Error(`[${tableName}] ${detail}`);
+            }
         }
 
         async function deleteAllTable(tableName) {
@@ -1426,7 +1430,19 @@
                                 for (const dep of deps) {
                                     try { await bulkDeleteTable(dep); } catch(e) { console.warn(`Dipendenza ${dep}:`, e.message); }
                                 }
-                                // 2. Elimina la tabella principale con singola query bulk
+                                // 2. Verifica che kit_items sia effettivamente vuota prima di eliminare components
+                                //    (RLS potrebbe bloccare silenziosamente il delete restituendo 204)
+                                if (tableName === 'components') {
+                                    const { count } = await supabaseClient
+                                        .from('kit_items')
+                                        .select('*', { count: 'exact', head: true });
+                                    if (count > 0) {
+                                        showAlert(`❌ Impossibile eliminare components: esistono ancora ${count} righe in kit_items che la referenziano (FK RESTRICT).\n\nEsegui la migration "fix-kit-items-fk-cascade.sql" nel Supabase SQL Editor per risolvere il problema definitivamente.`, 'error');
+                                        loadAllCounts();
+                                        return;
+                                    }
+                                }
+                                // 3. Elimina la tabella principale con singola query bulk
                                 await bulkDeleteTable(tableName);
                                 showAlert(`✅ Tutti i record di "${tableName}" sono stati eliminati!`, 'success');
                                 loadAllCounts();
@@ -1465,6 +1481,7 @@
                                             'team_members',
                                             'kit_items',
                                             'kits',
+                                            'inventory_movements',
                                             'impegni_magazzino',
                                             'movimenti_magazzino',
                                             'ordini_fornitore_items',
