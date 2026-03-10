@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magazzino Operatore - AST:ZG</title>
+    <meta name="theme-color" content="#1e40af">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body { overscroll-behavior: none; }
+        .kiosk-btn {
+            min-height: 64px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 14px;
+            transition: transform 0.1s, opacity 0.1s;
+            touch-action: manipulation;
+        }
+        .kiosk-btn:active { transform: scale(0.97); opacity: 0.85; }
+        .product-card {
+            border-radius: 16px;
+            transition: box-shadow 0.15s, transform 0.15s;
+        }
+        .product-card:active { transform: scale(0.98); }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .badge-ok { background: #d1fae5; color: #065f46; }
+        .badge-low { background: #fee2e2; color: #991b1b; }
+        .slide-up {
+            animation: slideUp 0.3s cubic-bezier(.22,.68,0,1.2);
+        }
+        @keyframes slideUp {
+            from { transform: translateY(40px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .tab-active { border-bottom: 3px solid #1d4ed8; color: #1d4ed8; font-weight: 700; }
+        .overlay-backdrop { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .qty-input { font-size: 2rem; font-weight: 800; text-align: center; }
+        .step-dot { width:10px; height:10px; border-radius:50%; }
+        .step-active { background:#1d4ed8; }
+        .step-done { background:#10b981; }
+        .step-todo { background:#cbd5e1; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen select-none">
+
+<!-- ════════════════════════════════════
+     SCHERMATA 0 — SELEZIONE OPERATORE
+════════════════════════════════════ -->
+<div id="screen-operatore" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <div class="bg-blue-800 px-6 py-5 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="bg-white bg-opacity-20 rounded-xl p-3">
+                <i class="fas fa-warehouse text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-white">Magazzino</h1>
+                <p class="text-blue-200 text-sm">Seleziona il tuo nome per continuare</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corpo -->
+    <div class="flex-1 p-5 max-w-lg mx-auto w-full">
+        <!-- Ricerca operatore -->
+        <div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+            <label class="block text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Cerca il tuo nome</label>
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input id="searchOperatore" type="text" placeholder="Nome o cognome..."
+                    oninput="filterOperatori()"
+                    class="w-full pl-11 pr-4 py-4 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none text-lg font-medium transition-colors">
+            </div>
+        </div>
+
+        <!-- Lista operatori -->
+        <div id="listaOperatori" class="space-y-2">
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                <p>Caricamento operatori...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer sicurezza -->
+    <div class="bg-white border-t border-gray-200 px-6 py-3 text-center">
+        <p class="text-xs text-gray-400"><i class="fas fa-lock mr-1"></i>Accesso limitato al magazzino · AST:ZG</p>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SCHERMATA 1 — DASHBOARD OPERATORE
+════════════════════════════════════ -->
+<div id="screen-dashboard" class="min-h-screen flex-col hidden">
+    <!-- Header -->
+    <div class="bg-blue-800 px-5 py-4 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <button onclick="logoutOperatore()" title="Torna alla selezione operatore" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl p-2.5 transition-colors">
+                    <i class="fas fa-arrow-left text-white text-lg"></i>
+                </button>
+                <div>
+                    <h2 id="headerNomeOp" class="text-lg font-black text-white"></h2>
+                    <p class="text-blue-200 text-xs">Operatore attivo</p>
+                </div>
+            </div>
+            <div id="pendingBadge" class="hidden bg-yellow-400 text-yellow-900 text-xs font-black px-3 py-1.5 rounded-full">
+                <i class="fas fa-clock mr-1"></i><span id="pendingCount">0</span> in attesa
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div class="flex">
+            <button onclick="switchTab('prelievo')" id="tab-prelievo"
+                class="flex-1 py-4 text-sm font-semibold text-gray-500 tab-active transition-all">
+                <i class="fas fa-arrow-down mr-1.5"></i>Preleva
+            </button>
+            <button onclick="switchTab('restituzione')" id="tab-restituzione"
+                class="flex-1 py-4 text-sm font-semibold text-gray-500 transition-all">
+                <i class="fas fa-arrow-up mr-1.5"></i>Restituisci
+            </button>
+            <button onclick="switchTab('storico')" id="tab-storico"
+                class="flex-1 py-4 text-sm font-semibold text-gray-500 transition-all">
+                <i class="fas fa-history mr-1.5"></i>I miei mov.
+            </button>
+        </div>
+    </div>
+
+    <!-- ─── TAB: PRELEVA ─── -->
+    <div id="panel-prelievo" class="flex-1 p-4">
+        <!-- Ricerca prodotto -->
+        <div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input id="searchProdottoPrelievo" type="text" placeholder="Cerca prodotto..."
+                    oninput="filterProdotti('prelievo')"
+                    class="w-full pl-11 pr-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none text-base font-medium transition-colors">
+            </div>
+        </div>
+        <div id="listaProdottiPrelievo" class="space-y-3 pb-24">
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                <p>Caricamento prodotti...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── TAB: RESTITUISCI ─── -->
+    <div id="panel-restituzione" class="flex-1 p-4 hidden">
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
+            <p class="text-sm text-blue-700"><i class="fas fa-info-circle mr-2"></i>
+                Qui trovi i tuoi prelievi approvati ancora aperti. Inserisci la quantità reale che restituisci.</p>
+        </div>
+        <div id="listaPrelievi" class="space-y-3 pb-24">
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-box-open text-4xl mb-3 opacity-40"></i>
+                <p class="font-medium">Nessun prelievo aperto</p>
+                <p class="text-sm mt-1">I prelievi approvati appariranno qui</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── TAB: STORICO ─── -->
+    <div id="panel-storico" class="flex-1 p-4 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-gray-700">I miei movimenti</h3>
+            <select id="filtroStatoStorico" onchange="loadStorico()" title="Filtra per stato" class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white">
+                <option value="">Tutti</option>
+                <option value="pending">In attesa</option>
+                <option value="approvato">Approvati</option>
+                <option value="rifiutato">Rifiutati</option>
+            </select>
+        </div>
+        <div id="listaStorico" class="space-y-3 pb-24">
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════
+     MODAL QUANTITÀ PRELIEVO
+════════════════════════════════════ -->
+<div id="modalQuantita" class="fixed inset-0 z-50 hidden overlay-backdrop bg-black bg-opacity-60 flex items-end">
+    <div class="bg-white w-full rounded-t-3xl shadow-2xl p-6 slide-up max-h-[90vh] overflow-y-auto">
+        <!-- Handle drag -->
+        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div>
+
+        <!-- Info prodotto -->
+        <div id="modalProdottoInfo" class="bg-gray-50 rounded-2xl p-4 mb-5"></div>
+
+        <!-- Step indicator -->
+        <div id="stepIndicator" class="flex items-center justify-center space-x-2 mb-6">
+            <div class="step-dot step-active" id="dot1"></div>
+            <div class="w-8 h-0.5 bg-gray-200" id="line1"></div>
+            <div class="step-dot step-todo" id="dot2"></div>
+        </div>
+
+        <!-- Step 1: quantità -->
+        <div id="step1">
+            <h3 class="text-lg font-bold text-center text-gray-800 mb-1">Quanti pezzi prelevi?</h3>
+            <p class="text-sm text-center text-gray-500 mb-5">Inserisci la quantità da prelevare</p>
+
+            <div class="flex items-center justify-center space-x-4 mb-6">
+                <button onclick="changeQty(-1)" class="bg-gray-100 hover:bg-gray-200 rounded-full w-14 h-14 text-2xl font-bold text-gray-600 transition-colors kiosk-btn flex items-center justify-center">−</button>
+                <input id="inputQuantita" type="number" min="1" value="1" title="Quantità da prelevare" placeholder="1"
+                    class="qty-input w-32 py-3 border-b-4 border-blue-500 bg-transparent text-blue-700 outline-none">
+                <button onclick="changeQty(+1)" class="bg-gray-100 hover:bg-gray-200 rounded-full w-14 h-14 text-2xl font-bold text-gray-600 transition-colors kiosk-btn flex items-center justify-center">+</button>
+            </div>
+        </div>
+
+        <!-- Step 2: nota opzionale -->
+        <div id="step2" class="hidden">
+            <h3 class="text-lg font-bold text-center text-gray-800 mb-1">Note (opzionale)</h3>
+            <p class="text-sm text-center text-gray-500 mb-5">Es: "per cantiere via Roma", "lavorazione 123"</p>
+            <textarea id="inputNota" rows="3" placeholder="Aggiungi una nota..."
+                class="w-full border-2 border-gray-200 rounded-xl p-4 text-base outline-none focus:border-blue-500 transition-colors resize-none mb-2"></textarea>
+        </div>
+
+        <!-- Bottoni -->
+        <div class="flex space-x-3 mt-2">
+            <button onclick="closeModalQuantita()" class="flex-1 kiosk-btn bg-gray-100 text-gray-700 hover:bg-gray-200">
+                <i class="fas fa-times mr-2"></i>Annulla
+            </button>
+            <button id="btnNextStep" onclick="nextStep()" class="flex-1 kiosk-btn bg-blue-700 text-white hover:bg-blue-800">
+                Avanti <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════
+     MODAL RESTITUZIONE PARZIALE
+════════════════════════════════════ -->
+<div id="modalRestituzione" class="fixed inset-0 z-50 hidden overlay-backdrop bg-black bg-opacity-60 flex items-end">
+    <div class="bg-white w-full rounded-t-3xl shadow-2xl p-6 slide-up">
+        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div>
+        <h3 class="text-lg font-bold text-center text-gray-800 mb-2">Restituzione materiale</h3>
+        <div id="modalRestInfo" class="bg-gray-50 rounded-2xl p-4 mb-5 text-sm"></div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Quantità che restituisci</label>
+            <div class="flex items-center justify-center space-x-4">
+                <button onclick="changeRestQty(-1)" class="bg-gray-100 rounded-full w-14 h-14 text-2xl font-bold text-gray-600 kiosk-btn flex items-center justify-center">−</button>
+                <input id="inputRestQuantita" type="number" min="0" value="0" title="Quantità da restituire" placeholder="0"
+                    class="qty-input w-32 py-3 border-b-4 border-green-500 bg-transparent text-green-700 outline-none">
+                <button onclick="changeRestQty(+1)" class="bg-gray-100 rounded-full w-14 h-14 text-2xl font-bold text-gray-600 kiosk-btn flex items-center justify-center">+</button>
+            </div>
+            <p id="restInfoMsg" class="text-center text-xs text-gray-500 mt-2"></p>
+        </div>
+
+        <div class="mb-5">
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Note (opzionale)</label>
+            <textarea id="inputRestNota" rows="2" placeholder="Es: usati solo 3 pezzi..."
+                class="w-full border-2 border-gray-200 rounded-xl p-3 text-base outline-none focus:border-green-500 transition-colors resize-none"></textarea>
+        </div>
+
+        <div class="flex space-x-3">
+            <button onclick="closeModalRestituzione()" class="flex-1 kiosk-btn bg-gray-100 text-gray-700">
+                <i class="fas fa-times mr-2"></i>Annulla
+            </button>
+            <button onclick="confermaRestituzione()" class="flex-1 kiosk-btn bg-green-600 text-white hover:bg-green-700">
+                <i class="fas fa-check mr-2"></i>Conferma
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════
+     TOAST NOTIFICA
+════════════════════════════════════ -->
+<div id="toastNotifica" class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] hidden">
+    <div id="toastContent" class="flex items-center space-x-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white font-semibold text-sm max-w-xs">
+        <i id="toastIcon" class="text-xl"></i>
+        <span id="toastMsg"></span>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SCRIPT
+════════════════════════════════════ -->
+<script src="/supabase-client.js"></script>
+<script>
+    // ─── Configurazione ───────────────────────────────
+    const db = window.supabaseClient;
+
+    // Stato globale
+    let operatoreCorrente = null;   // { id, nome, cognome }
+    let prodottiCache = [];         // Lista prodotti dal DB
+    let prodottiFiltrati = [];      // Filtrata per ricerca
+    let currentProdotto = null;     // Prodotto selezionato nel modal
+    let currentStep = 1;            // Step modal prelievo
+    let currentPrelievoDaRestituire = null; // Prelievo selezionato per restituzione
+
+    // ─── SCHERMATA OPERATORE ──────────────────────────
+    async function initSchermataOperatore() {
+        const { data, error } = await db
+            .from('users')
+            .select('id, nome, cognome, ruolo, stato')
+            .eq('stato', 'attivo')
+            .order('cognome');
+
+        if (error || !data) {
+            document.getElementById('listaOperatori').innerHTML =
+                `<div class="text-center py-8 text-red-500"><i class="fas fa-exclamation-circle text-3xl mb-2"></i><p>Errore caricamento</p></div>`;
+            return;
+        }
+
+        renderOperatori(data);
+    }
+
+    function renderOperatori(lista) {
+        const el = document.getElementById('listaOperatori');
+        if (!lista.length) {
+            el.innerHTML = `<div class="text-center py-8 text-gray-400"><p>Nessun operatore trovato</p></div>`;
+            return;
+        }
+        el.innerHTML = lista.map(u => `
+            <button onclick="selezionaOperatore('${u.id}','${u.nome}','${u.cognome}')"
+                class="w-full bg-white hover:bg-blue-50 border-2 border-transparent hover:border-blue-300 rounded-2xl p-4 text-left flex items-center space-x-4 transition-all shadow-sm kiosk-btn">
+                <div class="bg-blue-100 rounded-xl w-12 h-12 flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-700 font-black text-lg">${(u.nome||'?')[0]}${(u.cognome||'')[0]}</span>
+                </div>
+                <div>
+                    <p class="font-bold text-gray-800 text-base">${u.nome} ${u.cognome}</p>
+                    <p class="text-xs text-gray-400 capitalize">${u.ruolo || 'dipendente'}</p>
+                </div>
+                <i class="fas fa-chevron-right ml-auto text-gray-400"></i>
+            </button>
+        `).join('');
+    }
+
+    function filterOperatori() {
+        const q = document.getElementById('searchOperatore').value.toLowerCase();
+        // Re-fetch or filter from DOM — use query if already loaded
+        const items = document.querySelectorAll('#listaOperatori button');
+        items.forEach(btn => {
+            btn.style.display = btn.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
+    function selezionaOperatore(id, nome, cognome) {
+        operatoreCorrente = { id, nome, cognome };
+        document.getElementById('headerNomeOp').textContent = `${nome} ${cognome}`;
+        document.getElementById('screen-operatore').classList.add('hidden');
+        document.getElementById('screen-dashboard').classList.remove('hidden');
+        document.getElementById('screen-dashboard').classList.add('flex', 'flex-col');
+        loadProdotti();
+        loadPendingCount();
+    }
+
+    function logoutOperatore() {
+        operatoreCorrente = null;
+        document.getElementById('screen-dashboard').classList.add('hidden');
+        document.getElementById('screen-dashboard').classList.remove('flex', 'flex-col');
+        document.getElementById('screen-operatore').classList.remove('hidden');
+        document.getElementById('searchOperatore').value = '';
+        initSchermataOperatore();
+    }
+
+    // ─── PRODOTTI ─────────────────────────────────────
+    async function loadProdotti() {
+        const { data, error } = await db
+            .from('components')
+            .select('id, nome, codice, categoria, quantita_disponibile, unita_misura, scorta_minima')
+            .eq('deleted', false)
+            .order('nome');
+
+        if (error) {
+            prodottiCache = [];
+        } else {
+            prodottiCache = data || [];
+        }
+
+        renderProdotti('prelievo', prodottiCache);
+    }
+
+    function renderProdotti(tab, lista) {
+        const el = document.getElementById(`listaProdottiPrelievo`);
+        if (!lista.length) {
+            el.innerHTML = `<div class="text-center py-10 text-gray-400">
+                <i class="fas fa-box-open text-5xl mb-3 opacity-40"></i>
+                <p class="font-medium">Nessun prodotto trovato</p>
+            </div>`;
+            return;
+        }
+        el.innerHTML = lista.map(p => {
+            const qty = parseFloat(p.quantita_disponibile) || 0;
+            const min = parseFloat(p.scorta_minima) || 0;
+            let badgeClass = 'badge-ok';
+            let badgeText = `${qty} ${p.unita_misura || 'pz'}`;
+            let badgeIcon = 'fa-check-circle';
+            if (qty <= 0) {
+                badgeClass = 'badge-low';
+                badgeText = 'Esaurito';
+                badgeIcon = 'fa-times-circle';
+            } else if (qty <= min) {
+                badgeClass = 'badge-low';
+                badgeIcon = 'fa-exclamation-triangle';
+            }
+            const disabled = qty <= 0 ? 'opacity-50 pointer-events-none' : '';
+            return `
+            <div class="product-card bg-white shadow-sm border border-gray-100 p-4 ${disabled}" onclick="aprireModalPrelievo(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0 mr-3">
+                        <p class="font-bold text-gray-800 text-base leading-tight truncate">${p.nome}</p>
+                        ${p.codice ? `<p class="text-xs text-gray-400 mt-0.5">Cod: ${p.codice}</p>` : ''}
+                        <p class="text-xs text-gray-500 mt-0.5 capitalize">${p.categoria || ''}</p>
+                    </div>
+                    <div class="flex flex-col items-end space-y-2 flex-shrink-0">
+                        <span class="${badgeClass} text-xs font-bold px-2.5 py-1 rounded-full flex items-center">
+                            <i class="fas ${badgeIcon} mr-1"></i>${badgeText}
+                        </span>
+                        ${qty > 0 ? `<button class="bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-800 kiosk-btn">
+                            <i class="fas fa-hand-holding mr-1"></i>Preleva
+                        </button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function filterProdotti() {
+        const q = document.getElementById('searchProdottoPrelievo').value.toLowerCase();
+        const filtrati = prodottiCache.filter(p =>
+            (p.nome || '').toLowerCase().includes(q) ||
+            (p.codice || '').toLowerCase().includes(q) ||
+            (p.categoria || '').toLowerCase().includes(q)
+        );
+        renderProdotti('prelievo', filtrati);
+    }
+
+    // ─── MODAL PRELIEVO ───────────────────────────────
+    function aprireModalPrelievo(prodotto) {
+        currentProdotto = prodotto;
+        currentStep = 1;
+
+        const qty = parseFloat(prodotto.quantita_disponibile) || 0;
+        document.getElementById('modalProdottoInfo').innerHTML = `
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-100 rounded-xl p-3">
+                    <i class="fas fa-box text-blue-600 text-xl"></i>
+                </div>
+                <div>
+                    <p class="font-black text-gray-800">${prodotto.nome}</p>
+                    ${prodotto.codice ? `<p class="text-xs text-gray-400">Cod: ${prodotto.codice}</p>` : ''}
+                    <p class="text-sm font-semibold text-green-600">Disponibile: <strong>${qty} ${prodotto.unita_misura || 'pz'}</strong></p>
+                </div>
+            </div>`;
+
+        document.getElementById('inputQuantita').value = 1;
+        document.getElementById('inputQuantita').max = qty;
+        document.getElementById('inputNota').value = '';
+        document.getElementById('step1').classList.remove('hidden');
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('dot1').className = 'step-dot step-active';
+        document.getElementById('dot2').className = 'step-dot step-todo';
+        document.getElementById('btnNextStep').innerHTML = 'Avanti <i class="fas fa-arrow-right ml-2"></i>';
+        document.getElementById('modalQuantita').classList.remove('hidden');
+    }
+
+    function closeModalQuantita() {
+        document.getElementById('modalQuantita').classList.add('hidden');
+        currentProdotto = null;
+        currentStep = 1;
+    }
+
+    function changeQty(delta) {
+        const inp = document.getElementById('inputQuantita');
+        const max = parseFloat(inp.max) || 9999;
+        let val = (parseFloat(inp.value) || 1) + delta;
+        val = Math.max(1, Math.min(max, val));
+        inp.value = val;
+    }
+
+    function nextStep() {
+        if (currentStep === 1) {
+            const qty = parseFloat(document.getElementById('inputQuantita').value);
+            const max = parseFloat(currentProdotto.quantita_disponibile) || 0;
+            if (!qty || qty < 1) { showToast('Inserisci una quantità valida', 'error'); return; }
+            if (qty > max) { showToast(`Massimo disponibile: ${max} ${currentProdotto.unita_misura || 'pz'}`, 'error'); return; }
+
+            currentStep = 2;
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            document.getElementById('dot1').className = 'step-dot step-done';
+            document.getElementById('dot2').className = 'step-dot step-active';
+            document.getElementById('btnNextStep').innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Invia richiesta';
+        } else {
+            confermaPrelievo();
+        }
+    }
+
+    async function confermaPrelievo() {
+        if (!operatoreCorrente || !currentProdotto) return;
+        const qty = parseFloat(document.getElementById('inputQuantita').value);
+        const nota = document.getElementById('inputNota').value.trim();
+
+        const btnNext = document.getElementById('btnNextStep');
+        btnNext.disabled = true;
+        btnNext.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Invio...';
+
+        const { error } = await db.from('movimenti_operatore').insert({
+            operatore_id:      operatoreCorrente.id,
+            operatore_nome:    `${operatoreCorrente.nome} ${operatoreCorrente.cognome}`,
+            prodotto_id:       currentProdotto.id,
+            prodotto_nome:     currentProdotto.nome,
+            prodotto_codice:   currentProdotto.codice,
+            tipo:              'prelievo',
+            quantita_richiesta: qty,
+            note_operatore:    nota || null,
+            giacenza_al_momento: parseFloat(currentProdotto.quantita_disponibile) || 0
+        });
+
+        btnNext.disabled = false;
+        closeModalQuantita();
+
+        if (error) {
+            showToast('Errore durante l\'invio: ' + error.message, 'error');
+        } else {
+            showToast(`✅ Richiesta inviata! L'admin approverà al più presto.`, 'success');
+            loadPendingCount();
+        }
+    }
+
+    // ─── RESTITUZIONE ─────────────────────────────────
+    async function loadPrelievi() {
+        const el = document.getElementById('listaPrelievi');
+        el.innerHTML = `<div class="text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
+
+        const { data, error } = await db
+            .from('movimenti_operatore')
+            .select(`
+                id, tipo, stato, quantita_richiesta, quantita_effettiva,
+                note_operatore, created_at, approvato_at,
+                prodotto_nome, prodotto_codice,
+                prodotto_id
+            `)
+            .eq('operatore_id', operatoreCorrente.id)
+            .eq('tipo', 'prelievo')
+            .eq('stato', 'approvato')
+            .order('created_at', { ascending: false });
+
+        if (error || !data) {
+            el.innerHTML = `<div class="text-center py-8 text-red-400">Errore caricamento</div>`;
+            return;
+        }
+
+        // Filtra quelli che non hanno ancora una restituzione approvata
+        const { data: rests } = await db
+            .from('movimenti_operatore')
+            .select('prelievo_ref_id, stato')
+            .eq('operatore_id', operatoreCorrente.id)
+            .eq('tipo', 'restituzione')
+            .in('stato', ['pending', 'approvato']);
+
+        const refIds = new Set((rests || []).map(r => r.prelievo_ref_id));
+        const aperti = data.filter(p => !refIds.has(p.id));
+
+        if (!aperti.length) {
+            el.innerHTML = `<div class="text-center py-10 text-gray-400">
+                <i class="fas fa-box-open text-5xl mb-3 opacity-40"></i>
+                <p class="font-medium">Nessun prelievo aperto</p>
+                <p class="text-sm mt-1">Hai già restituito tutto!</p>
+            </div>`;
+            return;
+        }
+
+        el.innerHTML = aperti.map(p => {
+            const data_fmt = new Date(p.created_at).toLocaleDateString('it-IT', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+            return `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <p class="font-bold text-gray-800">${p.prodotto_nome}</p>
+                        ${p.prodotto_codice ? `<p class="text-xs text-gray-400">Cod: ${p.prodotto_codice}</p>` : ''}
+                        <p class="text-xs text-gray-500 mt-0.5">${data_fmt}</p>
+                    </div>
+                    <span class="bg-blue-100 text-blue-700 text-sm font-black px-3 py-1 rounded-xl">
+                        ${p.quantita_richiesta} pz
+                    </span>
+                </div>
+                ${p.note_operatore ? `<p class="text-xs text-gray-500 italic mb-3">"${p.note_operatore}"</p>` : ''}
+                <button onclick="aprireModalRestituzione(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                    class="w-full kiosk-btn bg-green-600 text-white hover:bg-green-700">
+                    <i class="fas fa-arrow-up mr-2"></i>Restituisci
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function aprireModalRestituzione(prelievo) {
+        currentPrelievoDaRestituire = prelievo;
+        const maxQty = parseFloat(prelievo.quantita_richiesta) || 0;
+
+        document.getElementById('modalRestInfo').innerHTML = `
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="font-bold text-gray-800">${prelievo.prodotto_nome}</p>
+                    <p class="text-xs text-gray-500">Prelevati: <strong>${maxQty} pz</strong></p>
+                </div>
+                <span class="text-2xl">📦</span>
+            </div>`;
+
+        document.getElementById('inputRestQuantita').value = maxQty;
+        document.getElementById('inputRestQuantita').max = maxQty;
+        document.getElementById('inputRestNota').value = '';
+        document.getElementById('restInfoMsg').textContent = `Puoi restituire da 0 a ${maxQty} pz`;
+        document.getElementById('modalRestituzione').classList.remove('hidden');
+    }
+
+    function closeModalRestituzione() {
+        document.getElementById('modalRestituzione').classList.add('hidden');
+        currentPrelievoDaRestituire = null;
+    }
+
+    function changeRestQty(delta) {
+        const inp = document.getElementById('inputRestQuantita');
+        const max = parseFloat(inp.max) || 0;
+        let val = (parseFloat(inp.value) || 0) + delta;
+        val = Math.max(0, Math.min(max, val));
+        inp.value = val;
+    }
+
+    async function confermaRestituzione() {
+        if (!operatoreCorrente || !currentPrelievoDaRestituire) return;
+        const qty = parseFloat(document.getElementById('inputRestQuantita').value);
+        const nota = document.getElementById('inputRestNota').value.trim();
+        const p = currentPrelievoDaRestituire;
+
+        if (qty < 0 || isNaN(qty)) { showToast('Quantità non valida', 'error'); return; }
+
+        const { error } = await db.from('movimenti_operatore').insert({
+            operatore_id:       operatoreCorrente.id,
+            operatore_nome:     `${operatoreCorrente.nome} ${operatoreCorrente.cognome}`,
+            prodotto_id:        p.prodotto_id,
+            prodotto_nome:      p.prodotto_nome,
+            prodotto_codice:    p.prodotto_codice,
+            tipo:               'restituzione',
+            quantita_richiesta: qty,
+            note_operatore:     nota || `Restituzione da prelievo del ${new Date(p.created_at).toLocaleDateString('it-IT')}`,
+            prelievo_ref_id:    p.id
+        });
+
+        closeModalRestituzione();
+        if (error) {
+            showToast('Errore: ' + error.message, 'error');
+        } else {
+            showToast('✅ Restituzione inviata! L\'admin la approverà.', 'success');
+            loadPrelievi();
+            loadPendingCount();
+        }
+    }
+
+    // ─── STORICO ──────────────────────────────────────
+    async function loadStorico() {
+        const el = document.getElementById('listaStorico');
+        el.innerHTML = `<div class="text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
+
+        const filtro = document.getElementById('filtroStatoStorico').value;
+        let query = db
+            .from('movimenti_operatore')
+            .select('id, tipo, stato, quantita_richiesta, quantita_effettiva, note_operatore, note_admin, created_at, approvato_at, prodotto_nome, prodotto_codice')
+            .eq('operatore_id', operatoreCorrente.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (filtro) query = query.eq('stato', filtro);
+
+        const { data, error } = await query;
+
+        if (error || !data || !data.length) {
+            el.innerHTML = `<div class="text-center py-10 text-gray-400">
+                <i class="fas fa-history text-4xl mb-3 opacity-40"></i>
+                <p class="font-medium">Nessun movimento</p>
+            </div>`;
+            return;
+        }
+
+        const statiStyle = {
+            pending:   { bg: 'badge-pending', icon: 'fa-clock',          label: 'In attesa' },
+            approvato: { bg: 'badge-ok',      icon: 'fa-check-circle',   label: 'Approvato' },
+            rifiutato: { bg: 'badge-low',     icon: 'fa-times-circle',   label: 'Rifiutato' }
+        };
+
+        el.innerHTML = data.map(m => {
+            const s = statiStyle[m.stato] || statiStyle['pending'];
+            const data_fmt = new Date(m.created_at).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            const tipoIcon = m.tipo === 'prelievo' ? 'fa-arrow-down text-blue-600' : 'fa-arrow-up text-green-600';
+            const tipoLabel = m.tipo === 'prelievo' ? 'Prelievo' : 'Restituzione';
+            const qtaEff = m.quantita_effettiva !== null ? m.quantita_effettiva : m.quantita_richiesta;
+
+            return `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas ${tipoIcon} text-lg"></i>
+                        <div>
+                            <p class="font-bold text-gray-800 text-sm">${tipoLabel} · ${m.prodotto_nome}</p>
+                            ${m.prodotto_codice ? `<p class="text-xs text-gray-400">Cod: ${m.prodotto_codice}</p>` : ''}
+                        </div>
+                    </div>
+                    <span class="${s.bg} text-xs font-bold px-2.5 py-1 rounded-full flex items-center whitespace-nowrap ml-2">
+                        <i class="fas ${s.icon} mr-1"></i>${s.label}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span><i class="fas fa-cubes mr-1"></i>${qtaEff} pz</span>
+                    <span>${data_fmt}</span>
+                </div>
+                ${m.note_admin ? `<div class="mt-2 bg-gray-50 rounded-lg p-2 text-xs text-gray-600"><i class="fas fa-comment-dots mr-1 text-gray-400"></i><em>${m.note_admin}</em></div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    // ─── PENDING COUNT ────────────────────────────────
+    async function loadPendingCount() {
+        const { count } = await db
+            .from('movimenti_operatore')
+            .select('*', { count: 'exact', head: true })
+            .eq('operatore_id', operatoreCorrente.id)
+            .eq('stato', 'pending');
+
+        const badge = document.getElementById('pendingBadge');
+        const countEl = document.getElementById('pendingCount');
+        if (count > 0) {
+            badge.classList.remove('hidden');
+            countEl.textContent = count;
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    // ─── TAB SWITCHING ────────────────────────────────
+    function switchTab(tab) {
+        ['prelievo','restituzione','storico'].forEach(t => {
+            document.getElementById(`tab-${t}`).classList.toggle('tab-active', t === tab);
+            document.getElementById(`tab-${t}`).classList.toggle('text-gray-500', t !== tab);
+            document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        });
+
+        if (tab === 'restituzione') loadPrelievi();
+        if (tab === 'storico') loadStorico();
+    }
+
+    // ─── TOAST ────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg, type = 'success') {
+        clearTimeout(toastTimer);
+        const toast = document.getElementById('toastNotifica');
+        const content = document.getElementById('toastContent');
+        const icon = document.getElementById('toastIcon');
+        document.getElementById('toastMsg').textContent = msg;
+
+        if (type === 'success') {
+            content.className = 'flex items-center space-x-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white font-semibold text-sm bg-green-600';
+            icon.className = 'fas fa-check-circle text-xl';
+        } else {
+            content.className = 'flex items-center space-x-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white font-semibold text-sm bg-red-600';
+            icon.className = 'fas fa-exclamation-circle text-xl';
+        }
+
+        toast.classList.remove('hidden');
+        toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    // ─── INIT ─────────────────────────────────────────
+    initSchermataOperatore();
+</script>
+</body>
+</html>
