@@ -1283,7 +1283,7 @@
                             <button onclick="selectAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                                 Seleziona Tutti
                             </button>
-                            <button onclick="deleteSelectedFromModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                            <button id="deleteSelectedBtn" onclick="deleteSelectedFromModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
                                 Elimina Selezionati (${selectedItems.size})
                             </button>
                         </div>
@@ -1309,10 +1309,14 @@
             } else {
                 selectedItems.add(id);
             }
+            // Aggiorna il testo del bottone nel modal
+            const btn = document.getElementById('deleteSelectedBtn');
+            if (btn) btn.textContent = `Elimina Selezionati (${selectedItems.size})`;
         }
 
         async function selectAll() {
-            const { data } = await supabaseClient.from(currentTable).select('id');
+            const client = window.supabaseAdmin || window.supabaseClient;
+            const { data } = await client.from(currentTable).select('id');
             data.forEach(item => selectedItems.add(item.id));
             viewTable(currentTable); // Refresh
         }
@@ -1333,10 +1337,11 @@
                         'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
                         'clients':          [{ t: 'preventivi', col: 'cliente_id' }],
                     };
+                    const adminClient = window.supabaseAdmin || window.supabaseClient;
                     for (const dep of (fkDeps[tableName] || [])) {
-                        try { await supabaseClient.from(dep.t).delete().eq(dep.col, id); } catch(e) {}
+                        try { await adminClient.from(dep.t).delete().eq(dep.col, id); } catch(e) {}
                     }
-                    const { error } = await supabaseClient.from(tableName).delete().eq('id', id);
+                    const { error } = await adminClient.from(tableName).delete().eq('id', id);
                     if (error) throw error;
                     showAlert('✅ Record eliminato!', 'success');
                     viewTable(tableName);
@@ -1369,10 +1374,11 @@
                         'condomini':        [{ t: 'condomini_unita', col: 'condominio_id' }, { t: 'condomini_interventi', col: 'condominio_id' }, { t: 'condomini_accessi', col: 'condominio_id' }, { t: 'condomini_documenti', col: 'condominio_id' }],
                         'clients':          [{ t: 'preventivi', col: 'cliente_id' }],
                     };
+                    const adminClient = window.supabaseAdmin || window.supabaseClient;
                     for (const dep of (fkDeps[currentTable] || [])) {
-                        try { await supabaseClient.from(dep.t).delete().in(dep.col, ids); } catch(e) {}
+                        try { await adminClient.from(dep.t).delete().in(dep.col, ids); } catch(e) {}
                     }
-                    const { error } = await supabaseClient.from(currentTable).delete().in('id', ids);
+                    const { error } = await adminClient.from(currentTable).delete().in('id', ids);
                     if (error) throw error;
                     showAlert(`✅ ${ids.length} record eliminati!`, 'success');
                     viewTable(currentTable);
@@ -1453,7 +1459,8 @@
                                 // 2. Verifica che kit_items sia effettivamente vuota prima di eliminare components
                                 //    (RLS potrebbe bloccare silenziosamente il delete restituendo 204)
                                 if (tableName === 'components') {
-                                    const { count } = await supabaseClient
+                                    const adminClient = window.supabaseAdmin || window.supabaseClient;
+                                    const { count } = await adminClient
                                         .from('kit_items')
                                         .select('*', { count: 'exact', head: true });
                                     if (count > 0) {
