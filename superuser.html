@@ -1404,6 +1404,26 @@
             'clients':          ['preventivi'],
         };
 
+        async function deleteAllAuthUsers() {
+            if (!window.supabaseAdmin) {
+                console.warn('⚠️ supabaseAdmin non disponibile — auth users non eliminati');
+                return;
+            }
+            let page = 1;
+            while (true) {
+                const { data, error } = await window.supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+                if (error) throw new Error('Errore lista auth users: ' + error.message);
+                const users = data?.users || [];
+                if (users.length === 0) break;
+                for (const u of users) {
+                    const { error: delErr } = await window.supabaseAdmin.auth.admin.deleteUser(u.id);
+                    if (delErr) console.warn(`⚠️ Auth delete ${u.email}:`, delErr.message);
+                }
+                if (users.length < 1000) break;
+                page++;
+            }
+        }
+
         async function bulkDeleteTable(tableName) {
             const { error } = await supabaseClient
                 .from(tableName)
@@ -1444,6 +1464,10 @@
                                 }
                                 // 3. Elimina la tabella principale con singola query bulk
                                 await bulkDeleteTable(tableName);
+                                // 4. Se si eliminano gli utenti, elimina anche da auth.users
+                                if (tableName === 'users') {
+                                    try { await deleteAllAuthUsers(); } catch(e) { console.warn('Auth users delete:', e.message); }
+                                }
                                 showAlert(`✅ Tutti i record di "${tableName}" sono stati eliminati!`, 'success');
                                 loadAllCounts();
                             } catch (error) {
@@ -1516,6 +1540,9 @@
                                         for (const table of tables) {
                                             try { await bulkDeleteTable(table); } catch(e) { console.warn(`Nuke skip ${table}:`, e.message); }
                                         }
+                                        
+                                        // Elimina tutti gli utenti da auth.users
+                                        try { await deleteAllAuthUsers(); } catch(e) { console.warn('Nuke auth users:', e.message); }
                                         
                                         showAlert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥', 'success');
                                         loadAllCounts();
