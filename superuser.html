@@ -1316,9 +1316,13 @@
 
         async function selectAll() {
             const client = window.supabaseAdmin || window.supabaseClient;
-            const { data } = await client.from(currentTable).select('id');
-            data.forEach(item => selectedItems.add(item.id));
-            viewTable(currentTable); // Refresh
+            const { data, error } = await client.from(currentTable).select('id');
+            if (error || !data) { showAlert('❌ Errore caricamento: ' + (error?.message || 'dati vuoti'), 'error'); return; }
+            data.forEach(item => { if (item.id) selectedItems.add(item.id); });
+            // Aggiorna checkbox nel DOM senza ricaricare (viewTable farebbe clear)
+            document.querySelectorAll('#tableContent input[type="checkbox"]').forEach(cb => cb.checked = true);
+            const btn = document.getElementById('deleteSelectedBtn');
+            if (btn) btn.textContent = `Elimina Selezionati (${selectedItems.size})`;
         }
 
         async function deleteSingle(tableName, id) {
@@ -1430,12 +1434,18 @@
             }
         }
 
+        // Tabelle senza colonna 'id' (chiave composta): mappatura col filtro alternativo
+        const TABLE_NO_ID = {
+            'team_members': 'team_id'
+        };
+
         async function bulkDeleteTable(tableName) {
             const client = window.supabaseAdmin || window.supabaseClient;
+            const filterCol = TABLE_NO_ID[tableName] || 'id';
             const { error } = await client
                 .from(tableName)
                 .delete()
-                .not('created_at', 'is', null);
+                .not(filterCol, 'is', null);
             if (error) {
                 const detail = error.details || error.hint || error.message;
                 throw new Error(`[${tableName}] ${detail}`);
@@ -1551,14 +1561,19 @@
                                             'users',
                                         ];
                                         
+                                        const errors = [];
                                         for (const table of tables) {
-                                            try { await bulkDeleteTable(table); } catch(e) { console.warn(`Nuke skip ${table}:`, e.message); }
+                                            try { await bulkDeleteTable(table); } catch(e) { errors.push(e.message); console.warn(`Nuke skip ${table}:`, e.message); }
                                         }
                                         
                                         // Elimina tutti gli utenti da auth.users
-                                        try { await deleteAllAuthUsers(); } catch(e) { console.warn('Nuke auth users:', e.message); }
+                                        try { await deleteAllAuthUsers(); } catch(e) { errors.push('auth.users: ' + e.message); }
                                         
-                                        showAlert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥', 'success');
+                                        if (errors.length > 0) {
+                                            showAlert('⚠️ Completato con errori:\n' + errors.join('\n'), 'error');
+                                        } else {
+                                            showAlert('💥 DATABASE COMPLETAMENTE CANCELLATO! 💥', 'success');
+                                        }
                                         loadAllCounts();
                                     } catch (error) {
                                         showAlert('❌ Errore durante l\'eliminazione: ' + error.message, 'error');
