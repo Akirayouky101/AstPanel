@@ -1425,12 +1425,12 @@
         }
 
         async function bulkDeleteTable(tableName) {
-            const { error } = await supabaseClient
+            const client = window.supabaseAdmin || window.supabaseClient;
+            const { error } = await client
                 .from(tableName)
                 .delete()
                 .neq('id', '00000000-0000-0000-0000-000000000000');
             if (error) {
-                // Mostra il dettaglio dell'errore 409 (FK violation) per debug
                 const detail = error.details || error.hint || error.message;
                 throw new Error(`[${tableName}] ${detail}`);
             }
