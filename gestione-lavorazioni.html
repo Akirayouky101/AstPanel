@@ -1462,6 +1462,50 @@
                             </div>
                         </div>
                     `;
+                } else if (task.assigned_team_id) {
+                    // Carica dati squadra con i suoi membri
+                    const { data: team } = await supabaseClient
+                        .from('teams')
+                        .select('id, nome, descrizione, colore')
+                        .eq('id', task.assigned_team_id)
+                        .single();
+                    
+                    const { data: members } = await supabaseClient
+                        .from('team_members')
+                        .select('ruolo_squadra, users:user_id (nome, cognome, ruolo, email)')
+                        .eq('team_id', task.assigned_team_id);
+                    
+                    const teamColor = team?.colore || '#3b82f6';
+                    const teamNome = team?.nome || task.team_name || 'Squadra';
+                    const membriHTML = (members || []).map(m => {
+                        const u = m.users;
+                        if (!u) return '';
+                        return `
+                            <div class="bg-white border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                                     style="background:${teamColor}">
+                                    ${u.nome[0]}${u.cognome[0]}
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-sm">${u.nome} ${u.cognome}</div>
+                                    <div class="text-xs text-gray-500">${u.email}</div>
+                                    <div class="text-xs font-medium" style="color:${teamColor}">${u.ruolo} • ${m.ruolo_squadra || 'membro'}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    assegnazioniHTML = `
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                                <span class="w-4 h-4 rounded-full inline-block flex-shrink-0" style="background:${teamColor}"></span>
+                                Squadra: ${teamNome}
+                                ${team?.descrizione ? `<span class="text-xs text-gray-500 font-normal ml-1">— ${team.descrizione}</span>` : ''}
+                                <span class="ml-auto text-xs text-blue-600 font-normal">${(members||[]).length} membri</span>
+                            </h4>
+                            ${membriHTML ? `<div class="space-y-2">${membriHTML}</div>` : '<p class="text-sm text-gray-500 italic">Nessun membro nella squadra</p>'}
+                        </div>
+                    `;
                 } else if (task.assigned_user_id) {
                     const { data: user } = await supabaseClient
                         .from('users')
