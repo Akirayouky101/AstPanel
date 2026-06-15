@@ -156,27 +156,9 @@
             </div>
         </div>
 
-        <!-- Users Table -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Elenco Utenti</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utente</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruolo</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ultimo Accesso</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Users will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
+        <!-- Users Cards -->
+        <div id="usersCardGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <!-- Cards will be loaded here -->
         </div>
     </div>
 
@@ -314,16 +296,19 @@
 
         async function loadUsers() {
             try {
-                const tbody = document.getElementById('usersTableBody');
-                tbody.innerHTML = '';
+                const grid = document.getElementById('usersCardGrid');
+                grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-400"><i data-lucide="loader" class="w-8 h-8 mx-auto mb-3 animate-spin"></i><p>Caricamento utenti...</p></div>';
+                lucide.createIcons();
 
                 const users = await getFilteredUsers();
 
-                users.forEach(user => {
-                    const row = createUserRow(user);
-                    tbody.appendChild(row);
-                });
-                
+                if (!users.length) {
+                    grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-400"><i data-lucide="users" class="w-10 h-10 mx-auto mb-3"></i><p class="font-medium">Nessun utente trovato</p></div>';
+                    lucide.createIcons();
+                    return;
+                }
+
+                grid.innerHTML = users.map(user => createUserCard(user)).join('');
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento utenti:', error);
@@ -331,48 +316,63 @@
             }
         }
 
-        function createUserRow(user) {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50';
-
+        function createUserCard(user) {
             const statusClass = getStatusClass(user.stato);
             const roleClass = getRoleClass(user.ruolo);
-
-            tr.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="flex items-center">
-                        <img src="${user.avatar || 'https://ui-avatars.com/api/?name=' + user.nome}" alt="${user.nome} ${user.cognome}" class="w-10 h-10 rounded-full mr-4">
-                        <div>
-                            <div class="text-sm font-medium text-gray-900">${user.nome} ${user.cognome}</div>
-                            <div class="text-sm text-gray-500">${user.email}</div>
+            const initials = ((user.nome||'?').charAt(0) + (user.cognome||'?').charAt(0)).toUpperCase();
+            const avatarHTML = user.avatar
+                ? `<img src="${user.avatar}" alt="${user.nome}" class="w-16 h-16 rounded-full object-cover border-4 border-white shadow">`
+                : `<div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold border-4 border-white shadow">${initials}</div>`;
+            const lastAccess = user.updated_at ? new Date(user.updated_at).toLocaleDateString('it-IT', {day:'numeric',month:'short',year:'numeric'}) : '—';
+            const telefono = user.telefono || '—';
+            const roleName = (user.ruolo||'').charAt(0).toUpperCase() + (user.ruolo||'').slice(1);
+            const statoName = (user.stato||'').charAt(0).toUpperCase() + (user.stato||'').slice(1);
+            return `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+                <!-- Header colorato -->
+                <div class="h-16 bg-gradient-to-r from-blue-500 to-purple-600 relative flex-shrink-0">
+                    <div class="absolute -bottom-8 left-5">${avatarHTML}</div>
+                    <div class="absolute top-3 right-3 flex gap-1.5">
+                        <span class="${statusClass} px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-sm">${statoName}</span>
+                    </div>
+                </div>
+                <!-- Body -->
+                <div class="pt-10 px-5 pb-4 flex flex-col flex-1">
+                    <div class="mb-3">
+                        <h3 class="font-bold text-gray-900 text-base">${user.nome} ${user.cognome}</h3>
+                        <p class="text-sm text-gray-500 truncate">${user.email}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span class="${roleClass} px-2.5 py-0.5 rounded-full text-xs font-semibold">${roleName}</span>
+                        ${user.reparto ? `<span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full text-xs font-medium">${user.reparto}</span>` : ''}
+                    </div>
+                    <div class="space-y-1.5 text-xs text-gray-500 border-t border-gray-100 pt-3 mt-auto">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="phone" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0"></i>
+                            <span>${telefono}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="clock" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0"></i>
+                            <span>Ultimo accesso: ${lastAccess}</span>
                         </div>
                     </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="${roleClass} px-2 py-1 rounded-full text-xs font-medium">${user.ruolo.charAt(0).toUpperCase() + user.ruolo.slice(1)}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="${statusClass} px-2 py-1 rounded-full text-xs font-medium">${user.stato.charAt(0).toUpperCase() + user.stato.slice(1)}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${user.updated_at ? new Date(user.updated_at).toLocaleDateString('it-IT') : '-'}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex space-x-2">
-                        <button onclick="viewUser('${user.id}')" class="text-green-600 hover:text-green-900" title="Visualizza">
-                            <i data-lucide="eye" class="w-4 h-4"></i>
+                    <!-- Azioni -->
+                    <div class="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                        <button onclick="viewUser('${user.id}')" title="Visualizza"
+                            class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 hover:bg-green-50 text-gray-500 hover:text-green-600 text-xs font-semibold transition-colors border border-gray-200 hover:border-green-200">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Visualizza
                         </button>
-                        <button onclick="editUser('${user.id}')" class="text-blue-600 hover:text-blue-900" title="Modifica">
-                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        <button onclick="editUser('${user.id}')" title="Modifica"
+                            class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-500 hover:text-blue-600 text-xs font-semibold transition-colors border border-gray-200 hover:border-blue-200">
+                            <i data-lucide="edit" class="w-3.5 h-3.5"></i> Modifica
                         </button>
-                        <button onclick="deleteUser('${user.id}', '${user.nome} ${user.cognome}')" class="text-red-600 hover:text-red-900" title="Elimina">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <button onclick="deleteUser('${user.id}', '${user.nome} ${user.cognome}')" title="Elimina"
+                            class="py-2 px-3 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors border border-gray-200 hover:border-red-200">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                </td>
-            `;
-
-            return tr;
+                </div>
+            </div>`;
         }
 
         async function getFilteredUsers() {
