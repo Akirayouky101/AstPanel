@@ -334,26 +334,11 @@ class TaskWizard {
             
             if (error) throw error;
             
-            const select = document.getElementById('wizard-cliente-select');
-            if (select) {
-                select.innerHTML = '<option value="">Seleziona cliente...</option>';
-                data.forEach(cliente => {
-                    const option = document.createElement('option');
-                    option.value = cliente.id;
-                    // Mostra ragione_sociale o nome+cognome se privato
-                    const displayName = cliente.ragione_sociale || 
-                                      (cliente.nome && cliente.cognome ? `${cliente.nome} ${cliente.cognome}` : cliente.nome || 'Cliente senza nome');
-                    option.textContent = displayName;
-                    select.appendChild(option);
-                });
-            }
+            // Salva clienti in cache globale per il wizard picker
+            window._wizardClientiCache = data;
         } catch (error) {
             console.error('Errore caricamento clienti:', error);
-            // Mostra errore all'utente
-            const select = document.getElementById('wizard-cliente-select');
-            if (select) {
-                select.innerHTML = '<option value="">⚠️ Errore caricamento clienti</option>';
-            }
+            window._wizardClientiCache = [];
         }
     }
 
@@ -624,7 +609,8 @@ class TaskWizard {
         console.log('📊 [WIZARD] Dati wizard per riepilogo:', this.wizardData);
 
         // Carica dati cliente, utenti e team
-        const clienteNome = document.getElementById('wizard-cliente-select')?.selectedOptions[0]?.text || 'N/D';
+        const clienteNome = document.getElementById('wizardClientPickerLabel')?.querySelector('span')?.textContent ||
+            document.getElementById('wizardClientPickerLabel')?.textContent?.trim() || 'N/D';
         console.log('👤 [WIZARD] Cliente selezionato:', clienteNome);
         
         let assegnazioneHTML = '';
@@ -896,7 +882,21 @@ class TaskWizard {
 
     populateStep1Form() {
         document.getElementById('wizard-titolo').value = this.wizardData.titolo || '';
-        document.getElementById('wizard-cliente-select').value = this.wizardData.cliente_id || '';
+        // Ripristina picker cliente
+        const wClientId = this.wizardData.cliente_id || '';
+        document.getElementById('wizard-cliente-select').value = wClientId;
+        if (wClientId) {
+            const cache = window._wizardClientiCache || [];
+            const c = cache.find(x => x.id === wClientId);
+            const nome = c?.ragione_sociale || (c?.nome && c?.cognome ? `${c.nome} ${c.cognome}` : c?.nome) || 'Cliente';
+            const lbl = document.getElementById('wizardClientPickerLabel');
+            if (lbl) {
+                lbl.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
+                lbl.classList.remove('text-gray-400');
+                document.getElementById('wizardClientPickerActions')?.classList.remove('hidden');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
         document.getElementById('wizard-descrizione').value = this.wizardData.descrizione || '';
         document.getElementById('wizard-priorita').value = this.wizardData.priorita || 'media';
         document.getElementById('wizard-scadenza').value = this.wizardData.scadenza || '';
@@ -932,7 +932,7 @@ class TaskWizard {
 
     saveStep1Data() {
         this.wizardData.titolo = document.getElementById('wizard-titolo').value;
-        this.wizardData.cliente_id = document.getElementById('wizard-cliente-select').value;
+        this.wizardData.cliente_id = document.getElementById('wizard-cliente-select').value; // hidden input
         this.wizardData.descrizione = document.getElementById('wizard-descrizione').value;
         this.wizardData.priorita = document.getElementById('wizard-priorita').value;
         this.wizardData.scadenza = document.getElementById('wizard-scadenza').value;

@@ -1023,6 +1023,40 @@
         // ===== CLIENT PICKER =====
         let _clientPickerAllClients = [];
 
+        // ===== WIZARD CLIENT PICKER =====
+        async function openWizardClientPicker() {
+            // Riusa la stessa modale del picker, ma con callback diverso
+            window._clientPickerCallback = function(id, nome) {
+                document.getElementById('wizard-cliente-select').value = id;
+                const lbl = document.getElementById('wizardClientPickerLabel');
+                lbl.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
+                lbl.classList.remove('text-gray-400');
+                document.getElementById('wizardClientPickerActions').classList.remove('hidden');
+                lucide.createIcons();
+                closeClientPicker();
+            };
+            document.getElementById('clientPickerModal').classList.remove('hidden');
+            document.getElementById('clientPickerSearch').value = '';
+            lucide.createIcons();
+            try {
+                _clientPickerAllClients = await window.dataManager.getClienti();
+                window._wizardClientiCache = _clientPickerAllClients;
+                renderClientPickerList(_clientPickerAllClients);
+            } catch (e) {
+                document.getElementById('clientPickerList').innerHTML =
+                    '<p class="p-6 text-center text-red-500 text-sm">Errore nel caricamento clienti</p>';
+            }
+        }
+
+        function clearWizardClientPicker() {
+            document.getElementById('wizard-cliente-select').value = '';
+            const lbl = document.getElementById('wizardClientPickerLabel');
+            lbl.innerHTML = '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-blue-400"></i>Seleziona cliente...';
+            lbl.classList.add('text-gray-400');
+            document.getElementById('wizardClientPickerActions').classList.add('hidden');
+            lucide.createIcons();
+        }
+
         async function openClientPicker() {
             document.getElementById('clientPickerModal').classList.remove('hidden');
             document.getElementById('clientPickerSearch').value = '';
@@ -1082,6 +1116,13 @@
         }
 
         function selectClientFromPicker(id, nome) {
+            // Se c'è un callback (es. wizard picker), usalo
+            if (typeof window._clientPickerCallback === 'function') {
+                const cb = window._clientPickerCallback;
+                window._clientPickerCallback = null;
+                cb(id, nome);
+                return;
+            }
             document.getElementById('taskClient').value = id;
             const label = document.getElementById('clientPickerLabel');
             label.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-green-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
@@ -3595,10 +3636,24 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
-                        <select id="wizard-cliente-select" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Seleziona cliente...</option>
-                        </select>
+                        <!-- Hidden input preserves valore -->
+                        <input type="hidden" id="wizard-cliente-select">
+                        <!-- Pulsante selezione -->
+                        <button type="button" id="wizardClientPickerBtn" onclick="openWizardClientPicker()"
+                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-gray-300 rounded-lg bg-white hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
+                            <span id="wizardClientPickerLabel" class="text-gray-400 text-sm group-hover:text-blue-700">
+                                <i data-lucide="search" class="w-4 h-4 inline mr-2 text-blue-400"></i>
+                                Seleziona cliente...
+                            </span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                        </button>
+                        <!-- Azioni cliente selezionato -->
+                        <div id="wizardClientPickerActions" class="hidden flex gap-2 mt-2">
+                            <button type="button" onclick="clearWizardClientPicker()"
+                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
+                            </button>
+                        </div>
                     </div>
 
                     <div>
