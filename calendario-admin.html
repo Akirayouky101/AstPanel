@@ -599,15 +599,15 @@
             border-color: #e5e7eb;
         }
         .cal-picker-avatar {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: linear-gradient(135deg, #60a5fa, #818cf8);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
             flex-shrink: 0;
         }
@@ -621,10 +621,19 @@
         }
         .cal-picker-sub {
             font-size: 12px;
-            color: #9ca3af;
+            color: #6b7280;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .cal-picker-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-top: 4px;
         }
     </style>
 
@@ -1368,7 +1377,7 @@
         // ===== CLIENT PICKER =====
         function openCalClientPicker() {
             renderCalPickerList('calPickerModal', 'calPickerSearch', 'calPickerList',
-                allClients.map(c => ({ id: c.id, label: c.ragione_sociale, sub: c.citta || '' })),
+                allClients.map(c => ({ id: c.id, label: c.ragione_sociale, sub: c.citta || '', extra: c.telefono || '' })),
                 (id, label) => selectCalClient(id, label));
             document.getElementById('calPickerModalTitle').textContent = 'Seleziona Cliente';
             document.getElementById('calPickerModal').classList.remove('hidden');
@@ -1395,7 +1404,7 @@
         // ===== ASSIGNEE PICKER =====
         function openCalAssigneePicker() {
             renderCalPickerList('calPickerModal', 'calPickerSearch', 'calPickerList',
-                allUsers.map(u => ({ id: u.id, label: `${u.nome} ${u.cognome}`, sub: u.ruolo || 'Dipendente' })),
+                allUsers.map(u => ({ id: u.id, label: `${u.nome} ${u.cognome}`, sub: u.ruolo || 'Dipendente', badge: u.ruolo || 'dipendente' })),
                 (id, label) => selectCalAssignee(id, label));
             document.getElementById('calPickerModalTitle').textContent = 'Seleziona Dipendente';
             document.getElementById('calPickerModal').classList.remove('hidden');
@@ -1435,6 +1444,13 @@
                     list.appendChild(empty);
                     return;
                 }
+                const roleBadgeColors = {
+                    titolare:  { bg: '#faf5ff', color: '#7e22ce', border: '#d8b4fe' },
+                    admin:     { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
+                    tecnico:   { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
+                    segreteria:{ bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+                    dipendente:{ bg: '#f9fafb', color: '#374151', border: '#d1d5db' },
+                };
                 filtered.forEach(item => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
@@ -1457,6 +1473,25 @@
                         sub.className = 'cal-picker-sub';
                         sub.textContent = item.sub;
                         info.appendChild(sub);
+                    }
+
+                    // Role badge for users
+                    if (item.badge) {
+                        const roleKey = item.badge.toLowerCase();
+                        const c = roleBadgeColors[roleKey] || roleBadgeColors.dipendente;
+                        const badge = document.createElement('span');
+                        badge.className = 'cal-picker-badge';
+                        badge.style.cssText = `background:${c.bg};color:${c.color};border:1px solid ${c.border};`;
+                        badge.textContent = item.badge.charAt(0).toUpperCase() + item.badge.slice(1);
+                        info.appendChild(badge);
+                    }
+
+                    // Extra info (phone for clients)
+                    if (item.extra) {
+                        const extra = document.createElement('div');
+                        extra.style.cssText = 'font-size:11px;color:#9ca3af;margin-top:2px;';
+                        extra.textContent = '📞 ' + item.extra;
+                        info.appendChild(extra);
                     }
 
                     btn.appendChild(avatar);
@@ -1509,10 +1544,14 @@
                 </button>
             </div>
             <div class="p-3 border-b border-gray-100">
-                <div class="relative">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                <div style="position:relative;">
+                    <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;pointer-events:none;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
                     <input id="calPickerSearch" type="text" placeholder="Cerca..."
-                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400">
+                           style="width:100%;padding:10px 16px 10px 38px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;font-size:14px;outline:none;"
+                           onfocus="this.style.borderColor='#93c5fd';this.style.boxShadow='0 0 0 3px rgba(147,197,253,0.3)';"
+                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';">
                 </div>
             </div>
             <div id="calPickerList" class="overflow-y-auto flex-1 p-2 space-y-1"></div>
