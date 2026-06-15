@@ -928,15 +928,26 @@ class TaskWizard {
     populateStep2Form() {
         const radioUser = document.getElementById('wizard-tipo-user');
         const radioTeam = document.getElementById('wizard-tipo-team');
-        
+        const radioMulti = document.getElementById('wizard-tipo-multi');
+
+        const dipContainer = document.getElementById('wizard-dipendente-container');
+        const squadraContainer = document.getElementById('wizard-squadra-container');
+        const multiContainer = document.getElementById('wizard-multi-container');
+
+        // Hide all first
+        dipContainer?.classList.add('hidden');
+        squadraContainer?.classList.add('hidden');
+        multiContainer?.classList.add('hidden');
+
         if (this.wizardData.tipo_assegnazione === 'user') {
-            radioUser.checked = true;
-            document.getElementById('wizard-dipendente-container').classList.remove('hidden');
-            document.getElementById('wizard-squadra-container').classList.add('hidden');
+            if (radioUser) radioUser.checked = true;
+            dipContainer?.classList.remove('hidden');
+        } else if (this.wizardData.tipo_assegnazione === 'multi') {
+            if (radioMulti) radioMulti.checked = true;
+            multiContainer?.classList.remove('hidden');
         } else {
-            radioTeam.checked = true;
-            document.getElementById('wizard-dipendente-container').classList.add('hidden');
-            document.getElementById('wizard-squadra-container').classList.remove('hidden');
+            if (radioTeam) radioTeam.checked = true;
+            squadraContainer?.classList.remove('hidden');
         }
         
         const wDipId = this.wizardData.assigned_user_id || '';
