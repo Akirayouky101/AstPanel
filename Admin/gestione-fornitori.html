@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Fornitori - AST Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @keyframes slideInRight { from { opacity:0; transform:translateX(100%); } to { opacity:1; transform:translateX(0); } }
+        .ast-toast { animation: slideInRight .35s cubic-bezier(.21,1.02,.73,1) forwards; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-client.js"></script>
     <script src="auth-helper.js"></script>
@@ -35,77 +40,89 @@
     <div class="container mx-auto px-4 py-6">
         
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Fornitori Attivi</p>
-                        <p class="text-2xl font-bold text-gray-800" id="statAttivi">0</p>
-                    </div>
-                    <i class="fas fa-building text-indigo-500 text-3xl"></i>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="building-2" class="w-6 h-6 text-indigo-600"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Fornitori Attivi</p>
+                    <p class="text-2xl font-bold text-gray-900" id="statAttivi">0</p>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Categorie</p>
-                        <p class="text-2xl font-bold text-blue-600" id="statCategorie">0</p>
-                    </div>
-                    <i class="fas fa-tags text-blue-500 text-3xl"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="tag" class="w-6 h-6 text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Categorie</p>
+                    <p class="text-2xl font-bold text-blue-700" id="statCategorie">0</p>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Ordini Attivi</p>
-                        <p class="text-2xl font-bold text-orange-600" id="statOrdini">0</p>
-                    </div>
-                    <i class="fas fa-shopping-cart text-orange-500 text-3xl"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="shopping-cart" class="w-6 h-6 text-orange-600"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Ordini Attivi</p>
+                    <p class="text-2xl font-bold text-orange-700" id="statOrdini">—</p>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Consegna Media</p>
-                        <p class="text-2xl font-bold text-green-600" id="statGiorni">0 gg</p>
-                    </div>
-                    <i class="fas fa-truck text-green-500 text-3xl"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="truck" class="w-6 h-6 text-green-600"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Consegna Media</p>
+                    <p class="text-2xl font-bold text-green-700" id="statGiorni">0 gg</p>
                 </div>
             </div>
         </div>
 
         <!-- Actions Bar -->
-        <div class="bg-white rounded-lg shadow p-4 mb-6">
-            <div class="flex items-center justify-between">
-                <button onclick="nuovoFornitore()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium">
-                    <i class="fas fa-plus mr-2"></i>Nuovo Fornitore
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="nuovoFornitore()"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-semibold shadow-sm transition-all text-sm">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Nuovo Fornitore
                 </button>
-                <div class="flex items-center space-x-3">
-                    <select id="filterCategoria" onchange="loadFornitori()" class="px-4 py-2 border rounded-lg">
+                <div class="flex-1 min-w-48 relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <input type="text" id="searchFornitore" placeholder="Cerca fornitore..."
+                           oninput="searchFornitori()"
+                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-0 focus:border-indigo-400 outline-none transition">
+                </div>
+                <div class="relative">
+                    <i data-lucide="tag" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none"></i>
+                    <select id="filterCategoria" onchange="loadFornitori()"
+                            class="appearance-none pl-8 pr-8 py-2.5 bg-indigo-50 border-2 border-indigo-200 text-indigo-700 rounded-xl text-sm font-semibold focus:ring-0 focus:border-indigo-400 outline-none transition cursor-pointer">
                         <option value="">Tutte le categorie</option>
                     </select>
-                    <input type="text" id="searchFornitore" placeholder="Cerca fornitore..." 
-                        onkeyup="searchFornitori()" class="px-4 py-2 border rounded-lg w-64">
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none"></i>
                 </div>
+                <button onclick="resetFiltri()"
+                        class="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-semibold transition">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
+                </button>
             </div>
         </div>
 
         <!-- Tabella Fornitori -->
-        <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fornitore</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contatti</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Località</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Consegna</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-100">
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fornitore</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contatti</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Località</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Consegna</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Stato</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Azioni</th>
                         </tr>
                     </thead>
-                    <tbody id="fornitoriTable" class="divide-y divide-gray-200">
+                    <tbody id="fornitoriTable" class="divide-y divide-gray-50">
                         <!-- Popolato via JS -->
                     </tbody>
                 </table>
@@ -331,6 +348,7 @@
             
             currentUser = window.AuthHelper.getCurrentUser();
             document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+            lucide.createIcons();
 
             await loadFornitori();
         });
@@ -395,50 +413,55 @@
             }
 
             tbody.innerHTML = fornitori.map(f => `
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-indigo-50/30 transition-colors">
                     <td class="px-6 py-4">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-indigo-100 rounded-full">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
                                 <i class="fas fa-building text-indigo-600"></i>
                             </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">${f.ragione_sociale}</div>
-                                ${f.codice_fornitore ? `<div class="text-xs text-gray-500">${f.codice_fornitore}</div>` : ''}
+                            <div>
+                                <div class="text-sm font-bold text-gray-900">${f.ragione_sociale}</div>
+                                ${f.codice_fornitore ? `<div class="text-xs text-indigo-500 font-mono">${f.codice_fornitore}</div>` : ''}
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-700">
-                        ${f.email ? `<div><i class="fas fa-envelope mr-1 text-blue-500"></i>${f.email}</div>` : ''}
-                        ${f.telefono ? `<div><i class="fas fa-phone mr-1 text-green-500"></i>${f.telefono}</div>` : ''}
+                    <td class="px-6 py-4 text-sm text-gray-600 space-y-0.5">
+                        ${f.email ? `<div class="flex items-center gap-1.5"><i class="fas fa-envelope text-blue-400 text-xs"></i><span>${f.email}</span></div>` : ''}
+                        ${f.telefono ? `<div class="flex items-center gap-1.5"><i class="fas fa-phone text-green-400 text-xs"></i><span>${f.telefono}</span></div>` : ''}
+                        ${!f.email && !f.telefono ? '<span class="text-gray-300">—</span>' : ''}
                     </td>
                     <td class="px-6 py-4">
-                        ${f.categoria ? `<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">${f.categoria}</span>` : '-'}
+                        ${f.categoria ? `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">${f.categoria}</span>` : '<span class="text-gray-300">—</span>'}
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-700">
-                        ${f.citta || ''} ${f.provincia ? `(${f.provincia})` : ''}
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        ${(f.citta || f.provincia) ? `<div class="flex items-center gap-1.5"><i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>${f.citta || ''}${f.provincia ? ` (${f.provincia})` : ''}</div>` : '<span class="text-gray-300">—</span>'}
                     </td>
-                    <td class="px-6 py-4 text-sm">
-                        <span class="inline-flex items-center text-orange-600 font-medium">
-                            <i class="fas fa-truck mr-1"></i>
-                            ${f.giorni_consegna || 0} gg
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                            <i class="fas fa-truck text-xs"></i>${f.giorni_consegna || 0} gg
                         </span>
                     </td>
                     <td class="px-6 py-4">
-                        ${f.attivo ? 
-                            '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Attivo</span>' : 
-                            '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-pause-circle mr-1"></i>Inattivo</span>'
+                        ${f.attivo ?
+                            '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i class="fas fa-circle text-xs"></i>Attivo</span>' :
+                            '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500"><i class="fas fa-circle text-xs"></i>Inattivo</span>'
                         }
                     </td>
-                    <td class="px-6 py-4 text-sm">
-                        <button onclick="vediProdottiFornitore('${f.id}', '${f.ragione_sociale.replace(/'/g, "\\'")}')" class="text-green-600 hover:text-green-900 mr-3" title="Vedi Prodotti">
-                            <i class="fas fa-boxes"></i>
-                        </button>
-                        <button onclick="modificaFornitore('${f.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3" title="Modifica">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button onclick="eliminaFornitore('${f.id}', '${f.ragione_sociale}')" class="text-red-600 hover:text-red-900" title="Elimina">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-1">
+                            <button onclick="vediProdottiFornitore('${f.id}', '${f.ragione_sociale.replace(/'/g, "\\'")}')" title="Vedi Prodotti"
+                                    class="p-2 rounded-lg hover:bg-green-100 text-green-600 transition">
+                                <i class="fas fa-boxes text-sm"></i>
+                            </button>
+                            <button onclick="modificaFornitore('${f.id}')" title="Modifica"
+                                    class="p-2 rounded-lg hover:bg-indigo-100 text-indigo-600 transition">
+                                <i class="fas fa-edit text-sm"></i>
+                            </button>
+                            <button onclick="eliminaFornitore('${f.id}', '${f.ragione_sociale}')" title="Elimina"
+                                    class="p-2 rounded-lg hover:bg-red-100 text-red-500 transition">
+                                <i class="fas fa-trash text-sm"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
@@ -452,7 +475,7 @@
 
             document.getElementById('statAttivi').textContent = attivi;
             document.getElementById('statCategorie').textContent = categorie.size;
-            document.getElementById('statOrdini').textContent = '-'; // TODO: contare ordini attivi
+            document.getElementById('statOrdini').textContent = '—'; // TODO: contare ordini attivi
             document.getElementById('statGiorni').textContent = mediaGiorni + ' gg';
         }
 
@@ -529,7 +552,7 @@
                 const ragioneSociale = document.getElementById('ragioneSociale').value.trim();
                 
                 if (!ragioneSociale) {
-                    alert('La ragione sociale è obbligatoria');
+                    showToast('La ragione sociale è obbligatoria', 'warning');
                     return;
                 }
 
@@ -576,15 +599,15 @@
 
                 closeModal();
                 await loadFornitori();
-                showSuccessModal('Il fornitore è stato salvato correttamente', isEdit);
+                showToast(isEdit ? '✅ Fornitore aggiornato!' : '✅ Fornitore creato!', 'success');
             } catch (error) {
                 console.error('Errore:', error);
-                alert('❌ Errore nel salvataggio: ' + error.message);
+                showToast('❌ ' + error.message, 'error');
             }
         }
 
         async function eliminaFornitore(id, nome) {
-            if (!confirm(`Sei sicuro di voler eliminare il fornitore "${nome}"?\n\nATTENZIONE: Se ci sono ordini collegati, il fornitore verrà solo scollegato ma i dati resteranno negli ordini.`)) {
+            if (!confirm(`Eliminare il fornitore "${nome}"?`)) {
                 return;
             }
 
@@ -596,11 +619,11 @@
 
                 if (error) throw error;
 
-                alert('✅ Fornitore eliminato!');
+                showToast('Fornitore eliminato', 'success');
                 await loadFornitori();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('❌ Errore nell\'eliminazione: ' + error.message);
+                showToast('❌ ' + error.message, 'error');
             }
         }
 
@@ -608,29 +631,20 @@
             document.getElementById('fornitoreModal').classList.add('hidden');
         }
 
-        // ========================================
-        // MODAL SUCCESSO
-        // ========================================
-        function showSuccessModal(message = 'Operazione completata!', isEdit = false) {
-            const modal = document.getElementById('successModal');
-            const icon = document.getElementById('successIcon');
-            const title = document.getElementById('successTitle');
-            const messageEl = document.getElementById('successMessage');
-            
-            icon.innerHTML = '<i class="fas fa-check-circle text-6xl"></i>';
-            title.textContent = isEdit ? 'Fornitore Aggiornato!' : 'Fornitore Creato!';
-            messageEl.textContent = message;
-            
-            modal.classList.remove('hidden');
-            
-            // Auto-chiudi dopo 2 secondi
-            setTimeout(() => {
-                closeSuccessModal();
-            }, 2000);
+        function showToast(msg, type = 'success') {
+            const colors = { success: 'bg-green-500 border-green-400', error: 'bg-red-500 border-red-400', warning: 'bg-yellow-500 border-yellow-400', info: 'bg-blue-500 border-blue-400' };
+            const icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+            const t = document.createElement('div');
+            t.className = `ast-toast fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-white text-sm font-semibold max-w-sm ${colors[type]}`;
+            t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span><button onclick="this.parentNode.remove()" class="ml-2 opacity-70 hover:opacity-100"><i class="fas fa-times"></i></button>`;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
         }
 
-        function closeSuccessModal() {
-            document.getElementById('successModal').classList.add('hidden');
+        function resetFiltri() {
+            document.getElementById('searchFornitore').value = '';
+            document.getElementById('filterCategoria').value = '';
+            loadFornitori();
         }
 
         // ========================================
@@ -733,20 +747,6 @@
         </div>
     </div>
 
-    <!-- Modal Successo -->
-    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
-            <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-xl">
-                <div id="successIcon" class="flex items-center justify-center mb-2">
-                    <i class="fas fa-check-circle text-6xl"></i>
-                </div>
-                <h2 id="successTitle" class="text-2xl font-bold text-center">Fornitore Salvato!</h2>
-            </div>
-            <div class="p-6 text-center">
-                <p id="successMessage" class="text-gray-700 text-lg">Operazione completata con successo</p>
-            </div>
-        </div>
-    </div>
 
     <style>
         @keyframes bounceIn {
