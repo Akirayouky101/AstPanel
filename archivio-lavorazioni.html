@@ -133,15 +133,21 @@
                         class="px-5 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 text-sm font-semibold transition-colors">
                     Chiudi
                 </button>
-                <button id="deleteArchiveBtn"
-                        class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i> Elimina definitivamente
-                </button>
+                <div class="flex gap-2">
+                    <button id="ripristinaBtn"
+                            class="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Ripristina
+                    </button>
+                    <button id="deleteArchiveBtn"
+                            class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Elimina definitivamente
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Confirm Modal -->
+    <!-- Confirm Modal (Elimina) -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <div class="flex items-center gap-3 mb-3">
@@ -154,6 +160,24 @@
             <div class="flex gap-3 justify-end">
                 <button id="confirmCancel" class="px-5 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 text-sm font-semibold transition-colors">Annulla</button>
                 <button id="confirmOk" class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">Elimina</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (Ripristina) -->
+    <div id="confirmRipristinaModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <h4 class="font-bold text-gray-900 text-base">Ripristina lavorazione</h4>
+            </div>
+            <p class="text-sm text-gray-600 mb-2">La lavorazione verrà reinserita nelle <strong>Lavorazioni attive</strong> con lo stato e i dati originali.</p>
+            <p class="text-xs text-gray-400 mb-6">Le assegnazioni dipendenti/squadra saranno ricreate — questo bloccherà nuovamente l'eliminazione degli utenti coinvolti.</p>
+            <div class="flex gap-3 justify-end">
+                <button id="confirmRipristinaCancel" class="px-5 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 text-sm font-semibold transition-colors">Annulla</button>
+                <button id="confirmRipristinaOk" class="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition-colors">Ripristina</button>
             </div>
         </div>
     </div>
@@ -363,6 +387,7 @@
             `;
 
             document.getElementById('deleteArchiveBtn').onclick = () => showConfirmDelete(id);
+            document.getElementById('ripristinaBtn').onclick = () => showConfirmRipristina(id);
             document.getElementById('detailModal').classList.remove('hidden');
             lucide.createIcons();
         }
@@ -397,6 +422,95 @@
                 btn.innerHTML = origHTML;
                 btn.disabled = false;
                 showToast('Errore: ' + (e.message || e), 'error');
+            }
+        }
+
+        function showConfirmRipristina(id) {
+            const modal = document.getElementById('confirmRipristinaModal');
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+            document.getElementById('confirmRipristinaCancel').onclick = () => modal.classList.add('hidden');
+            document.getElementById('confirmRipristinaOk').onclick = async () => {
+                modal.classList.add('hidden');
+                await ripristinaLavorazione(id);
+            };
+        }
+
+        async function ripristinaLavorazione(id) {
+            const a = _archivioAll.find(x => x.id === id);
+            if (!a) return;
+
+            const btn = document.getElementById('ripristinaBtn');
+            const origHTML = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Ripristino...';
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const client = window.supabaseAdmin || supabaseClient;
+
+                // 1. Reinserisce il task — usa i dati_originali se disponibili, altrimenti ricostruisce
+                const orig = a.dati_originali || {};
+                const taskPayload = {
+                    titolo: a.titolo,
+                    descrizione: a.descrizione || orig.descrizione || null,
+                    stato: a.stato || 'da_fare',
+                    priorita: a.priorita || 'media',
+                    scadenza: a.scadenza || orig.scadenza || null,
+                    data_inizio: orig.data_inizio || null,
+                    progresso: a.progresso || 0,
+                    ore_stimate: a.ore_stimate || orig.ore_stimate || null,
+                    note_progresso: orig.note_progresso || null,
+                    client_id: a.client_id || null,
+                    // assegna solo uno tra user e team
+                    assigned_user_id: (!a.assigned_team_id && a.assigned_user_id) ? a.assigned_user_id : null,
+                    assigned_team_id: a.assigned_team_id || null,
+                };
+
+                // Rimuove le FK nulle per non violare il constraint check_assignment
+                if (!taskPayload.assigned_user_id && !taskPayload.assigned_team_id) {
+                    // nessuna assegnazione — lascia null entrambe (constraint permette entrambe null)
+                    // ma il constraint richiederebbe almeno uno... rimuoviamo entrambi e lasciamo gestire dal DB
+                }
+
+                const { data: newTask, error: taskErr } = await client
+                    .from('tasks').insert(taskPayload).select('id').single();
+                if (taskErr) throw taskErr;
+
+                const newTaskId = newTask.id;
+
+                // 2. Ricrea task_assignments dallo snapshot (blocca eliminazione utenti)
+                const snapshot = a.assegnazioni_snapshot || [];
+                if (snapshot.length > 0) {
+                    const assignments = snapshot.map(x => ({
+                        task_id: newTaskId,
+                        user_id: x.user_id,
+                        ruolo_assegnazione: x.ruolo || 'membro',
+                        ore_assegnate: x.ore || 0,
+                    })).filter(x => x.user_id); // solo record con user_id valido
+
+                    if (assignments.length > 0) {
+                        const { error: assignErr } = await client
+                            .from('task_assignments').insert(assignments);
+                        if (assignErr) console.warn('Avviso assegnazioni:', assignErr.message);
+                    }
+                }
+
+                // 3. Elimina dall'archivio
+                const { error: delErr } = await client
+                    .from('archivio_lavorazioni').delete().eq('id', id);
+                if (delErr) throw delErr;
+
+                document.getElementById('detailModal').classList.add('hidden');
+                _archivioAll = _archivioAll.filter(x => x.id !== id);
+                updateStats();
+                filterArchivio();
+                showToast('✅ Lavorazione ripristinata con successo!', 'success');
+            } catch (e) {
+                btn.innerHTML = origHTML;
+                btn.disabled = false;
+                lucide.createIcons();
+                showToast('Errore ripristino: ' + (e.message || e), 'error');
             }
         }
 
