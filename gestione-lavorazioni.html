@@ -430,29 +430,31 @@
                     
                     <!-- Cliente - VERDE -->
                     <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                        <label for="taskClient" class="block text-sm font-bold text-green-900 mb-2">
+                        <label class="block text-sm font-bold text-green-900 mb-2">
                             <i data-lucide="building-2" class="w-4 h-4 inline mr-1"></i>
                             Cliente/Progetto
                         </label>
-                        <select id="taskClient" required class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white">
-                            <option value="">Seleziona cliente</option>
-                            <!-- Populated by JavaScript -->
-                        </select>
-                        <div class="flex gap-3 mt-2 items-center">
-                            <button type="button" onclick="window.open('gestione-clienti.html', '_blank')" 
-                                    class="text-green-600 hover:text-green-700 transition-colors" 
-                                    title="Crea nuovo cliente">
-                                <i class="fas fa-plus-circle text-2xl"></i>
+                        <!-- Hidden input preserves valore per form submit -->
+                        <input type="hidden" id="taskClient">
+                        <!-- Pulsante selezione -->
+                        <button type="button" id="clientPickerBtn" onclick="openClientPicker()"
+                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-green-300 rounded-lg bg-white hover:border-green-500 hover:bg-green-50 transition-all text-left group">
+                            <span id="clientPickerLabel" class="text-gray-400 text-sm group-hover:text-green-700">
+                                <i data-lucide="search" class="w-4 h-4 inline mr-2 text-green-500"></i>
+                                Seleziona cliente...
+                            </span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-green-400 flex-shrink-0"></i>
+                        </button>
+                        <!-- Azioni cliente selezionato -->
+                        <div id="clientPickerActions" class="hidden flex gap-2 mt-2">
+                            <button type="button" onclick="viewSelectedClient()"
+                                    class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors">
+                                <i data-lucide="eye" class="w-3 h-3"></i> Dettagli
                             </button>
-                            <button type="button" onclick="viewSelectedClient()" 
-                                    class="text-blue-600 hover:text-blue-700 transition-colors" 
-                                    title="Visualizza dettagli cliente">
-                                <i class="fas fa-eye text-2xl"></i>
+                            <button type="button" onclick="clearClientPicker()"
+                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
                             </button>
-                            <p class="text-xs text-green-700 ml-2">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Clicca <i class="fas fa-plus-circle text-green-600 mx-1"></i> per creare o <i class="fas fa-eye text-blue-600 mx-1"></i> per vedere dettagli
-                            </p>
                         </div>
                     </div>
                     
@@ -1010,31 +1012,144 @@
         }
 
         async function populateClientsDropdown() {
+            // Precarica i clienti in memoria per il picker (compatibilità con edit)
             try {
-                const clients = await window.dataManager.getClienti();
-                const select = document.getElementById('taskClient');
-                
-                // Clear existing options except first one
-                select.innerHTML = '<option value="">Seleziona cliente</option>';
-                
-                // Add client options
-                clients.forEach(client => {
-                    const option = document.createElement('option');
-                    option.value = client.id;
-                    option.textContent = `${client.ragione_sociale} - ${client.nome || ''} ${client.cognome || ''}`.trim();
-                    select.appendChild(option);
-                });
+                window._clientPickerClients = await window.dataManager.getClienti();
             } catch (error) {
                 console.error('Errore caricamento clienti:', error);
             }
         }
 
-        function viewSelectedClient() {
-            const clientId = document.getElementById('taskClient').value;
-            if (!clientId) {
-                alert('Seleziona prima un cliente dalla lista');
+        // ===== CLIENT PICKER =====
+        let _clientPickerAllClients = [];
+
+        async function openClientPicker() {
+            document.getElementById('clientPickerModal').classList.remove('hidden');
+            document.getElementById('clientPickerSearch').value = '';
+            lucide.createIcons();
+
+            // Carica clienti se non già in cache
+            try {
+                _clientPickerAllClients = await window.dataManager.getClienti();
+                renderClientPickerList(_clientPickerAllClients);
+            } catch (e) {
+                document.getElementById('clientPickerList').innerHTML =
+                    '<p class="p-6 text-center text-red-500 text-sm">Errore nel caricamento clienti</p>';
+            }
+        }
+
+        function closeClientPicker() {
+            document.getElementById('clientPickerModal').classList.add('hidden');
+            toggleAddClientForm(false);
+        }
+
+        function renderClientPickerList(clients) {
+            const container = document.getElementById('clientPickerList');
+            if (!clients || clients.length === 0) {
+                container.innerHTML = '<p class="p-8 text-center text-gray-400 text-sm">Nessun cliente trovato</p>';
                 return;
             }
+            container.innerHTML = clients.map(c => {
+                const nome = c.ragione_sociale || `${c.nome || ''} ${c.cognome || ''}`.trim() || 'Cliente';
+                const tipo = c.tipo_cliente || '';
+                const email = c.email || '';
+                return `
+                    <button type="button" onclick="selectClientFromPicker('${c.id}', ${JSON.stringify(nome).replace(/'/g, "&#39;")})"
+                            class="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left">
+                        <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm flex-shrink-0">
+                            ${nome.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 text-sm truncate">${nome}</p>
+                            <p class="text-xs text-gray-500 truncate">${[tipo, email].filter(Boolean).join(' • ')}</p>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 flex-shrink-0"></i>
+                    </button>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function filterClientPickerList() {
+            const q = document.getElementById('clientPickerSearch').value.toLowerCase().trim();
+            if (!q) { renderClientPickerList(_clientPickerAllClients); return; }
+            const filtered = _clientPickerAllClients.filter(c => {
+                const nome = (c.ragione_sociale || `${c.nome || ''} ${c.cognome || ''}`).toLowerCase();
+                const email = (c.email || '').toLowerCase();
+                return nome.includes(q) || email.includes(q);
+            });
+            renderClientPickerList(filtered);
+        }
+
+        function selectClientFromPicker(id, nome) {
+            document.getElementById('taskClient').value = id;
+            const label = document.getElementById('clientPickerLabel');
+            label.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-green-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
+            document.getElementById('clientPickerActions').classList.remove('hidden');
+            closeClientPicker();
+            lucide.createIcons();
+        }
+
+        function clearClientPicker() {
+            document.getElementById('taskClient').value = '';
+            document.getElementById('clientPickerLabel').innerHTML =
+                '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-green-500"></i>Seleziona cliente...';
+            document.getElementById('clientPickerLabel').classList.add('text-gray-400');
+            document.getElementById('clientPickerActions').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function toggleAddClientForm(show) {
+            const form = document.getElementById('addClientForm');
+            if (show === undefined) show = form.classList.contains('hidden');
+            if (show) {
+                form.classList.remove('hidden');
+                document.getElementById('newClientRagioneSociale').focus();
+            } else {
+                form.classList.add('hidden');
+                ['newClientRagioneSociale','newClientTelefono','newClientEmail'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+            }
+            lucide.createIcons();
+        }
+
+        async function saveNewClientFromPicker() {
+            const ragioneSociale = document.getElementById('newClientRagioneSociale').value.trim();
+            if (!ragioneSociale) {
+                document.getElementById('newClientRagioneSociale').focus();
+                document.getElementById('newClientRagioneSociale').classList.add('border-red-400');
+                return;
+            }
+            document.getElementById('newClientRagioneSociale').classList.remove('border-red-400');
+
+            try {
+                const { data, error } = await (window.supabaseAdmin || window.supabaseClient)
+                    .from('clients')
+                    .insert([{
+                        ragione_sociale: ragioneSociale,
+                        telefono: document.getElementById('newClientTelefono').value.trim() || null,
+                        email: document.getElementById('newClientEmail').value.trim() || null,
+                        tipo_cliente: document.getElementById('newClientTipo').value,
+                        stato: 'attivo'
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                // Aggiorna lista in memoria e seleziona il nuovo cliente
+                _clientPickerAllClients.unshift(data);
+                selectClientFromPicker(data.id, data.ragione_sociale);
+                showNotification(`✅ Cliente "${ragioneSociale}" creato e selezionato!`, 'success');
+            } catch (e) {
+                showNotification('❌ Errore creazione cliente: ' + e.message, 'error');
+            }
+        }
+
+        function viewSelectedClient() {
+            const clientId = document.getElementById('taskClient').value;
+            if (!clientId) { showNotification('Nessun cliente selezionato', 'error'); return; }
             window.ClientModal.show(clientId);
         }
 
@@ -2352,8 +2467,21 @@
                 document.getElementById('taskTitle').value = task.title || task.titolo || '';
                 document.getElementById('taskPriority').value = task.priority || task.priorita || '';
                 document.getElementById('taskDeadline').value = task.deadline || task.scadenza || '';
-                document.getElementById('taskClient').value = task.client_id || task.clienteId || '';
                 document.getElementById('taskDescription').value = task.description || task.descrizione || '';
+                
+                // Imposta cliente nel picker
+                const editClientId = task.client_id || task.clienteId || '';
+                document.getElementById('taskClient').value = editClientId;
+                if (editClientId) {
+                    // Cerca nome cliente già in cache o nel task
+                    const clienteNome = task.client?.ragione_sociale || task.team_name ||
+                        (_clientPickerAllClients.find(c => c.id === editClientId)?.ragione_sociale) || 'Cliente';
+                    const label = document.getElementById('clientPickerLabel');
+                    label.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-green-600"></i><span class="text-gray-800 font-semibold">${clienteNome}</span>`;
+                    label.classList.remove('text-gray-400');
+                    document.getElementById('clientPickerActions').classList.remove('hidden');
+                    lucide.createIcons();
+                }
                 
                 // Set assignment type based on task data (only if elements exist)
                 const assignTeamRadio = document.getElementById('assignTeam');
@@ -2474,9 +2602,20 @@
                 'taskTeam',
                 'taskPriority',
                 'taskDeadline',
-                'taskClient',
                 'taskDescription'
             ];
+            
+            // Lock/unlock client picker button
+            const pickerBtn = document.getElementById('clientPickerBtn');
+            if (pickerBtn) {
+                if (lock) {
+                    pickerBtn.setAttribute('disabled', 'disabled');
+                    pickerBtn.classList.add('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                } else {
+                    pickerBtn.removeAttribute('disabled');
+                    pickerBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                }
+            }
             
             // Lock/unlock text inputs and selects
             fields.forEach(fieldId => {
@@ -4372,6 +4511,82 @@
     <!-- Includi i nuovi script -->
     <script src="component-multi-scanner.js"></script>
     <script src="component-multi-selector.js"></script>
+
+    <!-- ===== MODALE PICKER CLIENTI ===== -->
+    <div id="clientPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Seleziona Cliente</h3>
+                    <p class="text-green-100 text-xs mt-0.5">Cerca o aggiungi un nuovo cliente</p>
+                </div>
+                <button onclick="closeClientPicker()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Search + Add button -->
+            <div class="p-4 border-b border-gray-100 flex-shrink-0">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="clientPickerSearch" placeholder="Cerca per nome o ragione sociale..."
+                               oninput="filterClientPickerList()"
+                               class="w-full pl-9 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:border-green-400 focus:ring-0 text-sm outline-none">
+                    </div>
+                    <button onclick="toggleAddClientForm()"
+                            class="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Nuovo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Form aggiunta rapida (inizialmente nascosto) -->
+            <div id="addClientForm" class="hidden p-4 bg-green-50 border-b border-green-200 flex-shrink-0">
+                <p class="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Aggiungi nuovo cliente
+                </p>
+                <div class="space-y-2">
+                    <input type="text" id="newClientRagioneSociale" placeholder="Ragione sociale / Nome *"
+                           class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newClientTelefono" placeholder="Telefono"
+                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <input type="email" id="newClientEmail" placeholder="Email"
+                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    </div>
+                    <select id="newClientTipo" class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <option value="azienda">Azienda</option>
+                        <option value="privato">Privato</option>
+                        <option value="condominio">Condominio</option>
+                        <option value="associazione">Associazione</option>
+                        <option value="comune">Comune</option>
+                    </select>
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="saveNewClientFromPicker()"
+                                class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors">
+                            <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>Salva e Seleziona
+                        </button>
+                        <button onclick="toggleAddClientForm(false)"
+                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg transition-colors">
+                            Annulla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista clienti -->
+            <div id="clientPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-100">
+                <div class="p-8 text-center text-gray-400">
+                    <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
+                    <p class="text-sm">Caricamento clienti...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
