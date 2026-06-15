@@ -581,6 +581,51 @@
         .animate-slideUp {
             animation: slideUp 0.3s ease-out;
         }
+        .cal-picker-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 12px;
+            text-align: left;
+            background: white;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .cal-picker-item:hover {
+            background: #f9fafb;
+            border-color: #e5e7eb;
+        }
+        .cal-picker-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #818cf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .cal-picker-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cal-picker-sub {
+            font-size: 12px;
+            color: #9ca3af;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 
     <script>
@@ -1381,13 +1426,44 @@
             search.value = '';
 
             function render(q) {
+                list.innerHTML = '';
                 const filtered = q ? items.filter(i => i.label.toLowerCase().includes(q) || (i.sub||'').toLowerCase().includes(q)) : items;
-                list.innerHTML = filtered.length ? filtered.map(i => `
-                    <button type="button" onclick="(${onSelect.toString()})('${i.id}', '${i.label.replace(/'/g,"\\'")}'); lucide.createIcons();"
-                            class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-left transition-colors border border-transparent hover:border-gray-200">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">${i.label.charAt(0).toUpperCase()}</div>
-                        <div class="min-w-0"><p class="text-sm font-semibold text-gray-900 truncate">${i.label}</p>${i.sub ? `<p class="text-xs text-gray-400 truncate">${i.sub}</p>` : ''}</div>
-                    </button>`).join('') : '<p class="text-center py-8 text-gray-400 text-sm">Nessun risultato</p>';
+                if (!filtered.length) {
+                    const empty = document.createElement('p');
+                    empty.style.cssText = 'text-align:center;padding:32px 0;color:#9ca3af;font-size:14px;';
+                    empty.textContent = 'Nessun risultato';
+                    list.appendChild(empty);
+                    return;
+                }
+                filtered.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'cal-picker-item';
+
+                    const avatar = document.createElement('div');
+                    avatar.className = 'cal-picker-avatar';
+                    avatar.textContent = item.label.charAt(0).toUpperCase();
+
+                    const info = document.createElement('div');
+                    info.style.cssText = 'min-width:0;flex:1;';
+
+                    const name = document.createElement('div');
+                    name.className = 'cal-picker-name';
+                    name.textContent = item.label;
+                    info.appendChild(name);
+
+                    if (item.sub) {
+                        const sub = document.createElement('div');
+                        sub.className = 'cal-picker-sub';
+                        sub.textContent = item.sub;
+                        info.appendChild(sub);
+                    }
+
+                    btn.appendChild(avatar);
+                    btn.appendChild(info);
+                    btn.addEventListener('click', () => onSelect(item.id, item.label));
+                    list.appendChild(btn);
+                });
             }
 
             render('');
