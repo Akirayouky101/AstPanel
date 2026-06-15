@@ -1133,16 +1133,19 @@
             lbl.innerHTML = `<i data-lucide="user" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
             lbl.classList.remove('text-gray-400');
             document.getElementById('wizardDipPickerActions').classList.remove('hidden');
+            document.getElementById('wizardDipOreContainer').classList.remove('hidden');
             lucide.createIcons();
             closeWizardDipPicker();
         }
 
         function clearWizardDipPicker() {
             document.getElementById('wizard-dipendente-select').value = '';
+            document.getElementById('wizard-dip-ore') && (document.getElementById('wizard-dip-ore').value = '');
             const lbl = document.getElementById('wizardDipPickerLabel');
             lbl.innerHTML = '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-blue-400"></i>Cerca dipendente...';
             lbl.classList.add('text-gray-400');
             document.getElementById('wizardDipPickerActions').classList.add('hidden');
+            document.getElementById('wizardDipOreContainer').classList.add('hidden');
             lucide.createIcons();
         }
 
@@ -1233,7 +1236,146 @@
 
         function dpSelectToday() {
             const today = new Date();
+            _dpYear = today.getFullYear();
+            _dpMonth = today.getMonth();
             dpSelectDay(today.getDate());
+        }
+
+        // ===== WIZARD SQUADRA PICKER =====
+        let _wizardSquadreAllCache = [];
+
+        async function openWizardSquadraPicker() {
+            document.getElementById('wizardSquadraPickerModal').classList.remove('hidden');
+            document.getElementById('wizardSquadraSearch').value = '';
+            lucide.createIcons();
+            try {
+                const { data } = await (window.supabaseAdmin || window.supabaseClient)
+                    .from('teams').select('*, team_members(user_id, users(nome, cognome))').order('nome');
+                _wizardSquadreAllCache = data || [];
+                renderWizardSquadraList(_wizardSquadreAllCache);
+            } catch (e) {
+                document.getElementById('wizardSquadraPickerList').innerHTML =
+                    '<p class="p-6 text-center text-red-500 text-sm">Errore nel caricamento</p>';
+            }
+        }
+
+        function closeWizardSquadraPicker() {
+            document.getElementById('wizardSquadraPickerModal').classList.add('hidden');
+        }
+
+        function renderWizardSquadraList(squadre) {
+            const container = document.getElementById('wizardSquadraPickerList');
+            if (!squadre || squadre.length === 0) {
+                container.innerHTML = '<p class="p-8 text-center text-gray-400 text-sm">Nessuna squadra trovata</p>';
+                return;
+            }
+            container.innerHTML = squadre.map(s => {
+                const membri = (s.team_members || []).length;
+                const colore = s.colore || '#6366f1';
+                return `
+                    <button type="button" onclick="selectWizardSquadra('${s.id}')"
+                            class="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left">
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                             style="background-color:${colore}">
+                            ${(s.nome || 'S').charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 text-sm truncate">${s.nome || 'Squadra'}</p>
+                            <p class="text-xs text-gray-500">${membri} membro${membri !== 1 ? 'i' : ''}</p>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 flex-shrink-0"></i>
+                    </button>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function filterWizardSquadraList() {
+            const q = document.getElementById('wizardSquadraSearch').value.toLowerCase().trim();
+            if (!q) { renderWizardSquadraList(_wizardSquadreAllCache); return; }
+            renderWizardSquadraList(_wizardSquadreAllCache.filter(s => (s.nome || '').toLowerCase().includes(q)));
+        }
+
+        async function selectWizardSquadra(id) {
+            const s = _wizardSquadreAllCache.find(x => x.id === id);
+            const nome = s?.nome || 'Squadra';
+            document.getElementById('wizard-squadra-select').value = id;
+            const lbl = document.getElementById('wizardSquadraPickerLabel');
+            lbl.innerHTML = `<i data-lucide="users" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
+            lbl.classList.remove('text-gray-400');
+            document.getElementById('wizardSquadraPickerActions').classList.remove('hidden');
+            // Mostra ore per membri
+            const oreContainer = document.getElementById('wizardSquadraOreContainer');
+            const oreList = document.getElementById('wizardSquadraOreList');
+            const membri = s?.team_members || [];
+            if (membri.length > 0) {
+                oreList.innerHTML = membri.map(m => {
+                    const u = m.users || {};
+                    const nomeM = `${u.nome || ''} ${u.cognome || ''}`.trim() || 'Membro';
+                    return `
+                        <div class="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                            <div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs flex-shrink-0">
+                                ${nomeM.charAt(0).toUpperCase()}
+                            </div>
+                            <span class="flex-1 text-sm text-gray-700 truncate">${nomeM}</span>
+                            <input type="number" min="0" step="0.5" placeholder="0"
+                                   data-user-id="${m.user_id}"
+                                   class="wizard-squadra-ore w-20 px-2 py-1 border border-indigo-200 rounded-lg text-sm text-center focus:ring-2 focus:ring-indigo-300">
+                            <span class="text-xs text-indigo-500">h</span>
+                        </div>
+                    `;
+                }).join('');
+                oreContainer.classList.remove('hidden');
+                lucide.createIcons();
+            }
+            closeWizardSquadraPicker();
+            lucide.createIcons();
+        }
+
+        function clearWizardSquadraPicker() {
+            document.getElementById('wizard-squadra-select').value = '';
+            const lbl = document.getElementById('wizardSquadraPickerLabel');
+            lbl.innerHTML = '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-indigo-400"></i>Cerca squadra...';
+            lbl.classList.add('text-gray-400');
+            document.getElementById('wizardSquadraPickerActions').classList.add('hidden');
+            document.getElementById('wizardSquadraOreContainer').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // ===== CREA NUOVO DIPENDENTE DAL PICKER =====
+        function toggleNewDipForm() {
+            const form = document.getElementById('newDipForm');
+            form.classList.toggle('hidden');
+        }
+
+        async function saveNewDipendente() {
+            const nome = document.getElementById('newDipNome').value.trim();
+            const cognome = document.getElementById('newDipCognome').value.trim();
+            if (!nome || !cognome) {
+                showNotification('Nome e Cognome obbligatori', 'error');
+                return;
+            }
+            try {
+                const { data, error } = await (window.supabaseAdmin || window.supabaseClient)
+                    .from('users')
+                    .insert([{
+                        nome, cognome,
+                        email: document.getElementById('newDipEmail').value.trim() || null,
+                        telefono: document.getElementById('newDipTelefono').value.trim() || null,
+                        ruolo: document.getElementById('newDipRuolo').value,
+                        stato: 'attivo'
+                    }])
+                    .select().single();
+                if (error) throw error;
+                window._wizardDipendentiCache = [...(window._wizardDipendentiCache || []), data];
+                _wizardDipAllUsers = window._wizardDipendentiCache;
+                selectWizardDip(data.id);
+                showNotification(`✅ Dipendente "${nome} ${cognome}" creato!`, 'success');
+                document.getElementById('newDipForm').classList.add('hidden');
+                ['newDipNome','newDipCognome','newDipEmail','newDipTelefono'].forEach(id => document.getElementById(id).value = '');
+            } catch (e) {
+                showNotification('❌ Errore: ' + e.message, 'error');
+            }
         }
 
         async function openClientPicker() {
@@ -3923,6 +4065,16 @@
                                 <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
                             </button>
                         </div>
+                        <!-- Ore dipendente singolo -->
+                        <div id="wizardDipOreContainer" class="hidden mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="clock" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
+                                <label class="text-sm font-semibold text-blue-800">Ore assegnate</label>
+                                <input type="number" id="wizard-dip-ore" min="0" step="0.5" placeholder="Es: 8"
+                                       class="ml-auto w-28 px-3 py-1.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm text-center">
+                                <span class="text-xs text-blue-500">h</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="wizard-multi-container" class="hidden">
@@ -3954,10 +4106,30 @@
 
                     <div id="wizard-squadra-container" class="hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Seleziona Squadra *</label>
-                        <select id="wizard-squadra-select" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Seleziona squadra...</option>
-                        </select>
+                        <input type="hidden" id="wizard-squadra-select">
+                        <button type="button" id="wizardSquadraPickerBtn" onclick="openWizardSquadraPicker()"
+                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-gray-300 rounded-lg bg-white hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left group">
+                            <span id="wizardSquadraPickerLabel" class="text-gray-400 text-sm group-hover:text-indigo-700">
+                                <i data-lucide="search" class="w-4 h-4 inline mr-2 text-indigo-400"></i>
+                                Cerca squadra...
+                            </span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                        </button>
+                        <div id="wizardSquadraPickerActions" class="hidden flex gap-2 mt-2">
+                            <button type="button" onclick="clearWizardSquadraPicker()"
+                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
+                            </button>
+                        </div>
+                        <!-- Ore per membri squadra -->
+                        <div id="wizardSquadraOreContainer" class="hidden mt-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
+                                <span class="text-sm font-semibold text-indigo-800">Ore per membro</span>
+                                <span class="text-xs text-indigo-500">(opzionale)</span>
+                            </div>
+                            <div id="wizardSquadraOreList" class="space-y-2"></div>
+                        </div>
                     </div>
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
@@ -3971,19 +4143,11 @@
                 <div id="wizard-step-3" class="hidden space-y-6">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">⚙️ Dettagli Tecnici e Componenti</h3>
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Ore Stimate</label>
-                            <input type="number" id="wizard-ore-stimate" min="0" step="0.5"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                   placeholder="Es: 8">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Costo Stimato (€)</label>
-                            <input type="number" id="wizard-costo-stimato" min="0" step="10"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                   placeholder="Es: 500">
-                        </div>
+                    <div class="max-w-xs">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ore Stimate Totali</label>
+                        <input type="number" id="wizard-ore-stimate" min="0" step="0.5"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Es: 8">
                     </div>
 
                     <div>
@@ -4790,7 +4954,13 @@
             <!-- Griglia giorni -->
             <div class="p-4">
                 <div class="grid grid-cols-7 mb-2">
-                    ${['L','M','M','G','V','S','D'].map(d => `<div class="text-center text-xs font-bold text-gray-400 py-1">${d}</div>`).join('')}
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">L</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">G</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">V</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">S</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">D</div>
                 </div>
                 <div id="dpGrid" class="grid grid-cols-7 gap-y-1"></div>
             </div>
@@ -4798,6 +4968,32 @@
             <div class="px-4 pb-4 flex gap-2">
                 <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
                 <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIZARD SQUADRA PICKER MODAL -->
+    <div id="wizardSquadraPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-white font-bold text-lg">Seleziona Squadra</h3>
+                    <p class="text-indigo-100 text-sm">Scegli la squadra da assegnare</p>
+                </div>
+                <button onclick="closeWizardSquadraPicker()" class="text-white hover:text-indigo-200 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="wizardSquadraSearch" placeholder="Cerca squadra..."
+                           oninput="filterWizardSquadraList()"
+                           class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-sm">
+                </div>
+            </div>
+            <div id="wizardSquadraPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
             </div>
         </div>
     </div>
@@ -4820,6 +5016,31 @@
                     <input type="text" id="wizardDipSearch" placeholder="Cerca per nome o ruolo..."
                            oninput="filterWizardDipList()"
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm">
+                </div>
+            </div>
+            <div class="p-3 border-b flex-shrink-0">
+                <button onclick="toggleNewDipForm()" id="newDipToggleBtn"
+                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-blue-600 border-2 border-dashed border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> + Nuovo dipendente
+                </button>
+                <div id="newDipForm" class="hidden mt-3 p-4 bg-blue-50 rounded-xl space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newDipNome" placeholder="Nome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                        <input type="text" id="newDipCognome" placeholder="Cognome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="email" id="newDipEmail" placeholder="Email" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                        <input type="tel" id="newDipTelefono" placeholder="Telefono" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <select id="newDipRuolo" class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                        <option value="dipendente">Dipendente</option>
+                        <option value="tecnico">Tecnico</option>
+                        <option value="segreteria">Segreteria</option>
+                        <option value="titolare">Titolare</option>
+                    </select>
+                    <button onclick="saveNewDipendente()" class="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                        Crea e Seleziona
+                    </button>
                 </div>
             </div>
             <div id="wizardDipPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">

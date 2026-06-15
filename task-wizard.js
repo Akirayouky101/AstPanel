@@ -364,16 +364,8 @@ class TaskWizard {
             
             if (errSq) throw errSq;
 
-            const selectSq = document.getElementById('wizard-squadra-select');
-            if (selectSq) {
-                selectSq.innerHTML = '<option value="">Seleziona squadra...</option>';
-                squadre.forEach(sq => {
-                    const option = document.createElement('option');
-                    option.value = sq.id;
-                    option.textContent = sq.nome;
-                    selectSq.appendChild(option);
-                });
-            }
+            // Le squadre ora sono gestite dal picker (non serve popolare un select)
+            window._wizardSquadreCache = squadre;
         } catch (error) {
             console.error('Errore caricamento dipendenti/squadre:', error);
         }
@@ -938,12 +930,25 @@ class TaskWizard {
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
         }
-        document.getElementById('wizard-squadra-select').value = this.wizardData.assigned_team_id || '';
+        // Ripristina picker squadra
+        const wTeamId = this.wizardData.assigned_team_id || '';
+        document.getElementById('wizard-squadra-select').value = wTeamId;
+        if (wTeamId) {
+            const cache = window._wizardSquadreCache || [];
+            const sq = cache.find(x => x.id === wTeamId);
+            const nomeS = sq?.nome || 'Squadra';
+            const lblS = document.getElementById('wizardSquadraPickerLabel');
+            if (lblS) {
+                lblS.innerHTML = `<i data-lucide="users" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-gray-800 font-semibold">${nomeS}</span>`;
+                lblS.classList.remove('text-gray-400');
+                document.getElementById('wizardSquadraPickerActions')?.classList.remove('hidden');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
     }
 
     populateStep3Form() {
         document.getElementById('wizard-ore-stimate').value = this.wizardData.ore_stimate || '';
-        document.getElementById('wizard-costo-stimato').value = this.wizardData.costo_stimato || '';
     }
 
     // ===================================
@@ -967,7 +972,6 @@ class TaskWizard {
 
     saveStep3Data() {
         this.wizardData.ore_stimate = parseFloat(document.getElementById('wizard-ore-stimate').value) || 0;
-        this.wizardData.costo_stimato = parseFloat(document.getElementById('wizard-costo-stimato').value) || 0;
     }
 
     saveCurrentStepData() {
