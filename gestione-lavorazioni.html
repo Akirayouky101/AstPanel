@@ -449,11 +449,19 @@
                         
                         <!-- Scadenza - ARANCIO -->
                         <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
-                            <label for="taskDeadline" class="block text-sm font-bold text-orange-900 mb-2">
+                            <label class="block text-sm font-bold text-orange-900 mb-2">
                                 <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
                                 Scadenza
                             </label>
-                            <input type="date" id="taskDeadline" required class="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white">
+                            <!-- Hidden input preserves ISO value -->
+                            <input type="hidden" id="taskDeadline">
+                            <button type="button" id="taskDeadlineBtn" onclick="openEditDatePicker()"
+                                    class="w-full flex items-center justify-between px-3 py-2.5 border-2 border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-left group">
+                                <span id="taskDeadlineLabel" class="text-orange-400 text-sm group-hover:text-orange-700">
+                                    <i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-orange-400"></i>Seleziona data...
+                                </span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-orange-300 flex-shrink-0"></i>
+                            </button>
                         </div>
                     </div>
                     
@@ -674,9 +682,7 @@
             // Set default deadline to next week
             const nextWeek = new Date();
             nextWeek.setDate(nextWeek.getDate() + 7);
-            document.getElementById('taskDeadline').value = nextWeek.toISOString().split('T')[0];
-            
-            // Listen for team selection changes
+            setDeadlinePicker(nextWeek.toISOString().split('T')[0]);
             document.getElementById('taskTeam').addEventListener('change', updateTeamPreview);
             
             // Check if taskId is in URL parameters
@@ -1084,7 +1090,7 @@
             // Set default deadline
             const nextWeek = new Date();
             nextWeek.setDate(nextWeek.getDate() + 7);
-            document.getElementById('taskDeadline').value = nextWeek.toISOString().split('T')[0];
+            setDeadlinePicker(nextWeek.toISOString().split('T')[0]);
             
             // Set default assignment type to single (only if element exists)
             const assignSingleRadio = document.getElementById('assignSingle');
@@ -1242,18 +1248,50 @@
             lucide.createIcons();
         }
 
-        // ===== DATE PICKER =====
-        let _dpYear, _dpMonth, _dpSelectedDate = null;
+        function setDeadlinePicker(isoValue) {
+            document.getElementById('taskDeadline').value = isoValue || '';
+            const lbl = document.getElementById('taskDeadlineLabel');
+            if (!lbl) return;
+            if (isoValue) {
+                const d = new Date(isoValue + 'T12:00:00');
+                const label = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+                lbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-orange-600"></i><span class="text-orange-800 font-semibold">${label}</span>`;
+                lbl.classList.remove('text-orange-400');
+            } else {
+                lbl.innerHTML = '<i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-orange-400"></i>Seleziona data...';
+                lbl.classList.add('text-orange-400');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // ===== DATE PICKER (shared, multi-target) =====
+        let _dpYear, _dpMonth, _dpSelectedDate;
+        let _dpTargetInput = 'wizard-scadenza';
+        let _dpTargetLabel = 'datePickerLabel';
+        let _dpTargetColor = 'purple';
         const _dpMonthNames = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-        const _dpDayNames = ['L','M','M','G','V','S','D'];
 
         function openDatePicker() {
+            _dpTargetInput = 'wizard-scadenza';
+            _dpTargetLabel = 'datePickerLabel';
+            _dpTargetColor = 'purple';
+            _openDatePickerCore();
+        }
+
+        function openEditDatePicker() {
+            _dpTargetInput = 'taskDeadline';
+            _dpTargetLabel = 'taskDeadlineLabel';
+            _dpTargetColor = 'orange';
+            _openDatePickerCore();
+        }
+
+        function _openDatePickerCore() {
             const today = new Date();
-            const existing = document.getElementById('wizard-scadenza').value;
+            const existing = document.getElementById(_dpTargetInput).value;
             if (existing) {
                 const d = new Date(existing);
                 _dpYear = d.getFullYear(); _dpMonth = d.getMonth();
-                _dpSelectedDate = new Date(existing);
+                _dpSelectedDate = new Date(existing + 'T12:00:00');
             } else {
                 _dpYear = today.getFullYear(); _dpMonth = today.getMonth();
                 _dpSelectedDate = null;
@@ -1266,9 +1304,6 @@
         function closeDatePicker() {
             document.getElementById('datePickerModal').classList.add('hidden');
         }
-
-        function dpRender() {
-            document.getElementById('dpMonthYear').textContent = `${_dpMonthNames[_dpMonth]} ${_dpYear}`;
             if (_dpSelectedDate) {
                 document.getElementById('dpSelectedLabel').textContent =
                     _dpSelectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -1317,11 +1352,13 @@
             const mm = String(_dpMonth + 1).padStart(2, '0');
             const dd = String(d).padStart(2, '0');
             const iso = `${yyyy}-${mm}-${dd}`;
-            document.getElementById('wizard-scadenza').value = iso;
+            document.getElementById(_dpTargetInput).value = iso;
             const label = _dpSelectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-            const lbl = document.getElementById('datePickerLabel');
-            lbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-purple-600"></i><span class="text-gray-800 font-semibold">${label}</span>`;
-            lbl.classList.remove('text-gray-400');
+            const lbl = document.getElementById(_dpTargetLabel);
+            const iconColor = _dpTargetColor === 'orange' ? 'text-orange-600' : 'text-purple-600';
+            const textColor = _dpTargetColor === 'orange' ? 'text-orange-800' : 'text-gray-800';
+            lbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 ${iconColor}"></i><span class="${textColor} font-semibold">${label}</span>`;
+            lbl.classList.remove('text-gray-400', 'text-orange-400', 'text-purple-400');
             lucide.createIcons();
             dpRender();
             setTimeout(closeDatePicker, 200);
@@ -3224,7 +3261,7 @@
                 
                 document.getElementById('taskTitle').value = task.title || task.titolo || '';
                 document.getElementById('taskPriority').value = task.priority || task.priorita || '';
-                document.getElementById('taskDeadline').value = task.deadline || task.scadenza || '';
+                setDeadlinePicker(task.deadline || task.scadenza || '');
                 document.getElementById('taskDescription').value = task.description || task.descrizione || '';
                 
                 // Imposta cliente nel picker
@@ -3363,7 +3400,6 @@
                 'taskAssignee',
                 'taskTeam',
                 'taskPriority',
-                'taskDeadline',
                 'taskDescription'
             ];
             
@@ -3376,6 +3412,18 @@
                 } else {
                     pickerBtn.removeAttribute('disabled');
                     pickerBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                }
+            }
+
+            // Lock/unlock deadline picker button
+            const deadlineBtn = document.getElementById('taskDeadlineBtn');
+            if (deadlineBtn) {
+                if (lock) {
+                    deadlineBtn.setAttribute('disabled', 'disabled');
+                    deadlineBtn.classList.add('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                } else {
+                    deadlineBtn.removeAttribute('disabled');
+                    deadlineBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
                 }
             }
             
