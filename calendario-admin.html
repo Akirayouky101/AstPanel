@@ -434,9 +434,21 @@
                             <i data-lucide="building-2" class="w-4 h-4 inline mr-1"></i>
                             Cliente *
                         </label>
-                        <select id="newTaskClient" class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                            <option value="">-- Seleziona Cliente --</option>
-                        </select>
+                        <input type="hidden" id="newTaskClient">
+                        <button type="button" id="calClientPickerBtn" onclick="openCalClientPicker()"
+                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-purple-300 rounded-xl bg-white hover:border-purple-500 hover:bg-purple-50 transition-all text-left group">
+                            <span id="calClientPickerLabel" class="text-gray-400 text-sm group-hover:text-purple-700">
+                                <i data-lucide="search" class="w-4 h-4 inline mr-2 text-purple-400"></i>
+                                Seleziona cliente...
+                            </span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-purple-300 flex-shrink-0"></i>
+                        </button>
+                        <div id="calClientPickerActions" class="hidden mt-2">
+                            <button type="button" onclick="clearCalClient()"
+                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
+                            </button>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -466,9 +478,21 @@
                             <i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>
                             Assegna a Dipendente (opzionale)
                         </label>
-                        <select id="newTaskAssignee" class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
-                            <option value="">-- L'AI sceglierà automaticamente --</option>
-                        </select>
+                        <input type="hidden" id="newTaskAssignee">
+                        <button type="button" id="calAssigneePickerBtn" onclick="openCalAssigneePicker()"
+                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-cyan-300 rounded-xl bg-white hover:border-cyan-500 hover:bg-cyan-50 transition-all text-left group">
+                            <span id="calAssigneePickerLabel" class="text-gray-400 text-sm group-hover:text-cyan-700">
+                                <i data-lucide="sparkles" class="w-4 h-4 inline mr-2 text-cyan-400"></i>
+                                L'AI sceglierà automaticamente...
+                            </span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-cyan-300 flex-shrink-0"></i>
+                        </button>
+                        <div id="calAssigneePickerActions" class="hidden mt-2">
+                            <button type="button" onclick="clearCalAssignee()"
+                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi (usa AI)
+                            </button>
+                        </div>
                         <p class="text-xs text-cyan-700 mt-2">💡 Lascia vuoto per far scegliere all'AI il dipendente migliore in base a disponibilità e distanze</p>
                     </div>
 
@@ -914,34 +938,21 @@
             currentWizardStep = 1;
             selectedSlot = null;
 
-            // Load clients
+            // Load clients (store in allClients for picker)
             try {
                 allClients = await window.ClientsAPI.getAll();
                 console.log('🏢 Clients loaded:', allClients.length);
-                const clientSelect = document.getElementById('newTaskClient');
-                clientSelect.innerHTML = '<option value="">-- Seleziona Cliente --</option>' + 
-                    allClients.map(c => `<option value="${c.id}">${c.ragione_sociale}</option>`).join('');
             } catch (error) {
                 console.error('Errore caricamento clienti:', error);
             }
 
-            // Load assignees (all users)
-            try {
-                const assigneeSelect = document.getElementById('newTaskAssignee');
-                assigneeSelect.innerHTML = '<option value="">-- L\'AI sceglierà automaticamente --</option>' + 
-                    allUsers.map(u => `<option value="${u.id}">${u.nome} ${u.cognome} - ${u.ruolo || 'Dipendente'}</option>`).join('');
-                console.log('👥 Assignees loaded:', allUsers.length);
-            } catch (error) {
-                console.error('Errore caricamento assegnatari:', error);
-            }
-
             // Reset form
             document.getElementById('newTaskTitle').value = '';
-            document.getElementById('newTaskClient').value = '';
             document.getElementById('newTaskDuration').value = '4';
             document.getElementById('newTaskPriority').value = 'media';
-            document.getElementById('newTaskAssignee').value = '';
             document.getElementById('newTaskDescription').value = '';
+            clearCalClient();
+            clearCalAssignee();
 
             // Show modal
             document.getElementById('createTaskModal').classList.remove('hidden');
@@ -993,7 +1004,7 @@
                 const duration = document.getElementById('newTaskDuration').value;
 
                 if (!title || !clientId || !duration) {
-                    alert('❌ Compila tutti i campi obbligatori!');
+                    showCalToast('❌ Compila tutti i campi obbligatori!', 'error');
                     return;
                 }
 
@@ -1003,7 +1014,7 @@
                 await calculateSmartSlots();
             } else if (currentWizardStep === 2) {
                 if (!selectedSlot) {
-                    alert('❌ Seleziona uno slot disponibile!');
+                    showCalToast('❌ Seleziona uno slot disponibile!', 'error');
                     return;
                 }
 
@@ -1297,7 +1308,7 @@
 
                 await window.dataManager.saveLavorazione(newTask);
                 
-                alert('✅ Lavorazione creata con successo!');
+                showCalToast('✅ Lavorazione creata con successo!', 'success');
                 closeCreateTaskModal();
                 
                 // Reload calendar
@@ -1305,8 +1316,98 @@
                 await filterCalendar();
             } catch (error) {
                 console.error('❌ Errore salvataggio lavorazione:', error);
-                alert('Errore nel salvataggio della lavorazione');
+                showCalToast('Errore nel salvataggio della lavorazione', 'error');
             }
+        }
+
+        // ===== CLIENT PICKER =====
+        function openCalClientPicker() {
+            renderCalPickerList('calPickerModal', 'calPickerSearch', 'calPickerList',
+                allClients.map(c => ({ id: c.id, label: c.ragione_sociale, sub: c.citta || '' })),
+                (id, label) => selectCalClient(id, label));
+            document.getElementById('calPickerModalTitle').textContent = 'Seleziona Cliente';
+            document.getElementById('calPickerModal').classList.remove('hidden');
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('calPickerSearch').focus(), 50);
+        }
+
+        function selectCalClient(id, label) {
+            document.getElementById('newTaskClient').value = id;
+            const lbl = document.getElementById('calClientPickerLabel');
+            lbl.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-purple-500"></i><span class="text-purple-800 font-semibold">${label}</span>`;
+            document.getElementById('calClientPickerActions').classList.remove('hidden');
+            document.getElementById('calPickerModal').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function clearCalClient() {
+            document.getElementById('newTaskClient').value = '';
+            document.getElementById('calClientPickerLabel').innerHTML = '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-purple-400"></i>Seleziona cliente...';
+            document.getElementById('calClientPickerActions').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // ===== ASSIGNEE PICKER =====
+        function openCalAssigneePicker() {
+            renderCalPickerList('calPickerModal', 'calPickerSearch', 'calPickerList',
+                allUsers.map(u => ({ id: u.id, label: `${u.nome} ${u.cognome}`, sub: u.ruolo || 'Dipendente' })),
+                (id, label) => selectCalAssignee(id, label));
+            document.getElementById('calPickerModalTitle').textContent = 'Seleziona Dipendente';
+            document.getElementById('calPickerModal').classList.remove('hidden');
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('calPickerSearch').focus(), 50);
+        }
+
+        function selectCalAssignee(id, label) {
+            document.getElementById('newTaskAssignee').value = id;
+            const lbl = document.getElementById('calAssigneePickerLabel');
+            lbl.innerHTML = `<i data-lucide="user" class="w-4 h-4 inline mr-2 text-cyan-500"></i><span class="text-cyan-800 font-semibold">${label}</span>`;
+            document.getElementById('calAssigneePickerActions').classList.remove('hidden');
+            document.getElementById('calPickerModal').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function clearCalAssignee() {
+            document.getElementById('newTaskAssignee').value = '';
+            document.getElementById('calAssigneePickerLabel').innerHTML = '<i data-lucide="sparkles" class="w-4 h-4 inline mr-2 text-cyan-400"></i>L\'AI sceglierà automaticamente...';
+            document.getElementById('calAssigneePickerActions').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // ===== SHARED PICKER RENDERER =====
+        function renderCalPickerList(modalId, searchId, listId, items, onSelect) {
+            const list = document.getElementById(listId);
+            const search = document.getElementById(searchId);
+            search.value = '';
+
+            function render(q) {
+                const filtered = q ? items.filter(i => i.label.toLowerCase().includes(q) || (i.sub||'').toLowerCase().includes(q)) : items;
+                list.innerHTML = filtered.length ? filtered.map(i => `
+                    <button type="button" onclick="(${onSelect.toString()})('${i.id}', '${i.label.replace(/'/g,"\\'")}'); lucide.createIcons();"
+                            class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-left transition-colors border border-transparent hover:border-gray-200">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">${i.label.charAt(0).toUpperCase()}</div>
+                        <div class="min-w-0"><p class="text-sm font-semibold text-gray-900 truncate">${i.label}</p>${i.sub ? `<p class="text-xs text-gray-400 truncate">${i.sub}</p>` : ''}</div>
+                    </button>`).join('') : '<p class="text-center py-8 text-gray-400 text-sm">Nessun risultato</p>';
+            }
+
+            render('');
+            search.oninput = () => render(search.value.toLowerCase().trim());
+        }
+
+        function showCalToast(msg, type = 'info') {
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-blue-500' };
+            const t = document.createElement('div');
+            t.className = `fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white text-sm font-semibold ${colors[type] || colors.info}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        // Reset form pickers on modal open
+        const _origOpenCreateTaskModal = window.openCreateTaskModal || openCreateTaskModal;
+        function _resetCalPickers() {
+            clearCalClient();
+            clearCalAssignee();
         }
 
         // Expose functions to global scope for inline onclick handlers
@@ -1314,6 +1415,32 @@
         window.filterCalendar = filterCalendar;
         window.resetFilters = resetFilters;
         window.toggleTaskSummary = toggleTaskSummary;
+        window.openCalClientPicker = openCalClientPicker;
+        window.selectCalClient = selectCalClient;
+        window.clearCalClient = clearCalClient;
+        window.openCalAssigneePicker = openCalAssigneePicker;
+        window.selectCalAssignee = selectCalAssignee;
+        window.clearCalAssignee = clearCalAssignee;
     </script>
+
+    <!-- Shared Picker Modal (cliente + dipendente) -->
+    <div id="calPickerModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[70vh]">
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                <h4 id="calPickerModalTitle" class="font-bold text-gray-900 text-base"></h4>
+                <button onclick="document.getElementById('calPickerModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-3 border-b border-gray-100">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <input id="calPickerSearch" type="text" placeholder="Cerca..."
+                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
+            </div>
+            <div id="calPickerList" class="overflow-y-auto flex-1 p-2 space-y-1"></div>
+        </div>
+    </div>
 </body>
 </html>
