@@ -95,17 +95,30 @@
                 <button onclick="nuovoPreventivo()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium">
                     <i class="fas fa-plus mr-2"></i>Nuovo Preventivo
                 </button>
-                <div class="flex items-center space-x-3">
-                    <select id="filterStato" onchange="loadPreventivi()" class="px-4 py-2 border rounded-lg">
-                        <option value="">Tutti gli stati</option>
-                        <option value="bozza">Bozze</option>
-                        <option value="inviato">Inviati</option>
-                        <option value="accettato">Accettati</option>
-                        <option value="rifiutato">Rifiutati</option>
-                        <option value="scaduto">Scaduti</option>
-                    </select>
-                    <input type="text" id="searchQuery" placeholder="Cerca numero, cliente..." 
-                        onkeyup="searchPreventivi()" class="px-4 py-2 border rounded-lg w-64">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="relative">
+                        <select id="filterStato" onchange="loadPreventivi(); applyPrevFilterStyles()"
+                                class="prev-filter-sel appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300">
+                            <option value="">Tutti gli stati</option>
+                            <option value="bozza">📝 Bozze</option>
+                            <option value="inviato">📤 Inviati</option>
+                            <option value="accettato">✅ Accettati</option>
+                            <option value="rifiutato">❌ Rifiutati</option>
+                            <option value="scaduto">⌛ Scaduti</option>
+                        </select>
+                        <i data-lucide="layers" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    </div>
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input type="text" id="searchQuery" placeholder="Cerca numero, cliente..."
+                               onkeyup="searchPreventivi(); applyPrevFilterStyles()"
+                               class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none transition w-64">
+                    </div>
+                    <button id="resetPrevFiltersBtn" onclick="resetPrevFilters()"
+                            class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-500 border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i> Reset
+                    </button>
                 </div>
             </div>
         </div>
@@ -367,6 +380,7 @@
             document.getElementById('dataValidita').value = validita.toISOString().split('T')[0];
 
             await loadData();
+            applyPrevFilterStyles();
         });
 
         async function loadData() {
@@ -1173,6 +1187,25 @@
                 console.error('Errore creazione lavorazione:', error);
                 alert('Errore nella creazione lavorazione: ' + error.message);
             }
+        }
+
+        // Filter styles for preventivi
+        function applyPrevFilterStyles() {
+            const statoMap = { bozza: 'bg-gray-100 border-gray-400 text-gray-700', inviato: 'bg-blue-50 border-blue-500 text-blue-700', accettato: 'bg-green-50 border-green-500 text-green-700', rifiutato: 'bg-red-50 border-red-500 text-red-700', scaduto: 'bg-orange-50 border-orange-500 text-orange-700' };
+            const def = 'bg-gray-50 border-gray-200 text-gray-600';
+            const el = document.getElementById('filterStato'); if (!el) return;
+            el.className = el.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim();
+            el.classList.add(...((statoMap[el.value] || def).split(' ')));
+            const search = document.getElementById('searchQuery');
+            const anyActive = !!el.value || !!(search?.value);
+            const btn = document.getElementById('resetPrevFiltersBtn');
+            if (btn) { btn.classList.toggle('hidden', !anyActive); btn.classList.toggle('flex', anyActive); }
+        }
+
+        function resetPrevFilters() {
+            const el = document.getElementById('filterStato'); if (el) el.value = '';
+            const s = document.getElementById('searchQuery'); if (s) s.value = '';
+            applyPrevFilterStyles(); loadPreventivi();
         }
 
         // Search preventivi

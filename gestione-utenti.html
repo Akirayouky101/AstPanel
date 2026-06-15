@@ -112,28 +112,42 @@
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
-            <div class="flex flex-wrap gap-4">
-                <div class="flex-1 min-w-64">
-                    <input type="text" id="searchUsers" placeholder="Cerca utenti..." 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 fade-in">
+            <div class="flex flex-wrap gap-3 items-center">
+                <div class="flex-1 min-w-56 relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <input type="text" id="searchUsers" placeholder="Cerca utenti..."
+                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition">
                 </div>
-                <select id="roleFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tutti i ruoli</option>
-                    <option value="Titolare">👑 Titolare (Admin)</option>
-                    <option value="Tecnico">🔧 Tecnico (Admin)</option>
-                    <option value="Segreteria">📋 Segreteria (Admin)</option>
-                    <option value="Dipendente">👤 Dipendente</option>
-                </select>
-                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tutti gli stati</option>
-                    <option value="attivo">Attivo</option>
-                    <option value="inattivo">Inattivo</option>
-                    <option value="sospeso">Sospeso</option>
-                </select>
-                <button onclick="exportUsers()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
-                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
-                    Esporta CSV
+                <div class="relative">
+                    <select id="roleFilter" onchange="applyUserFilterStyles()"
+                            class="user-filter-sel appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300">
+                        <option value="">Tutti i ruoli</option>
+                        <option value="Titolare">👑 Titolare</option>
+                        <option value="Tecnico">🔧 Tecnico</option>
+                        <option value="Segreteria">📋 Segreteria</option>
+                        <option value="Dipendente">👤 Dipendente</option>
+                    </select>
+                    <i data-lucide="shield" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+                <div class="relative">
+                    <select id="statusFilter" onchange="applyUserFilterStyles()"
+                            class="user-filter-sel appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300">
+                        <option value="">Tutti gli stati</option>
+                        <option value="attivo">✅ Attivo</option>
+                        <option value="inattivo">⚫ Inattivo</option>
+                        <option value="sospeso">⏸️ Sospeso</option>
+                    </select>
+                    <i data-lucide="toggle-right" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+                <button id="resetUserFiltersBtn" onclick="resetUserFilters()"
+                        class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-500 border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i> Reset
+                </button>
+                <button onclick="exportUsers()" class="ml-auto flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition-colors">
+                    <i data-lucide="download" class="w-4 h-4"></i> Esporta CSV
                 </button>
             </div>
         </div>
@@ -378,17 +392,46 @@
             }
         }
 
+        function applyUserFilterStyles() {
+            const roleMap = {
+                Titolare:   'bg-purple-50 border-purple-500 text-purple-700',
+                Tecnico:    'bg-blue-50 border-blue-500 text-blue-700',
+                Segreteria: 'bg-amber-50 border-amber-500 text-amber-700',
+                Dipendente: 'bg-gray-100 border-gray-400 text-gray-700',
+            };
+            const statusMap = {
+                attivo:   'bg-green-50 border-green-500 text-green-700',
+                inattivo: 'bg-gray-100 border-gray-400 text-gray-700',
+                sospeso:  'bg-yellow-50 border-yellow-500 text-yellow-700',
+            };
+            const def = 'bg-gray-50 border-gray-200 text-gray-600';
+            [['roleFilter', roleMap], ['statusFilter', statusMap]].forEach(([id, map]) => {
+                const el = document.getElementById(id); if (!el) return;
+                el.className = el.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim();
+                const style = map[el.value];
+                el.classList.add(...(style || def).split(' '));
+            });
+            const anyActive = ['roleFilter','statusFilter'].some(id => { const el = document.getElementById(id); return el && el.value !== ''; });
+            const search = document.getElementById('searchUsers');
+            const btn = document.getElementById('resetUserFiltersBtn');
+            if (btn) { btn.classList.toggle('hidden', !anyActive && !search?.value); btn.classList.toggle('flex', anyActive || !!search?.value); }
+        }
+
+        function resetUserFilters() {
+            ['roleFilter','statusFilter'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            const s = document.getElementById('searchUsers'); if (s) s.value = '';
+            applyUserFilterStyles(); loadUsers();
+        }
+
         function setupFilters() {
             const searchInput = document.getElementById('searchUsers');
             const roleFilter = document.getElementById('roleFilter');
             const statusFilter = document.getElementById('statusFilter');
-
-            // Search input uses 'input' event for real-time search
             searchInput.addEventListener('input', loadUsers);
-            
-            // Select elements use only 'change' event
+            searchInput.addEventListener('input', applyUserFilterStyles);
             roleFilter.addEventListener('change', loadUsers);
             statusFilter.addEventListener('change', loadUsers);
+            applyUserFilterStyles();
         }
 
         function openAddUserModal() {
