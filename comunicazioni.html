@@ -187,32 +187,61 @@
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
-            <div class="flex flex-wrap gap-4">
-                <div class="flex-1 min-w-64">
-                    <input type="text" id="searchCommunications" placeholder="Cerca comunicazioni..." 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 fade-in">
+            <div class="flex flex-wrap gap-3 items-center">
+                <!-- Search -->
+                <div class="flex-1 min-w-56 relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <input type="text" id="searchCommunications" placeholder="Cerca comunicazioni..."
+                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition">
                 </div>
-                <select id="typeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tutti i tipi</option>
-                    <option value="annuncio">Annuncio</option>
-                    <option value="newsletter">Newsletter</option>
-                    <option value="evento">Evento</option>
-                    <option value="formazione">Formazione</option>
-                    <option value="procedura">Procedura</option>
-                </select>
-                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tutti gli stati</option>
-                    <option value="bozza">Bozza</option>
-                    <option value="programmata">Programmata</option>
-                    <option value="inviata">Inviata</option>
-                </select>
-                <select id="priorityFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Tutte le priorità</option>
-                    <option value="alta">Alta</option>
-                    <option value="media">Media</option>
-                    <option value="bassa">Bassa</option>
-                </select>
+
+                <!-- Tipo -->
+                <div class="relative">
+                    <select id="typeFilter" onchange="applyCommFilterStyles()"
+                            class="appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600">
+                        <option value="">Tutti i tipi</option>
+                        <option value="annuncio">Annuncio</option>
+                        <option value="newsletter">Newsletter</option>
+                        <option value="evento">Evento</option>
+                        <option value="formazione">Formazione</option>
+                        <option value="procedura">Procedura</option>
+                    </select>
+                    <i data-lucide="megaphone" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+
+                <!-- Stato -->
+                <div class="relative">
+                    <select id="statusFilter" onchange="applyCommFilterStyles()"
+                            class="appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600">
+                        <option value="">Tutti gli stati</option>
+                        <option value="bozza">Bozza</option>
+                        <option value="programmata">Programmata</option>
+                        <option value="inviata">Inviata</option>
+                    </select>
+                    <i data-lucide="layers" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+
+                <!-- Priorità -->
+                <div class="relative">
+                    <select id="priorityFilter" onchange="applyCommFilterStyles()"
+                            class="appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600">
+                        <option value="">Tutte le priorità</option>
+                        <option value="alta">🔴 Alta</option>
+                        <option value="media">🟡 Media</option>
+                        <option value="bassa">🟢 Bassa</option>
+                    </select>
+                    <i data-lucide="flag" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+
+                <!-- Reset -->
+                <button onclick="resetCommFilters()" id="resetCommFiltersBtn"
+                        class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-500 border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i> Reset
+                </button>
             </div>
         </div>
 
@@ -760,9 +789,55 @@
             const priorityFilter = document.getElementById('priorityFilter');
 
             [searchInput, typeFilter, statusFilter, priorityFilter].forEach(element => {
-                element.addEventListener('input', loadCommunications);
-                element.addEventListener('change', loadCommunications);
+                element.addEventListener('input', () => { applyCommFilterStyles(); loadCommunications(); });
+                element.addEventListener('change', () => { applyCommFilterStyles(); loadCommunications(); });
             });
+        }
+
+        function applyCommFilterStyles() {
+            const typeMap = {
+                annuncio:   'bg-blue-50 border-blue-400 text-blue-700',
+                newsletter: 'bg-green-50 border-green-400 text-green-700',
+                evento:     'bg-purple-50 border-purple-400 text-purple-700',
+                formazione: 'bg-amber-50 border-amber-400 text-amber-700',
+                procedura:  'bg-gray-100 border-gray-400 text-gray-700',
+            };
+            const statusMap = {
+                bozza:        'bg-gray-100 border-gray-400 text-gray-700',
+                programmata:  'bg-orange-50 border-orange-400 text-orange-700',
+                inviata:      'bg-green-50 border-green-400 text-green-700',
+            };
+            const priorityMap = {
+                alta:  'bg-red-50 border-red-400 text-red-700',
+                media: 'bg-yellow-50 border-yellow-400 text-yellow-700',
+                bassa: 'bg-green-50 border-green-400 text-green-700',
+            };
+            const def = 'bg-gray-50 border-gray-200 text-gray-600';
+
+            [['typeFilter', typeMap], ['statusFilter', statusMap], ['priorityFilter', priorityMap]].forEach(([id, map]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const style = map[el.value] || def;
+                el.className = `appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all ${style}`;
+            });
+
+            const anyActive = ['typeFilter','statusFilter','priorityFilter'].some(id => {
+                const el = document.getElementById(id); return el && el.value !== '';
+            });
+            const search = document.getElementById('searchCommunications');
+            const hasSearch = search && search.value.trim() !== '';
+            const btn = document.getElementById('resetCommFiltersBtn');
+            if (btn) btn.classList.toggle('hidden', !anyActive && !hasSearch);
+        }
+
+        function resetCommFilters() {
+            ['typeFilter','statusFilter','priorityFilter'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = '';
+            });
+            const search = document.getElementById('searchCommunications');
+            if (search) search.value = '';
+            applyCommFilterStyles();
+            loadCommunications();
         }
 
         function openNewCommunicationModal() {
