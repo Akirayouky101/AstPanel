@@ -379,6 +379,30 @@ window.dataManager = {
                         });
                     }
                 }
+                // Se multi-assegnazione (task_assignments)
+                else if (task.task_assignments && task.task_assignments.length > 0) {
+                    const priorityColors = { 'alta': '#ef4444', 'media': '#f59e0b', 'bassa': '#10b981' };
+                    task.task_assignments.forEach(a => {
+                        const u = a.users;
+                        if (!u) return;
+                        events.push({
+                            id: `task-${task.id}-user-${a.user_id}`,
+                            title: `${task.titolo} (${u.nome} ${u.cognome})`,
+                            start: task.scadenza,
+                            backgroundColor: priorityColors[task.priorita] || '#6366f1',
+                            borderColor: priorityColors[task.priorita] || '#6366f1',
+                            extendedProps: {
+                                taskId: task.id,
+                                userId: a.user_id,
+                                userName: `${u.nome} ${u.cognome}`,
+                                clientName: task.client_name,
+                                stato: task.stato,
+                                priorita: task.priorita,
+                                assigneeName: `${u.nome} ${u.cognome}`
+                            }
+                        });
+                    });
+                }
                 // Se assegnato a singolo utente
                 else if (task.assigned_user_id) {
                     const priorityColors = {

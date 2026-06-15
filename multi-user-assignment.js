@@ -311,10 +311,12 @@ class MultiUserAssignment {
 
         // Salva in wizard data se esiste
         if (window.taskWizard) {
+            const defaultOre = window.taskWizard.wizardData.ore_stimate || 8;
             window.taskWizard.wizardData.assigned_users = users.map(u => ({
                 user_id: u.user_id,
                 nome_completo: u.nome_completo,
-                ruolo_assegnazione: 'membro'
+                ruolo_assegnazione: 'membro',
+                ore_assegnate: u.ore_assegnate !== undefined ? u.ore_assegnate : defaultOre
             }));
         }
     }
@@ -359,7 +361,7 @@ class MultiUserAssignment {
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <input type="number" 
-                                           value="${oreTask}"
+                                           value="${user.ore_assegnate !== undefined ? user.ore_assegnate : oreTask}"
                                            min="0.5"
                                            step="0.5"
                                            class="w-16 text-sm border rounded px-2 py-1"
