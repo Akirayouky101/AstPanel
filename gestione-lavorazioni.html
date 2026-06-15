@@ -1353,6 +1353,48 @@
             lucide.createIcons();
         }
 
+        // ===== CREA NUOVA SQUADRA DAL PICKER =====
+        let _newSquadraSelectedColor = '#6366f1';
+
+        function toggleNewSquadraForm() {
+            const form = document.getElementById('newSquadraForm');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) lucide.createIcons();
+        }
+
+        function setSquadraColor(hex, btn) {
+            _newSquadraSelectedColor = hex;
+            document.getElementById('newSquadraColore').value = hex;
+            document.querySelectorAll('.squadra-color-btn').forEach(b => {
+                b.style.borderColor = 'transparent';
+                b.style.outline = '';
+            });
+            btn.style.borderColor = '#312e81';
+            btn.style.outline = '2px solid #312e81';
+            btn.style.outlineOffset = '2px';
+        }
+
+        async function saveNewSquadra() {
+            const nome = document.getElementById('newSquadraNome').value.trim();
+            if (!nome) { alert('Inserisci il nome della squadra'); return; }
+            const colore = document.getElementById('newSquadraColore').value || '#6366f1';
+            const btn = document.querySelector('#newSquadraForm button[onclick="saveNewSquadra()"]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio...'; }
+            try {
+                const { data, error } = await (window.supabaseAdmin || window.supabaseClient)
+                    .from('teams').insert({ nome, colore }).select('*, team_members(user_id, users(nome, cognome))').single();
+                if (error) throw error;
+                _wizardSquadreAllCache = [...(_wizardSquadreAllCache || []), data];
+                document.getElementById('newSquadraNome').value = '';
+                document.getElementById('newSquadraForm').classList.add('hidden');
+                renderWizardSquadraList(_wizardSquadreAllCache);
+                selectWizardSquadra(data.id);
+            } catch (e) {
+                alert('Errore: ' + (e.message || 'salvataggio fallito'));
+                if (btn) { btn.disabled = false; btn.textContent = 'Crea e Seleziona'; }
+            }
+        }
+
         // ===== CREA NUOVO DIPENDENTE DAL PICKER =====
         function toggleNewDipForm() {
             const form = document.getElementById('newDipForm');
@@ -5011,6 +5053,31 @@
                     <input type="text" id="wizardSquadraSearch" placeholder="Cerca squadra..."
                            oninput="filterWizardSquadraList()"
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-sm">
+                </div>
+            </div>
+            <div class="p-3 border-b flex-shrink-0">
+                <button onclick="toggleNewSquadraForm()" id="newSquadraToggleBtn"
+                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-indigo-600 border-2 border-dashed border-indigo-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                    <i data-lucide="users" class="w-4 h-4"></i> + Nuova squadra
+                </button>
+                <div id="newSquadraForm" class="hidden mt-3 p-4 bg-indigo-50 rounded-xl space-y-3">
+                    <input type="text" id="newSquadraNome" placeholder="Nome squadra *"
+                           class="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400">
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs text-indigo-700 font-semibold flex-shrink-0">Colore:</label>
+                        <div class="flex gap-2 flex-wrap">
+                            <button type="button" onclick="setSquadraColor('#6366f1', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#6366f1" data-selected="true"></button>
+                            <button type="button" onclick="setSquadraColor('#0ea5e9', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#0ea5e9"></button>
+                            <button type="button" onclick="setSquadraColor('#10b981', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#10b981"></button>
+                            <button type="button" onclick="setSquadraColor('#f59e0b', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#f59e0b"></button>
+                            <button type="button" onclick="setSquadraColor('#ef4444', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#ef4444"></button>
+                            <button type="button" onclick="setSquadraColor('#8b5cf6', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#8b5cf6"></button>
+                        </div>
+                        <input type="hidden" id="newSquadraColore" value="#6366f1">
+                    </div>
+                    <button onclick="saveNewSquadra()" class="w-full py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                        Crea e Seleziona
+                    </button>
                 </div>
             </div>
             <div id="wizardSquadraPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
