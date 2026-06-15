@@ -10,6 +10,33 @@
 // ===================================
 
 function showWizardAlert(message, type = 'warning') {
+    // For success, use a non-blocking toast instead of a modal
+    if (type === 'success') {
+        return new Promise((resolve) => {
+            // Remove any existing toasts
+            document.querySelectorAll('.ast-toast').forEach(n => n.remove());
+            const cfgBg = { success: 'bg-green-500', info: 'bg-blue-500' };
+            const cfgIcon = { success: 'fa-check-circle', info: 'fa-info-circle' };
+            const n = document.createElement('div');
+            n.className = `ast-toast fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border border-green-400 ${cfgBg[type] || 'bg-green-500'} text-white text-sm font-semibold max-w-sm`;
+            n.style.cssText = 'animation: slideInRight .25s ease;';
+            n.innerHTML = `
+                <i class="fas ${cfgIcon[type] || 'fa-check-circle'} text-lg flex-shrink-0"></i>
+                <span class="flex-1 leading-snug">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-1 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
+                    <i class="fas fa-times text-xs"></i>
+                </button>`;
+            document.body.appendChild(n);
+            setTimeout(() => {
+                n.style.transition = 'opacity .4s, transform .4s';
+                n.style.opacity = '0';
+                n.style.transform = 'translateX(20px)';
+                setTimeout(() => { n.remove(); }, 400);
+            }, 3500);
+            resolve(true);
+        });
+    }
+
     return new Promise((resolve) => {
         const icons = {
             warning: '⚠️',
