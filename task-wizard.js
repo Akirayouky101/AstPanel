@@ -353,16 +353,8 @@ class TaskWizard {
             
             if (errDip) throw errDip;
 
-            const selectDip = document.getElementById('wizard-dipendente-select');
-            if (selectDip) {
-                selectDip.innerHTML = '<option value="">Seleziona dipendente...</option>';
-                dipendenti.forEach(dip => {
-                    const option = document.createElement('option');
-                    option.value = dip.id;
-                    option.textContent = `${dip.nome} ${dip.cognome} (${dip.ruolo})`;
-                    selectDip.appendChild(option);
-                });
-            }
+            // Salva in cache globale per il picker
+            window._wizardDipendentiCache = dipendenti;
 
             // Carica squadre
             const { data: squadre, error: errSq } = await supabaseClient
@@ -917,7 +909,20 @@ class TaskWizard {
             document.getElementById('wizard-squadra-container').classList.remove('hidden');
         }
         
-        document.getElementById('wizard-dipendente-select').value = this.wizardData.assigned_user_id || '';
+        const wDipId = this.wizardData.assigned_user_id || '';
+        document.getElementById('wizard-dipendente-select').value = wDipId;
+        if (wDipId) {
+            const cache = window._wizardDipendentiCache || [];
+            const d = cache.find(x => x.id === wDipId);
+            const nome = d ? `${d.nome} ${d.cognome}` : 'Dipendente';
+            const lbl = document.getElementById('wizardDipPickerLabel');
+            if (lbl) {
+                lbl.innerHTML = `<i data-lucide="user" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
+                lbl.classList.remove('text-gray-400');
+                document.getElementById('wizardDipPickerActions')?.classList.remove('hidden');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
         document.getElementById('wizard-squadra-select').value = this.wizardData.assigned_team_id || '';
     }
 
@@ -941,7 +946,7 @@ class TaskWizard {
 
     saveStep2Data() {
         this.wizardData.tipo_assegnazione = document.querySelector('input[name="tipo-assegnazione"]:checked').value;
-        this.wizardData.assigned_user_id = document.getElementById('wizard-dipendente-select').value;
+        this.wizardData.assigned_user_id = document.getElementById('wizard-dipendente-select').value; // hidden input
         this.wizardData.assigned_team_id = document.getElementById('wizard-squadra-select').value;
     }
 
