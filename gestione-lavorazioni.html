@@ -2357,6 +2357,11 @@
                                     <i data-lucide="copy" class="w-4 h-4"></i>
                                     Duplica
                                 </button>
+                                <button id="archive-task-btn" data-task-id="${taskId}"
+                                        class="px-5 py-2.5 bg-gradient-to-r from-slate-500 to-gray-600 text-white font-semibold rounded-xl hover:from-slate-600 hover:to-gray-700 transition-all shadow flex items-center gap-2">
+                                    <i data-lucide="archive" class="w-4 h-4"></i>
+                                    Archivia
+                                </button>
                                 <button id="edit-task-btn" data-task-id="${taskId}"
                                         class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                                     <i data-lucide="edit-3" class="w-5 h-5"></i>
@@ -2376,6 +2381,15 @@
                     dupBtn.addEventListener('click', () => {
                         document.getElementById('task-view-modal').remove();
                         duplicateTask(taskId);
+                    });
+                }
+
+                // Event listener per pulsante archivia
+                const archBtn = document.getElementById('archive-task-btn');
+                if (archBtn) {
+                    archBtn.addEventListener('click', () => {
+                        document.getElementById('task-view-modal').remove();
+                        archiviaTask(taskId);
                     });
                 }
 
@@ -3031,6 +3045,83 @@
         // EDIT TASK - MODALE MODIFICA
         // ===================================
         
+        // ===== ARCHIVIA LAVORAZIONE =====
+        async function archiviaTask(taskId) {
+            const confirmed = await showConfirm(
+                'Archivia Lavorazione',
+                'La lavorazione verrà archiviata: verrà creata una copia con tutti i dati e rimossa dalle lavorazioni attive. La squadra/dipendente associati verranno liberati.'
+            );
+            if (!confirmed) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'ast-toast fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border border-blue-400 bg-blue-500 text-white text-sm font-semibold max-w-sm';
+            toast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Archiviazione...';
+            document.body.appendChild(toast);
+
+            try {
+                const client = window.supabaseAdmin || window.supabaseClient;
+
+                // 1. Carica dati completi task
+                const tasks = await window.dataManager.getLavorazioni();
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) throw new Error('Lavorazione non trovata');
+
+                // 2. Carica assegnazioni multi-utente
+                const { data: assignments } = await client
+                    .from('task_assignments')
+                    .select('user_id, ruolo_assegnazione, ore_assegnate, users(nome, cognome)')
+                    .eq('task_id', taskId);
+
+                // 3. Crea snapshot in archivio_lavorazioni
+                const snapshot = {
+                    lavorazione_id: task.id,
+                    titolo: task.titolo || task.title || '',
+                    descrizione: task.descrizione || task.description || '',
+                    stato: task.stato || '',
+                    priorita: task.priorita || task.priority || '',
+                    scadenza: task.scadenza || task.deadline || null,
+                    ore_stimate: task.ore_stimate || null,
+                    progresso: task.progresso || 0,
+                    client_id: task.client_id || null,
+                    client_nome: task.client_name || task.client?.ragione_sociale || '',
+                    assigned_user_id: task.assigned_user_id || null,
+                    assigned_user_nome: task.user_name || '',
+                    assigned_team_id: task.assigned_team_id || null,
+                    assigned_team_nome: task.team_name || '',
+                    assegnazioni_snapshot: (assignments || []).map(a => ({
+                        user_id: a.user_id,
+                        nome: a.users ? `${a.users.nome} ${a.users.cognome}` : '',
+                        ruolo: a.ruolo_assegnazione,
+                        ore: a.ore_assegnate,
+                    })),
+                    dati_originali: task,
+                };
+
+                const { error: archErr } = await client
+                    .from('archivio_lavorazioni')
+                    .insert(snapshot);
+
+                if (archErr) throw archErr;
+
+                // 4. Elimina task_assignments
+                await client.from('task_assignments').delete().eq('task_id', taskId);
+                // 5. Elimina task_components
+                await client.from('task_components').delete().eq('task_id', taskId).catch(() => {});
+                // 6. Elimina task principale
+                const { error: delErr } = await client.from('tasks').delete().eq('id', taskId);
+                if (delErr) throw delErr;
+
+                toast.remove();
+                await loadTasks();
+                await updateStats();
+                showNotification('✅ Lavorazione archiviata con successo!', 'success');
+            } catch (e) {
+                toast.remove();
+                console.error('Errore archiviazione:', e);
+                showNotification('Errore: ' + (e.message || e), 'error');
+            }
+        }
+
         async function duplicateTask(taskId) {
             try {
                 const tasks = await window.dataManager.getLavorazioni();

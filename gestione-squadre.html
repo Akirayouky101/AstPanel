@@ -238,7 +238,18 @@
             try {
                 const container = document.getElementById('teamsContainer');
                 const teams = await window.dataManager.getSquadre();
-
+                // Carica lavorazioni per vedere quali squadre sono occupate
+                let lavorazioni = [];
+                try {
+                    lavorazioni = await window.dataManager.getLavorazioni();
+                } catch (_) {}
+                // Conta lavorazioni attive (non archiviate/completate) per squadra
+                teams.forEach(team => {
+                    team._activeTasks = lavorazioni.filter(t =>
+                        t.assigned_team_id === team.id &&
+                        t.stato !== 'completato'
+                    ).length;
+                });
                 if (teams.length === 0) {
                     container.innerHTML = `
                         <div class="col-span-full text-center py-12">
@@ -255,23 +266,27 @@
 
                 container.innerHTML = teams.map(team => {
                     const memberCount = team.membri ? team.membri.length : 0;
+                    const hasActiveTasks = (team._activeTasks || 0) > 0;
                     return `
                     <div class="team-card bg-white rounded-xl shadow-md overflow-hidden">
                         <div class="p-6" style="border-top: 4px solid ${team.colore}">
                             <div class="flex justify-between items-start mb-4">
                                 <div class="flex-1">
-                                    <h3 class="text-xl font-bold text-gray-800 mb-1">${team.nome}</h3>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="text-xl font-bold text-gray-800 mb-1">${team.nome}</h3>
+                                        ${hasActiveTasks ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full"><i class="fas fa-lock text-xs"></i> ${team._activeTasks} lavora${team._activeTasks === 1 ? 'zione' : 'zioni'} attiva${team._activeTasks === 1 ? '' : 'e'}</span>` : ''}
+                                    </div>
                                     <p class="text-sm text-gray-500">${team.descrizione || 'Nessuna descrizione'}</p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button onclick="editTeam('${team.id}')" 
-                                            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button onclick="deleteTeam('${team.id}', '${team.nome}')" 
-                                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    ${hasActiveTasks
+                                        ? `<button disabled title="Impossibile modificare: ci sono lavorazioni attive" class="p-2 text-gray-300 cursor-not-allowed rounded-lg"><i class="fas fa-edit"></i></button>`
+                                        : `<button onclick="editTeam('${team.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><i class="fas fa-edit"></i></button>`
+                                    }
+                                    ${hasActiveTasks
+                                        ? `<button onclick="showTeamBlockedAlert('${team.nome}', ${team._activeTasks})" class="p-2 text-gray-300 cursor-not-allowed rounded-lg" title="Archivia prima le lavorazioni"><i class="fas fa-trash"></i></button>`
+                                        : `<button onclick="deleteTeam('${team.id}', '${team.nome}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"><i class="fas fa-trash"></i></button>`
+                                    }
                                 </div>
                             </div>
                             
@@ -388,6 +403,14 @@
                 console.error('Errore modifica squadra:', error);
                 showAlert('Errore', 'Impossibile modificare la squadra: ' + error.message, 'error');
             }
+        }
+
+        function showTeamBlockedAlert(teamName, count) {
+            showAlert(
+                '🔒 Squadra in uso',
+                `La squadra "${teamName}" ha ${count} lavorazion${count === 1 ? 'e attiva' : 'i attive'}.\n\nPer eliminarla o modificarla, devi prima archiviare tutte le lavorazioni collegate dalla pagina Gestione Lavorazioni.`,
+                'warning'
+            );
         }
 
         async function deleteTeam(teamId, teamName) {

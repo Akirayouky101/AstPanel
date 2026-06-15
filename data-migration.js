@@ -241,7 +241,15 @@ window.dataManager = {
 
     async deleteLavorazione(id) {
         try {
+            const client = window.supabaseAdmin || window.supabase;
+            // 1. Elimina task_assignments (libera dipendenti/squadra)
+            await client.from('task_assignments').delete().eq('task_id', id).catch(() => {});
+            // 2. Elimina task_components
+            await client.from('task_components').delete().eq('task_id', id).catch(() => {});
+            // 3. Elimina la lavorazione
             await window.TasksAPI.delete(id);
+            // 4. Notifica tutti i calendari aperti di aggiornarsi
+            window.dispatchEvent(new CustomEvent('lavorazione-deleted', { detail: { id } }));
         } catch (error) {
             console.error('Errore eliminazione lavorazione:', error);
             throw error;
