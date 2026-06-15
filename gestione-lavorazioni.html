@@ -1146,6 +1146,96 @@
             lucide.createIcons();
         }
 
+        // ===== DATE PICKER =====
+        let _dpYear, _dpMonth, _dpSelectedDate = null;
+        const _dpMonthNames = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+        const _dpDayNames = ['L','M','M','G','V','S','D'];
+
+        function openDatePicker() {
+            const today = new Date();
+            const existing = document.getElementById('wizard-scadenza').value;
+            if (existing) {
+                const d = new Date(existing);
+                _dpYear = d.getFullYear(); _dpMonth = d.getMonth();
+                _dpSelectedDate = new Date(existing);
+            } else {
+                _dpYear = today.getFullYear(); _dpMonth = today.getMonth();
+                _dpSelectedDate = null;
+            }
+            document.getElementById('datePickerModal').classList.remove('hidden');
+            dpRender();
+            lucide.createIcons();
+        }
+
+        function closeDatePicker() {
+            document.getElementById('datePickerModal').classList.add('hidden');
+        }
+
+        function dpRender() {
+            document.getElementById('dpMonthYear').textContent = `${_dpMonthNames[_dpMonth]} ${_dpYear}`;
+            if (_dpSelectedDate) {
+                document.getElementById('dpSelectedLabel').textContent =
+                    _dpSelectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            } else {
+                document.getElementById('dpSelectedLabel').textContent = '';
+            }
+            const grid = document.getElementById('dpGrid');
+            const today = new Date(); today.setHours(0,0,0,0);
+            // Primo giorno del mese (0=dom, trasforma in lun=0)
+            const firstDay = new Date(_dpYear, _dpMonth, 1);
+            let startDow = firstDay.getDay(); // 0=dom
+            startDow = startDow === 0 ? 6 : startDow - 1; // lun=0
+            const daysInMonth = new Date(_dpYear, _dpMonth + 1, 0).getDate();
+            let html = '';
+            // Celle vuote prima
+            for (let i = 0; i < startDow; i++) html += '<div></div>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(_dpYear, _dpMonth, d);
+                const isToday = date.getTime() === today.getTime();
+                const isSel = _dpSelectedDate && date.getTime() === _dpSelectedDate.getTime();
+                const isPast = date < today;
+                const dow = date.getDay(); // 0=dom, 6=sab
+                const isWeekend = dow === 0 || dow === 6;
+                let cls = 'w-full aspect-square flex items-center justify-center text-sm rounded-xl font-medium transition-all cursor-pointer select-none ';
+                if (isSel) cls += 'bg-purple-600 text-white shadow-lg scale-105 ';
+                else if (isToday) cls += 'ring-2 ring-purple-400 text-purple-700 font-bold ';
+                else if (isPast) cls += 'text-gray-300 cursor-not-allowed ';
+                else if (isWeekend) cls += 'text-red-400 hover:bg-red-50 ';
+                else cls += 'text-gray-700 hover:bg-purple-50 hover:text-purple-700 ';
+                const clickable = !isPast || isSel;
+                html += `<div class="${cls}" ${clickable ? `onclick="dpSelectDay(${d})"` : ''}>${d}</div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        function dpPrevMonth() {
+            _dpMonth--; if (_dpMonth < 0) { _dpMonth = 11; _dpYear--; } dpRender();
+        }
+        function dpNextMonth() {
+            _dpMonth++; if (_dpMonth > 11) { _dpMonth = 0; _dpYear++; } dpRender();
+        }
+
+        function dpSelectDay(d) {
+            _dpSelectedDate = new Date(_dpYear, _dpMonth, d);
+            const yyyy = _dpYear;
+            const mm = String(_dpMonth + 1).padStart(2, '0');
+            const dd = String(d).padStart(2, '0');
+            const iso = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('wizard-scadenza').value = iso;
+            const label = _dpSelectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+            const lbl = document.getElementById('datePickerLabel');
+            lbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-purple-600"></i><span class="text-gray-800 font-semibold">${label}</span>`;
+            lbl.classList.remove('text-gray-400');
+            lucide.createIcons();
+            dpRender();
+            setTimeout(closeDatePicker, 200);
+        }
+
+        function dpSelectToday() {
+            const today = new Date();
+            dpSelectDay(today.getDate());
+        }
+
         async function openClientPicker() {
             document.getElementById('clientPickerModal').classList.remove('hidden');
             document.getElementById('clientPickerSearch').value = '';
@@ -3770,8 +3860,15 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Scadenza *</label>
-                            <input type="date" id="wizard-scadenza" 
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <input type="hidden" id="wizard-scadenza">
+                            <button type="button" onclick="openDatePicker()"
+                                    class="w-full flex items-center justify-between px-4 py-3 border-2 border-gray-300 rounded-lg bg-white hover:border-purple-400 hover:bg-purple-50 transition-all text-left group">
+                                <span id="datePickerLabel" class="text-gray-400 text-sm group-hover:text-purple-700">
+                                    <i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-purple-400"></i>
+                                    Scegli data...
+                                </span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -4674,6 +4771,37 @@
     <script src="component-multi-selector.js"></script>
 
     <!-- ===== MODALE PICKER CLIENTI ===== -->
+    <!-- DATE PICKER MODAL -->
+    <div id="datePickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <!-- Header mese/anno -->
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5">
+                <div class="flex items-center justify-between mb-1">
+                    <button onclick="dpPrevMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <span id="dpMonthYear" class="text-white font-bold text-lg"></span>
+                    <button onclick="dpNextMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <p id="dpSelectedLabel" class="text-center text-purple-200 text-sm min-h-[1.25rem]"></p>
+            </div>
+            <!-- Griglia giorni -->
+            <div class="p-4">
+                <div class="grid grid-cols-7 mb-2">
+                    ${['L','M','M','G','V','S','D'].map(d => `<div class="text-center text-xs font-bold text-gray-400 py-1">${d}</div>`).join('')}
+                </div>
+                <div id="dpGrid" class="grid grid-cols-7 gap-y-1"></div>
+            </div>
+            <!-- Footer -->
+            <div class="px-4 pb-4 flex gap-2">
+                <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
+                <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+        </div>
+    </div>
+
     <!-- WIZARD DIPENDENTE PICKER MODAL -->
     <div id="wizardDipPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">

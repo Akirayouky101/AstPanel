@@ -891,7 +891,22 @@ class TaskWizard {
         }
         document.getElementById('wizard-descrizione').value = this.wizardData.descrizione || '';
         document.getElementById('wizard-priorita').value = this.wizardData.priorita || 'media';
-        document.getElementById('wizard-scadenza').value = this.wizardData.scadenza || '';
+        // Ripristina label date picker
+        const scadenza = this.wizardData.scadenza || '';
+        document.getElementById('wizard-scadenza').value = scadenza;
+        const dpLbl = document.getElementById('datePickerLabel');
+        if (dpLbl) {
+            if (scadenza) {
+                const d = new Date(scadenza);
+                const label = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+                dpLbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-purple-600"></i><span class="text-gray-800 font-semibold">${label}</span>`;
+                dpLbl.classList.remove('text-gray-400');
+            } else {
+                dpLbl.innerHTML = '<i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-purple-400"></i>Scegli data...';
+                dpLbl.classList.add('text-gray-400');
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
         document.getElementById('wizard-categoria').value = this.wizardData.categoria || '';
     }
 
