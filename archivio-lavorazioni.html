@@ -148,7 +148,6 @@
         const supabaseClient = window.supabaseClient || window.supabase;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!await window.AuthHelper.requireLogin()) return;
             lucide.createIcons();
             await loadArchivio();
         });
@@ -167,12 +166,13 @@
                 updateStats();
                 filterArchivio();
             } catch (e) {
+                const msg = e?.message || String(e) || 'Errore sconosciuto';
                 document.getElementById('archivioList').innerHTML = `
                     <div class="text-center py-16 text-red-400">
                         <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-3"></i>
                         <p class="font-semibold">Errore caricamento</p>
-                        <p class="text-sm mt-1">${e.message}</p>
-                        ${e.message.includes('does not exist') ? '<p class="text-xs mt-2 text-gray-400">Esegui il file create-archivio-lavorazioni.sql su Supabase per creare la tabella.</p>' : ''}
+                        <p class="text-sm mt-1">${msg}</p>
+                        ${msg.includes('does not exist') ? '<p class="text-xs mt-2 text-gray-400">Esegui il file create-archivio-lavorazioni.sql su Supabase per creare la tabella.</p>' : ''}
                     </div>`;
                 lucide.createIcons();
             }
