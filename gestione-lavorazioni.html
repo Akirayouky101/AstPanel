@@ -1912,25 +1912,38 @@
             if (!container) return;
             
             try {
-                // Carica utenti dal database
-                const { data: users, error } = await window.supabaseClient
-                    .from('users')
-                    .select('id, nome, cognome, ruolo, email')
-                    .in('ruolo', ['Dipendente', 'Tecnico', 'Segreteria'])
-                    .order('nome');
-                
-                if (error) throw error;
+                // Usa dataManager come fonte principale (già autenticato e testato)
+                let users = [];
+                try {
+                    const all = await window.dataManager.getUtenti();
+                    users = (all || []).filter(u =>
+                        u.stato === 'attivo' &&
+                        ['Dipendente','Tecnico','Segreteria','dipendente','tecnico','segreteria'].includes(u.ruolo)
+                    );
+                } catch (_) {
+                    // fallback: query diretta
+                    const { data } = await window.supabaseClient
+                        .from('users')
+                        .select('id, nome, cognome, ruolo, email')
+                        .order('nome');
+                    users = (data || []).filter(u =>
+                        ['Dipendente','Tecnico','Segreteria','dipendente','tecnico','segreteria'].includes(u.ruolo)
+                    );
+                }
                 
                 if (!users || users.length === 0) {
                     container.innerHTML = '<p class="text-gray-500 text-sm italic">Nessun dipendente disponibile</p>';
                     return;
                 }
                 
-                container.innerHTML = users.map(user => `
-                    <label class="flex items-center p-2 hover:bg-purple-50 rounded cursor-pointer">
+                container.innerHTML = users.map(user => {
+                    const isSelected = selectedMultiUsers.includes(user.id);
+                    return `
+                    <label class="flex items-center p-2 hover:bg-purple-50 rounded cursor-pointer ${isSelected ? 'bg-purple-50' : ''}">
                         <input type="checkbox" 
                                value="${user.id}" 
                                onchange="toggleMultiUser('${user.id}')"
+                               ${isSelected ? 'checked' : ''}
                                class="w-4 h-4 text-purple-600 focus:ring-purple-500 mr-3">
                         <div class="flex items-center gap-2 flex-1">
                             <div class="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-sm">
@@ -1942,7 +1955,10 @@
                             </div>
                         </div>
                     </label>
-                `).join('');
+                `}).join('');
+
+                // Aggiorna preview se ci sono selezioni pre-caricate
+                if (selectedMultiUsers.length > 0) updateSelectedUsersPreview();
                 
             } catch (error) {
                 console.error('Errore caricamento utenti:', error);
@@ -3067,7 +3083,9 @@
                 // Reload and open edit on the new duplicate
                 await window.dataManager.clearCache?.();
                 await loadTasks();
-                editTask(newTask.id);
+                // Small delay to let Supabase replicate and DOM settle
+                await new Promise(r => setTimeout(r, 200));
+                await editTask(newTask.id);
             } catch (e) {
                 console.error('Errore duplicazione:', e);
                 alert('Errore durante la duplicazione: ' + (e.message || e));
@@ -3152,7 +3170,11 @@
                             assignMultiRadio.checked = true;
                             previousAssignmentType = 'multi';
                             
-                            // Popola lista utenti assegnati
+                            // Popola selectedMultiUsers (checkbox system)
+                            selectedMultiUsers.length = 0;
+                            multiAssignments.forEach(a => selectedMultiUsers.push(a.user_id));
+
+                            // Popola lista utenti assegnati (preview system)
                             if (window.multiUserAssignment) {
                                 window.multiUserAssignment.selectedUsers = multiAssignments.map(a => ({
                                     user_id: a.user_id,
@@ -3163,7 +3185,7 @@
                                 // Mostra badge utenti selezionati
                                 setTimeout(() => {
                                     window.multiUserAssignment.aggiornaListaSelezionati();
-                                }, 200);
+                                }, 400);
                             }
                         }
                     }
