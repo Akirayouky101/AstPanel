@@ -820,10 +820,6 @@ class TaskWizard {
                             <span class="font-medium">Ore stimate:</span> 
                             <span class="text-gray-700">${this.wizardData.ore_stimate || 0} h</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="font-medium">Costo stimato:</span> 
-                            <span class="text-gray-700">€${this.wizardData.costo_stimato || 0}</span>
-                        </div>
                         ${this.wizardData.indirizzo_lavoro ? `
                             <div class="flex justify-between">
                                 <span class="font-medium">Indirizzo:</span> 
