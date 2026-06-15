@@ -22,6 +22,7 @@
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -2417,7 +2418,7 @@
                 
             } catch (error) {
                 console.error('❌ [VIEW] Error:', error);
-                alert('Errore nel caricamento della lavorazione');
+                showNotification('Errore nel caricamento della lavorazione', 'error');
             }
         }
 
@@ -3001,7 +3002,7 @@
                                 });
                         }
                         
-                        alert('✅ Lavorazione aggiornata con successo!');
+                        showNotification('✅ Lavorazione aggiornata con successo!', 'success');
                         document.getElementById('edit-task-modal').remove();
                         
                         // Ricarica lista
@@ -3011,7 +3012,7 @@
                         
                     } catch (error) {
                         console.error('❌ [EDIT] Save error:', error);
-                        alert('❌ Errore durante il salvataggio: ' + error.message);
+                        showNotification('❌ Errore durante il salvataggio: ' + error.message, 'error');
                         const btn = document.getElementById('save-edit-btn');
                         btn.disabled = false;
                         btn.innerHTML = '💾 Salva Modifiche';
@@ -3022,7 +3023,7 @@
                 
             } catch (error) {
                 console.error('❌ [EDIT] Error:', error);
-                alert('Errore nell\'apertura della modale di modifica');
+                showNotification('Errore apertura modifica: ' + (e?.message || e), 'error');
             }
         }
 
@@ -3088,7 +3089,7 @@
                 await editTask(newTask.id);
             } catch (e) {
                 console.error('Errore duplicazione:', e);
-                alert('Errore durante la duplicazione: ' + (e.message || e));
+                showNotification('Errore durante la duplicazione: ' + (e.message || e), 'error');
             }
         }
 
@@ -3598,18 +3599,35 @@
         }
 
         function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-500' : 
-                           type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-            
-            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
+            // Remove any existing notification of same type to avoid stacking
+            document.querySelectorAll('.ast-toast').forEach(n => n.remove());
+
+            const configs = {
+                success: { bg: 'bg-green-500', icon: 'fa-check-circle', border: 'border-green-400' },
+                error:   { bg: 'bg-red-500',   icon: 'fa-times-circle',  border: 'border-red-400'   },
+                warning: { bg: 'bg-amber-500', icon: 'fa-exclamation-circle', border: 'border-amber-400' },
+                info:    { bg: 'bg-blue-500',  icon: 'fa-info-circle',   border: 'border-blue-400'  },
+            };
+            const cfg = configs[type] || configs.info;
+
+            const n = document.createElement('div');
+            n.className = `ast-toast fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border ${cfg.bg} ${cfg.border} text-white text-sm font-semibold max-w-sm`;
+            n.style.cssText = 'animation: slideInRight .25s ease; backdrop-filter: blur(4px);';
+            n.innerHTML = `
+                <i class="fas ${cfg.icon} text-lg flex-shrink-0"></i>
+                <span class="flex-1 leading-snug">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-1 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
+                    <i class="fas fa-times text-xs"></i>
+                </button>`;
+            document.body.appendChild(n);
+
+            // Auto-remove after 3.5s with fade out
             setTimeout(() => {
-                notification.remove();
-            }, 3000);
+                n.style.transition = 'opacity .4s, transform .4s';
+                n.style.opacity = '0';
+                n.style.transform = 'translateX(20px)';
+                setTimeout(() => n.remove(), 400);
+            }, 3500);
         }
 
         // Make tasks data available globally for user panel integration
@@ -4957,7 +4975,7 @@
                     
                     if (error) throw error;
                     
-                    alert('✅ Prodotto creato con successo!');
+                showNotification('✅ Prodotto creato con successo!', 'success');
                     closeWarehouseProductModal();
                     
                     // Aggiorna lista magazzino in memoria (se aperta dalla modal edit)
