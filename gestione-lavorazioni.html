@@ -3306,8 +3306,8 @@
 
                 // 4. Elimina task_assignments
                 await client.from('task_assignments').delete().eq('task_id', taskId);
-                // 5. Elimina task_components
-                await client.from('task_components').delete().eq('task_id', taskId).catch(() => {});
+                // 5. Elimina task_components (ignora errore se tabella non esiste)
+                try { await client.from('task_components').delete().eq('task_id', taskId); } catch (_) {}
                 // 6. Elimina task principale
                 const { error: delErr } = await client.from('tasks').delete().eq('id', taskId);
                 if (delErr) throw delErr;
