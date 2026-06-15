@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archivio Lavorazioni - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50" id="sidebar">
+        <div class="flex items-center justify-center h-16 gradient-bg">
+            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="home" class="w-5 h-5 mr-3"></i>Dashboard
+            </a>
+            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="users" class="w-5 h-5 mr-3"></i>Gestione Utenti
+            </a>
+            <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>Gestione Clienti
+            </a>
+            <a href="gestione-squadre.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="users-2" class="w-5 h-5 mr-3"></i>Gestione Squadre
+            </a>
+            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>Gestione Lavorazioni
+            </a>
+            <a href="archivio-lavorazioni.html" class="flex items-center px-6 py-3 bg-slate-50 text-slate-700 border-r-4 border-slate-500">
+                <i data-lucide="archive" class="w-5 h-5 mr-3"></i>Lavorazioni Archiviate
+            </a>
+            <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="package" class="w-5 h-5 mr-3"></i>Magazzino Prodotti
+            </a>
+            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>Gestione Richieste
+            </a>
+            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>Comunicazioni
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main -->
+    <div class="ml-64 p-8">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3">
+                    <i data-lucide="archive" class="w-8 h-8 text-slate-600"></i>
+                    Archivio Lavorazioni
+                </h2>
+                <p class="text-gray-500">Lavorazioni archiviate — snapshot completo, non collegate a squadre o dipendenti</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+            <div class="flex flex-wrap gap-3 items-center">
+                <div class="flex-1 min-w-56 relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <input type="text" id="searchArchivio" placeholder="Cerca per titolo, cliente..."
+                           oninput="filterArchivio()"
+                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none transition">
+                </div>
+                <div class="relative">
+                    <select id="filtroSquadra" onchange="filterArchivio()"
+                            class="appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 bg-gray-50 border-gray-200 text-gray-600 cursor-pointer outline-none">
+                        <option value="">Tutte le squadre</option>
+                    </select>
+                    <i data-lucide="users-2" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center"><i data-lucide="archive" class="w-5 h-5 text-slate-600"></i></div>
+                <div><p class="text-xs text-gray-500">Totale</p><p class="text-2xl font-bold text-gray-800" id="statTotale">0</p></div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i></div>
+                <div><p class="text-xs text-gray-500">Completate</p><p class="text-2xl font-bold text-green-700" id="statCompletate">0</p></div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><i data-lucide="users-2" class="w-5 h-5 text-blue-600"></i></div>
+                <div><p class="text-xs text-gray-500">Con squadra</p><p class="text-2xl font-bold text-blue-700" id="statSquadre">0</p></div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center"><i data-lucide="calendar" class="w-5 h-5 text-purple-600"></i></div>
+                <div><p class="text-xs text-gray-500">Questo mese</p><p class="text-2xl font-bold text-purple-700" id="statMese">0</p></div>
+            </div>
+        </div>
+
+        <!-- List -->
+        <div id="archivioList" class="space-y-3">
+            <div class="text-center py-16 text-gray-400">
+                <i data-lucide="loader" class="w-8 h-8 mx-auto mb-3 animate-spin"></i>
+                <p>Caricamento archivio...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-slate-600 to-gray-700 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-white font-bold text-lg" id="detailTitle">Dettaglio Archiviato</h3>
+                    <p class="text-slate-200 text-sm" id="detailDate"></p>
+                </div>
+                <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="text-white hover:text-slate-200">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div id="detailBody" class="overflow-y-auto flex-1 p-6 space-y-4"></div>
+            <div class="p-4 border-t flex justify-between items-center">
+                <button onclick="document.getElementById('detailModal').classList.add('hidden')"
+                        class="px-5 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm font-semibold">
+                    Chiudi
+                </button>
+                <button id="deleteArchiveBtn"
+                        class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Elimina definitivamente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let _archivioAll = [];
+        let _archivioFiltered = [];
+        let _currentDetailId = null;
+        const supabaseClient = window.supabaseClient || window.supabase;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await window.AuthHelper.requireLogin()) return;
+            lucide.createIcons();
+            await loadArchivio();
+        });
+
+        async function loadArchivio() {
+            try {
+                const client = window.supabaseAdmin || supabaseClient;
+                const { data, error } = await client
+                    .from('archivio_lavorazioni')
+                    .select('*')
+                    .order('archiviata_il', { ascending: false });
+
+                if (error) throw error;
+                _archivioAll = data || [];
+                populateSquadraFilter();
+                updateStats();
+                filterArchivio();
+            } catch (e) {
+                document.getElementById('archivioList').innerHTML = `
+                    <div class="text-center py-16 text-red-400">
+                        <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-3"></i>
+                        <p class="font-semibold">Errore caricamento</p>
+                        <p class="text-sm mt-1">${e.message}</p>
+                        ${e.message.includes('does not exist') ? '<p class="text-xs mt-2 text-gray-400">Esegui il file create-archivio-lavorazioni.sql su Supabase per creare la tabella.</p>' : ''}
+                    </div>`;
+                lucide.createIcons();
+            }
+        }
+
+        function populateSquadraFilter() {
+            const sel = document.getElementById('filtroSquadra');
+            const teams = [...new Set(_archivioAll.filter(a => a.assigned_team_nome).map(a => a.assigned_team_nome))].sort();
+            sel.innerHTML = '<option value="">Tutte le squadre</option>' +
+                teams.map(t => `<option value="${t}">${t}</option>`).join('');
+        }
+
+        function updateStats() {
+            const now = new Date();
+            document.getElementById('statTotale').textContent = _archivioAll.length;
+            document.getElementById('statCompletate').textContent = _archivioAll.filter(a => a.stato === 'completato').length;
+            document.getElementById('statSquadre').textContent = _archivioAll.filter(a => a.assigned_team_id).length;
+            document.getElementById('statMese').textContent = _archivioAll.filter(a => {
+                const d = new Date(a.archiviata_il);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            }).length;
+        }
+
+        function filterArchivio() {
+            const q = document.getElementById('searchArchivio').value.toLowerCase().trim();
+            const squad = document.getElementById('filtroSquadra').value;
+            _archivioFiltered = _archivioAll.filter(a => {
+                const matchQ = !q || (a.titolo || '').toLowerCase().includes(q) || (a.client_nome || '').toLowerCase().includes(q) || (a.descrizione || '').toLowerCase().includes(q);
+                const matchS = !squad || a.assigned_team_nome === squad;
+                return matchQ && matchS;
+            });
+            renderArchivio();
+        }
+
+        const statoColors = {
+            da_fare: 'bg-gray-100 text-gray-700', in_corso: 'bg-blue-100 text-blue-700',
+            revisione: 'bg-amber-100 text-amber-700', completato: 'bg-green-100 text-green-700',
+        };
+        const prioritaColors = {
+            alta: 'bg-red-100 text-red-700', media: 'bg-yellow-100 text-yellow-700', bassa: 'bg-green-100 text-green-700',
+        };
+
+        function renderArchivio() {
+            const container = document.getElementById('archivioList');
+            if (!_archivioFiltered.length) {
+                container.innerHTML = `<div class="text-center py-16 text-gray-400"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3"></i><p class="font-medium">Nessuna lavorazione archiviata</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+            container.innerHTML = _archivioFiltered.map(a => {
+                const statoCls = statoColors[a.stato] || 'bg-gray-100 text-gray-600';
+                const prioCls = prioritaColors[a.priorita] || 'bg-gray-100 text-gray-600';
+                const archDate = new Date(a.archiviata_il).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+                const scadenza = a.scadenza ? new Date(a.scadenza + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                const assegnati = (a.assegnazioni_snapshot || []).map(x => x.nome).join(', ') || a.assigned_user_nome || a.assigned_team_nome || '—';
+                return `
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all cursor-pointer fade-in"
+                     onclick="openDetail('${a.id}')">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-gray-900 text-base truncate">${a.titolo}</h3>
+                            <p class="text-sm text-gray-500 truncate mt-0.5">${a.client_nome || 'Nessun cliente'}</p>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statoCls}">${(a.stato || '').replace('_',' ')}</span>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${prioCls}">${a.priorita || '—'}</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+                        <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i>${assegnati}</span>
+                        <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5"></i>Scadenza: ${scadenza}</span>
+                        <span class="flex items-center gap-1 ml-auto text-slate-400"><i data-lucide="archive" class="w-3.5 h-3.5"></i>Archiviata il ${archDate}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openDetail(id) {
+            const a = _archivioAll.find(x => x.id === id);
+            if (!a) return;
+            _currentDetailId = id;
+
+            document.getElementById('detailTitle').textContent = a.titolo;
+            document.getElementById('detailDate').textContent = `Archiviata il ${new Date(a.archiviata_il).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+            const assegnazioni = (a.assegnazioni_snapshot || []);
+            const assegnazioniHTML = assegnazioni.length > 0
+                ? assegnazioni.map(x => `<div class="flex items-center gap-2 py-1">
+                    <div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">${(x.nome || 'U').charAt(0)}</div>
+                    <span class="text-sm font-medium text-gray-800">${x.nome}</span>
+                    <span class="text-xs text-gray-400">${x.ruolo || ''}</span>
+                    ${x.ore ? `<span class="ml-auto text-xs text-indigo-600 font-semibold">${x.ore}h</span>` : ''}
+                  </div>`).join('')
+                : a.assigned_team_nome
+                    ? `<p class="text-sm text-blue-700 font-semibold flex items-center gap-2"><i data-lucide="users-2" class="w-4 h-4"></i>${a.assigned_team_nome}</p>`
+                    : a.assigned_user_nome
+                        ? `<p class="text-sm text-gray-700">${a.assigned_user_nome}</p>`
+                        : '<p class="text-sm text-gray-400 italic">Nessun assegnato</p>';
+
+            document.getElementById('detailBody').innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Stato</p>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statoColors[a.stato] || 'bg-gray-100 text-gray-600'}">${(a.stato || '—').replace('_',' ')}</span>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Priorità</p>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${prioritaColors[a.priorita] || 'bg-gray-100 text-gray-600'}">${a.priorita || '—'}</span>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Cliente</p>
+                        <p class="text-sm font-semibold text-gray-800">${a.client_nome || '—'}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Scadenza originale</p>
+                        <p class="text-sm font-semibold text-gray-800">${a.scadenza ? new Date(a.scadenza + 'T12:00:00').toLocaleDateString('it-IT') : '—'}</p>
+                    </div>
+                    ${a.ore_stimate ? `<div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Ore stimate</p>
+                        <p class="text-sm font-semibold text-gray-800">${a.ore_stimate}h</p>
+                    </div>` : ''}
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs text-gray-500 mb-1">Progresso al momento dell'archiviazione</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <div class="flex-1 bg-gray-200 rounded-full h-2">
+                                <div class="bg-indigo-500 h-2 rounded-full" style="width:${a.progresso || 0}%"></div>
+                            </div>
+                            <span class="text-xs font-bold text-gray-700">${a.progresso || 0}%</span>
+                        </div>
+                    </div>
+                </div>
+                ${a.descrizione ? `<div class="bg-blue-50 rounded-xl p-4">
+                    <p class="text-xs text-blue-700 font-semibold mb-1">Descrizione</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">${a.descrizione}</p>
+                </div>` : ''}
+                <div class="bg-indigo-50 rounded-xl p-4">
+                    <p class="text-xs text-indigo-700 font-semibold mb-2">Assegnazione</p>
+                    ${assegnazioniHTML}
+                </div>
+            `;
+
+            document.getElementById('deleteArchiveBtn').onclick = () => deleteArchivedRecord(id);
+            document.getElementById('detailModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        async function deleteArchivedRecord(id) {
+            if (!confirm('Eliminare definitivamente questo record dall\'archivio?')) return;
+            try {
+                const { error } = await (window.supabaseAdmin || supabaseClient)
+                    .from('archivio_lavorazioni').delete().eq('id', id);
+                if (error) throw error;
+                document.getElementById('detailModal').classList.add('hidden');
+                _archivioAll = _archivioAll.filter(a => a.id !== id);
+                updateStats();
+                filterArchivio();
+            } catch (e) {
+                alert('Errore: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
