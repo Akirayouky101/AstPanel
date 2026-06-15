@@ -421,10 +421,18 @@
                         
                         <!-- Team Assignment -->
                         <div id="teamAssignment" class="assignment-section hidden">
-                            <select id="taskTeam" onchange="showTeamMembers()" class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
+                            <select id="taskTeam" class="hidden">
                                 <option value="">Seleziona squadra</option>
-                                <!-- Populated by JavaScript -->
                             </select>
+                            <button type="button" id="taskTeamPickerBtn" onclick="openTaskTeamPicker()"
+                                    class="group w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl hover:border-indigo-400 hover:from-indigo-100 hover:to-purple-100 transition-all">
+                                <i data-lucide="users-2" class="w-5 h-5 text-indigo-500 flex-shrink-0"></i>
+                                <span id="taskTeamPickerLabel" class="text-gray-400 text-sm group-hover:text-indigo-700 flex-1 text-left">Scegli squadra...</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-indigo-400 flex-shrink-0"></i>
+                            </button>
+                            <button type="button" id="taskTeamClearBtn" onclick="clearTaskTeam()" class="hidden mt-1.5 text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi squadra
+                            </button>
                             <div id="teamMembersPreview" class="mt-3 p-3 bg-purple-100 border border-purple-200 rounded-lg hidden">
                                 <p class="text-sm font-bold text-purple-800 mb-2">
                                     <i class="fas fa-users mr-2"></i>Membri della squadra:
@@ -1473,8 +1481,36 @@
 
         // ===== WIZARD SQUADRA PICKER =====
         let _wizardSquadreAllCache = [];
+        let _squadraPickerTarget = 'wizard'; // 'wizard' | 'task'
+
+        function openTaskTeamPicker() {
+            _squadraPickerTarget = 'task';
+            document.getElementById('wizardSquadraPickerModal').classList.remove('hidden');
+            document.getElementById('wizardSquadraSearch').value = '';
+            lucide.createIcons();
+            const cached = _wizardSquadreAllCache;
+            if (cached.length > 0) { renderWizardSquadraList(cached); return; }
+            (window.supabaseAdmin || window.supabaseClient)
+                .from('teams').select('*, team_members(user_id, users(nome, cognome))').order('nome')
+                .then(({ data }) => {
+                    _wizardSquadreAllCache = data || [];
+                    renderWizardSquadraList(_wizardSquadreAllCache);
+                }).catch(() => {
+                    document.getElementById('wizardSquadraPickerList').innerHTML =
+                        '<p class="p-6 text-center text-red-500 text-sm">Errore nel caricamento</p>';
+                });
+        }
+
+        function clearTaskTeam() {
+            document.getElementById('taskTeam').value = '';
+            const lbl = document.getElementById('taskTeamPickerLabel');
+            if (lbl) { lbl.textContent = 'Scegli squadra...'; lbl.className = 'text-gray-400 text-sm group-hover:text-indigo-700 flex-1 text-left'; }
+            document.getElementById('taskTeamClearBtn')?.classList.add('hidden');
+            document.getElementById('teamMembersPreview')?.classList.add('hidden');
+        }
 
         async function openWizardSquadraPicker() {
+            _squadraPickerTarget = 'wizard';
             document.getElementById('wizardSquadraPickerModal').classList.remove('hidden');
             document.getElementById('wizardSquadraSearch').value = '';
             lucide.createIcons();
@@ -1529,6 +1565,30 @@
         async function selectWizardSquadra(id) {
             const s = _wizardSquadreAllCache.find(x => x.id === id);
             const nome = s?.nome || 'Squadra';
+
+            if (_squadraPickerTarget === 'task') {
+                // Scrivi sul select hidden del taskModal
+                const sel = document.getElementById('taskTeam');
+                if (sel) {
+                    // Aggiungi/aggiorna opzione
+                    let opt = sel.querySelector(`option[value="${id}"]`);
+                    if (!opt) { opt = new Option(nome, id); sel.appendChild(opt); }
+                    sel.value = id;
+                }
+                // Aggiorna label bottone
+                const lbl = document.getElementById('taskTeamPickerLabel');
+                if (lbl) {
+                    lbl.innerHTML = `<i data-lucide="users-2" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-indigo-800 font-semibold">${nome}</span>`;
+                }
+                document.getElementById('taskTeamClearBtn')?.classList.remove('hidden');
+                closeWizardSquadraPicker();
+                lucide.createIcons();
+                // Mostra preview membri
+                showTeamMembers();
+                return;
+            }
+
+            // Target wizard (comportamento originale)
             document.getElementById('wizard-squadra-select').value = id;
             const lbl = document.getElementById('wizardSquadraPickerLabel');
             lbl.innerHTML = `<i data-lucide="users" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
@@ -3429,7 +3489,14 @@
                         previousAssignmentType = 'team';
                         if (taskTeamSelect) {
                             taskTeamSelect.value = task.assigned_team_id;
-                            console.log('✅ Team assignment set:', task.assigned_team_id);
+                            // Aggiorna label picker bottone
+                            const teamNome = task.team_name || task.assigned_team_nome || '';
+                            if (teamNome) {
+                                const lbl = document.getElementById('taskTeamPickerLabel');
+                                if (lbl) lbl.innerHTML = `<i data-lucide="users-2" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-indigo-800 font-semibold">${teamNome}</span>`;
+                                document.getElementById('taskTeamClearBtn')?.classList.remove('hidden');
+                                lucide.createIcons();
+                            }
                         }
                         // Call showTeamMembers after a brief delay to ensure DOM is ready
                         setTimeout(() => showTeamMembers(), 100);
@@ -3528,6 +3595,18 @@
                 } else {
                     deadlineBtn.removeAttribute('disabled');
                     deadlineBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                }
+            }
+
+            // Lock/unlock team picker button
+            const teamPickerBtn = document.getElementById('taskTeamPickerBtn');
+            if (teamPickerBtn) {
+                if (lock) {
+                    teamPickerBtn.setAttribute('disabled', 'disabled');
+                    teamPickerBtn.classList.add('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+                } else {
+                    teamPickerBtn.removeAttribute('disabled');
+                    teamPickerBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
                 }
             }
             
