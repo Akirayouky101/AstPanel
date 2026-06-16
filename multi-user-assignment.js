@@ -427,13 +427,13 @@ class MultiUserAssignment {
         }, 3000);
     }
 
-    async salvaAssegnazioni(taskId, users) {
+    async salvaAssegnazioni(taskId, users, oreTask = 0) {
         try {
             const assignments = users.map(user => ({
                 task_id: taskId,
                 user_id: user.user_id,
                 ruolo_assegnazione: user.ruolo_assegnazione || 'membro',
-                ore_assegnate: 0
+                ore_assegnate: user.ore_assegnate || oreTask || 0
             }));
 
             const { error } = await supabaseClient

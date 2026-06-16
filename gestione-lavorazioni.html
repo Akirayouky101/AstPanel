@@ -3346,11 +3346,12 @@
                             
                             if (selectedUserIds.length > 0) {
                                 // assigned_user_id già impostato nel primo UPDATE con selectedUserIds[0]
+                                const orePerUtente = parseFloat(document.getElementById('edit-ore').value) || 0;
                                 const assignments = selectedUserIds.map(userId => ({
                                     task_id: taskId,
                                     user_id: userId,
                                     ruolo_assegnazione: 'membro',
-                                    ore_assegnate: 0
+                                    ore_assegnate: orePerUtente
                                 }));
                                 
                                 const { error: assignError } = await supabaseClient
@@ -3978,7 +3979,8 @@
                     if (taskId && window.multiUserAssignment) {
                         const assignResult = await window.multiUserAssignment.salvaAssegnazioni(
                             taskId,
-                            selectedMultiUsers
+                            selectedMultiUsers,
+                            taskData.ore_stimate || 0
                         );
                         
                         if (!assignResult.success) {

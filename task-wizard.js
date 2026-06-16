@@ -1134,7 +1134,8 @@ class TaskWizard {
                 
                 const assignResult = await window.multiUserAssignment.salvaAssegnazioni(
                     task.id,
-                    this.wizardData.assigned_users
+                    this.wizardData.assigned_users,
+                    this.wizardData.ore_stimate || 0
                 );
                 
                 if (!assignResult.success) {
