@@ -625,6 +625,31 @@
                             </div>
                         </div>
                         ` : ''}
+
+                        <!-- Orari intervento - modificabili dal dipendente -->
+                        <div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:2px solid #a5b4fc;border-radius:16px;padding:12px">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                                <span style="font-size:16px">⏰</span>
+                                <span style="font-size:12px;font-weight:700;color:#3730a3">Orari Intervento</span>
+                                <span style="font-size:10px;color:#6366f1;margin-left:auto">modificabile</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                                <div>
+                                    <label style="font-size:11px;color:#4f46e5;font-weight:600;display:block;margin-bottom:4px">Ora Inizio</label>
+                                    <input type="time" id="mobile-ora-inizio-${taskId}" value="${task.ora_inizio || ''}"
+                                           style="width:100%;padding:8px;border:2px solid #a5b4fc;border-radius:8px;font-size:14px;outline:none;background:white">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;color:#4f46e5;font-weight:600;display:block;margin-bottom:4px">Ora Fine</label>
+                                    <input type="time" id="mobile-ora-fine-${taskId}" value="${task.ora_fine || ''}"
+                                           style="width:100%;padding:8px;border:2px solid #a5b4fc;border-radius:8px;font-size:14px;outline:none;background:white">
+                                </div>
+                            </div>
+                            <button onclick="salvaOrariTask('${taskId}')"
+                                    style="width:100%;padding:8px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+                                💾 Salva Orari
+                            </button>
+                        </div>
                         
                         <!-- Descrizione - GRIGIO CHIARO -->
                         <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-3">
@@ -659,6 +684,24 @@
         }
         
         // Helper functions for formatting
+        async function salvaOrariTask(taskId) {
+            const oraInizio = document.getElementById(`mobile-ora-inizio-${taskId}`)?.value || null;
+            const oraFine = document.getElementById(`mobile-ora-fine-${taskId}`)?.value || null;
+            try {
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .update({ ora_inizio: oraInizio || null, ora_fine: oraFine || null })
+                    .eq('id', taskId);
+                if (error) throw error;
+                // Feedback visivo
+                const btn = document.querySelector(`[onclick="salvaOrariTask('${taskId}')"]`);
+                if (btn) { btn.textContent = '✅ Salvato!'; setTimeout(() => { btn.textContent = '💾 Salva Orari'; }, 2000); }
+            } catch (err) {
+                console.error('Errore salvataggio orari:', err);
+                alert('Errore nel salvataggio degli orari');
+            }
+        }
+
         function getPriorityEmoji(priority) {
             const emojis = {
                 'alta': '⚠️',

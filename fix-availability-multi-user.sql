@@ -35,20 +35,27 @@ BEGIN
             COALESCE(SUM(t.ore_stimate), 0) as ore_totali
         FROM users u
         LEFT JOIN tasks t ON t.assigned_user_id = u.id
-            AND t.stato NOT IN ('completata', 'annullata', 'completato', 'annullato')
+            AND t.stato NOT IN ('annullata', 'annullato')
+            AND (
+                t.stato NOT IN ('completata', 'completato')
+                OR COALESCE(t.scadenza, CURRENT_DATE) >= date_trunc('week', CURRENT_DATE)
+            )
         GROUP BY u.id
     ),
     -- Task assegnati via task_assignments (multi-utente)
     task_multi AS (
         SELECT
-            u.id as user_id,
+            ta.user_id,
             COUNT(DISTINCT ta.task_id) as task_count,
-            COALESCE(SUM(COALESCE(ta.ore_assegnate, t.ore_stimate, 0)), 0) as ore_totali
-        FROM users u
-        LEFT JOIN task_assignments ta ON ta.user_id = u.id
-        LEFT JOIN tasks t ON ta.task_id = t.id
-            AND t.stato NOT IN ('completata', 'annullata', 'completato', 'annullato')
-        GROUP BY u.id
+            COALESCE(SUM(COALESCE(NULLIF(ta.ore_assegnate, 0), t.ore_stimate, 0)), 0) as ore_totali
+        FROM task_assignments ta
+        JOIN tasks t ON ta.task_id = t.id
+        WHERE t.stato NOT IN ('annullata', 'annullato')
+          AND (
+              t.stato NOT IN ('completata', 'completato')
+              OR COALESCE(t.scadenza, CURRENT_DATE) >= date_trunc('week', CURRENT_DATE)
+          )
+        GROUP BY ta.user_id
     ),
     carico_corrente AS (
         SELECT
@@ -168,14 +175,22 @@ BEGIN
         SELECT COUNT(t.id) as cnt, COALESCE(SUM(t.ore_stimate), 0) as ore
         FROM tasks t
         WHERE t.assigned_user_id = p_user_id
-          AND t.stato NOT IN ('completata', 'annullata', 'completato', 'annullato')
+          AND t.stato NOT IN ('annullata', 'annullato')
+          AND (
+              t.stato NOT IN ('completata', 'completato')
+              OR COALESCE(t.scadenza, CURRENT_DATE) >= date_trunc('week', CURRENT_DATE)
+          )
     ),
     task_multi AS (
-        SELECT COUNT(DISTINCT ta.task_id) as cnt, COALESCE(SUM(COALESCE(ta.ore_assegnate, t.ore_stimate, 0)), 0) as ore
+        SELECT COUNT(DISTINCT ta.task_id) as cnt, COALESCE(SUM(COALESCE(NULLIF(ta.ore_assegnate, 0), t.ore_stimate, 0)), 0) as ore
         FROM task_assignments ta
-        JOIN tasks t ON ta.task_id = t.id
+        INNER JOIN tasks t ON ta.task_id = t.id
         WHERE ta.user_id = p_user_id
-          AND t.stato NOT IN ('completata', 'annullata', 'completato', 'annullato')
+          AND t.stato NOT IN ('annullata', 'annullato')
+          AND (
+              t.stato NOT IN ('completata', 'completato')
+              OR COALESCE(t.scadenza, CURRENT_DATE) >= date_trunc('week', CURRENT_DATE)
+          )
     )
     SELECT
         p_user_id,
