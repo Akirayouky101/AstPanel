@@ -65,6 +65,28 @@ window.ClientModal = {
             } catch(e) { console.error('❌ [ClientModal] Errore caricamento condomini:', e); }
         }
 
+        // Carica scuole se tipo è comune
+        let scuoleSection = '';
+        if (client.tipoCliente === 'comune') {
+            try {
+                const allCl = await window.dataManager.getClienti();
+                const scuole = allCl.filter(c => String(c.comune_id) === String(clientId));
+                scuoleSection = '<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #fde047;border-radius:12px;padding:12px;margin-bottom:4px">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+                    + '<div style="width:30px;height:30px;background:linear-gradient(135deg,#ca8a04,#d97706);border-radius:8px;display:flex;align-items:center;justify-content:center">'
+                    + '<i class="fas fa-school" style="color:white;font-size:11px"></i></div>'
+                    + '<p style="font-weight:700;color:#1f2937;font-size:13px">Scuole (' + scuole.length + ')</p></div>'
+                    + (scuole.length === 0 ? '<p style="color:#6b7280;font-size:12px;padding:0 4px">Nessuna scuola associata a questo comune</p>' :
+                       scuole.map(function(c) {
+                           return '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #fde047">'
+                               + '<div style="font-weight:600;color:#1f2937;font-size:13px">' + (c.ragione_sociale || 'N/A') + '</div>'
+                               + (c.indirizzo ? '<div style="font-size:11px;color:#6b7280">' + c.indirizzo + '</div>' : '')
+                               + '</div>';
+                       }).join(''))
+                    + '</div>';
+            } catch(e) { console.error('❌ [ClientModal] Errore caricamento scuole:', e); }
+        }
+
         // Create modal HTML
         const modalHTML = `
             <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" onclick="if(event.target === this) window.ClientModal.close()">
@@ -193,6 +215,8 @@ window.ClientModal = {
                         ` : ''}
 
                         ${condominiiSection}
+
+                        ${scuoleSection}
                     </div>
 
                     <!-- Footer -->

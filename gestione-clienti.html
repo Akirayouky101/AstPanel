@@ -115,6 +115,7 @@
                         <button onclick="setClientFilter('type','associazione')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-orange-300 transition-all"><i class="fas fa-users mr-1 text-xs"></i>Associazione</button>
                         <button onclick="setClientFilter('type','comune')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-red-300 transition-all"><i class="fas fa-landmark mr-1 text-xs"></i>Comune</button>
                         <button onclick="setClientFilter('type','amministratore_condominio')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-indigo-300 transition-all"><i class="fas fa-user-tie mr-1 text-xs"></i>Amm. Condominio</button>
+                        <button onclick="setClientFilter('type','scuola')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-yellow-300 transition-all"><i class="fas fa-school mr-1 text-xs"></i>Scuola</button>
                     </div>
                 </div>
             </div>
@@ -190,6 +191,13 @@
                             <div class="flex flex-col items-center flex-1">
                                 <i class="fas fa-user-tie text-indigo-600 text-xl mb-1"></i>
                                 <span class="text-xs font-medium">Amm. Condominio</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-yellow-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="scuola" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-school text-yellow-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Scuola</span>
                             </div>
                         </label>
                     </div>
@@ -294,6 +302,75 @@
                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                            placeholder="amministratore@pec.it">
                                 </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Campi Comune (per scuole) -->
+                <div id="scuolaComuneFields" class="hidden space-y-3 mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 class="font-semibold text-yellow-900 flex items-center">
+                        <i class="fas fa-landmark mr-2"></i>
+                        Comune di Riferimento
+                    </h4>
+                    <input type="hidden" id="comuneId">
+
+                    <!-- Card comune selezionato -->
+                    <div id="comuneSelectedDisplay" style="display:none;background:#fff;border:2px solid #d97706;border-radius:10px;padding:12px">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div style="width:38px;height:38px;background:linear-gradient(135deg,#d97706,#b45309);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="fas fa-landmark" style="color:white;font-size:14px"></i>
+                                </div>
+                                <div>
+                                    <div id="comuneSelectedName" style="font-weight:700;color:#1f2937;font-size:14px"></div>
+                                    <div id="comuneSelectedSub" style="font-size:12px;color:#6b7280"></div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="clearComune()" style="padding:5px 12px;border:1px solid #d97706;border-radius:8px;color:#d97706;font-size:12px;font-weight:600;cursor:pointer;background:transparent">
+                                <i class="fas fa-exchange-alt" style="margin-right:4px"></i>Cambia
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cerca comune -->
+                    <div id="comunePickerSection">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cerca Comune</label>
+                        <div style="position:relative">
+                            <input type="text" id="nomeComuneSearch" autocomplete="off"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                   placeholder="Digita il nome del comune..."
+                                   oninput="comuneAutocomplete(this.value)" onblur="setTimeout(()=>hideComuneDropdown(),200)">
+                            <div id="comuneDropdown" style="display:none;position:absolute;z-index:9999;top:100%;left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto"></div>
+                        </div>
+                        <p style="font-size:11px;color:#d97706;margin-top:4px"><i class="fas fa-info-circle" style="margin-right:3px"></i>Cerca tra i clienti di tipo "Comune"</p>
+                    </div>
+
+                    <!-- Dati contatto manuale (collassabili) -->
+                    <details id="comuneManualDetails">
+                        <summary style="cursor:pointer;color:#d97706;font-size:13px;font-weight:600;padding:4px 0;list-style:none;display:flex;align-items:center;gap:6px">
+                            <i class="fas fa-pencil-alt" style="font-size:11px"></i> Inserisci dati contatto manualmente
+                        </summary>
+                        <div style="margin-top:10px" class="space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Telefono *</label>
+                                    <input type="tel" id="telefonoComuneRef"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                           placeholder="+39 123 4567890">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                    <input type="email" id="emailComuneRef"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                           placeholder="comune@email.it">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">PEC</label>
+                                <input type="email" id="pecComuneRef"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                       placeholder="comune@pec.it">
                             </div>
                         </div>
                     </details>
@@ -517,6 +594,65 @@
             if (picker) picker.style.display = '';
         }
 
+        function comuneAutocomplete(val) {
+            const dropdown = document.getElementById('comuneDropdown');
+            if (!val || val.length < 2) { dropdown.style.display = 'none'; return; }
+            const q = val.toLowerCase();
+            const comuniPool = allClientsCache.filter(c => c.tipo_cliente === 'comune');
+            const pool = comuniPool.length > 0 ? comuniPool : allClientsCache;
+            const matches = pool.filter(c => {
+                const rs = (c.ragione_sociale || c.nome || '').toLowerCase();
+                return rs.includes(q);
+            }).slice(0, 8);
+            if (!matches.length) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matches.map(c => {
+                const label = c.ragione_sociale || c.nome || 'Comune';
+                const sub = [c.telefono, c.email].filter(Boolean).join(' · ');
+                return `<div onclick="comuneFill('${c.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f4f6" onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='#fff'">
+                    <div style="font-weight:600;color:#1f2937">${label}</div>
+                    ${sub ? `<div style="font-size:12px;color:#6b7280">${sub}</div>` : ''}
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function hideComuneDropdown() {
+            const d = document.getElementById('comuneDropdown');
+            if (d) d.style.display = 'none';
+        }
+
+        function comuneFill(clientId) {
+            const c = allClientsCache.find(x => x.id === clientId);
+            if (!c) return;
+            document.getElementById('nomeComuneSearch').value = c.ragione_sociale || c.nome || '';
+            document.getElementById('telefonoComuneRef').value = c.telefono || '';
+            document.getElementById('emailComuneRef').value = c.email || '';
+            document.getElementById('pecComuneRef').value = c.pec || '';
+            hideComuneDropdown();
+            document.getElementById('comuneId').value = c.id;
+            document.getElementById('comuneSelectedName').textContent = c.ragione_sociale || c.nome || 'Comune';
+            document.getElementById('comuneSelectedSub').textContent = [c.telefono, c.email].filter(Boolean).join(' · ');
+            document.getElementById('comuneSelectedDisplay').style.display = 'block';
+            document.getElementById('comunePickerSection').style.display = 'none';
+        }
+
+        function clearComune() {
+            const comuneId = document.getElementById('comuneId');
+            if (comuneId) comuneId.value = '';
+            const searchEl = document.getElementById('nomeComuneSearch');
+            if (searchEl) searchEl.value = '';
+            const telEl = document.getElementById('telefonoComuneRef');
+            if (telEl) telEl.value = '';
+            const emailEl = document.getElementById('emailComuneRef');
+            if (emailEl) emailEl.value = '';
+            const pecEl = document.getElementById('pecComuneRef');
+            if (pecEl) pecEl.value = '';
+            const disp = document.getElementById('comuneSelectedDisplay');
+            if (disp) disp.style.display = 'none';
+            const picker = document.getElementById('comunePickerSection');
+            if (picker) picker.style.display = '';
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             loadClients();
@@ -566,13 +702,15 @@
                         tipo === 'condominio' ? 'bg-purple-100 text-purple-700' :
                         tipo === 'associazione' ? 'bg-orange-100 text-orange-700' :
                         tipo === 'comune' ? 'bg-red-100 text-red-700' :
-                        tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700';
+                        tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' :
+                        tipo === 'scuola' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700';
                     const tipoIcon = tipo === 'azienda' ? 'fa-building' :
                         tipo === 'privato' ? 'fa-user' :
                         tipo === 'condominio' ? 'fa-building-user' :
                         tipo === 'associazione' ? 'fa-users' :
                         tipo === 'comune' ? 'fa-landmark' :
-                        tipo === 'amministratore_condominio' ? 'fa-user-tie' : 'fa-question';
+                        tipo === 'amministratore_condominio' ? 'fa-user-tie' :
+                        tipo === 'scuola' ? 'fa-school' : 'fa-question';
                     const tipoLabel = tipo === 'amministratore_condominio' ? 'Amm. Condominio' : tipo.charAt(0).toUpperCase() + tipo.slice(1);
                     const nome = client.ragione_sociale || client.ragioneSociale || 'N/A';
                     const iniziale = nome.charAt(0).toUpperCase();
@@ -683,8 +821,8 @@
             }
             tbody.innerHTML = filtered.map(client => {
                 const tipo = client.tipo_cliente || client.tipoCliente || 'privato';
-                const tipoBadgeClass = tipo === 'azienda' ? 'bg-blue-100 text-blue-700' : tipo === 'privato' ? 'bg-green-100 text-green-700' : tipo === 'condominio' ? 'bg-purple-100 text-purple-700' : tipo === 'associazione' ? 'bg-orange-100 text-orange-700' : tipo === 'comune' ? 'bg-red-100 text-red-700' : tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700';
-                const tipoIcon = tipo === 'azienda' ? 'fa-building' : tipo === 'privato' ? 'fa-user' : tipo === 'condominio' ? 'fa-building-user' : tipo === 'associazione' ? 'fa-users' : tipo === 'comune' ? 'fa-landmark' : tipo === 'amministratore_condominio' ? 'fa-user-tie' : 'fa-question';
+                const tipoBadgeClass = tipo === 'azienda' ? 'bg-blue-100 text-blue-700' : tipo === 'privato' ? 'bg-green-100 text-green-700' : tipo === 'condominio' ? 'bg-purple-100 text-purple-700' : tipo === 'associazione' ? 'bg-orange-100 text-orange-700' : tipo === 'comune' ? 'bg-red-100 text-red-700' : tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' : tipo === 'scuola' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700';
+                const tipoIcon = tipo === 'azienda' ? 'fa-building' : tipo === 'privato' ? 'fa-user' : tipo === 'condominio' ? 'fa-building-user' : tipo === 'associazione' ? 'fa-users' : tipo === 'comune' ? 'fa-landmark' : tipo === 'amministratore_condominio' ? 'fa-user-tie' : tipo === 'scuola' ? 'fa-school' : 'fa-question';
                 const tipoLabel2 = tipo === 'amministratore_condominio' ? 'Amm. Condominio' : tipo.charAt(0).toUpperCase() + tipo.slice(1);
                 const nome = client.ragione_sociale || client.ragioneSociale || 'N/A';
                 return `
@@ -768,6 +906,21 @@
                         }
                     }
 
+                    // Scuola: carica comune di riferimento
+                    if (client.tipo_cliente === 'scuola') {
+                        if (client.comune_id) {
+                            comuneFill(client.comune_id);
+                        } else {
+                            document.getElementById('telefonoComuneRef').value = client.telefono || '';
+                            document.getElementById('emailComuneRef').value = client.email || '';
+                            document.getElementById('pecComuneRef').value = client.pec || '';
+                            if (client.telefono) {
+                                const det = document.getElementById('comuneManualDetails');
+                                if (det) det.open = true;
+                            }
+                        }
+                    }
+
                     // Set map marker
                     if (client.latitudine && client.longitudine) {
                         setTimeout(() => {
@@ -797,6 +950,7 @@
             document.getElementById('clientForm').reset();
             editingClientId = null;
             clearAmm();
+            clearComune();
             if (map) {
                 map.remove();
                 map = null;
@@ -875,6 +1029,7 @@
             const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
             const referenteFields = document.getElementById('referenteFields');
             const amministratoreFields = document.getElementById('amministratoreFields');
+            const scuolaComuneFields = document.getElementById('scuolaComuneFields');
             const labelRagioneSociale = document.getElementById('labelRagioneSociale');
             
             // Update label based on type
@@ -884,17 +1039,19 @@
                 'condominio': 'Nome Condominio *',
                 'associazione': 'Nome Associazione *',
                 'comune': 'Nome Comune *',
-                'amministratore_condominio': 'Studio / Ragione Sociale *'
+                'amministratore_condominio': 'Studio / Ragione Sociale *',
+                'scuola': 'Nome Scuola / Istituto *'
             };
             labelRagioneSociale.textContent = labels[tipoCliente] || 'Ragione Sociale *';
 
-            // Reset selezione amministratore se si cambia tipo
+            // Reset selezione se si cambia tipo
             if (tipoCliente !== 'condominio') clearAmm();
+            if (tipoCliente !== 'scuola') clearComune();
 
-            // Nascondi contatti per condominio (usa quelli dell'amministratore)
+            // Nascondi contatti per condominio/scuola (usa quelli del comune/amministratore)
             const contattiFields = document.getElementById('contattiFields');
             if (contattiFields) {
-                if (tipoCliente === 'condominio') {
+                if (tipoCliente === 'condominio' || tipoCliente === 'scuola') {
                     contattiFields.style.display = 'none';
                     document.getElementById('telefono').removeAttribute('required');
                     document.getElementById('email').removeAttribute('required');
@@ -905,11 +1062,11 @@
                 }
             }
 
-            // Show/hide fields based on type
+            // Show/hide sections based on type
             if (tipoCliente === 'amministratore_condominio') {
-                // Mostra referente (nome/cognome dell'amministratore)
                 referenteFields.classList.remove('hidden');
                 amministratoreFields.classList.add('hidden');
+                if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 document.getElementById('referenteFields').querySelector('label').textContent = 'Nome Amministratore *';
                 document.getElementById('nome').setAttribute('required', 'required');
                 document.getElementById('cognome').setAttribute('required', 'required');
@@ -920,18 +1077,27 @@
             } else if (tipoCliente === 'condominio') {
                 referenteFields.classList.add('hidden');
                 amministratoreFields.classList.remove('hidden');
-                // Make admin fields required
+                if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 document.getElementById('nomeAmministratore').setAttribute('required', 'required');
                 document.getElementById('cognomeAmministratore').setAttribute('required', 'required');
                 document.getElementById('telefonoAmministratore').setAttribute('required', 'required');
                 document.getElementById('emailAmministratore').setAttribute('required', 'required');
-                // Remove required from referente
                 document.getElementById('nome').removeAttribute('required');
                 document.getElementById('cognome').removeAttribute('required');
+            } else if (tipoCliente === 'scuola') {
+                referenteFields.classList.add('hidden');
+                amministratoreFields.classList.add('hidden');
+                if (scuolaComuneFields) scuolaComuneFields.classList.remove('hidden');
+                document.getElementById('nome').removeAttribute('required');
+                document.getElementById('cognome').removeAttribute('required');
+                document.getElementById('nomeAmministratore').removeAttribute('required');
+                document.getElementById('cognomeAmministratore').removeAttribute('required');
+                document.getElementById('telefonoAmministratore').removeAttribute('required');
+                document.getElementById('emailAmministratore').removeAttribute('required');
             } else if (tipoCliente === 'privato') {
                 referenteFields.classList.add('hidden');
                 amministratoreFields.classList.add('hidden');
-                // Remove all required
+                if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 document.getElementById('nome').removeAttribute('required');
                 document.getElementById('cognome').removeAttribute('required');
                 document.getElementById('nomeAmministratore').removeAttribute('required');
@@ -939,13 +1105,12 @@
                 document.getElementById('telefonoAmministratore').removeAttribute('required');
                 document.getElementById('emailAmministratore').removeAttribute('required');
             } else {
-                // azienda, associazione, comune - show referente
+                // azienda, associazione, comune
                 referenteFields.classList.remove('hidden');
                 amministratoreFields.classList.add('hidden');
-                // Make referente required
+                if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 document.getElementById('nome').setAttribute('required', 'required');
                 document.getElementById('cognome').setAttribute('required', 'required');
-                // Remove admin required
                 document.getElementById('nomeAmministratore').removeAttribute('required');
                 document.getElementById('cognomeAmministratore').removeAttribute('required');
                 document.getElementById('telefonoAmministratore').removeAttribute('required');
@@ -1004,6 +1169,14 @@
                     // l'amministratore è la persona stessa: salva come nome/cognome
                     clientData.nome = document.getElementById('nome').value || '';
                     clientData.cognome = document.getElementById('cognome').value || '';
+                } else if (tipoCliente === 'scuola') {
+                    clientData.comune_id = document.getElementById('comuneId').value || null;
+                    // Usa i contatti del comune come contatti della scuola
+                    clientData.telefono = document.getElementById('telefonoComuneRef').value || '';
+                    clientData.email = document.getElementById('emailComuneRef').value || '';
+                    if (document.getElementById('pecComuneRef').value) {
+                        clientData.pec = document.getElementById('pecComuneRef').value;
+                    }
                 } else {
                     // azienda, associazione, comune
                     clientData.nome_referente = document.getElementById('nome').value;
