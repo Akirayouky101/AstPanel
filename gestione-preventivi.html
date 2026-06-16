@@ -237,6 +237,26 @@
     </div>
 
     <!-- Modal Nuovo/Modifica Preventivo -->
+    <!-- ── Toast notifica ── -->
+    <div id="astToast" style="display:none;position:fixed;bottom:28px;right:28px;z-index:9999;min-width:260px;max-width:380px;background:#1f2937;color:#fff;border-radius:14px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,.22);display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;transition:opacity .3s;pointer-events:none;opacity:0">
+        <span id="astToastIcon" style="font-size:18px;flex-shrink:0"></span>
+        <span id="astToastMsg" style="flex:1;line-height:1.4"></span>
+    </div>
+
+    <!-- ── Confirm dialog custom ── -->
+    <div id="astConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:18px;padding:28px 28px 22px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);text-align:center">
+            <div id="astConfirmIcon" style="font-size:36px;margin-bottom:12px"></div>
+            <h3 id="astConfirmTitle" style="font-size:16px;font-weight:800;color:#1f2937;margin-bottom:8px"></h3>
+            <p id="astConfirmMsg" style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:22px"></p>
+            <div style="display:flex;gap:10px;justify-content:center">
+                <button id="astConfirmCancel" style="padding:10px 24px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">Annulla</button>
+                <button id="astConfirmOk" style="padding:10px 24px;border:none;border-radius:10px;background:linear-gradient(135deg,#6d28d9,#4f46e5);color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuovo/Modifica Preventivo -->
     <div id="preventivoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 p-4 overflow-y-auto no-print backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl w-full my-6" style="max-width:960px;overflow:hidden">
 
@@ -341,9 +361,14 @@
                 <div class="sc mb14">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
                         <div class="sc-title" style="margin-bottom:0"><i class="fas fa-boxes"></i> Prodotti / Servizi</div>
-                        <button onclick="aggiungiProdotto()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:.1px;box-shadow:0 2px 8px rgba(124,58,237,.3)">
-                            <i class="fas fa-plus" style="font-size:11px"></i> Aggiungi dal Magazzino
-                        </button>
+                        <div style="display:flex;gap:8px">
+                            <button onclick="aggiungiManodopera()" style="background:#fff;color:#6d28d9;border:1.5px solid #7c3aed;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">
+                                <i class="fas fa-hard-hat" style="font-size:12px"></i> Manodopera
+                            </button>
+                            <button onclick="aggiungiProdotto()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:.1px;box-shadow:0 2px 8px rgba(124,58,237,.3)">
+                                <i class="fas fa-plus" style="font-size:11px"></i> Aggiungi dal Magazzino
+                            </button>
+                        </div>
                     </div>
                     <div style="overflow-x:auto;border-radius:11px;border:1.5px solid #ede9fe">
                         <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -517,7 +542,7 @@
                 updateStats();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('Errore nel caricamento: ' + error.message);
+                showToast('Errore nel caricamento: ' + error.message, 'error');
             }
         }
 
@@ -726,6 +751,64 @@
         }
 
         // Aggiungi prodotto
+        // ── Notifiche custom (sostituiscono alert/confirm browser) ──
+        let _toastTimer = null;
+        function showToast(msg, type = 'success') {
+            const el = document.getElementById('astToast');
+            const icon = document.getElementById('astToastIcon');
+            const msgEl = document.getElementById('astToastMsg');
+            const colors = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#6366f1' };
+            const icons  = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+            el.style.background = type === 'error' ? '#1f2937' : '#1f2937';
+            el.style.borderLeft = `4px solid ${colors[type]||colors.info}`;
+            icon.textContent = icons[type]||icons.info;
+            msgEl.textContent = msg;
+            el.style.display = 'flex';
+            requestAnimationFrame(() => { el.style.opacity = '1'; });
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => { el.style.display = 'none'; }, 320);
+            }, 3500);
+        }
+
+        function showConfirm(title, msg, icon = '🗑️', okLabel = 'Conferma', okDanger = true) {
+            return new Promise(resolve => {
+                document.getElementById('astConfirmIcon').textContent = icon;
+                document.getElementById('astConfirmTitle').textContent = title;
+                document.getElementById('astConfirmMsg').textContent = msg;
+                const okBtn = document.getElementById('astConfirmOk');
+                okBtn.textContent = okLabel;
+                okBtn.style.background = okDanger
+                    ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
+                    : 'linear-gradient(135deg,#6d28d9,#4f46e5)';
+                const el = document.getElementById('astConfirm');
+                el.style.display = 'flex';
+                const cleanup = () => { el.style.display = 'none'; };
+                okBtn.onclick = () => { cleanup(); resolve(true); };
+                document.getElementById('astConfirmCancel').onclick = () => { cleanup(); resolve(false); };
+            });
+        }
+
+        // ── Aggiungi riga Manodopera manuale ──
+        function aggiungiManodopera() {
+            currentItems.push({
+                prodotto_id: null,
+                codice: 'MAN',
+                descrizione: 'Manodopera',
+                um: 'ore',
+                quantita: 1,
+                giacenza: 999,
+                prezzo_acquisto: 0,
+                ricarico_percentuale: 0,
+                prezzo_unitario: 0,
+                sconto_percentuale: 0,
+                importo: 0
+            });
+            renderProdottiTable();
+            calcolaTotali();
+        }
+
         function aggiungiProdotto() {
             currentProdottoIndex = null;
             renderProdottiMagazzino();
@@ -845,76 +928,110 @@
             if (currentItems.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="px-3 py-8 text-center text-gray-500">
-                            Nessun prodotto aggiunto. Clicca "Aggiungi Prodotto" per iniziare.
+                        <td colspan="10" style="padding:32px 16px;text-align:center;color:#9ca3af;font-size:13px">
+                            <div style="margin-bottom:6px;font-size:28px">📦</div>
+                            Nessun prodotto aggiunto.<br>Clicca <strong style="color:#7c3aed">Aggiungi dal Magazzino</strong> per iniziare.
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
                 return;
             }
+
+            const inp = `padding:7px 9px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;color:#111827;background:#f9fafb;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s`;
+            const inpFocus = `onfocus="this.style.borderColor='#7c3aed';this.style.background='#fff'" onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'"`;
 
             tbody.innerHTML = currentItems.map((item, index) => {
                 const giacenza = parseFloat(item.giacenza || 0);
                 const disponibile = giacenza > 0;
-                const badgeColor = disponibile ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-                const icon = disponibile ? 'fa-check-circle' : 'fa-exclamation-triangle';
-                const badgeText = disponibile ? 'Disponibile' : 'Da ordinare';
-                
+                const rowBg = index % 2 === 0 ? '#fff' : '#fafafa';
+
                 return `
-                <tr>
-                    <td class="px-3 py-2">
-                        <input type="text" value="${item.descrizione}" onchange="updateItem(${index}, 'descrizione', this.value)"
-                            class="w-full px-2 py-1 border rounded text-sm">
-                        <input type="text" value="${item.codice || ''}" onchange="updateItem(${index}, 'codice', this.value)"
-                            class="w-full px-2 py-1 border rounded text-xs mt-1" placeholder="Codice">
+                <tr style="background:${rowBg};border-bottom:1px solid #f3f4f6;transition:background .15s" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='${rowBg}'">
+
+                    <!-- Descrizione + Codice -->
+                    <td style="padding:10px 10px">
+                        <input type="text" value="${item.descrizione.replace(/"/g,'&quot;')}"
+                            onchange="updateItem(${index},'descrizione',this.value)" ${inpFocus}
+                            style="${inp};font-weight:600;margin-bottom:4px" placeholder="Descrizione">
+                        <input type="text" value="${(item.codice||'').replace(/"/g,'&quot;')}"
+                            onchange="updateItem(${index},'codice',this.value)" ${inpFocus}
+                            style="${inp};font-size:11px;color:#6b7280;background:#f3f4f6" placeholder="Codice art.">
                     </td>
-                    <td class="px-3 py-2">
-                        <input type="text" value="${item.um}" onchange="updateItem(${index}, 'um', this.value)"
-                            class="w-16 px-2 py-1 border rounded text-sm">
+
+                    <!-- UM -->
+                    <td style="padding:10px 6px;vertical-align:middle">
+                        <input type="text" value="${item.um||''}"
+                            onchange="updateItem(${index},'um',this.value)" ${inpFocus}
+                            style="${inp};width:48px;text-align:center;font-weight:600">
                     </td>
-                    <td class="px-3 py-2">
-                        <input type="number" value="${item.quantita}" min="0" step="0.01" 
-                            onchange="updateItem(${index}, 'quantita', parseFloat(this.value))"
-                            class="w-20 px-2 py-1 border rounded text-sm">
+
+                    <!-- Qtà -->
+                    <td style="padding:10px 6px;vertical-align:middle">
+                        <input type="number" value="${item.quantita}" min="0" step="0.01"
+                            onchange="updateItem(${index},'quantita',parseFloat(this.value))" ${inpFocus}
+                            style="${inp};width:62px;text-align:center;font-weight:700;color:#1f2937">
                     </td>
-                    <td class="px-3 py-2">
-                        <span class="${badgeColor} px-2 py-1 rounded-full text-xs font-semibold inline-flex items-center">
-                            <i class="fas ${icon} mr-1"></i>
-                            ${badgeText}
-                        </span>
-                        <div class="text-xs text-gray-500 mt-1">
-                            <i class="fas fa-boxes mr-1"></i>${giacenza.toFixed(2)} ${item.um}
+
+                    <!-- Disponibilità -->
+                    <td style="padding:10px 8px;vertical-align:middle;text-align:center">
+                        <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;${disponibile ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'}">
+                            <i class="fas ${disponibile ? 'fa-check-circle' : 'fa-exclamation-triangle'}" style="font-size:10px"></i>
+                            ${disponibile ? 'Disponibile' : 'Da ordinare'}
+                        </div>
+                        <div style="font-size:11px;color:#9ca3af;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:3px">
+                            <i class="fas fa-cubes" style="font-size:9px"></i> ${giacenza.toFixed(2)} ${item.um||''}
                         </div>
                     </td>
-                    <td class="px-3 py-2">
-                        <div class="text-sm font-medium text-gray-700">€ ${(item.prezzo_acquisto || 0).toFixed(2)}</div>
-                        <div class="text-xs text-gray-500">Costo</div>
+
+                    <!-- Costo -->
+                    <td style="padding:10px 8px;vertical-align:middle;text-align:right">
+                        <div style="font-size:13px;font-weight:700;color:#374151">€ ${(item.prezzo_acquisto||0).toFixed(2)}</div>
+                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:.4px">costo</div>
                     </td>
-                    <td class="px-3 py-2">
-                        <input type="number" value="${item.ricarico_percentuale || 0}" min="0" max="1000" step="1"
-                            onchange="updateRicarico(${index}, parseFloat(this.value))"
-                            class="w-16 px-2 py-1 border rounded text-sm text-center font-medium">
+
+                    <!-- Ricarico % -->
+                    <td style="padding:10px 6px;vertical-align:middle">
+                        <div style="display:flex;align-items:center;gap:3px">
+                            <input type="number" value="${item.ricarico_percentuale||0}" min="0" max="1000" step="1"
+                                onchange="updateRicarico(${index},parseFloat(this.value))" ${inpFocus}
+                                style="${inp};width:52px;text-align:center;font-weight:700;color:#7c3aed">
+                            <span style="font-size:11px;color:#9ca3af;font-weight:600">%</span>
+                        </div>
                     </td>
-                    <td class="px-3 py-2">
-                        <input type="number" value="${item.prezzo_unitario}" min="0" step="0.01"
-                            onchange="updateItem(${index}, 'prezzo_unitario', parseFloat(this.value))"
-                            class="w-24 px-2 py-1 border rounded text-sm">
+
+                    <!-- Prezzo unitario -->
+                    <td style="padding:10px 6px;vertical-align:middle">
+                        <div style="display:flex;align-items:center;gap:2px">
+                            <span style="font-size:12px;color:#6b7280;font-weight:600">€</span>
+                            <input type="number" value="${item.prezzo_unitario.toFixed(2)}" min="0" step="0.01"
+                                onchange="updateItem(${index},'prezzo_unitario',parseFloat(this.value))" ${inpFocus}
+                                style="${inp};width:72px;text-align:right;font-weight:700;color:#1f2937">
+                        </div>
                     </td>
-                    <td class="px-3 py-2">
-                        <input type="number" value="${item.sconto_percentuale}" min="0" max="100" step="0.1"
-                            onchange="updateItem(${index}, 'sconto_percentuale', parseFloat(this.value))"
-                            class="w-16 px-2 py-1 border rounded text-sm">
+
+                    <!-- Sconto % -->
+                    <td style="padding:10px 6px;vertical-align:middle">
+                        <div style="display:flex;align-items:center;gap:3px">
+                            <input type="number" value="${item.sconto_percentuale}" min="0" max="100" step="0.1"
+                                onchange="updateItem(${index},'sconto_percentuale',parseFloat(this.value))" ${inpFocus}
+                                style="${inp};width:48px;text-align:center;color:#dc2626;font-weight:700">
+                            <span style="font-size:11px;color:#9ca3af;font-weight:600">%</span>
+                        </div>
                     </td>
-                    <td class="px-3 py-2">
-                        <span class="font-semibold">€ ${item.importo.toFixed(2)}</span>
+
+                    <!-- Totale -->
+                    <td style="padding:10px 10px;vertical-align:middle;text-align:right">
+                        <div style="font-size:14px;font-weight:800;color:#6d28d9;white-space:nowrap">€ ${item.importo.toFixed(2)}</div>
                     </td>
-                    <td class="px-3 py-2">
-                        <button onclick="rimuoviItem(${index})" class="text-red-600 hover:text-red-800">
-                            <i class="fas fa-trash"></i>
+
+                    <!-- Elimina -->
+                    <td style="padding:10px 8px;vertical-align:middle;text-align:center">
+                        <button onclick="rimuoviItem(${index})"
+                            style="width:28px;height:28px;border-radius:8px;border:1.5px solid #fecaca;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s"
+                            onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fff5f5'">
+                            <i class="fas fa-trash-alt"></i>
                         </button>
                     </td>
-                </tr>
-                `;
+                </tr>`;
             }).join('');
         }
 
@@ -982,15 +1099,15 @@
 
                 // Validazione
                 if (!document.getElementById('clienteNome').value) {
-                    alert('Inserisci il nome del cliente');
+                    showToast('Inserisci il nome del cliente', 'warning');
                     return;
                 }
                 if (!document.getElementById('oggetto').value) {
-                    alert('Inserisci l\'oggetto del preventivo');
+                    showToast('Inserisci l\'oggetto del preventivo', 'warning');
                     return;
                 }
                 if (currentItems.length === 0) {
-                    alert('Aggiungi almeno un prodotto/servizio');
+                    showToast('Aggiungi almeno un prodotto/servizio', 'warning');
                     return;
                 }
 
@@ -1084,12 +1201,12 @@
                 
                 if (itemsError) throw itemsError;
 
-                alert(isNew ? '✅ Preventivo creato!' : '✅ Preventivo aggiornato!');
+                showToast(isNew ? 'Preventivo creato con successo!' : 'Preventivo aggiornato!', 'success');
                 closeModal();
                 await loadPreventivi();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('Errore nel salvataggio: ' + error.message);
+                showToast('Errore nel salvataggio: ' + error.message, 'error');
             }
         }
 
@@ -1152,13 +1269,14 @@
                 document.getElementById('preventivoModal').classList.remove('hidden');
             } catch (error) {
                 console.error('Errore:', error);
-                alert('Errore nel caricamento: ' + error.message);
+                showToast('Errore nel caricamento: ' + error.message, 'error');
             }
         }
 
         // Elimina preventivo
         async function eliminaPreventivo(id, numero) {
-            if (!confirm(`Sei sicuro di voler eliminare il preventivo ${numero}?`)) return;
+            const ok = await showConfirm('Elimina preventivo', `Vuoi eliminare il preventivo ${numero}? L'operazione non è reversibile.`, '🗑️', 'Elimina');
+            if (!ok) return;
             
             try {
                 const { error } = await window.supabase
@@ -1168,11 +1286,11 @@
                 
                 if (error) throw error;
                 
-                alert('✅ Preventivo eliminato!');
+                showToast('Preventivo eliminato!', 'success');
                 await loadPreventivi();
             } catch (error) {
                 console.error('Errore:', error);
-                alert('Errore nell\'eliminazione: ' + error.message);
+                showToast('Errore nell\'eliminazione: ' + error.message, 'error');
             }
         }
 
@@ -1187,12 +1305,13 @@
         // Stampa preventivo
         async function stampaPreventivo(id) {
             // TODO: Implementare generazione PDF/Stampa
-            alert('Funzionalità stampa in sviluppo');
+            showToast('Funzionalità stampa in sviluppo', 'info');
         }
 
         // Genera ordini materiali da preventivo
         async function generaOrdiniMateriali(preventivoId) {
-            if (!confirm('Vuoi generare automaticamente gli ordini per i materiali mancanti?')) return;
+            const okOrdini = await showConfirm('Genera ordini materiali', 'Vuoi generare automaticamente gli ordini per i materiali mancanti?', '📦', 'Genera ordini', false);
+            if (!okOrdini) return;
             
             try {
                 const { data, error } = await supabase.rpc('genera_ordini_da_preventivo', {
@@ -1203,19 +1322,14 @@
                 if (error) throw error;
                 
                 if (!data || data.length === 0) {
-                    alert('✅ Nessun ordine necessario - tutti i materiali sono disponibili!');
+                    showToast('Tutti i materiali sono disponibili — nessun ordine necessario', 'success');
                     return;
                 }
-                
-                const ordiniMsg = data.map(o => 
-                    `• ${o.fornitore_nome}: ${o.prodotti_count} prodotti, € ${parseFloat(o.totale_ordine).toFixed(2)}`
-                ).join('\n');
-                
-                alert(`✅ Ordini generati con successo!\n\n${ordiniMsg}\n\nVai su "Ordini Fornitori" per confermare e inviare gli ordini.`);
+                showToast(`Ordini generati: ${data.length} fornitore/i. Vai su "Ordini Fornitori" per confermare.`, 'success');
                 
             } catch (error) {
                 console.error('Errore generazione ordini:', error);
-                alert('Errore nella generazione ordini: ' + error.message);
+                showToast('Errore nella generazione ordini: ' + error.message, 'error');
             }
         }
 
@@ -1225,14 +1339,11 @@
             if (!preventivo) return;
             
             // Modal semplice con prompt (in futuro può essere sostituito con modal HTML)
-            const conferma = confirm(
-                `Creare lavorazione da preventivo ${preventivo.numero}?\n\n` +
-                `Cliente: ${preventivo.cliente_nome}\n` +
-                `Oggetto: ${preventivo.oggetto}\n` +
-                `Totale: € ${parseFloat(preventivo.totale).toFixed(2)}\n\n` +
-                `I materiali verranno scaricati automaticamente dal magazzino.`
+            const conferma = await showConfirm(
+                `Crea lavorazione`,
+                `Preventivo ${preventivo.numero} · ${preventivo.cliente_nome}\n"${preventivo.oggetto}" · € ${parseFloat(preventivo.totale).toFixed(2)}\n\nI materiali verranno scaricati automaticamente dal magazzino.`,
+                '🔧', 'Crea lavorazione', false
             );
-            
             if (!conferma) return;
             
             try {
@@ -1283,15 +1394,11 @@
                     }
                 }
                 
-                alert(
-                    `✅ Lavorazione creata con successo!\n\n` +
-                    `I materiali sono stati scaricati dal magazzino.\n` +
-                    `Vai su "Gestione Lavorazioni" per assegnare il team e gestire la commessa.`
-                );
+                showToast('Lavorazione creata! Materiali scaricati dal magazzino.', 'success');
                 
             } catch (error) {
                 console.error('Errore creazione lavorazione:', error);
-                alert('Errore nella creazione lavorazione: ' + error.message);
+                showToast('Errore nella creazione lavorazione: ' + error.message, 'error');
             }
         }
 
