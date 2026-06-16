@@ -224,45 +224,79 @@
                 </div>
 
                 <!-- Campi Amministratore (per condomini) -->
-                <div id="amministratoreFields" class="hidden space-y-4 mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div id="amministratoreFields" class="hidden space-y-3 mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <h4 class="font-semibold text-purple-900 flex items-center">
                         <i class="fas fa-user-tie mr-2"></i>
-                        Dati Amministratore Condominiale
+                        Amministratore Condominiale
                     </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="hidden" id="ammId">
+
+                    <!-- Card amministratore selezionato -->
+                    <div id="ammSelectedDisplay" style="display:none;background:#fff;border:2px solid #7c3aed;border-radius:10px;padding:12px">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div style="width:38px;height:38px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="fas fa-user-tie" style="color:white;font-size:14px"></i>
+                                </div>
+                                <div>
+                                    <div id="ammSelectedName" style="font-weight:700;color:#1f2937;font-size:14px"></div>
+                                    <div id="ammSelectedSub" style="font-size:12px;color:#6b7280"></div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="clearAmm()" style="padding:5px 12px;border:1px solid #7c3aed;border-radius:8px;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;background:transparent">
+                                <i class="fas fa-exchange-alt" style="margin-right:4px"></i>Cambia
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cerca amministratore -->
+                    <div id="ammPickerSection">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cerca Amministratore</label>
                         <div style="position:relative">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Amministratore *</label>
                             <input type="text" id="nomeAmministratore" autocomplete="off"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Digita nome o cognome..."
                                    oninput="ammAutocomplete(this.value)" onblur="setTimeout(()=>hideAmmDropdown(),200)">
                             <div id="ammDropdown" style="display:none;position:absolute;z-index:9999;top:100%;left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto"></div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Cognome Amministratore *</label>
-                            <input type="text" id="cognomeAmministratore" 
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        </div>
+                        <p style="font-size:11px;color:#9333ea;margin-top:4px"><i class="fas fa-info-circle" style="margin-right:3px"></i>Cerca tra i clienti di tipo "Amm. Condominio"</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefono Amministratore *</label>
-                            <input type="tel" id="telefonoAmministratore" 
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   placeholder="+39 123 4567890">
+
+                    <!-- Dati manuali (collassabili) -->
+                    <details id="ammManualDetails">
+                        <summary style="cursor:pointer;color:#7c3aed;font-size:13px;font-weight:600;padding:4px 0;list-style:none;display:flex;align-items:center;gap:6px">
+                            <i class="fas fa-pencil-alt" style="font-size:11px"></i> Inserisci dati manualmente
+                        </summary>
+                        <div style="margin-top:10px" class="space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Cognome *</label>
+                                    <input type="text" id="cognomeAmministratore"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Telefono *</label>
+                                    <input type="tel" id="telefonoAmministratore"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                           placeholder="+39 123 4567890">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                    <input type="email" id="emailAmministratore"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                           placeholder="amministratore@email.com">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">PEC</label>
+                                    <input type="email" id="pecAmministratore"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                           placeholder="amministratore@pec.it">
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Amministratore *</label>
-                            <input type="email" id="emailAmministratore" 
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   placeholder="amministratore@email.com">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">PEC Amministratore</label>
-                        <input type="email" id="pecAmministratore" 
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               placeholder="amministratore@pec.it">
-                    </div>
+                    </details>
                 </div>
 
                 <!-- Contatti -->
@@ -445,6 +479,32 @@
             document.getElementById('emailAmministratore').value = c.email || '';
             document.getElementById('pecAmministratore').value = c.pec || '';
             hideAmmDropdown();
+            // Aggiorna selezione visiva
+            document.getElementById('ammId').value = c.id;
+            const nomeCompleto = [c.nome, c.cognome].filter(Boolean).join(' ');
+            document.getElementById('ammSelectedName').textContent = nomeCompleto || 'Amministratore';
+            document.getElementById('ammSelectedSub').textContent = [c.telefono, c.email].filter(Boolean).join(' · ');
+            document.getElementById('ammSelectedDisplay').style.display = 'block';
+            document.getElementById('ammPickerSection').style.display = 'none';
+        }
+
+        function clearAmm() {
+            const ammId = document.getElementById('ammId');
+            if (ammId) ammId.value = '';
+            const nomeEl = document.getElementById('nomeAmministratore');
+            if (nomeEl) nomeEl.value = '';
+            const cogEl = document.getElementById('cognomeAmministratore');
+            if (cogEl) cogEl.value = '';
+            const telEl = document.getElementById('telefonoAmministratore');
+            if (telEl) telEl.value = '';
+            const emailEl = document.getElementById('emailAmministratore');
+            if (emailEl) emailEl.value = '';
+            const pecEl = document.getElementById('pecAmministratore');
+            if (pecEl) pecEl.value = '';
+            const disp = document.getElementById('ammSelectedDisplay');
+            if (disp) disp.style.display = 'none';
+            const picker = document.getElementById('ammPickerSection');
+            if (picker) picker.style.display = '';
         }
 
         // Initialize page
@@ -654,6 +714,7 @@
                     
                     // Fill form
                     document.querySelector(`input[name="tipoCliente"][value="${client.tipo_cliente}"]`).checked = true;
+                    updateClientTypeFields();
                     document.getElementById('ragioneSociale').value = client.ragione_sociale || '';
                     document.getElementById('settore').value = client.settore || '';
                     document.getElementById('nome').value = client.nome || '';
@@ -664,7 +725,24 @@
                     document.getElementById('partitaIva').value = client.partita_iva || '';
                     document.getElementById('indirizzo').value = client.indirizzo || '';
                     document.getElementById('note').value = client.note || '';
-                    
+
+                    // Condominio: carica amministratore
+                    if (client.tipo_cliente === 'condominio') {
+                        if (client.amministratore_id) {
+                            ammFill(client.amministratore_id);
+                        } else {
+                            document.getElementById('nomeAmministratore').value = client.nome_amministratore || '';
+                            document.getElementById('cognomeAmministratore').value = client.cognome_amministratore || '';
+                            document.getElementById('telefonoAmministratore').value = client.telefono_amministratore || '';
+                            document.getElementById('emailAmministratore').value = client.email_amministratore || '';
+                            document.getElementById('pecAmministratore').value = client.pec_amministratore || '';
+                            if (client.nome_amministratore) {
+                                const det = document.getElementById('ammManualDetails');
+                                if (det) det.open = true;
+                            }
+                        }
+                    }
+
                     // Set map marker
                     if (client.latitudine && client.longitudine) {
                         setTimeout(() => {
@@ -693,6 +771,7 @@
             document.getElementById('clientFormModal').classList.add('hidden');
             document.getElementById('clientForm').reset();
             editingClientId = null;
+            clearAmm();
             if (map) {
                 map.remove();
                 map = null;
@@ -783,7 +862,10 @@
                 'amministratore_condominio': 'Studio / Ragione Sociale *'
             };
             labelRagioneSociale.textContent = labels[tipoCliente] || 'Ragione Sociale *';
-            
+
+            // Reset selezione amministratore se si cambia tipo
+            if (tipoCliente !== 'condominio') clearAmm();
+
             // Show/hide fields based on type
             if (tipoCliente === 'amministratore_condominio') {
                 // Mostra referente (nome/cognome dell'amministratore)
@@ -869,6 +951,7 @@
                     clientData.telefono_amministratore = document.getElementById('telefonoAmministratore').value;
                     clientData.email_amministratore = document.getElementById('emailAmministratore').value;
                     clientData.pec_amministratore = document.getElementById('pecAmministratore').value;
+                    clientData.amministratore_id = document.getElementById('ammId').value || null;
                 } else if (tipoCliente === 'privato') {
                     // privato - use nome/cognome directly
                     clientData.nome = document.getElementById('nome').value || '';

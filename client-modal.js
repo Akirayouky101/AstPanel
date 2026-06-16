@@ -39,6 +39,28 @@ window.ClientModal = {
                 note: clientData.note || ''
             };
 
+        // Carica condomini se tipo è amministratore_condominio
+        let condominiiSection = '';
+        if (client.tipoCliente === 'amministratore_condominio') {
+            try {
+                const allCl = await window.dataManager.getClienti();
+                const conds = allCl.filter(c => c.amministratore_id === clientId);
+                condominiiSection = '<div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:2px solid #a5b4fc;border-radius:12px;padding:12px;margin-bottom:4px">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+                    + '<div style="width:30px;height:30px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center">'
+                    + '<i class="fas fa-building-user" style="color:white;font-size:11px"></i></div>'
+                    + '<p style="font-weight:700;color:#1f2937;font-size:13px">Condomini Gestiti (' + conds.length + ')</p></div>'
+                    + (conds.length === 0 ? '<p style="color:#6b7280;font-size:12px;padding:0 4px">Nessun condominio associato</p>' :
+                       conds.map(function(c) {
+                           return '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e0e7ff">'
+                               + '<div style="font-weight:600;color:#1f2937;font-size:13px">' + (c.ragione_sociale || 'N/A') + '</div>'
+                               + (c.indirizzo ? '<div style="font-size:11px;color:#6b7280">' + c.indirizzo + '</div>' : '')
+                               + '</div>';
+                       }).join(''))
+                    + '</div>';
+            } catch(e) {}
+        }
+
         // Create modal HTML
         const modalHTML = `
             <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" onclick="if(event.target === this) window.ClientModal.close()">
@@ -151,6 +173,8 @@ window.ClientModal = {
                             </div>
                         </div>
                         ` : ''}
+
+                        ${condominiiSection}
                     </div>
 
                     <!-- Footer -->
