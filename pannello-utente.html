@@ -3157,6 +3157,31 @@
                         </div>
                     </div>
 
+                    <!-- Orari intervento - modificabili dal dipendente -->
+                    <div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:2px solid #a5b4fc;border-radius:16px;padding:16px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                            <span style="font-size:18px">⏰</span>
+                            <span style="font-size:13px;font-weight:700;color:#3730a3">Orari Intervento</span>
+                            <span style="font-size:11px;color:#6366f1;margin-left:auto;background:#e0e7ff;padding:2px 8px;border-radius:20px">modificabile</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                            <div>
+                                <label style="font-size:11px;color:#4f46e5;font-weight:600;display:block;margin-bottom:4px">Ora Inizio</label>
+                                <input type="time" id="pu-ora-inizio-${task.id}" value="${task.ora_inizio || ''}"
+                                       style="width:100%;padding:10px;border:2px solid #a5b4fc;border-radius:10px;font-size:15px;outline:none;background:white;box-sizing:border-box">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;color:#4f46e5;font-weight:600;display:block;margin-bottom:4px">Ora Fine</label>
+                                <input type="time" id="pu-ora-fine-${task.id}" value="${task.ora_fine || ''}"
+                                       style="width:100%;padding:10px;border:2px solid #a5b4fc;border-radius:10px;font-size:15px;outline:none;background:white;box-sizing:border-box">
+                            </div>
+                        </div>
+                        <button id="pu-salva-orari-${task.id}" onclick="salvaOrariTaskPannello('${task.id}')"
+                                style="width:100%;padding:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">
+                            💾 Salva Orari
+                        </button>
+                    </div>
+
                     <!-- Action Buttons -->
                     <div class="flex gap-3 pt-2">
                         <button onclick="openTaskUpdateModal('${task.id}')" 
@@ -3336,6 +3361,25 @@
             } catch (error) {
                 console.error('Errore apertura mappa:', error);
                 showNotification('Errore apertura mappa', 'error');
+            }
+        }
+
+        async function salvaOrariTaskPannello(taskId) {
+            const oraInizio = document.getElementById(`pu-ora-inizio-${taskId}`)?.value || null;
+            const oraFine = document.getElementById(`pu-ora-fine-${taskId}`)?.value || null;
+            const btn = document.getElementById(`pu-salva-orari-${taskId}`);
+            try {
+                if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvataggio...'; }
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .update({ ora_inizio: oraInizio || null, ora_fine: oraFine || null })
+                    .eq('id', taskId);
+                if (error) throw error;
+                if (btn) { btn.textContent = '✅ Salvato!'; setTimeout(() => { btn.disabled = false; btn.textContent = '💾 Salva Orari'; }, 2000); }
+            } catch (err) {
+                console.error('Errore salvataggio orari:', err);
+                if (btn) { btn.disabled = false; btn.textContent = '💾 Salva Orari'; }
+                alert('Errore nel salvataggio degli orari');
             }
         }
 
