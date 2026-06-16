@@ -125,6 +125,8 @@ class TaskWizard {
             descrizione: '',
             priorita: 'media',
             scadenza: '',
+            ora_inizio: '',
+            ora_fine: '',
             categoria: '',
             tags: [],
             
@@ -810,6 +812,11 @@ class TaskWizard {
                             <span class="font-medium">Scadenza:</span> 
                             <span class="text-gray-700">${new Date(this.wizardData.scadenza).toLocaleDateString('it-IT')}</span>
                         </div>
+                        ${(this.wizardData.ora_inizio || this.wizardData.ora_fine) ? `
+                        <div class="flex justify-between">
+                            <span class="font-medium">Orario:</span> 
+                            <span class="text-gray-700">${this.wizardData.ora_inizio || '--:--'} → ${this.wizardData.ora_fine || '--:--'}</span>
+                        </div>` : ''}
                         ${this.wizardData.categoria ? `
                             <div class="flex justify-between">
                                 <span class="font-medium">Categoria:</span> 
@@ -923,6 +930,8 @@ class TaskWizard {
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
         document.getElementById('wizard-categoria').value = this.wizardData.categoria || '';
+        document.getElementById('wizard-ora-inizio').value = this.wizardData.ora_inizio || '';
+        document.getElementById('wizard-ora-fine').value = this.wizardData.ora_fine || '';
     }
 
     populateStep2Form() {
@@ -995,6 +1004,8 @@ class TaskWizard {
         this.wizardData.descrizione = document.getElementById('wizard-descrizione').value;
         this.wizardData.priorita = document.getElementById('wizard-priorita').value;
         this.wizardData.scadenza = document.getElementById('wizard-scadenza').value;
+        this.wizardData.ora_inizio = document.getElementById('wizard-ora-inizio').value;
+        this.wizardData.ora_fine = document.getElementById('wizard-ora-fine').value;
         this.wizardData.categoria = document.getElementById('wizard-categoria').value;
     }
 
@@ -1059,6 +1070,8 @@ class TaskWizard {
                 assigned_team_id: assignedTeamId,
                 priorita: this.wizardData.priorita,
                 scadenza: this.wizardData.scadenza,
+                ora_inizio: this.wizardData.ora_inizio || null,
+                ora_fine: this.wizardData.ora_fine || null,
                 categoria: this.wizardData.categoria,
                 ore_stimate: this.wizardData.ore_stimate,
                 costo_stimato: this.wizardData.costo_stimato,
@@ -1260,6 +1273,8 @@ class TaskWizard {
             descrizione: '',
             priorita: 'media',
             scadenza: '',
+            ora_inizio: '',
+            ora_fine: '',
             categoria: '',
             tags: [],
             assigned_user_id: null,
