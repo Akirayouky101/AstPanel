@@ -541,13 +541,14 @@
                                 <div style="position:relative;display:flex;align-items:center">
                                     <i class="fas fa-search" style="position:absolute;left:11px;color:#8b5cf6;font-size:13px;pointer-events:none;z-index:1"></i>
                                     <input type="text" id="preventivoSearchInput" autocomplete="off"
-                                           placeholder="Cerca preventivo per numero, oggetto o cliente…"
+                                           placeholder="Clicca per vedere tutti, oppure cerca per numero…"
                                            oninput="preventivoSearch(this.value)"
                                            onfocus="preventivoSearch(this.value)"
-                                           style="width:100%;padding:10px 11px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box"
+                                           style="width:100%;padding:10px 34px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box;cursor:pointer"
                                            class="w-full">
+                                    <i class="fas fa-chevron-down" id="preventivoChevron" style="position:absolute;right:10px;color:#8b5cf6;font-size:11px;pointer-events:none;transition:transform .2s"></i>
                                     <button type="button" id="preventivoSearchClear" onclick="preventivoSearchClearInput()"
-                                            style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0">
+                                            style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;z-index:2">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
@@ -1212,6 +1213,11 @@
         let _preventiviList = []; // cache per la ricerca
 
         async function caricaPreventiviPerTask() {
+            // Mostra loading nel dropdown se è già aperto
+            const drop = document.getElementById('preventivoDropdown');
+            if (drop && drop.style.display === 'block') {
+                drop.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Caricamento preventivi…</div>';
+            }
             try {
                 const clientId = document.getElementById('taskClient').value;
                 let query = window.supabaseClient
@@ -1230,6 +1236,11 @@
                     stato: p.stato,
                     label: `${p.numero} · ${p.oggetto}${p.cliente_nome ? ' (' + p.cliente_nome + ')' : ''}`
                 }));
+                // Se il dropdown è aperto, aggiorna subito la lista
+                const inp = document.getElementById('preventivoSearchInput');
+                if (drop && drop.style.display === 'block' && inp) {
+                    preventivoSearch(inp.value);
+                }
             } catch (e) {
                 console.error('Errore caricamento preventivi:', e);
             }
@@ -1244,9 +1255,20 @@
         function preventivoSearch(val) {
             const drop = document.getElementById('preventivoDropdown');
             const clearBtn = document.getElementById('preventivoSearchClear');
+            const chevron = document.getElementById('preventivoChevron');
             if (!drop) return;
             if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+            if (chevron) {
+                chevron.style.display = val ? 'none' : 'block';
+                chevron.style.transform = 'rotate(180deg)';
+            }
             const q = val.trim().toLowerCase();
+            // Se la lista sta ancora caricando
+            if (_preventiviList.length === 0 && !q) {
+                drop.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Caricamento preventivi…</div>';
+                drop.style.display = 'block';
+                return;
+            }
             const filtered = q
                 ? _preventiviList.filter(p =>
                     p.numero.toLowerCase().includes(q) ||
@@ -1254,7 +1276,7 @@
                     p.cliente.toLowerCase().includes(q))
                 : _preventiviList;
             if (filtered.length === 0) {
-                drop.innerHTML = `<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center">${q ? 'Nessun preventivo trovato' : 'Nessun preventivo disponibile'}</div>`;
+                drop.innerHTML = `<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center">${q ? 'Nessun preventivo trovato per "'+val+'"' : 'Nessun preventivo disponibile'}</div>`;
             } else {
                 drop.innerHTML = filtered.map(p => `
                     <div onclick="preventivoSelect('${p.id}','${p.label.replace(/'/g, "\\'")}')"
@@ -1276,12 +1298,18 @@
             if (inp) inp.value = label;
             const drop = document.getElementById('preventivoDropdown');
             if (drop) drop.style.display = 'none';
+            const chevron = document.getElementById('preventivoChevron');
+            if (chevron) { chevron.style.display = 'none'; }
+            const clearBtn = document.getElementById('preventivoSearchClear');
+            if (clearBtn) clearBtn.style.display = 'block';
         }
 
         function preventivoSearchClearInput() {
             _preventivoImportatoId = null;
             const inp = document.getElementById('preventivoSearchInput');
             if (inp) { inp.value = ''; inp.focus(); }
+            const chevron = document.getElementById('preventivoChevron');
+            if (chevron) { chevron.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; }
             preventivoSearch('');
         }
 
@@ -3418,12 +3446,13 @@
                                             <div style="position:relative;display:flex;align-items:center">
                                                 <i class="fas fa-search" style="position:absolute;left:11px;color:#8b5cf6;font-size:13px;pointer-events:none;z-index:1"></i>
                                                 <input type="text" id="edit-preventivo-search" autocomplete="off"
-                                                       placeholder="Cerca preventivo per numero, oggetto o cliente…"
+                                                       placeholder="Clicca per vedere tutti, oppure cerca per numero…"
                                                        oninput="_editPrevSearch(this.value)"
                                                        onfocus="_editPrevSearch(this.value)"
-                                                       style="width:100%;padding:10px 11px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box">
+                                                       style="width:100%;padding:10px 34px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box;cursor:pointer">
+                                                <i class="fas fa-chevron-down" id="edit-prev-chevron" style="position:absolute;right:10px;color:#8b5cf6;font-size:11px;pointer-events:none;transition:transform .2s"></i>
                                                 <button type="button" id="edit-prev-search-clear" onclick="_editPrevClear()"
-                                                        style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0">
+                                                        style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;z-index:2">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
@@ -3535,6 +3564,12 @@
                             stato: p.stato,
                             label: `${p.numero} · ${p.oggetto}${p.cliente_nome ? ' (' + p.cliente_nome + ')' : ''}`
                         }));
+                        // Se il dropdown è già aperto, aggiorna subito
+                        const editDrop = document.getElementById('edit-preventivoDropdown');
+                        const editInp = document.getElementById('edit-preventivo-search');
+                        if (editDrop && editDrop.style.display === 'block' && editInp) {
+                            _editPrevSearch(editInp.value);
+                        }
                         // Se c'era già un preventivo collegato, pre-selezionalo
                         if (task.preventivo_id) {
                             const found = _editPrevList.find(p => p.id === task.preventivo_id);
@@ -3554,9 +3589,16 @@
                 function _editPrevSearch(val) {
                     const drop = document.getElementById('edit-preventivoDropdown');
                     const clearBtn = document.getElementById('edit-prev-search-clear');
+                    const chevron = document.getElementById('edit-prev-chevron');
                     if (!drop) return;
                     if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+                    if (chevron) { chevron.style.display = val ? 'none' : 'block'; chevron.style.transform = 'rotate(180deg)'; }
                     const q = val.trim().toLowerCase();
+                    if (_editPrevList.length === 0 && !q) {
+                        drop.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Caricamento preventivi…</div>';
+                        drop.style.display = 'block';
+                        return;
+                    }
                     const filtered = q
                         ? _editPrevList.filter(p =>
                             p.numero.toLowerCase().includes(q) ||
@@ -3564,7 +3606,7 @@
                             p.cliente.toLowerCase().includes(q))
                         : _editPrevList;
                     if (filtered.length === 0) {
-                        drop.innerHTML = `<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center">${q ? 'Nessun preventivo trovato' : 'Nessun preventivo disponibile'}</div>`;
+                        drop.innerHTML = `<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center">${q ? 'Nessun preventivo trovato per "'+val+'"' : 'Nessun preventivo disponibile'}</div>`;
                     } else {
                         drop.innerHTML = filtered.map(p => `
                             <div onclick="_editPrevPick('${p.id}','${p.label.replace(/'/g,"\\'")}')"
@@ -3583,8 +3625,10 @@
                 function _editPrevPick(id, label) {
                     _editPrevSelectedId = id;
                     const inp = document.getElementById('edit-preventivo-search');
-                    if (inp) { inp.value = label; }
+                    if (inp) inp.value = label;
                     document.getElementById('edit-prev-search-clear').style.display = 'block';
+                    const chevron = document.getElementById('edit-prev-chevron');
+                    if (chevron) chevron.style.display = 'none';
                     document.getElementById('edit-preventivoDropdown').style.display = 'none';
                 }
 
@@ -3593,6 +3637,8 @@
                     const inp = document.getElementById('edit-preventivo-search');
                     if (inp) { inp.value = ''; inp.focus(); }
                     document.getElementById('edit-prev-search-clear').style.display = 'none';
+                    const chevron = document.getElementById('edit-prev-chevron');
+                    if (chevron) { chevron.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; }
                     _editPrevSearch('');
                 }
 
