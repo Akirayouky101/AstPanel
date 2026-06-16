@@ -875,11 +875,22 @@
                         <div class="w-full bg-gray-200 rounded-full h-1">
                             <div class="bg-blue-600 h-1 rounded-full" style="width: ${task.progresso}%"></div>
                         </div>
-                        ${task.stato === 'completato' && task.ore_stimate ? `
-                        <div class="mt-2 flex items-center gap-1 text-xs text-green-700 font-medium">
-                            <i class="fas fa-clock"></i>
-                            <span>Tempo impiegato: ${task.ore_stimate}h</span>
-                        </div>` : ''}
+                        ${task.stato === 'completato' ? (() => {
+                            let tempoLabel = '';
+                            if (task.ora_inizio && task.ora_fine) {
+                                const [hI, mI] = task.ora_inizio.split(':').map(Number);
+                                const [hF, mF] = task.ora_fine.split(':').map(Number);
+                                const minuti = (hF * 60 + mF) - (hI * 60 + mI);
+                                if (minuti > 0) {
+                                    tempoLabel = minuti >= 60
+                                        ? `${Math.floor(minuti/60)}h${minuti%60 > 0 ? ' ' + (minuti%60) + 'min' : ''}`
+                                        : `${minuti}min`;
+                                }
+                            } else if (task.ore_stimate) {
+                                tempoLabel = task.ore_stimate + 'h';
+                            }
+                            return tempoLabel ? `<div class="mt-2 flex items-center gap-1 text-xs text-green-700 font-medium"><i class="fas fa-clock"></i><span>Tempo impiegato: ${tempoLabel}</span></div>` : '';
+                        })() : ''}
                     </div>
                 ` : ''}
             `;
