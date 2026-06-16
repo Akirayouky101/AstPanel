@@ -780,8 +780,19 @@ window.syncData = {
     // Sync calendar events from tasks
     syncCalendarFromTasks: function() {
         const events = [];
+
+        function buildEventTimes(task) {
+            const date = task.scadenza;
+            if (task.ora_inizio) {
+                const start = `${date}T${task.ora_inizio}`;
+                const end = task.ora_fine ? `${date}T${task.ora_fine}` : null;
+                return { start, end, allDay: false };
+            }
+            return { start: date, end: date, allDay: true };
+        }
         
         window.sharedData.tasks.forEach(task => {
+            const times = buildEventTimes(task);
             // Check if task is assigned to a team
             if (task.squadra) {
                 const team = window.sharedData.squadre?.find(s => s.id === task.squadra);
@@ -789,11 +800,11 @@ window.syncData = {
                     // Create an event for each team member
                     team.membri.forEach(memberId => {
                         const user = window.sharedData.users.find(u => u.id === memberId);
-                        events.push({
+                        const evt = {
                             id: `task-${task.id}-member-${memberId}`,
                             title: `${task.titolo} (${team.nome})`,
-                            start: task.scadenza,
-                            end: task.scadenza,
+                            start: times.start,
+                            allDay: times.allDay,
                             taskId: task.id,
                             assignee: memberId,
                             assigneeName: user?.nome || memberId,
@@ -815,16 +826,18 @@ window.syncData = {
                                 status: task.stato,
                                 client: task.cliente
                             }
-                        });
+                        };
+                        if (times.end && !times.allDay) evt.end = times.end;
+                        events.push(evt);
                     });
                 }
             } else if (task.assegnatario) {
                 // Single assignment (no team)
-                events.push({
+                const evt = {
                     id: `task-${task.id}`,
                     title: task.titolo,
-                    start: task.scadenza,
-                    end: task.scadenza,
+                    start: times.start,
+                    allDay: times.allDay,
                     taskId: task.id,
                     assignee: task.assegnatario,
                     assigneeName: task.nomeAssegnatario,
@@ -842,7 +855,9 @@ window.syncData = {
                         status: task.stato,
                         client: task.cliente
                     }
-                });
+                };
+                if (times.end && !times.allDay) evt.end = times.end;
+                events.push(evt);
             }
         });
         

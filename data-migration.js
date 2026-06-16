@@ -359,8 +359,21 @@ window.dataManager = {
             const lavorazioni = await this.getLavorazioni();
             const events = [];
 
+            // Costruisce start/end ISO con orario se disponibile
+            function buildEventTimes(task) {
+                const date = task.scadenza;
+                if (task.ora_inizio) {
+                    const start = `${date}T${task.ora_inizio}`;
+                    const end = task.ora_fine ? `${date}T${task.ora_fine}` : null;
+                    return { start, end, allDay: false };
+                }
+                return { start: date, end: null, allDay: true };
+            }
+
             for (const task of lavorazioni) {
                 if (!task.scadenza) continue;
+
+                const times = buildEventTimes(task);
 
                 // Se assegnato a squadra, crea evento per ogni membro
                 if (task.assigned_team_id && task.assigned_team_id) {
@@ -368,10 +381,11 @@ window.dataManager = {
                     
                     if (team && team.membri) {
                         team.membri.forEach(member => {
-                            events.push({
+                            const evt = {
                                 id: `task-${task.id}-member-${member.id}`,
                                 title: `${task.titolo} (${team.nome})`,
-                                start: task.scadenza,
+                                start: times.start,
+                                allDay: times.allDay,
                                 backgroundColor: team.colore || '#3b82f6',
                                 borderColor: team.colore || '#3b82f6',
                                 extendedProps: {
@@ -383,7 +397,9 @@ window.dataManager = {
                                     stato: task.stato,
                                     priorita: task.priorita
                                 }
-                            });
+                            };
+                            if (times.end) evt.end = times.end;
+                            events.push(evt);
                         });
                     }
                 }
@@ -393,10 +409,11 @@ window.dataManager = {
                     task.task_assignments.forEach(a => {
                         const u = a.users;
                         if (!u) return;
-                        events.push({
+                        const evt = {
                             id: `task-${task.id}-user-${a.user_id}`,
                             title: `${task.titolo} (${u.nome} ${u.cognome})`,
-                            start: task.scadenza,
+                            start: times.start,
+                            allDay: times.allDay,
                             backgroundColor: priorityColors[task.priorita] || '#6366f1',
                             borderColor: priorityColors[task.priorita] || '#6366f1',
                             extendedProps: {
@@ -408,7 +425,9 @@ window.dataManager = {
                                 priorita: task.priorita,
                                 assigneeName: `${u.nome} ${u.cognome}`
                             }
-                        });
+                        };
+                        if (times.end) evt.end = times.end;
+                        events.push(evt);
                     });
                 }
                 // Se assegnato a singolo utente
@@ -419,10 +438,11 @@ window.dataManager = {
                         'bassa': '#10b981'
                     };
 
-                    events.push({
+                    const evt = {
                         id: `task-${task.id}`,
                         title: task.titolo,
-                        start: task.scadenza,
+                        start: times.start,
+                        allDay: times.allDay,
                         backgroundColor: priorityColors[task.priorita] || '#3b82f6',
                         borderColor: priorityColors[task.priorita] || '#3b82f6',
                         extendedProps: {
@@ -433,7 +453,9 @@ window.dataManager = {
                             stato: task.stato,
                             priorita: task.priorita
                         }
-                    });
+                    };
+                    if (times.end) evt.end = times.end;
+                    events.push(evt);
                 }
             }
 
