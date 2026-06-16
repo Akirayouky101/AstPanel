@@ -14,52 +14,112 @@
             .no-print { display: none !important; }
             body { background: white; }
         }
-        .step-indicator { transition: all .3s; }
-        .step-done { background: #7c3aed !important; color: white !important; }
-        .modal-section { scroll-margin-top: 12px; }
-        #preventivoModal .section-card {
+        /* ── Modal base ── */
+        #preventivoModal .modal-body { padding: 0 28px 24px; }
+        #preventivoModal .sc {
             background: #fff;
-            border: 1.5px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 20px 22px;
-            margin-bottom: 18px;
+            border: 1.5px solid #ede9fe;
+            border-radius: 16px;
+            padding: 18px 20px 20px;
         }
-        #preventivoModal .section-title {
-            font-size: 13px;
-            font-weight: 700;
+        #preventivoModal .sc-title {
+            font-size: 11px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: .6px;
+            letter-spacing: .8px;
             color: #7c3aed;
             margin-bottom: 14px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
         }
-        #preventivoModal label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 5px;
+        #preventivoModal .sc-title i { font-size: 13px; }
+        #preventivoModal .field-label {
             display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: .4px;
         }
-        #preventivoModal input, #preventivoModal select, #preventivoModal textarea {
+        /* ── Inputs ── */
+        #preventivoModal .inp {
             width: 100%;
-            padding: 9px 12px;
-            border: 1.5px solid #d1d5db;
-            border-radius: 9px;
+            padding: 10px 13px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
             font-size: 13px;
+            color: #111827;
+            background: #f9fafb;
             outline: none;
-            transition: border-color .2s, box-shadow .2s;
-            background: #fafafa;
+            transition: border-color .18s, box-shadow .18s, background .18s;
+            box-sizing: border-box;
         }
-        #preventivoModal input:focus, #preventivoModal select:focus, #preventivoModal textarea:focus {
+        #preventivoModal .inp:focus {
             border-color: #7c3aed;
-            box-shadow: 0 0 0 3px rgba(124,58,237,.1);
+            box-shadow: 0 0 0 3px rgba(124,58,237,.08);
             background: #fff;
         }
-        .totali-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-        .totali-row:last-child { border-bottom: none; }
-        .totali-total { font-size: 18px; font-weight: 800; color: #7c3aed; }
+        /* ── Custom select wrapper ── */
+        #preventivoModal .sel-wrap {
+            position: relative;
+        }
+        #preventivoModal .sel-wrap .sel-arrow {
+            position: absolute;
+            right: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #9ca3af;
+            font-size: 11px;
+        }
+        #preventivoModal .sel-wrap select {
+            width: 100%;
+            padding: 10px 32px 10px 13px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #111827;
+            background: #f9fafb;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        #preventivoModal .sel-wrap select:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124,58,237,.08);
+            background: #fff;
+        }
+        /* ── Select stato con colore ── */
+        #preventivoModal .sel-stato select {
+            font-weight: 600;
+        }
+        /* ── Textarea ── */
+        #preventivoModal textarea.inp { resize: vertical; min-height: 72px; }
+        /* ── Totali ── */
+        .t-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+        .t-row:last-child { border-bottom: none; }
+        /* ── Number input small ── */
+        .inp-num {
+            width: 62px;
+            padding: 6px 8px;
+            text-align: right;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 12px;
+            background: #f9fafb;
+            outline: none;
+            transition: border-color .18s;
+        }
+        .inp-num:focus { border-color: #7c3aed; background: #fff; }
+        /* ── Grid helpers ── */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .mb10 { margin-bottom: 10px; }
+        .mb14 { margin-bottom: 14px; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -178,112 +238,127 @@
 
     <!-- Modal Nuovo/Modifica Preventivo -->
     <div id="preventivoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 p-4 overflow-y-auto no-print backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl w-full my-6" style="max-width:900px">
+        <div class="bg-white rounded-2xl shadow-2xl w-full my-6" style="max-width:960px;overflow:hidden">
 
             <!-- Header -->
-            <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:14px 14px 0 0;padding:22px 28px">
+            <div style="background:linear-gradient(135deg,#6d28d9 0%,#4f46e5 100%);padding:22px 28px 20px">
                 <div style="display:flex;align-items:center;justify-content:space-between">
                     <div>
-                        <h3 style="color:#fff;font-size:22px;font-weight:800;margin:0" id="modalTitle">📋 Nuovo Preventivo</h3>
-                        <p style="color:#ddd6fe;font-size:12px;margin-top:3px">Compila i dati e aggiungi i prodotti dal magazzino</p>
+                        <h3 id="modalTitle" style="color:#fff;font-size:20px;font-weight:800;margin:0;letter-spacing:-.3px">Nuovo Preventivo</h3>
+                        <p style="color:#c4b5fd;font-size:12px;margin-top:4px">Compila i dati e aggiungi i prodotti dal magazzino</p>
                     </div>
-                    <button onclick="closeModal()" style="color:#fff;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">
+                    <button onclick="closeModal()" style="color:#fff;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
 
-            <div style="padding:24px 28px">
+            <!-- Corpo -->
+            <div style="padding:22px 24px 20px;background:#f8f7ff">
                 <input type="hidden" id="preventivoId">
 
-                <!-- SEZIONE 1: Cliente + Dati base affiancati -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+                <!-- Riga 1: Cliente | Preventivo -->
+                <div class="g2 mb14">
 
-                    <!-- Card Cliente -->
-                    <div class="section-card" style="margin-bottom:0">
-                        <div class="section-title"><i class="fas fa-user-circle"></i> Cliente</div>
-                        <div style="margin-bottom:10px">
-                            <label>Cerca cliente esistente</label>
-                            <select id="clienteId" onchange="fillClienteData()" style="background:#fff">
-                                <option value="">— seleziona o compila sotto —</option>
-                            </select>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                            <div>
-                                <label>Nome / Ragione Sociale *</label>
-                                <input type="text" id="clienteNome" required placeholder="Mario Rossi / Azienda Srl">
-                            </div>
-                            <div>
-                                <label>Telefono</label>
-                                <input type="tel" id="clienteTelefono" placeholder="+39 000 000 0000">
+                    <!-- CLIENTE -->
+                    <div class="sc">
+                        <div class="sc-title"><i class="fas fa-user-circle"></i> Cliente</div>
+
+                        <div class="mb10">
+                            <span class="field-label">Seleziona cliente</span>
+                            <div class="sel-wrap">
+                                <select id="clienteId" onchange="fillClienteData()">
+                                    <option value="">— cerca tra i tuoi clienti —</option>
+                                </select>
+                                <i class="fas fa-chevron-down sel-arrow"></i>
                             </div>
                         </div>
-                        <div style="margin-bottom:10px">
-                            <label>Email</label>
-                            <input type="email" id="clienteEmail" placeholder="email@esempio.it">
+
+                        <div class="g2 mb10">
+                            <div>
+                                <span class="field-label">Nome / Ragione Sociale *</span>
+                                <input type="text" id="clienteNome" class="inp" required placeholder="Mario Rossi">
+                            </div>
+                            <div>
+                                <span class="field-label">Telefono</span>
+                                <input type="tel" id="clienteTelefono" class="inp" placeholder="+39 000 000 0000">
+                            </div>
                         </div>
+
+                        <div class="mb10">
+                            <span class="field-label">Email</span>
+                            <input type="email" id="clienteEmail" class="inp" placeholder="email@esempio.it">
+                        </div>
+
                         <div>
-                            <label>Indirizzo</label>
-                            <input type="text" id="clienteIndirizzo" placeholder="Via Roma 1, 00100 Roma">
+                            <span class="field-label">Indirizzo</span>
+                            <input type="text" id="clienteIndirizzo" class="inp" placeholder="Via Roma 1, 00100 Roma">
                         </div>
                     </div>
 
-                    <!-- Card Dati Preventivo -->
-                    <div class="section-card" style="margin-bottom:0">
-                        <div class="section-title"><i class="fas fa-file-invoice"></i> Dati Preventivo</div>
-                        <div style="margin-bottom:10px">
-                            <label>Oggetto *</label>
-                            <input type="text" id="oggetto" required placeholder="es: Fornitura impianto idraulico">
+                    <!-- DATI PREVENTIVO -->
+                    <div class="sc">
+                        <div class="sc-title"><i class="fas fa-file-invoice"></i> Dati Preventivo</div>
+
+                        <div class="mb10">
+                            <span class="field-label">Oggetto *</span>
+                            <input type="text" id="oggetto" class="inp" required placeholder="es: Fornitura impianto idraulico">
                         </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+
+                        <div class="g2 mb10">
                             <div>
-                                <label>Data Emissione</label>
-                                <input type="date" id="dataEmissione">
+                                <span class="field-label">Data Emissione</span>
+                                <input type="date" id="dataEmissione" class="inp">
                             </div>
                             <div>
-                                <label>Valido fino al</label>
-                                <input type="date" id="dataValidita">
+                                <span class="field-label">Valido fino al</span>
+                                <input type="date" id="dataValidita" class="inp">
                             </div>
                         </div>
-                        <div style="margin-bottom:10px">
-                            <label>Condizioni di Pagamento</label>
-                            <input type="text" id="condizioniPagamento" placeholder="es: 30 giorni data fattura">
+
+                        <div class="mb10">
+                            <span class="field-label">Condizioni di Pagamento</span>
+                            <input type="text" id="condizioniPagamento" class="inp" placeholder="es: 30 giorni data fattura">
                         </div>
+
                         <div>
-                            <label>Stato</label>
-                            <select id="stato">
-                                <option value="bozza">📝 Bozza</option>
-                                <option value="inviato">📤 Inviato</option>
-                                <option value="accettato">✅ Accettato</option>
-                                <option value="rifiutato">❌ Rifiutato</option>
-                                <option value="scaduto">⌛ Scaduto</option>
-                            </select>
+                            <span class="field-label">Stato</span>
+                            <div class="sel-wrap sel-stato">
+                                <select id="stato">
+                                    <option value="bozza">📝  Bozza</option>
+                                    <option value="inviato">📤  Inviato</option>
+                                    <option value="accettato">✅  Accettato</option>
+                                    <option value="rifiutato">❌  Rifiutato</option>
+                                    <option value="scaduto">⌛  Scaduto</option>
+                                </select>
+                                <i class="fas fa-chevron-down sel-arrow"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SEZIONE 2: Prodotti -->
-                <div class="section-card">
+                <!-- Riga 2: Prodotti -->
+                <div class="sc mb14">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                        <div class="section-title" style="margin-bottom:0"><i class="fas fa-boxes"></i> Prodotti / Servizi</div>
-                        <button onclick="aggiungiProdotto()" style="background:#7c3aed;color:#fff;border:none;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
-                            <i class="fas fa-plus"></i> Aggiungi dal Magazzino
+                        <div class="sc-title" style="margin-bottom:0"><i class="fas fa-boxes"></i> Prodotti / Servizi</div>
+                        <button onclick="aggiungiProdotto()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:.1px;box-shadow:0 2px 8px rgba(124,58,237,.3)">
+                            <i class="fas fa-plus" style="font-size:11px"></i> Aggiungi dal Magazzino
                         </button>
                     </div>
-                    <div style="overflow-x:auto;border-radius:10px;border:1.5px solid #e5e7eb">
+                    <div style="overflow-x:auto;border-radius:11px;border:1.5px solid #ede9fe">
                         <table style="width:100%;border-collapse:collapse;font-size:12px">
                             <thead>
                                 <tr style="background:#f5f3ff">
-                                    <th style="padding:9px 10px;text-align:left;color:#5b21b6;font-weight:700;white-space:nowrap">Descrizione / Codice</th>
-                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700">UM</th>
-                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700">Qtà</th>
-                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700">Disp.</th>
-                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700">Costo</th>
-                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700">Ric.%</th>
-                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700">Prezzo</th>
-                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700">Sc.%</th>
-                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700">Totale</th>
-                                    <th style="padding:9px 8px"></th>
+                                    <th style="padding:9px 10px;text-align:left;color:#5b21b6;font-weight:700;white-space:nowrap;font-size:11px;letter-spacing:.3px">Descrizione / Codice</th>
+                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700;font-size:11px">UM</th>
+                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700;font-size:11px">Qtà</th>
+                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700;font-size:11px">Disp.</th>
+                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700;font-size:11px">Costo</th>
+                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700;font-size:11px">Ric.%</th>
+                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700;font-size:11px">Prezzo</th>
+                                    <th style="padding:9px 8px;text-align:center;color:#5b21b6;font-weight:700;font-size:11px">Sc.%</th>
+                                    <th style="padding:9px 8px;text-align:right;color:#5b21b6;font-weight:700;font-size:11px">Totale</th>
+                                    <th style="padding:9px 8px;width:30px"></th>
                                 </tr>
                             </thead>
                             <tbody id="prodottiTable"></tbody>
@@ -291,60 +366,64 @@
                     </div>
                 </div>
 
-                <!-- SEZIONE 3: Totali + Note affiancati -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+                <!-- Riga 3: Note | Riepilogo -->
+                <div class="g2 mb14">
 
-                    <!-- Note -->
-                    <div class="section-card" style="margin-bottom:0">
-                        <div class="section-title"><i class="fas fa-sticky-note"></i> Note</div>
-                        <div style="margin-bottom:10px">
-                            <label>Note per il cliente <span style="color:#9ca3af;font-weight:400">(visibili nel preventivo)</span></label>
-                            <textarea id="noteCliente" rows="3" placeholder="Eventuali note o condizioni da includere nel preventivo..."></textarea>
+                    <!-- NOTE -->
+                    <div class="sc">
+                        <div class="sc-title" style="margin-bottom:14px"><i class="fas fa-sticky-note"></i> Note</div>
+                        <div class="mb10">
+                            <span class="field-label">Per il cliente <span style="color:#d1d5db;font-weight:400;text-transform:none;letter-spacing:0">(visibili nel preventivo)</span></span>
+                            <textarea id="noteCliente" class="inp" rows="3" placeholder="Eventuali note o condizioni da includere nel preventivo..."></textarea>
                         </div>
                         <div>
-                            <label>Note interne <span style="color:#9ca3af;font-weight:400">(non visibili al cliente)</span></label>
-                            <textarea id="noteInterne" rows="3" placeholder="Annotazioni riservate..."></textarea>
+                            <span class="field-label">Interne <span style="color:#d1d5db;font-weight:400;text-transform:none;letter-spacing:0">(non visibili al cliente)</span></span>
+                            <textarea id="noteInterne" class="inp" rows="3" placeholder="Annotazioni riservate..."></textarea>
                         </div>
                     </div>
 
-                    <!-- Totali -->
-                    <div class="section-card" style="margin-bottom:0">
-                        <div class="section-title"><i class="fas fa-calculator"></i> Riepilogo</div>
-                        <div class="totali-row">
+                    <!-- RIEPILOGO -->
+                    <div class="sc" style="display:flex;flex-direction:column;justify-content:space-between">
+                        <div class="sc-title" style="margin-bottom:14px"><i class="fas fa-calculator"></i> Riepilogo</div>
+
+                        <div class="t-row" style="font-size:13px">
                             <span style="color:#6b7280">Subtotale</span>
                             <span style="font-weight:700;color:#1f2937" id="displaySubtotale">€ 0,00</span>
                         </div>
-                        <div class="totali-row">
-                            <span style="color:#6b7280">Sconto generale</span>
+
+                        <div class="t-row" style="font-size:13px">
+                            <span style="color:#6b7280">Sconto</span>
                             <div style="display:flex;align-items:center;gap:6px">
                                 <input type="number" id="scontoPercentuale" value="0" min="0" max="100" step="0.1"
-                                    onchange="calcolaTotali()" style="width:58px;padding:5px 8px;text-align:right;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;background:#fafafa">
-                                <span style="color:#6b7280;font-size:12px">%</span>
-                                <span style="font-weight:600;color:#dc2626;min-width:70px;text-align:right" id="displaySconto">— € 0,00</span>
+                                    onchange="calcolaTotali()" class="inp-num">
+                                <span style="color:#9ca3af;font-size:12px;font-weight:600">%</span>
+                                <span style="font-weight:700;color:#dc2626;min-width:68px;text-align:right;font-size:13px" id="displaySconto">€ 0,00</span>
                             </div>
                         </div>
-                        <div class="totali-row">
+
+                        <div class="t-row" style="font-size:13px">
                             <span style="color:#6b7280">IVA</span>
                             <div style="display:flex;align-items:center;gap:6px">
                                 <input type="number" id="ivaPercentuale" value="22" min="0" max="100" step="0.1"
-                                    onchange="calcolaTotali()" style="width:58px;padding:5px 8px;text-align:right;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;background:#fafafa">
-                                <span style="color:#6b7280;font-size:12px">%</span>
-                                <span style="font-weight:600;color:#1f2937;min-width:70px;text-align:right" id="displayIva">€ 0,00</span>
+                                    onchange="calcolaTotali()" class="inp-num">
+                                <span style="color:#9ca3af;font-size:12px;font-weight:600">%</span>
+                                <span style="font-weight:700;color:#374151;min-width:68px;text-align:right;font-size:13px" id="displayIva">€ 0,00</span>
                             </div>
                         </div>
-                        <div class="totali-row" style="border-top:2px solid #7c3aed;margin-top:6px;padding-top:10px">
-                            <span style="font-size:14px;font-weight:700;color:#1f2937">TOTALE IVATO</span>
-                            <span class="totali-total" id="displayTotale">€ 0,00</span>
+
+                        <div style="margin-top:10px;padding-top:12px;border-top:2px solid #ede9fe;display:flex;justify-content:space-between;align-items:center">
+                            <span style="font-size:13px;font-weight:800;color:#1f2937;letter-spacing:.3px;text-transform:uppercase">Totale ivato</span>
+                            <span style="font-size:22px;font-weight:900;color:#6d28d9;letter-spacing:-.5px" id="displayTotale">€ 0,00</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Actions footer -->
-                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;border-top:1.5px solid #e5e7eb">
-                    <button type="button" onclick="closeModal()" style="padding:10px 22px;border:1.5px solid #d1d5db;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer">
+                <!-- Footer azioni -->
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;border-top:1.5px solid #ede9fe">
+                    <button type="button" onclick="closeModal()" style="padding:10px 22px;border:1.5px solid #d1d5db;border-radius:10px;background:#fff;color:#374151;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
                         Annulla
                     </button>
-                    <button onclick="salvaPreventivo()" style="padding:10px 28px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+                    <button onclick="salvaPreventivo()" style="padding:10px 28px;background:linear-gradient(135deg,#6d28d9,#4f46e5);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 3px 12px rgba(109,40,217,.35);letter-spacing:.1px">
                         <i class="fas fa-save"></i> Salva Preventivo
                     </button>
                 </div>
