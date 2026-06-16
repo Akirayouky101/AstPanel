@@ -300,7 +300,7 @@
                 </div>
 
                 <!-- Contatti -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div id="contattiFields" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Telefono *</label>
                         <input type="tel" id="telefono" required 
@@ -866,6 +866,20 @@
             // Reset selezione amministratore se si cambia tipo
             if (tipoCliente !== 'condominio') clearAmm();
 
+            // Nascondi contatti per condominio (usa quelli dell'amministratore)
+            const contattiFields = document.getElementById('contattiFields');
+            if (contattiFields) {
+                if (tipoCliente === 'condominio') {
+                    contattiFields.style.display = 'none';
+                    document.getElementById('telefono').removeAttribute('required');
+                    document.getElementById('email').removeAttribute('required');
+                } else {
+                    contattiFields.style.display = '';
+                    document.getElementById('telefono').setAttribute('required', 'required');
+                    document.getElementById('email').setAttribute('required', 'required');
+                }
+            }
+
             // Show/hide fields based on type
             if (tipoCliente === 'amministratore_condominio') {
                 // Mostra referente (nome/cognome dell'amministratore)
@@ -952,6 +966,10 @@
                     clientData.email_amministratore = document.getElementById('emailAmministratore').value;
                     clientData.pec_amministratore = document.getElementById('pecAmministratore').value;
                     clientData.amministratore_id = document.getElementById('ammId').value || null;
+                    // Usa i contatti dell'amministratore come contatti del condominio
+                    clientData.telefono = clientData.telefono_amministratore || '';
+                    clientData.email = clientData.email_amministratore || '';
+                    clientData.pec = clientData.pec_amministratore || '';
                 } else if (tipoCliente === 'privato') {
                     // privato - use nome/cognome directly
                     clientData.nome = document.getElementById('nome').value || '';
