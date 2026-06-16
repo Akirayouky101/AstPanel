@@ -44,7 +44,11 @@ window.ClientModal = {
         if (client.tipoCliente === 'amministratore_condominio') {
             try {
                 const allCl = await window.dataManager.getClienti();
-                const conds = allCl.filter(c => c.amministratore_id === clientId);
+                console.log('🏢 [ClientModal] Tutti i clienti:', allCl.length, '— cerca amministratore_id ===', clientId);
+                const conds = allCl.filter(c => {
+                    if (c.amministratore_id) console.log('  cliente:', c.ragione_sociale, 'amm_id:', c.amministratore_id);
+                    return String(c.amministratore_id) === String(clientId);
+                });
                 condominiiSection = '<div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:2px solid #a5b4fc;border-radius:12px;padding:12px;margin-bottom:4px">'
                     + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
                     + '<div style="width:30px;height:30px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center">'
@@ -58,7 +62,7 @@ window.ClientModal = {
                                + '</div>';
                        }).join(''))
                     + '</div>';
-            } catch(e) {}
+            } catch(e) { console.error('❌ [ClientModal] Errore caricamento condomini:', e); }
         }
 
         // Create modal HTML
