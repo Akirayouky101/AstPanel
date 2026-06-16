@@ -3447,11 +3447,9 @@
                                                 <i class="fas fa-search" style="position:absolute;left:11px;color:#8b5cf6;font-size:13px;pointer-events:none;z-index:1"></i>
                                                 <input type="text" id="edit-preventivo-search" autocomplete="off"
                                                        placeholder="Clicca per vedere tutti, oppure cerca per numero…"
-                                                       oninput="_editPrevSearch(this.value)"
-                                                       onfocus="_editPrevSearch(this.value)"
                                                        style="width:100%;padding:10px 34px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box;cursor:pointer">
                                                 <i class="fas fa-chevron-down" id="edit-prev-chevron" style="position:absolute;right:10px;color:#8b5cf6;font-size:11px;pointer-events:none;transition:transform .2s"></i>
-                                                <button type="button" id="edit-prev-search-clear" onclick="_editPrevClear()"
+                                                <button type="button" id="edit-prev-search-clear"
                                                         style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;z-index:2">
                                                     <i class="fas fa-times"></i>
                                                 </button>
@@ -3641,6 +3639,15 @@
                     if (chevron) { chevron.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; }
                     _editPrevSearch('');
                 }
+
+                // Collega eventi input/focus al campo ricerca (non inline per evitare scope issues)
+                const _editPrevInp = document.getElementById('edit-preventivo-search');
+                if (_editPrevInp) {
+                    _editPrevInp.addEventListener('input', function() { _editPrevSearch(this.value); });
+                    _editPrevInp.addEventListener('focus', function() { _editPrevSearch(this.value); });
+                }
+                // Collega pulsante clear (ridefinisci onclick in scope locale)
+                document.getElementById('edit-prev-search-clear')?.addEventListener('click', _editPrevClear);
 
                 // Chiudi dropdown edit cliccando fuori
                 const _editPrevClickOutside = (e) => {
