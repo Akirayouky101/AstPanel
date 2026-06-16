@@ -225,6 +225,13 @@ class GPSMapModal {
             this.map.setView([lat, lng], 16);
             if (this.marker) {
                 this.marker.setLatLng([lat, lng]);
+                // Aggiorna icona e popup in base al tipo
+                const iconHtml = tipo === 'ingresso'
+                    ? '<div style="background:#10b981;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏢</div>'
+                    : '<div style="background:#ef4444;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏠</div>';
+                this.marker.setIcon(L.divIcon({ html: iconHtml, className: 'custom-marker', iconSize: [30,30], iconAnchor: [15,15] }));
+                this.marker.getPopup().setContent(`<div class="text-center"><strong>${tipo === 'ingresso' ? '🟢 Ingresso' : '🔴 Uscita'}</strong><br><small>${lat.toFixed(6)}, ${lng.toFixed(6)}</small></div>`);
+                this.marker.openPopup();
             }
         }
     }
