@@ -812,36 +812,77 @@
 
     <!-- Modal Ricerca Fornitore -->
     <div id="ricercaFornitoreModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[80] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl">
-                <h3 class="text-2xl font-bold text-white flex items-center">
-                    <i class="fas fa-search mr-3"></i>
-                    Cerca Fornitore
-                </h3>
-            </div>
-            <div class="p-6">
-                <!-- Input ricerca -->
-                <div class="mb-4">
-                    <input 
-                        type="text" 
-                        id="searchFornitoreInput" 
-                        placeholder="Cerca per nome azienda, codice, P.IVA..." 
-                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        onkeyup="filtraFornitori()"
-                    >
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 rounded-t-2xl flex items-center justify-between">
+                <div>
+                    <p class="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Magazzino</p>
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-search"></i> Cerca Fornitore
+                    </h3>
                 </div>
-                
-                <!-- Lista fornitori -->
-                <div class="overflow-y-auto max-h-96 space-y-2" id="listaFornitoriModal">
-                    <!-- Sarà popolato dinamicamente -->
+                <button onclick="closeRicercaFornitore()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.2);border:none;color:white;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">&times;</button>
+            </div>
+            <div class="p-5 border-b">
+                <div style="position:relative;">
+                    <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;pointer-events:none;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" id="searchFornitoreInput" placeholder="Cerca per nome azienda, codice, P.IVA..."
+                           style="width:100%;padding:11px 16px 11px 42px;background:#f8faff;border:2px solid #e0e7ff;border-radius:14px;font-size:14px;outline:none;box-sizing:border-box;"
+                           onfocus="this.style.borderColor='#818cf8';this.style.boxShadow='0 0 0 3px rgba(129,140,248,0.2)';"
+                           onblur="this.style.borderColor='#e0e7ff';this.style.boxShadow='none';"
+                           onkeyup="filtraFornitori()">
                 </div>
             </div>
-            <div class="p-6 border-t bg-gray-50 flex justify-between">
-                <button onclick="selezionaFornitore(null)" class="px-6 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition">
-                    <i class="fas fa-times mr-2"></i>Nessun Fornitore
+
+            <!-- Lista fornitori -->
+            <div class="overflow-y-auto flex-1 p-3 space-y-2" id="listaFornitoriModal">
+                <!-- Popolato dinamicamente -->
+            </div>
+
+            <!-- Form Nuovo Fornitore (nascosto) -->
+            <div id="nuovoFornitoreInlineForm" class="hidden border-t bg-blue-50 p-5">
+                <p class="text-sm font-bold text-blue-800 mb-3"><i class="fas fa-plus-circle mr-1"></i> Crea Nuovo Fornitore</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Ragione Sociale *</label>
+                        <input type="text" id="nfRagioneSociale" placeholder="Es. Rossi Elettronica Srl"
+                               class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">P.IVA</label>
+                        <input type="text" id="nfPartitaIva" placeholder="IT12345678901"
+                               class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Telefono</label>
+                        <input type="text" id="nfTelefono" placeholder="+39 02 1234567"
+                               class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+                        <input type="email" id="nfEmail" placeholder="info@fornitore.it"
+                               class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Città</label>
+                        <input type="text" id="nfCitta" placeholder="Milano"
+                               class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="toggleNuovoFornitoreForm(false)" class="flex-1 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Annulla</button>
+                    <button onclick="salvaNuovoFornitoreInline()" class="flex-1 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-md transition">
+                        <i class="fas fa-save mr-1"></i> Salva e Seleziona
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-gray-50 flex justify-between items-center rounded-b-2xl">
+                <button onclick="toggleNuovoFornitoreForm(true)" id="btnNuovoFornitoreToggle"
+                        class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl text-sm font-semibold hover:shadow-md transition">
+                    <i class="fas fa-plus"></i> Nuovo Fornitore
                 </button>
-                <button onclick="closeRicercaFornitore()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                    Annulla
+                <button onclick="selezionaFornitore(null)" class="px-4 py-2 border-2 border-gray-300 text-gray-600 rounded-xl text-sm hover:bg-gray-100 transition">
+                    <i class="fas fa-times mr-1"></i>Nessun Fornitore
                 </button>
             </div>
         </div>
@@ -958,53 +999,106 @@
 
             if (filtrati.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-inbox text-4xl mb-2"></i>
-                        <p>Nessun fornitore trovato</p>
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fas fa-inbox text-4xl mb-3 block opacity-40"></i>
+                        <p class="text-sm font-medium">Nessun fornitore trovato</p>
+                        ${search ? `<p class="text-xs mt-1">Prova a cercarne un altro o creane uno nuovo</p>` : ''}
                     </div>
                 `;
                 return;
             }
 
             container.innerHTML = filtrati.map(f => `
-                <div 
-                    onclick="selezionaFornitore('${f.id}', '${f.ragione_sociale?.replace(/'/g, "\\'")}', '${f.codice_fornitore || ''}')" 
-                    class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
-                >
-                    <div class="flex justify-between items-start">
+                <div onclick="selezionaFornitore('${f.id}', '${f.ragione_sociale?.replace(/'/g, "\\'")}')"
+                     style="padding:14px 16px;border:2px solid #e5e7eb;border-radius:14px;cursor:pointer;transition:all 0.15s;"
+                     onmouseover="this.style.borderColor='#6366f1';this.style.background='#f5f3ff';"
+                     onmouseout="this.style.borderColor='#e5e7eb';this.style.background='';">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div>
-                            <p class="font-bold text-lg">${f.ragione_sociale || 'N/A'}</p>
-                            ${f.codice_fornitore ? `<p class="text-sm text-gray-600">Codice: ${f.codice_fornitore}</p>` : ''}
-                            ${f.partita_iva ? `<p class="text-sm text-gray-600">P.IVA: ${f.partita_iva}</p>` : ''}
+                            <p style="font-weight:700;font-size:15px;color:#111827;">${f.ragione_sociale || 'N/A'}</p>
+                            <div style="display:flex;gap:12px;margin-top:4px;flex-wrap:wrap;">
+                                ${f.codice_fornitore ? `<span style="font-size:12px;color:#6b7280;"><i class="fas fa-tag" style="margin-right:4px;"></i>${f.codice_fornitore}</span>` : ''}
+                                ${f.partita_iva ? `<span style="font-size:12px;color:#6b7280;"><i class="fas fa-receipt" style="margin-right:4px;"></i>${f.partita_iva}</span>` : ''}
+                                ${f.email ? `<span style="font-size:12px;color:#6b7280;"><i class="fas fa-envelope" style="margin-right:4px;"></i>${f.email}</span>` : ''}
+                                ${f.telefono ? `<span style="font-size:12px;color:#6b7280;"><i class="fas fa-phone" style="margin-right:4px;"></i>${f.telefono}</span>` : ''}
+                            </div>
                         </div>
-                        <i class="fas fa-chevron-right text-gray-400"></i>
+                        <i class="fas fa-chevron-right" style="color:#a5b4fc;"></i>
                     </div>
-                    ${f.email || f.telefono || f.cellulare ? `
-                        <div class="mt-2 text-sm text-gray-500">
-                            ${f.email ? `<span class="mr-3"><i class="fas fa-envelope mr-1"></i>${f.email}</span>` : ''}
-                            ${f.telefono ? `<span class="mr-3"><i class="fas fa-phone mr-1"></i>${f.telefono}</span>` : ''}
-                            ${f.cellulare && f.cellulare !== f.telefono ? `<span><i class="fas fa-mobile mr-1"></i>${f.cellulare}</span>` : ''}
-                        </div>
-                    ` : ''}
                 </div>
             `).join('');
         }
 
         function selezionaFornitore(fornitoreId, nomeAzienda = null, codiceFornitore = null) {
-            const prefix = fornitoreModalMode; // 'nuovo' o 'modifica'
-            
+            const prefix = fornitoreModalMode;
             if (fornitoreId) {
-                // Fornitore selezionato
                 document.getElementById(`${prefix}FornitoreId`).value = fornitoreId;
                 const displayName = nomeAzienda + (codiceFornitore ? ` (${codiceFornitore})` : '');
                 document.getElementById(`${prefix}FornitoreNome`).value = displayName;
             } else {
-                // Nessun fornitore
                 document.getElementById(`${prefix}FornitoreId`).value = '';
                 document.getElementById(`${prefix}FornitoreNome`).value = '';
             }
-            
             closeRicercaFornitore();
+        }
+
+        function toggleNuovoFornitoreForm(show) {
+            const form = document.getElementById('nuovoFornitoreInlineForm');
+            const btn = document.getElementById('btnNuovoFornitoreToggle');
+            if (show) {
+                form.classList.remove('hidden');
+                btn.classList.add('hidden');
+                document.getElementById('nfRagioneSociale').focus();
+            } else {
+                form.classList.add('hidden');
+                btn.classList.remove('hidden');
+                ['nfRagioneSociale','nfPartitaIva','nfTelefono','nfEmail','nfCitta'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+            }
+        }
+
+        async function salvaNuovoFornitoreInline() {
+            const ragioneSociale = document.getElementById('nfRagioneSociale').value.trim();
+            if (!ragioneSociale) {
+                document.getElementById('nfRagioneSociale').style.borderColor = '#ef4444';
+                document.getElementById('nfRagioneSociale').focus();
+                return;
+            }
+            document.getElementById('nfRagioneSociale').style.borderColor = '';
+
+            const btn = event.currentTarget;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvataggio...';
+
+            try {
+                const payload = {
+                    ragione_sociale: ragioneSociale,
+                    partita_iva: document.getElementById('nfPartitaIva').value.trim() || null,
+                    telefono: document.getElementById('nfTelefono').value.trim() || null,
+                    email: document.getElementById('nfEmail').value.trim() || null,
+                    citta: document.getElementById('nfCitta').value.trim() || null,
+                    attivo: true,
+                };
+
+                const { data, error } = await supabase
+                    .from('fornitori')
+                    .insert([payload])
+                    .select('id, ragione_sociale, codice_fornitore')
+                    .single();
+
+                if (error) throw error;
+
+                // Aggiorna lista locale e seleziona subito
+                await caricaFornitori();
+                selezionaFornitore(data.id, data.ragione_sociale, data.codice_fornitore);
+
+            } catch (err) {
+                console.error('Errore salvataggio fornitore:', err);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save mr-1"></i> Salva e Seleziona';
+                alert('Errore nel salvataggio: ' + (err.message || err));
+            }
         }
 
         function rimuoviFornitoreSelezionato(mode) {
