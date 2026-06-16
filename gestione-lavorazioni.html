@@ -527,6 +527,38 @@
                         </div>
                     </div>
                     
+                    <!-- Importa da Preventivo - VIOLA CHIARO -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-bold text-violet-900">
+                                <i class="fas fa-file-invoice mr-2"></i>
+                                Importa da Preventivo
+                            </label>
+                            <span class="text-xs text-violet-500 font-medium bg-violet-100 px-2 py-1 rounded-full">Opzionale</span>
+                        </div>
+                        <div id="preventivoPickerWrap">
+                            <div class="relative">
+                                <select id="preventivoSelectTask" class="w-full px-3 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 bg-white text-sm appearance-none pr-8 cursor-pointer">
+                                    <option value="">— scegli un preventivo accettato —</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-violet-400 text-xs"></i>
+                            </div>
+                            <button type="button" id="btnImportaPreventivo" onclick="importaDaPreventivo()"
+                                    class="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-sm font-bold hover:from-violet-700 hover:to-purple-700 transition-all shadow disabled:opacity-40">
+                                <i class="fas fa-file-import"></i> Importa componenti
+                            </button>
+                        </div>
+                        <div id="preventivoImportatoInfo" style="display:none" class="mt-2 flex items-center justify-between bg-white border border-violet-200 rounded-lg px-3 py-2">
+                            <div class="flex items-center gap-2 text-sm">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span id="preventivoImportatoLabel" class="text-violet-900 font-semibold"></span>
+                            </div>
+                            <button type="button" onclick="clearPreventivoImportato()" class="text-xs text-red-400 hover:text-red-600 font-medium flex items-center gap-1">
+                                <i class="fas fa-times"></i> Rimuovi
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Components Section - VERDE CHIARO -->
                     <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
                         <div class="flex justify-between items-center mb-3">
@@ -614,6 +646,37 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Modal avviso disponibilità preventivo ── -->
+    <div id="stockAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+            <!-- Header arancio -->
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px 24px 16px">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:42px;height:42px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚠️</div>
+                    <div>
+                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Materiali non disponibili</h3>
+                        <p style="color:#fef3c7;font-size:12px;margin-top:2px">Alcuni componenti non hanno scorte sufficienti</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Corpo -->
+            <div style="padding:20px 24px">
+                <p style="font-size:13px;color:#374151;margin-bottom:14px;line-height:1.5">I seguenti componenti non sono sufficientemente disponibili in magazzino:</p>
+                <div id="stockAlertList" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;margin-bottom:16px;font-size:12px"></div>
+                <p style="font-size:13px;color:#374151;margin-bottom:6px">Se prosegui, il magazzino andrà in <strong style="color:#dc2626">negativo</strong> per le quantità mancanti.</p>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer;margin-top:12px;padding:10px 12px;background:#fef3c7;border-radius:10px;border:1.5px solid #fde68a">
+                    <input type="checkbox" id="stockAlertGeneraOrdine" style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;flex-shrink:0">
+                    <span><strong>Genera ordine automatico</strong> per i materiali mancanti</span>
+                </label>
+            </div>
+            <!-- Azioni -->
+            <div style="display:flex;gap:10px;padding:0 24px 20px">
+                <button onclick="stockAlertRisolvi(false)" style="flex:1;padding:10px 0;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Annulla</button>
+                <button onclick="stockAlertRisolvi(true)" style="flex:1;padding:10px 0;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Prosegui comunque</button>
             </div>
         </div>
     </div>
@@ -1129,6 +1192,183 @@
             }
         }
 
+        // ============================================
+        // 📋 IMPORTA DA PREVENTIVO
+        // ============================================
+        let _stockAlertResolve = null;
+        let _preventivoImportatoId = null;
+
+        async function caricaPreventiviPerTask() {
+            const sel = document.getElementById('preventivoSelectTask');
+            if (!sel) return;
+            try {
+                const clientId = document.getElementById('taskClient').value;
+                let query = window.supabaseClient
+                    .from('preventivi')
+                    .select('id, numero, oggetto, cliente_nome, stato')
+                    .in('stato', ['accettato', 'inviato', 'bozza'])
+                    .order('created_at', { ascending: false });
+                if (clientId) query = query.eq('cliente_id', clientId);
+                const { data, error } = await query;
+                if (error) throw error;
+                sel.innerHTML = '<option value="">— scegli un preventivo —</option>';
+                (data || []).forEach(p => {
+                    const statoEmoji = p.stato === 'accettato' ? '✅' : p.stato === 'inviato' ? '📤' : '📝';
+                    const opt = new Option(`${statoEmoji} ${p.numero} · ${p.oggetto} (${p.cliente_nome || ''})`, p.id);
+                    sel.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Errore caricamento preventivi:', e);
+            }
+        }
+
+        async function importaDaPreventivo() {
+            const sel = document.getElementById('preventivoSelectTask');
+            const prevId = sel?.value;
+            if (!prevId) {
+                _lavorToast('Seleziona un preventivo prima di importare', 'warning');
+                return;
+            }
+            try {
+                // Carica gli items del preventivo
+                const { data: items, error } = await window.supabaseClient
+                    .from('preventivi_items')
+                    .select('prodotto_id, descrizione, codice, quantita, um')
+                    .eq('preventivo_id', prevId)
+                    .not('prodotto_id', 'is', null);
+                if (error) throw error;
+
+                if (!items || items.length === 0) {
+                    _lavorToast('Nessun componente dal magazzino trovato in questo preventivo (solo manodopera?)', 'info');
+                    return;
+                }
+
+                // Carica disponibilità corrente dal magazzino componenti
+                const allComp = await window.dataManager.getComponenti();
+                const mancanti = [];
+
+                const nuoviComp = items.map(item => {
+                    const comp = allComp.find(c => c.id === item.prodotto_id);
+                    const disponibile = comp ? (parseFloat(comp.quantita_disponibile) || 0) : 0;
+                    if (!comp || disponibile < item.quantita) {
+                        mancanti.push({
+                            nome: comp?.nome || item.descrizione,
+                            codice: comp?.codice || item.codice || '—',
+                            richiesta: item.quantita,
+                            disponibile: disponibile,
+                            um: item.um || comp?.unita_misura || 'pz'
+                        });
+                    }
+                    return { id: item.prodotto_id, quantita: parseFloat(item.quantita) || 1 };
+                });
+
+                if (mancanti.length > 0) {
+                    // Mostra modal avviso
+                    const prosegui = await _stockAlert(mancanti, prevId);
+                    if (!prosegui) return;
+                }
+
+                // Applica componenti
+                taskComponents = nuoviComp;
+                await updateTaskComponentsList();
+
+                // Segna preventivo importato
+                _preventivoImportatoId = prevId;
+                const label = sel.options[sel.selectedIndex]?.text || '';
+                document.getElementById('preventivoPickerWrap').style.display = 'none';
+                const info = document.getElementById('preventivoImportatoInfo');
+                info.style.display = 'flex';
+                document.getElementById('preventivoImportatoLabel').textContent = label;
+
+                _lavorToast(`${nuoviComp.length} componenti importati dal preventivo`, 'success');
+            } catch (e) {
+                console.error('Errore import preventivo:', e);
+                _lavorToast('Errore nell\'importazione: ' + e.message, 'error');
+            }
+        }
+
+        function clearPreventivoImportato() {
+            _preventivoImportatoId = null;
+            document.getElementById('preventivoPickerWrap').style.display = '';
+            document.getElementById('preventivoImportatoInfo').style.display = 'none';
+            document.getElementById('preventivoSelectTask').value = '';
+        }
+
+        function _stockAlert(mancanti, prevId) {
+            return new Promise(resolve => {
+                _stockAlertResolve = resolve;
+                const list = document.getElementById('stockAlertList');
+                list.innerHTML = mancanti.map(m => {
+                    const manca = m.richiesta - m.disponibile;
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-bottom:1px solid #fed7aa;font-size:12px">
+                        <div>
+                            <div style="font-weight:700;color:#1f2937">${m.nome}</div>
+                            <div style="color:#9ca3af;font-size:11px">${m.codice}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="color:#374151">Richiesta: <strong>${m.richiesta} ${m.um}</strong></div>
+                            <div style="color:#6b7280">Disponibile: ${m.disponibile} ${m.um}</div>
+                            <div style="color:#dc2626;font-weight:700">Mancano: ${manca.toFixed(2)} ${m.um}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+                document.getElementById('stockAlertModal').style.display = 'flex';
+                // Salva i mancanti per eventuale ordine
+                document.getElementById('stockAlertModal').dataset.prevId = prevId;
+                document.getElementById('stockAlertModal').dataset.mancanti = JSON.stringify(mancanti);
+            });
+        }
+
+        async function stockAlertRisolvi(prosegui) {
+            document.getElementById('stockAlertModal').style.display = 'none';
+            if (!prosegui) { if (_stockAlertResolve) _stockAlertResolve(false); return; }
+            // Se checkbox ordine selezionata, genera ordine
+            if (document.getElementById('stockAlertGeneraOrdine').checked) {
+                await _generaOrdinePerMancanti();
+            }
+            if (_stockAlertResolve) _stockAlertResolve(true);
+        }
+
+        async function _generaOrdinePerMancanti() {
+            const modal = document.getElementById('stockAlertModal');
+            const prevId = modal.dataset.prevId;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('genera_ordini_da_preventivo', {
+                    p_preventivo_id: prevId,
+                    p_user_id: window.AuthHelper?.getCurrentUser?.()?.id || null
+                });
+                if (error) throw error;
+                _lavorToast(`Ordine generato per ${(data||[]).length} fornitore/i. Vai su "Ordini Fornitori".`, 'success');
+            } catch (e) {
+                console.error('Errore generazione ordine:', e);
+                _lavorToast('Ordine non generato: ' + e.message, 'error');
+            }
+        }
+
+        // Toast per lavorazioni
+        let _lavorToastTimer = null;
+        function _lavorToast(msg, type = 'success') {
+            let el = document.getElementById('lavorToast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'lavorToast';
+                el.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:10200;min-width:240px;max-width:360px;border-radius:14px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,.2);display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none';
+                document.body.appendChild(el);
+            }
+            const colors = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#6366f1' };
+            const icons  = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+            el.style.background = '#1f2937';
+            el.style.borderLeft = `4px solid ${colors[type]||colors.info}`;
+            el.innerHTML = `<span style="font-size:18px;flex-shrink:0">${icons[type]}</span><span style="color:#fff;flex:1;line-height:1.4">${msg}</span>`;
+            el.style.display = 'flex';
+            requestAnimationFrame(() => { el.style.opacity = '1'; });
+            clearTimeout(_lavorToastTimer);
+            _lavorToastTimer = setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => { el.style.display = 'none'; }, 320);
+            }, 4000);
+        }
+
         function openTaskModal() {
             currentEditingTask = null;
             previousAssignmentType = null; // Reset for new task
@@ -1141,7 +1381,9 @@
             // Reset components
             taskComponents = [];
             updateTaskComponentsList();
-            
+            clearPreventivoImportato();
+            caricaPreventiviPerTask();
+
             // Set default deadline
             const nextWeek = new Date();
             nextWeek.setDate(nextWeek.getDate() + 7);
@@ -3767,6 +4009,22 @@
                 // Load components
                 taskComponents = task.components || task.componenti || [];
                 await updateTaskComponentsList();
+
+                // Carica preventivi disponibili per il cliente
+                clearPreventivoImportato();
+                await caricaPreventiviPerTask();
+                // Se c'era un preventivo collegato, mostralo
+                if (task.preventivo_id) {
+                    _preventivoImportatoId = task.preventivo_id;
+                    const sel = document.getElementById('preventivoSelectTask');
+                    sel.value = task.preventivo_id;
+                    const opt = sel.options[sel.selectedIndex];
+                    if (opt && opt.value) {
+                        document.getElementById('preventivoPickerWrap').style.display = 'none';
+                        document.getElementById('preventivoImportatoInfo').style.display = 'flex';
+                        document.getElementById('preventivoImportatoLabel').textContent = opt.text;
+                    }
+                }
                 
                 document.getElementById('taskModal').classList.remove('hidden');
             } catch (error) {
@@ -4392,9 +4650,7 @@
         }
 
         function removeComponentFromList(componentId) {
-            if (confirm('Vuoi rimuovere questo componente dalla lavorazione?')) {
-                removeComponentFromTask(componentId);
-            }
+            removeComponentFromTask(componentId);
         }
 
         function getCategoryBadge(category) {
