@@ -3343,6 +3343,38 @@
                             </div>
                             <div class="space-y-4">
                                 <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                    <i data-lucide="file-invoice" class="w-5 h-5 text-violet-600"></i>
+                                    Preventivo collegato
+                                </h3>
+                                <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #ddd6fe;border-radius:12px;padding:16px">
+                                    <div id="edit-preventivoPickerWrap">
+                                        <div style="position:relative;margin-bottom:10px">
+                                            <select id="edit-preventivo-select"
+                                                    style="width:100%;padding:10px 36px 10px 12px;border:2px solid #c4b5fd;border-radius:10px;font-size:14px;background:#fff;appearance:none;cursor:pointer;outline:none">
+                                                <option value="">— scegli un preventivo —</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#8b5cf6;font-size:11px"></i>
+                                        </div>
+                                        <button type="button" id="edit-import-btn"
+                                                style="width:100%;padding:10px 0;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                                            <i class="fas fa-file-import"></i> Importa componenti
+                                        </button>
+                                    </div>
+                                    <div id="edit-preventivoImportatoInfo" style="display:none;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:10px 14px">
+                                        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                                            <i class="fas fa-check-circle" style="color:#22c55e"></i>
+                                            <span id="edit-preventivoImportatoLabel" style="color:#5b21b6;font-weight:600"></span>
+                                        </div>
+                                        <button type="button" id="edit-clear-preventivo"
+                                                style="font-size:12px;color:#ef4444;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;font-weight:600">
+                                            <i class="fas fa-times"></i> Rimuovi
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
                                     <i data-lucide="package" class="w-5 h-5 text-orange-600"></i>
                                     Componenti/Materiali
                                 </h3>
@@ -3405,6 +3437,120 @@
                 
                 document.body.appendChild(modal);
                 lucide.createIcons();
+
+                // ── Carica preventivi per il cliente ──────────────────
+                (async () => {
+                    try {
+                        let q = window.supabaseClient
+                            .from('preventivi')
+                            .select('id, numero, oggetto, cliente_nome, stato')
+                            .in('stato', ['accettato', 'inviato', 'bozza'])
+                            .order('created_at', { ascending: false });
+                        if (task.client_id) q = q.eq('cliente_id', task.client_id);
+                        const { data: prevs } = await q;
+                        const sel = document.getElementById('edit-preventivo-select');
+                        if (!sel) return;
+                        (prevs || []).forEach(p => {
+                            const emoji = p.stato === 'accettato' ? '✅' : p.stato === 'inviato' ? '📤' : '📝';
+                            sel.appendChild(new Option(`${emoji} ${p.numero} · ${p.oggetto} (${p.cliente_nome || ''})`, p.id));
+                        });
+                        // Se c'era già un preventivo collegato, pre-selezionalo
+                        if (task.preventivo_id) {
+                            sel.value = task.preventivo_id;
+                            const opt = sel.options[sel.selectedIndex];
+                            if (opt && opt.value) {
+                                document.getElementById('edit-preventivoPickerWrap').style.display = 'none';
+                                const info = document.getElementById('edit-preventivoImportatoInfo');
+                                info.style.display = 'flex';
+                                document.getElementById('edit-preventivoImportatoLabel').textContent = opt.text;
+                            }
+                        }
+                    } catch(e) { console.warn('Preventivi non caricati:', e); }
+                })();
+
+                // ── Importa componenti dal preventivo ─────────────────
+                document.getElementById('edit-import-btn')?.addEventListener('click', async () => {
+                    const sel = document.getElementById('edit-preventivo-select');
+                    const prevId = sel?.value;
+                    if (!prevId) { _lavorToast('Seleziona un preventivo prima di importare', 'warning'); return; }
+
+                    const btn = document.getElementById('edit-import-btn');
+                    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
+
+                    try {
+                        const { data: items, error } = await window.supabaseClient
+                            .from('preventivi_items')
+                            .select('prodotto_id, descrizione, codice, quantita, um')
+                            .eq('preventivo_id', prevId)
+                            .not('prodotto_id', 'is', null);
+                        if (error) throw error;
+                        if (!items || items.length === 0) {
+                            _lavorToast('Nessun componente magazzino trovato in questo preventivo', 'info');
+                            btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti';
+                            return;
+                        }
+
+                        const allComp = await window.dataManager.getComponenti();
+                        const mancanti = [];
+                        items.forEach(item => {
+                            const comp = allComp.find(c => c.id === item.prodotto_id);
+                            const disp = comp ? (parseFloat(comp.quantita_disponibile) || 0) : 0;
+                            if (!comp || disp < item.quantita) {
+                                mancanti.push({ nome: comp?.nome || item.descrizione, codice: comp?.codice || item.codice || '—', richiesta: item.quantita, disponibile: disp, um: item.um || comp?.unita_misura || 'pz' });
+                            }
+                        });
+
+                        if (mancanti.length > 0) {
+                            const prosegui = await _stockAlert(mancanti, prevId);
+                            if (!prosegui) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti'; return; }
+                        }
+
+                        // Popola la lista componenti del form edit
+                        const container = document.getElementById('edit-componenti-list');
+                        container.innerHTML = '';
+                        items.forEach(item => {
+                            const comp = allComp.find(c => c.id === item.prodotto_id);
+                            if (!comp) return;
+                            const div = document.createElement('div');
+                            div.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
+                            div.dataset.componentId = comp.id;
+                            div.innerHTML = `
+                                <div class="flex-1 grid grid-cols-3 gap-2">
+                                    <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+                                        <strong>${comp.nome}</strong>
+                                        ${comp.codice ? `<span class="text-gray-500 text-xs ml-2">${comp.codice}</span>` : ''}
+                                    </div>
+                                    <input type="number" value="${item.quantita}" min="1"
+                                           class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500" placeholder="Q.tà">
+                                </div>
+                                <button type="button" onclick="this.closest('[data-component-id]').remove()"
+                                        class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>`;
+                            container.appendChild(div);
+                        });
+                        lucide.createIcons();
+
+                        // Mostra badge importato
+                        document.getElementById('edit-preventivoPickerWrap').style.display = 'none';
+                        const info = document.getElementById('edit-preventivoImportatoInfo');
+                        info.style.display = 'flex';
+                        document.getElementById('edit-preventivoImportatoLabel').textContent = sel.options[sel.selectedIndex]?.text || '';
+                        _lavorToast(`${items.length} componenti importati dal preventivo`, 'success');
+                    } catch(e) {
+                        _lavorToast('Errore importazione: ' + e.message, 'error');
+                    } finally {
+                        btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti';
+                    }
+                });
+
+                // ── Rimuovi preventivo ────────────────────────────────
+                document.getElementById('edit-clear-preventivo')?.addEventListener('click', () => {
+                    document.getElementById('edit-preventivo-select').value = '';
+                    document.getElementById('edit-preventivoPickerWrap').style.display = '';
+                    document.getElementById('edit-preventivoImportatoInfo').style.display = 'none';
+                    document.getElementById('edit-preventivoImportatoLabel').textContent = '';
+                });
                 
                 // Toggle tipo assegnazione
                 document.querySelectorAll('input[name="edit-tipo-assegnazione"]').forEach(radio => {
@@ -3606,7 +3752,8 @@
                             progresso: parseInt(document.getElementById('edit-progresso').value) || 0,
                             note_progresso: document.getElementById('edit-note-progresso').value || null,
                             assigned_user_id: assignedUserId,
-                            assigned_team_id: null
+                            assigned_team_id: null,
+                            preventivo_id: document.getElementById('edit-preventivo-select').value || null
                         };
                         
                         // Update task
