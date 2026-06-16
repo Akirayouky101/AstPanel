@@ -165,9 +165,11 @@ window.dataManager = {
             
             // Extract only valid task table fields (remove view-only fields)
             const validFields = [
-                'id', 'titolo', 'descrizione', 'stato', 'priorita', 
-                'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id', 
-                'assigned_team_id', 'created_by', 'created_at', 'updated_at'
+                'id', 'titolo', 'descrizione', 'stato', 'priorita',
+                'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id',
+                'assigned_team_id', 'created_by', 'created_at', 'updated_at',
+                'ora_inizio', 'ora_fine', 'ore_stimate', 'costo_stimato',
+                'data_inizio', 'data_completamento', 'preventivo_id'
             ];
             
             const cleanedTask = {};
@@ -191,7 +193,7 @@ window.dataManager = {
             if (cleanedTask.id) {
                 // Check if status is changing to 'completata'
                 const previousTask = await window.TasksAPI.getById(cleanedTask.id);
-                const isBeingCompleted = previousTask.stato !== 'completata' && cleanedTask.stato === 'completata';
+                const isBeingCompleted = previousTask.stato !== 'completato' && cleanedTask.stato === 'completato';
                 
                 savedTask = await window.TasksAPI.update(cleanedTask.id, cleanedTask);
                 

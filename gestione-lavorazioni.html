@@ -3961,12 +3961,28 @@
                         };
                         
                         // Update task
+                        // Prima leggi lo stato attuale per capire se stiamo completando
+                        const { data: prevTaskData } = await supabaseClient
+                            .from('tasks').select('stato').eq('id', taskId).single();
+                        const wasCompleting = prevTaskData?.stato !== 'completato' && taskData.stato === 'completato';
+
                         const { error: updateError } = await supabaseClient
                             .from('tasks')
                             .update(taskData)
                             .eq('id', taskId);
                         
                         if (updateError) throw updateError;
+
+                        // Scala i componenti dal magazzino se la task viene completata ora
+                        if (wasCompleting && window.TasksAPI?.deductComponentsOnCompletion) {
+                            try {
+                                await window.TasksAPI.deductComponentsOnCompletion(taskId);
+                                console.log('✅ Componenti scalati dal magazzino');
+                            } catch(e) {
+                                console.error('Errore scalaggio componenti:', e);
+                                _lavorToast('Lavorazione salvata ma errore nello scalare i componenti: ' + e.message, 'warning');
+                            }
+                        }
                         
                         // Gestisci assegnazioni multiple
                         if (tipoAssegnazione === 'multi') {
