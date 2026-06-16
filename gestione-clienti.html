@@ -114,6 +114,7 @@
                         <button onclick="setClientFilter('type','condominio')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-purple-300 transition-all"><i class="fas fa-building-user mr-1 text-xs"></i>Condominio</button>
                         <button onclick="setClientFilter('type','associazione')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-orange-300 transition-all"><i class="fas fa-users mr-1 text-xs"></i>Associazione</button>
                         <button onclick="setClientFilter('type','comune')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-red-300 transition-all"><i class="fas fa-landmark mr-1 text-xs"></i>Comune</button>
+                        <button onclick="setClientFilter('type','amministratore_condominio')" class="client-type-btn px-3 py-1.5 rounded-full text-sm font-medium border-2 border-gray-200 bg-white text-gray-600 hover:border-indigo-300 transition-all"><i class="fas fa-user-tie mr-1 text-xs"></i>Amm. Condominio</button>
                     </div>
                 </div>
             </div>
@@ -182,6 +183,13 @@
                             <div class="flex flex-col items-center flex-1">
                                 <i class="fas fa-landmark text-red-600 text-xl mb-1"></i>
                                 <span class="text-xs font-medium">Comune</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-indigo-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="amministratore_condominio" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-user-tie text-indigo-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Amm. Condominio</span>
                             </div>
                         </label>
                     </div>
@@ -402,7 +410,10 @@
             const dropdown = document.getElementById('ammDropdown');
             if (!val || val.length < 2) { dropdown.style.display = 'none'; return; }
             const q = val.toLowerCase();
-            const matches = allClientsCache.filter(c => {
+            // Cerca prima tra gli Amm. Condominio, se vuoti allora tra tutti
+            const ammPool = allClientsCache.filter(c => c.tipo_cliente === 'amministratore_condominio');
+            const pool = ammPool.length > 0 ? ammPool : allClientsCache;
+            const matches = pool.filter(c => {
                 const nome = (c.nome || '').toLowerCase();
                 const cognome = (c.cognome || '').toLowerCase();
                 const full = nome + ' ' + cognome;
@@ -471,13 +482,15 @@
                         tipo === 'privato' ? 'bg-green-100 text-green-700' :
                         tipo === 'condominio' ? 'bg-purple-100 text-purple-700' :
                         tipo === 'associazione' ? 'bg-orange-100 text-orange-700' :
-                        tipo === 'comune' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700';
+                        tipo === 'comune' ? 'bg-red-100 text-red-700' :
+                        tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700';
                     const tipoIcon = tipo === 'azienda' ? 'fa-building' :
                         tipo === 'privato' ? 'fa-user' :
                         tipo === 'condominio' ? 'fa-building-user' :
                         tipo === 'associazione' ? 'fa-users' :
-                        tipo === 'comune' ? 'fa-landmark' : 'fa-question';
-                    const tipoLabel = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+                        tipo === 'comune' ? 'fa-landmark' :
+                        tipo === 'amministratore_condominio' ? 'fa-user-tie' : 'fa-question';
+                    const tipoLabel = tipo === 'amministratore_condominio' ? 'Amm. Condominio' : tipo.charAt(0).toUpperCase() + tipo.slice(1);
                     const nome = client.ragione_sociale || client.ragioneSociale || 'N/A';
                     const iniziale = nome.charAt(0).toUpperCase();
                     return `
@@ -587,8 +600,9 @@
             }
             tbody.innerHTML = filtered.map(client => {
                 const tipo = client.tipo_cliente || client.tipoCliente || 'privato';
-                const tipoBadgeClass = tipo === 'azienda' ? 'bg-blue-100 text-blue-700' : tipo === 'privato' ? 'bg-green-100 text-green-700' : tipo === 'condominio' ? 'bg-purple-100 text-purple-700' : tipo === 'associazione' ? 'bg-orange-100 text-orange-700' : tipo === 'comune' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700';
-                const tipoIcon = tipo === 'azienda' ? 'fa-building' : tipo === 'privato' ? 'fa-user' : tipo === 'condominio' ? 'fa-building-user' : tipo === 'associazione' ? 'fa-users' : tipo === 'comune' ? 'fa-landmark' : 'fa-question';
+                const tipoBadgeClass = tipo === 'azienda' ? 'bg-blue-100 text-blue-700' : tipo === 'privato' ? 'bg-green-100 text-green-700' : tipo === 'condominio' ? 'bg-purple-100 text-purple-700' : tipo === 'associazione' ? 'bg-orange-100 text-orange-700' : tipo === 'comune' ? 'bg-red-100 text-red-700' : tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700';
+                const tipoIcon = tipo === 'azienda' ? 'fa-building' : tipo === 'privato' ? 'fa-user' : tipo === 'condominio' ? 'fa-building-user' : tipo === 'associazione' ? 'fa-users' : tipo === 'comune' ? 'fa-landmark' : tipo === 'amministratore_condominio' ? 'fa-user-tie' : 'fa-question';
+                const tipoLabel2 = tipo === 'amministratore_condominio' ? 'Amm. Condominio' : tipo.charAt(0).toUpperCase() + tipo.slice(1);
                 const nome = client.ragione_sociale || client.ragioneSociale || 'N/A';
                 return `
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all flex flex-col">
@@ -597,7 +611,7 @@
                         <div class="min-w-0 flex-1">
                             <div class="font-semibold text-gray-900 text-sm leading-tight break-words">${nome}</div>
                             ${client.nome || client.cognome ? `<div class="text-xs text-gray-500 mt-0.5">${client.nome || ''} ${client.cognome || ''}</div>` : ''}
-                            <span class="inline-flex items-center mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${tipoBadgeClass}"><i class="fas ${tipoIcon} mr-1"></i>${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</span>
+                            <span class="inline-flex items-center mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${tipoBadgeClass}"><i class="fas ${tipoIcon} mr-1"></i>${tipoLabel2}</span>
                         </div>
                     </div>
                     <div class="p-4 flex flex-col gap-2 flex-1 text-sm">
@@ -765,12 +779,24 @@
                 'privato': 'Nome Completo *',
                 'condominio': 'Nome Condominio *',
                 'associazione': 'Nome Associazione *',
-                'comune': 'Nome Comune *'
+                'comune': 'Nome Comune *',
+                'amministratore_condominio': 'Studio / Ragione Sociale *'
             };
             labelRagioneSociale.textContent = labels[tipoCliente] || 'Ragione Sociale *';
             
             // Show/hide fields based on type
-            if (tipoCliente === 'condominio') {
+            if (tipoCliente === 'amministratore_condominio') {
+                // Mostra referente (nome/cognome dell'amministratore)
+                referenteFields.classList.remove('hidden');
+                amministratoreFields.classList.add('hidden');
+                document.getElementById('referenteFields').querySelector('label').textContent = 'Nome Amministratore *';
+                document.getElementById('nome').setAttribute('required', 'required');
+                document.getElementById('cognome').setAttribute('required', 'required');
+                document.getElementById('nomeAmministratore').removeAttribute('required');
+                document.getElementById('cognomeAmministratore').removeAttribute('required');
+                document.getElementById('telefonoAmministratore').removeAttribute('required');
+                document.getElementById('emailAmministratore').removeAttribute('required');
+            } else if (tipoCliente === 'condominio') {
                 referenteFields.classList.add('hidden');
                 amministratoreFields.classList.remove('hidden');
                 // Make admin fields required
@@ -843,14 +869,18 @@
                     clientData.telefono_amministratore = document.getElementById('telefonoAmministratore').value;
                     clientData.email_amministratore = document.getElementById('emailAmministratore').value;
                     clientData.pec_amministratore = document.getElementById('pecAmministratore').value;
-                } else if (tipoCliente !== 'privato') {
-                    // azienda, associazione, comune
-                    clientData.nome_referente = document.getElementById('nome').value;
-                    clientData.cognome_referente = document.getElementById('cognome').value;
-                } else {
+                } else if (tipoCliente === 'privato') {
                     // privato - use nome/cognome directly
                     clientData.nome = document.getElementById('nome').value || '';
                     clientData.cognome = document.getElementById('cognome').value || '';
+                } else if (tipoCliente === 'amministratore_condominio') {
+                    // l'amministratore è la persona stessa: salva come nome/cognome
+                    clientData.nome = document.getElementById('nome').value || '';
+                    clientData.cognome = document.getElementById('cognome').value || '';
+                } else {
+                    // azienda, associazione, comune
+                    clientData.nome_referente = document.getElementById('nome').value;
+                    clientData.cognome_referente = document.getElementById('cognome').value;
                 }
                 
                 if (editingClientId) {
