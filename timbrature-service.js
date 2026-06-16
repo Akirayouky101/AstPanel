@@ -145,7 +145,7 @@ class TimbratureService {
         // 📍 Ottieni posizione GPS per l'uscita
         let gpsData = {};
         try {
-            const gps = await this.getGPSPosition();
+            const gps = await this.getGPS();
             if (gps) {
                 gpsData = {
                     posizione_gps_uscita: {
