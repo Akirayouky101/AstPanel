@@ -178,6 +178,20 @@ window.ClientModal = {
                         </div>
                         ` : ''}
 
+                        ${clientData.rif_preventivo ? `
+                        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:10px;padding:10px 12px">
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <div style="width:28px;height:28px;background:linear-gradient(135deg,#d97706,#b45309);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="fas fa-lock" style="color:white;font-size:10px"></i>
+                                </div>
+                                <div>
+                                    <p style="font-size:10px;color:#92400e;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Rif. Preventivo (interno)</p>
+                                    <p style="font-size:14px;color:#1f2937;font-weight:700">${clientData.rif_preventivo}</p>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+
                         ${condominiiSection}
                     </div>
 
