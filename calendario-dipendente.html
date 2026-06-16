@@ -688,18 +688,41 @@
         async function salvaOrariTask(taskId) {
             const oraInizio = document.getElementById(`mobile-ora-inizio-${taskId}`)?.value || null;
             const oraFine = document.getElementById(`mobile-ora-fine-${taskId}`)?.value || null;
+            const btn = document.querySelector(`[onclick="salvaOrariTask('${taskId}')"]`);
             try {
-                const { error } = await supabaseClient
+                if (btn) { btn.textContent = '⏳ Salvataggio...'; btn.disabled = true; }
+                const { data, error } = await supabaseClient
                     .from('tasks')
                     .update({ ora_inizio: oraInizio || null, ora_fine: oraFine || null })
-                    .eq('id', taskId);
+                    .eq('id', taskId)
+                    .select('id');
                 if (error) throw error;
-                // Feedback visivo
-                const btn = document.querySelector(`[onclick="salvaOrariTask('${taskId}')"]`);
-                if (btn) { btn.textContent = '✅ Salvato!'; setTimeout(() => { btn.textContent = '💾 Salva Orari'; }, 2000); }
+                if (!data || data.length === 0) {
+                    // RLS ha bloccato silenziosamente l'aggiornamento
+                    throw new Error('Non hai il permesso di modificare questo task. Contatta l\'amministratore.');
+                }
+                // Feedback visivo successo
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✅ Salvato!';
+                    btn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+                    setTimeout(() => {
+                        btn.textContent = '💾 Salva Orari';
+                        btn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+                    }, 2000);
+                }
             } catch (err) {
                 console.error('Errore salvataggio orari:', err);
-                alert('Errore nel salvataggio degli orari');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '❌ Errore - riprova';
+                    btn.style.background = 'linear-gradient(135deg,#dc2626,#b91c1c)';
+                    setTimeout(() => {
+                        btn.textContent = '💾 Salva Orari';
+                        btn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+                    }, 3000);
+                }
+                alert('Errore nel salvataggio degli orari: ' + (err.message || err));
             }
         }
 
