@@ -372,6 +372,7 @@ window.dataManager = {
 
             for (const task of lavorazioni) {
                 if (!task.scadenza) continue;
+                if (task.visibile === false) continue; // Escludi standby dal calendario
 
                 const times = buildEventTimes(task);
 

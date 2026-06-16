@@ -1226,7 +1226,7 @@
                     const isMultiAssigned = multiTaskIds.includes(task.id);
                     
                     return isDirectlyAssigned || isTeamAssigned || isMultiAssigned;
-                });
+                }).filter(task => task.visibile !== false); // Escludi task in standby
 
                 // Load team details and members for team tasks
                 for (const task of userTasks) {
@@ -1970,11 +1970,12 @@
                 
                 const profileMultiTaskIds = profileMultiAssignments?.map(a => a.task_id) || [];
                 
-                // Filtra tasks: assigned_user_id O in task_assignments
+                // Filtra tasks: assigned_user_id O in task_assignments (escludi standby)
                 const userTasksData = tasks.filter(t => 
-                    t.assegnato_a === currentUser.id || 
+                    (t.assegnato_a === currentUser.id || 
                     t.assigned_user_id === currentUser.id ||
-                    profileMultiTaskIds.includes(t.id)
+                    profileMultiTaskIds.includes(t.id)) &&
+                    t.visibile !== false
                 );
                 
                 const totalTasks = userTasksData.length;

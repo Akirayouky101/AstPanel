@@ -796,7 +796,9 @@
 
         function createTaskCard(task) {
             const card = document.createElement('div');
+            const standbyStyle = task.visibile === false ? 'opacity:0.55;border:2px dashed #94a3b8;' : '';
             card.className = `task-card bg-white rounded-lg border shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow ${getPriorityClass(task.priorita || 'medium')}`;
+            card.style.cssText = standbyStyle;
             card.draggable = true;
             card.setAttribute('data-task-id', task.id);
             card.ondragstart = drag;
@@ -837,6 +839,7 @@
 
             card.innerHTML = `
                 <div class="mb-3">
+                    ${task.visibile === false ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid #94a3b8;color:#475569;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:4px">🔒 STANDBY</span>' : ''}
                     <h4 class="font-medium text-gray-900 text-sm">${task.titolo}</h4>
                 </div>
                 <p class="text-xs text-gray-600 mb-3">${(task.descrizione || '').substring(0, 60)}...</p>
@@ -2718,6 +2721,10 @@
                                 ✖️ Chiudi
                             </button>
                             <div class="flex gap-2">
+                                <button id="standby-toggle-btn" data-task-id="${taskId}" data-visibile="${task.visibile !== false}"
+                                        style="padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;background:${task.visibile === false ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#64748b,#475569)'};color:white">
+                                    ${task.visibile === false ? '✅ Attiva' : '🔒 Metti in Standby'}
+                                </button>
                                 <button id="duplicate-task-btn" data-task-id="${taskId}"
                                         class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow flex items-center gap-2">
                                     <i data-lucide="copy" class="w-4 h-4"></i>
@@ -2741,6 +2748,12 @@
                 document.body.appendChild(modal);
                 lucide.createIcons();
                 
+                // Event listener standby toggle
+                const standbyBtn = document.getElementById('standby-toggle-btn');
+                if (standbyBtn) {
+                    standbyBtn.addEventListener('click', () => toggleStandby(taskId));
+                }
+
                 // Event listener per pulsante duplica
                 const dupBtn = document.getElementById('duplicate-task-btn');
                 if (dupBtn) {
@@ -3448,6 +3461,30 @@
         // EDIT TASK - MODALE MODIFICA
         // ===================================
         
+        // ===== TOGGLE STANDBY =====
+        async function toggleStandby(taskId) {
+            try {
+                const tasks = await window.dataManager.getLavorazioni();
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                const nuovoValore = task.visibile === false ? true : false;
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .update({ visibile: nuovoValore })
+                    .eq('id', taskId);
+
+                if (error) throw error;
+
+                document.getElementById('task-view-modal')?.remove();
+                showNotification(nuovoValore ? '✅ Lavorazione attivata — ora visibile ai dipendenti' : '🔒 Lavorazione in Standby — nascosta ai dipendenti', nuovoValore ? 'success' : 'info');
+                await loadLavorazioni();
+            } catch (err) {
+                console.error('Errore toggle standby:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
+        }
+
         // ===== ARCHIVIA LAVORAZIONE =====
         async function archiviaTask(taskId) {
             const confirmed = await showConfirm(
