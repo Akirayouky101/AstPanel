@@ -309,10 +309,17 @@
                 </form>
             </div>
             <div class="p-6 border-t flex justify-between gap-3">
-                <button onclick="closeEditModal()" type="button"
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all">
-                    Annulla
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeEditModal()" type="button"
+                            class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all">
+                        Annulla
+                    </button>
+                    <button onclick="deleteTimbratura()" type="button"
+                            class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center gap-2">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        Elimina
+                    </button>
+                </div>
                 <button onclick="saveEdit()" type="button"
                         class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl">
                     💾 Salva Modifiche
@@ -1527,6 +1534,34 @@
         // Chiudi modal modifica
         function closeEditModal() {
             document.getElementById('editModal').classList.add('hidden');
+        }
+
+        // Elimina timbratura
+        async function deleteTimbratura() {
+            const timbratureId = document.getElementById('editTimbratureId').value;
+            if (!timbratureId) return;
+
+            const timbratura = allTimbrature.find(t => t.id === timbratureId);
+            const nomeUtente = timbratura?.user ? `${timbratura.user.nome} ${timbratura.user.cognome}` : 'utente';
+            const dataT = timbratura?.data || '';
+
+            if (!confirm(`Eliminare definitivamente la timbratura di ${nomeUtente} del ${dataT}?\nQuesta azione non è reversibile.`)) return;
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('timbrature')
+                    .delete()
+                    .eq('id', timbratureId);
+
+                if (error) throw error;
+
+                closeEditModal();
+                showNotification('✅ Timbratura eliminata', 'success');
+                await loadTimbrature();
+            } catch (err) {
+                console.error('Errore eliminazione timbratura:', err);
+                showNotification('❌ Errore eliminazione: ' + err.message, 'error');
+            }
         }
 
         // Salva modifiche timbratura
