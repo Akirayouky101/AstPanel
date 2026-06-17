@@ -75,7 +75,7 @@
     </div>
 
     <script>
-        const supabase = window.supabaseClient;
+        const _db = window.supabaseClient;
         let _allRichieste = [];
         let _filtroTipo = '';
 
@@ -175,14 +175,14 @@
         }
 
         async function segnaElaborata(id) {
-            await supabase.from('richieste_speciali').update({ elaborata: true, letta: true }).eq('id', id);
+            await _db.from('richieste_speciali').update({ elaborata: true, letta: true }).eq('id', id);
             const r = _allRichieste.find(x => x.id === id);
             if (r) { r.elaborata = true; r.letta = true; }
             renderRichieste();
         }
 
         async function segnaLetta(id) {
-            await supabase.from('richieste_speciali').update({ letta: true }).eq('id', id);
+            await _db.from('richieste_speciali').update({ letta: true }).eq('id', id);
             const r = _allRichieste.find(x => x.id === id);
             if (r) r.letta = true;
             renderRichieste();
@@ -190,7 +190,7 @@
         }
 
         async function segnaLetteTutte() {
-            await supabase.from('richieste_speciali').update({ letta: true }).eq('letta', false);
+            await _db.from('richieste_speciali').update({ letta: true }).eq('letta', false);
             _allRichieste.forEach(r => r.letta = true);
             renderRichieste();
             aggiornaBadge();
@@ -249,7 +249,7 @@
         }
 
         function avviaRealtime() {
-            supabase.channel('rs-admin-page')
+            _db.channel('rs-admin-page')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'richieste_speciali' }, () => {
                     caricaRichieste();
                 })
