@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Lavorazioni - Admin Panel</title>
+    <title>Nuova Lavorazione</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
@@ -17,304 +16,16 @@
     <script src="task-wizard.js"></script>
     <script src="multi-user-assignment.js"></script>
     <script src="product-scanner.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="component-multi-scanner.js"></script>
+    <script src="component-multi-selector.js"></script>
     <style>
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
-        .hover-scale { transition: transform 0.2s; }
-        .hover-scale:hover { transform: scale(1.02); }
+        html, body { background: transparent !important; margin: 0; padding: 0; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .kanban-column { min-height: 500px; }
-        .task-card { transition: all 0.3s ease; }
-        .task-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .priority-alta { border-left: 4px solid #ef4444; }
-        .priority-media { border-left: 4px solid #f59e0b; }
-        .priority-bassa { border-left: 4px solid #10b981; }
-        .drag-over { background-color: #f3f4f6; border: 2px dashed #d1d5db; }
-        .animate-slide-in { animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
-        .animate-scale-in { animation: scaleIn 0.3s ease-out; }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Sidebar -->
-    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50" id="sidebar">
-        <div class="flex items-center justify-center h-16 gradient-bg">
-            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
-        </div>
-        <nav class="mt-8">
-            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
-                Dashboard
-            </a>
-            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
-                Gestione Utenti
-            </a>
-            <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>
-                Gestione Clienti
-            </a>
-            <a href="gestione-squadre.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="users-2" class="w-5 h-5 mr-3"></i>
-                Gestione Squadre
-            </a>
-            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
-                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
-                Gestione Lavorazioni
-            </a>
-            <a href="archivio-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-slate-50 hover:text-slate-700 transition-colors">
-                <i data-lucide="archive" class="w-5 h-5 mr-3"></i>
-                Lavorazioni Archiviate
-            </a>
-            <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="package" class="w-5 h-5 mr-3"></i>
-                Magazzino Prodotti
-            </a>
-            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
-                Gestione Richieste
-            </a>
-            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                Comunicazioni
-            </a>
-        </nav>
-    </div>
-
-    <!-- Main Content -->
-    <div class="ml-64 p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Gestione Lavorazioni</h2>
-                <p class="text-gray-600">Organizza e monitora tutte le attività aziendali</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="flex bg-white rounded-lg shadow-sm border">
-                    <button id="kanbanViewBtn" onclick="switchView('kanban')" class="px-4 py-2 bg-blue-600 text-white rounded-l-lg transition-colors">
-                        <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2 inline"></i>
-                        Kanban
-                    </button>
-                    <button id="listViewBtn" onclick="switchView('list')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-r-lg hover:bg-gray-200 transition-colors">
-                        <i data-lucide="list" class="w-4 h-4 mr-2 inline"></i>
-                        Lista
-                    </button>
-                </div>
-                <div class="flex gap-3">
-                    <button onclick="window.availabilityChecker.mostraCheckVeloce()" 
-                            class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center shadow-lg">
-                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i>
-                        Check Veloce
-                    </button>
-                    <button onclick="window.availabilityChecker.mostraDashboardCompleta()" 
-                            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
-                        <i data-lucide="bar-chart-3" class="w-5 h-5 mr-2"></i>
-                        Dashboard
-                    </button>
-                    <button onclick="mostraMenuCreazione()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
-                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
-                        Nuova Lavorazione
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 fade-in">
-            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Totale Lavorazioni</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalTasks">18</p>
-                    </div>
-                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-600"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">In Corso</p>
-                        <p class="text-2xl font-bold text-orange-600" id="inProgressTasks">6</p>
-                    </div>
-                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Completate</p>
-                        <p class="text-2xl font-bold text-green-600" id="completedTasks">8</p>
-                    </div>
-                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">In Ritardo</p>
-                        <p class="text-2xl font-bold text-red-600" id="overdueTasks">2</p>
-                    </div>
-                    <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                        <i data-lucide="alert-circle" class="w-6 h-6 text-red-600"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 fade-in">
-            <div class="flex flex-wrap gap-3 items-center">
-                <!-- Search -->
-                <div class="flex-1 min-w-56 relative">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                    <input type="text" id="searchTasks" placeholder="Cerca lavorazioni..."
-                           class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition">
-                </div>
-
-                <!-- Stato -->
-                <div class="relative">
-                    <select id="statusFilter" onchange="applyFilterStyles()"
-                            class="filter-select appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all
-                                   bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300 focus:ring-2 focus:ring-indigo-400">
-                        <option value="">Tutti gli stati</option>
-                        <option value="da_fare">Da Fare</option>
-                        <option value="in_corso">In Corso</option>
-                        <option value="revisione">Revisione</option>
-                        <option value="completato">Completato</option>
-                    </select>
-                    <i data-lucide="layers" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" id="statusFilterIcon"></i>
-                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
-                </div>
-
-                <!-- Priorità -->
-                <div class="relative">
-                    <select id="priorityFilter" onchange="applyFilterStyles()"
-                            class="filter-select appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all
-                                   bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300 focus:ring-2 focus:ring-indigo-400">
-                        <option value="">Tutte le priorità</option>
-                        <option value="alta">🔴 Alta</option>
-                        <option value="media">🟡 Media</option>
-                        <option value="bassa">🟢 Bassa</option>
-                    </select>
-                    <i data-lucide="flag" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" id="priorityFilterIcon"></i>
-                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
-                </div>
-
-                <!-- Assegnatari -->
-                <div class="relative">
-                    <select id="assigneeFilter" onchange="applyFilterStyles()"
-                            class="filter-select appearance-none pl-8 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all
-                                   bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300 focus:ring-2 focus:ring-indigo-400">
-                        <option value="">Tutti gli assegnatari</option>
-                    </select>
-                    <i data-lucide="user" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" id="assigneeFilterIcon"></i>
-                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
-                </div>
-
-                <!-- Reset -->
-                <button onclick="resetFilters()" id="resetFiltersBtn"
-                        class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-500 border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
-                    <i data-lucide="x" class="w-3.5 h-3.5"></i> Reset
-                </button>
-            </div>
-        </div>
-
-        <!-- Kanban Board -->
-        <div id="kanbanView" class="fade-in">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <!-- Da Fare Column -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-gray-100 px-4 py-3 border-b">
-                        <h3 class="font-medium text-gray-900 flex items-center">
-                            <i data-lucide="circle" class="w-4 h-4 mr-2 text-gray-500"></i>
-                            Da Fare
-                            <span class="ml-auto bg-gray-500 text-white text-xs px-2 py-1 rounded-full" id="todoCount">4</span>
-                        </h3>
-                    </div>
-                    <div class="kanban-column p-4 space-y-4" id="todoColumn" ondrop="drop(event)" ondragover="allowDrop(event)" data-status="da_fare">
-                        <!-- Tasks will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- In Corso Column -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-blue-100 px-4 py-3 border-b">
-                        <h3 class="font-medium text-gray-900 flex items-center">
-                            <i data-lucide="play-circle" class="w-4 h-4 mr-2 text-blue-500"></i>
-                            In Corso
-                            <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full" id="inProgressCount">6</span>
-                        </h3>
-                    </div>
-                    <div class="kanban-column p-4 space-y-4" id="inProgressColumn" ondrop="drop(event)" ondragover="allowDrop(event)" data-status="in_corso">
-                        <!-- Tasks will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Revisione Column -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-orange-100 px-4 py-3 border-b">
-                        <h3 class="font-medium text-gray-900 flex items-center">
-                            <i data-lucide="eye" class="w-4 h-4 mr-2 text-orange-500"></i>
-                            Revisione
-                            <span class="ml-auto bg-orange-500 text-white text-xs px-2 py-1 rounded-full" id="reviewCount">2</span>
-                        </h3>
-                    </div>
-                    <div class="kanban-column p-4 space-y-4" id="reviewColumn" ondrop="drop(event)" ondragover="allowDrop(event)" data-status="revisione">
-                        <!-- Tasks will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Completato Column -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-green-100 px-4 py-3 border-b">
-                        <h3 class="font-medium text-gray-900 flex items-center">
-                            <i data-lucide="check-circle" class="w-4 h-4 mr-2 text-green-500"></i>
-                            Completato
-                            <span class="ml-auto bg-green-500 text-white text-xs px-2 py-1 rounded-full" id="completedCount">6</span>
-                        </h3>
-                    </div>
-                    <div class="kanban-column p-4 space-y-4" id="completedColumn" ondrop="drop(event)" ondragover="allowDrop(event)" data-status="completato">
-                        <!-- Tasks will be loaded here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- List View -->
-        <div id="listView" class="hidden bg-white rounded-lg shadow-md overflow-hidden fade-in">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Elenco Lavorazioni</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lavorazione</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assegnatario</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priorità</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scadenza</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tasksTableBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Tasks will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Task Modal -->
+<body>
     <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
@@ -662,104 +373,282 @@
             </div>
         </div>
     </div>
+    <div id="componentMultiScannerModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[60] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
+            <!-- Campo hidden per catturare focus e scanner -->
+            <input 
+                type="text" 
+                id="componentScannerFocusInput" 
+                style="position: absolute; opacity: 0; pointer-events: none;"
+                autocomplete="off"
+            />
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 p-6 rounded-t-2xl flex justify-between items-center">
+                <div>
+                    <h3 class="text-3xl font-bold text-white flex items-center">
+                        <i class="fas fa-bolt mr-3 animate-pulse"></i>
+                        Selezione Multipla Componenti
+                    </h3>
+                    <p class="text-purple-100 mt-1">Scansiona tutti i componenti - prodotti uguali si sommano automaticamente</p>
+                </div>
+                <button onclick="componentScanner?.close()" class="text-white hover:bg-white/20 p-2 rounded-lg transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
 
-    <!-- ── Modal avviso disponibilità preventivo ── -->
-    <div id="stockAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
-            <!-- Header arancio -->
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px 24px 16px">
-                <div style="display:flex;align-items:center;gap:12px">
-                    <div style="width:42px;height:42px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚠️</div>
-                    <div>
-                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Materiali non disponibili</h3>
-                        <p style="color:#fef3c7;font-size:12px;margin-top:2px">Alcuni componenti non hanno scorte sufficienti</p>
+            <!-- Scanner Status Bar -->
+            <div class="bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 px-6 py-4 text-white">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-white/20 p-2 rounded-lg">
+                            <i class="fas fa-barcode text-xl"></i>
+                        </div>
+                        <span class="font-semibold">Scanner Attivo - Scansiona i codici</span>
+                    </div>
+                    
+                    <!-- INPUT MANUALE -->
+                    <div class="flex items-center gap-3">
+                        <input 
+                            type="text" 
+                            id="componentManualSearchInput" 
+                            placeholder="Inserisci codice manualmente..."
+                            class="px-4 py-2 rounded-lg border-2 border-white/30 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:border-white focus:bg-white/20 transition w-80"
+                            autocomplete="off"
+                        />
+                        <button 
+                            onclick="componentScanner?.searchManual()"
+                            class="px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold hover:bg-purple-50 transition flex items-center gap-2"
+                        >
+                            <i class="fas fa-search"></i>
+                            Cerca
+                        </button>
+                    </div>
+                    
+                    <div id="componentScannerStatus" class="bg-white/30 px-4 py-2 rounded-lg font-mono text-sm">
+                        In attesa...
                     </div>
                 </div>
             </div>
-            <!-- Corpo -->
-            <div style="padding:20px 24px">
-                <p style="font-size:13px;color:#374151;margin-bottom:14px;line-height:1.5">I seguenti componenti non sono sufficientemente disponibili in magazzino:</p>
-                <div id="stockAlertList" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;margin-bottom:16px;font-size:12px"></div>
-                <p style="font-size:13px;color:#374151;margin-bottom:6px">Se prosegui, il magazzino andrà in <strong style="color:#dc2626">negativo</strong> per le quantità mancanti.</p>
-                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer;margin-top:12px;padding:10px 12px;background:#fef3c7;border-radius:10px;border:1.5px solid #fde68a">
-                    <input type="checkbox" id="stockAlertGeneraOrdine" style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;flex-shrink:0">
-                    <span><strong>Genera ordine automatico</strong> per i materiali mancanti</span>
-                </label>
-            </div>
-            <!-- Azioni -->
-            <div style="display:flex;gap:10px;padding:0 24px 20px">
-                <button onclick="stockAlertRisolvi(false)" style="flex:1;padding:10px 0;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Annulla</button>
-                <button onclick="stockAlertRisolvi(true)" style="flex:1;padding:10px 0;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Prosegui comunque</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Component Selector Modal -->
-    <div id="componentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header con gradiente -->
-                <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xl font-bold text-white text-center flex-1">
-                            <i class="fas fa-warehouse mr-2"></i>
-                            Seleziona Componenti da Magazzino
-                        </h3>
-                        <button onclick="closeComponentModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-3" title="Chiudi">
-                            <i data-lucide="x" class="w-6 h-6"></i>
+            <!-- Main Content: Schermo Diviso -->
+            <div class="flex-1 grid grid-cols-2 gap-6 p-6 overflow-hidden">
+                
+                <!-- COLONNA SINISTRA: Componenti TROVATI -->
+                <div class="flex flex-col bg-purple-50 rounded-xl border-2 border-purple-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 flex items-center justify-between">
+                        <h4 class="text-xl font-bold text-white flex items-center">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            Componenti Trovati
+                        </h4>
+                        <span id="componentCountTrovati" class="bg-white text-purple-700 px-4 py-1 rounded-full font-bold">0</span>
+                    </div>
+                    <div id="componentListaTrovati" class="flex-1 overflow-y-auto p-4 space-y-2">
+                        <div class="text-center text-gray-400 py-12">
+                            <i class="fas fa-box-open text-6xl mb-4 opacity-30"></i>
+                            <p class="text-lg">Nessun componente scansionato</p>
+                            <p class="text-sm mt-2">Inizia a scansionare per vedere i componenti qui</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLONNA DESTRA: Componenti NON TROVATI -->
+                <div class="flex flex-col bg-red-50 rounded-xl border-2 border-red-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-red-600 to-rose-600 p-4 flex items-center justify-between">
+                        <h4 class="text-xl font-bold text-white flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            Codici Non Trovati
+                        </h4>
+                        <span id="componentCountNonTrovati" class="bg-white text-red-700 px-4 py-1 rounded-full font-bold">0</span>
+                    </div>
+                    <div id="componentListaNonTrovati" class="flex-1 overflow-y-auto p-4 space-y-2">
+                        <div class="text-center text-gray-400 py-12">
+                            <i class="fas fa-question-circle text-6xl mb-4 opacity-30"></i>
+                            <p class="text-lg">Nessun codice sconosciuto</p>
+                            <p class="text-sm mt-2">I codici non trovati appariranno qui</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer: Riepilogo e Azioni -->
+            <div class="bg-gray-50 border-t-2 border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-6 text-lg">
+                        <div class="flex items-center">
+                            <i class="fas fa-barcode text-purple-600 mr-2"></i>
+                            <span class="font-semibold">Totale scansioni:</span>
+                            <span id="componentTotalScansioni" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-boxes text-purple-600 mr-2"></i>
+                            <span class="font-semibold">Componenti unici:</span>
+                            <span id="componentUnici" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="componentScanner?.reset()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            <i class="fas fa-redo mr-2"></i>Reset
+                        </button>
+                        <button onclick="componentScanner?.close()" class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition">
+                            <i class="fas fa-times mr-2"></i>Annulla
+                        </button>
+                        <button onclick="componentScanner?.confirm()" id="btnConfermaComponenti" class="px-8 py-3 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white rounded-lg font-bold text-lg hover:shadow-xl transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fas fa-check-double mr-2"></i>CONFERMA SELEZIONE
                         </button>
                     </div>
                 </div>
-                
-                <!-- Search and Filter - GRIGIO CHIARO -->
-                <div class="p-4 bg-gray-50 border-b-2 border-gray-200 space-y-3">
-                    <!-- Search Bar -->
-                    <div class="bg-white border-2 border-blue-200 rounded-xl p-3">
-                        <label for="componentSearch" class="block text-sm font-bold text-blue-900 mb-2">
-                            <i class="fas fa-search mr-1"></i>
-                            Cerca Componente
-                        </label>
-                        <input type="text" id="componentSearch" 
-                               oninput="filterComponents()"
-                               placeholder="Cerca per nome, codice o descrizione..."
-                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    
-                    <!-- Category Filter -->
-                    <div class="bg-white border-2 border-purple-200 rounded-xl p-3">
-                        <label for="componentCategoryFilter" class="block text-sm font-bold text-purple-900 mb-2">
-                            <i class="fas fa-filter mr-1"></i>
-                            Filtra per Categoria
-                        </label>
-                        <select id="componentCategoryFilter" onchange="filterComponents()" 
-                                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
-                            <option value="">Tutte le categorie</option>
-                            <option value="Antifurto">Antifurto</option>
-                            <option value="Videosorveglianza">Videosorveglianza</option>
-                            <option value="Rete">Rete</option>
-                            <option value="Accessori">Accessori</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Components List -->
-                <div class="p-4 overflow-y-auto flex-1">
-                    <div id="componentsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Components will be loaded here -->
-                    </div>
-                </div>
-                
-                <!-- Footer -->
-                <div class="flex justify-end p-4 border-t-2 border-gray-200 bg-gray-50">
-                    <button type="button" onclick="closeComponentModal()" 
-                            class="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 font-bold transition-colors">
-                        Chiudi
-                    </button>
-                </div>
             </div>
         </div>
     </div>
-
+    <div id="wizardSquadraPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-white font-bold text-lg">Seleziona Squadra</h3>
+                    <p class="text-indigo-100 text-sm">Scegli la squadra da assegnare</p>
+                </div>
+                <button onclick="closeWizardSquadraPicker()" class="text-white hover:text-indigo-200 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="wizardSquadraSearch" placeholder="Cerca squadra..."
+                           oninput="filterWizardSquadraList()"
+                           class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-sm">
+                </div>
+            </div>
+            <div class="p-3 border-b flex-shrink-0">
+                <button onclick="toggleNewSquadraForm()" id="newSquadraToggleBtn"
+                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-indigo-600 border-2 border-dashed border-indigo-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                    <i data-lucide="users" class="w-4 h-4"></i> + Nuova squadra
+                </button>
+                <div id="newSquadraForm" class="hidden mt-3 p-4 bg-indigo-50 rounded-xl space-y-3">
+                    <input type="text" id="newSquadraNome" placeholder="Nome squadra *"
+                           class="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400">
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs text-indigo-700 font-semibold flex-shrink-0">Colore:</label>
+                        <div class="flex gap-2 flex-wrap">
+                            <button type="button" onclick="setSquadraColor('#6366f1', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#6366f1" data-selected="true"></button>
+                            <button type="button" onclick="setSquadraColor('#0ea5e9', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#0ea5e9"></button>
+                            <button type="button" onclick="setSquadraColor('#10b981', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#10b981"></button>
+                            <button type="button" onclick="setSquadraColor('#f59e0b', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#f59e0b"></button>
+                            <button type="button" onclick="setSquadraColor('#ef4444', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#ef4444"></button>
+                            <button type="button" onclick="setSquadraColor('#8b5cf6', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#8b5cf6"></button>
+                        </div>
+                        <input type="hidden" id="newSquadraColore" value="#6366f1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-indigo-700 font-semibold block mb-1.5">Membri <span id="newSquadraMembriCount" class="text-indigo-400 font-normal"></span></label>
+                        <div id="newSquadraMembriList" class="max-h-36 overflow-y-auto space-y-1 pr-0.5">
+                            <p class="text-xs text-indigo-400">Caricamento dipendenti...</p>
+                        </div>
+                    </div>
+                    <button onclick="saveNewSquadra()" class="w-full py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                        Crea e Seleziona
+                    </button>
+                </div>
+            </div>
+            <div id="wizardSquadraPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
+            </div>
+        </div>
+    </div>
+    <div id="wizardMultiUserPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <p class="text-purple-200 text-xs font-semibold uppercase tracking-wider mb-1">Assegnazione Multipla</p>
+                    <h3 class="text-white font-bold text-lg">Seleziona Dipendenti</h3>
+                </div>
+                <button onclick="closeWizardMultiUserPicker()" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 text-xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div style="position:relative;">
+                    <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;pointer-events:none;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input id="wizardMultiUserSearch" type="text" placeholder="Cerca per nome o ruolo..."
+                           style="width:100%;padding:10px 16px 10px 38px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;font-size:14px;outline:none;box-sizing:border-box;"
+                           oninput="filterWizardMultiUserList()"
+                           onfocus="this.style.borderColor='#a78bfa';this.style.boxShadow='0 0 0 3px rgba(167,139,250,0.2)';"
+                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';">
+                </div>
+            </div>
+            <div id="wizardMultiUserPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50 p-2">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex-shrink-0">
+                <div id="wizardMultiUserSelectionPreview" class="text-sm text-gray-500 mb-3">Nessun utente selezionato</div>
+                <button onclick="applyWizardMultiUserSelection()"
+                        class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
+                    Conferma Selezione →
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="wizardDipPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-white font-bold text-lg">Seleziona Dipendente</h3>
+                    <p class="text-blue-100 text-sm">Cerca per nome o ruolo</p>
+                </div>
+                <button onclick="closeWizardDipPicker()" class="text-white hover:text-blue-200 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="wizardDipSearch" placeholder="Cerca per nome o ruolo..."
+                           oninput="filterWizardDipList()"
+                           class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm">
+                </div>
+            </div>
+            <div class="p-3 border-b flex-shrink-0">
+                <button onclick="toggleNewDipForm()" id="newDipToggleBtn"
+                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-blue-600 border-2 border-dashed border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> + Nuovo dipendente
+                </button>
+                <div id="newDipForm" class="hidden mt-3 p-4 bg-blue-50 rounded-xl space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newDipNome" placeholder="Nome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                        <input type="text" id="newDipCognome" placeholder="Cognome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="email" id="newDipEmail" placeholder="Email" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                        <input type="tel" id="newDipTelefono" placeholder="Telefono" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <input type="hidden" id="newDipRuolo" value="dipendente">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="setNewDipRuolo('dipendente', this)"
+                                class="dip-ruolo-btn selected px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-500 bg-blue-500 text-white transition-all">
+                            Dipendente
+                        </button>
+                        <button type="button" onclick="setNewDipRuolo('tecnico', this)"
+                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
+                            Tecnico
+                        </button>
+                        <button type="button" onclick="setNewDipRuolo('segreteria', this)"
+                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
+                            Segreteria
+                        </button>
+                        <button type="button" onclick="setNewDipRuolo('titolare', this)"
+                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
+                            Titolare
+                        </button>
+                    </div>
+                    <button onclick="saveNewDipendente()" class="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                        Crea e Seleziona
+                    </button>
+                </div>
+            </div>
+            <div id="wizardDipPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
+            </div>
+        </div>
+    </div>
     <script>
         let currentEditingTask = null;
         let currentView = 'kanban';
@@ -802,6 +691,21 @@
                 setTimeout(() => {
                     editTask(taskId);
                 }, 500);
+            }
+
+            // Modalità iframe (da pannello-speciale)
+            if (urlParams.get('iframe') === '1') {
+                document.getElementById('sidebar').style.display = 'none';
+                document.getElementById('mainContent').style.marginLeft = '0';
+                document.getElementById('mainContent').style.padding = '0';
+                document.body.style.background = 'transparent';
+            }
+            if (urlParams.get('wizard') === 'open') {
+                setTimeout(() => {
+                    openTaskModal();
+                    const d = urlParams.get('date');
+                    if (d) setTimeout(() => setDeadlinePicker(d), 100);
+                }, 400);
             }
         });
 
@@ -5315,1462 +5219,41 @@
         }
     </script>
 
-    <!-- ================================================ -->
-    <!-- MENU SELEZIONE TIPO CREAZIONE -->
-    <!-- ================================================ -->
-    <div id="creation-menu-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative">
-            <button onclick="document.getElementById('creation-menu-modal').classList.add('hidden')" 
-                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Come vuoi creare la lavorazione?</h2>
-                <p class="text-gray-600">Scegli il metodo che preferisci</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Opzione 1: Wizard Guidato -->
-                <button onclick="apriWizard()" 
-                        class="group relative bg-gradient-to-br from-purple-500 to-blue-600 text-white p-8 rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                    <div class="absolute top-4 right-4">
-                        <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full">NUOVO ✨</span>
-                    </div>
-                    
-                    <div class="text-center">
-                        <i data-lucide="wand-2" class="w-16 h-16 mx-auto mb-4"></i>
-                        <h3 class="text-2xl font-bold mb-3">Wizard Guidato</h3>
-                        <p class="text-white text-opacity-90 text-sm mb-4">
-                            Creazione assistita passo-passo con 5 step:
-                        </p>
-                        <ul class="text-left text-sm space-y-2 text-white text-opacity-90">
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                                Dati base
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                                Assegnazione intelligente
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                                Componenti magazzino
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                                Verifica disponibilità AI
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                                Riepilogo e conferma
-                            </li>
-                        </ul>
-                        <div class="mt-6 bg-white bg-opacity-20 rounded-lg p-3">
-                            <p class="text-xs font-semibold">Consigliato per lavorazioni complesse</p>
-                        </div>
-                    </div>
-                </button>
-
-                <!-- Opzione 2: Form Classico -->
-                <button onclick="apriFormClassico()" 
-                        class="group relative bg-white border-2 border-gray-300 text-gray-800 p-8 rounded-2xl hover:shadow-2xl hover:border-blue-500 transition-all duration-300 transform hover:scale-105">
-                    <div class="text-center">
-                        <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-600 group-hover:text-blue-600"></i>
-                        <h3 class="text-2xl font-bold mb-3">Form Classico</h3>
-                        <p class="text-gray-600 text-sm mb-4">
-                            Inserimento rapido tradizionale con form unico
-                        </p>
-                        <ul class="text-left text-sm space-y-2 text-gray-700">
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
-                                Creazione veloce
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
-                                Un solo passaggio
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
-                                Interfaccia familiare
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
-                                Tutti i campi visibili
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
-                                Nessuna validazione step
-                            </li>
-                        </ul>
-                        <div class="mt-6 bg-gray-100 rounded-lg p-3">
-                            <p class="text-xs font-semibold text-gray-700">Ideale per lavorazioni semplici</p>
-                        </div>
-                    </div>
-                </button>
-            </div>
-
-            <div class="mt-8 text-center">
-                <p class="text-sm text-gray-500">
-                    💡 Suggerimento: Usa il wizard per lavorazioni con più dettagli, il form classico per aggiunte veloci
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ================================================ -->
-    <!-- WIZARD MODAL COMPLETO -->
-    <!-- ================================================ -->
-    <div id="task-wizard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <!-- Header con Progress Bar -->
-            <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-2xl font-bold">🪄 Wizard Creazione Lavorazione</h2>
-                    <button onclick="window.taskWizard.closeWizard()" class="text-white hover:text-gray-200">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
-                </div>
-                
-                <!-- Progress Bar -->
-                <div class="bg-white bg-opacity-20 rounded-full h-2 mb-2">
-                    <div id="wizard-progress-bar" class="bg-white h-2 rounded-full transition-all duration-300" style="width: 25%"></div>
-                </div>
-                <p id="wizard-progress-text" class="text-sm text-white text-opacity-90">Step 1 di 4</p>
-                
-                <!-- Step Indicators -->
-                <div class="flex justify-between mt-4">
-                    <div id="step-indicator-1" class="flex flex-col items-center active">
-                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">1</div>
-                        <span class="text-xs">Dati Base</span>
-                    </div>
-                    <div id="step-indicator-2" class="flex flex-col items-center opacity-50">
-                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">2</div>
-                        <span class="text-xs">Assegnazione</span>
-                    </div>
-                    <div id="step-indicator-3" class="flex flex-col items-center opacity-50">
-                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">3</div>
-                        <span class="text-xs">Dettagli</span>
-                    </div>
-                    <div id="step-indicator-4" class="flex flex-col items-center opacity-50">
-                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">4</div>
-                        <span class="text-xs">Conferma</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenuto Steps -->
-            <div class="p-8">
-                <!-- STEP 1: Dati Base -->
-                <div id="wizard-step-1" class="space-y-4">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Informazioni Base</h3>
-
-                    <!-- Titolo - BLU -->
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                        <label class="block text-sm font-bold text-blue-900 mb-2">
-                            <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
-                            Titolo Lavorazione *
-                        </label>
-                        <input type="text" id="wizard-titolo"
-                               class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                               placeholder="Es: Riparazione impianto elettrico">
-                    </div>
-
-                    <!-- Cliente - VERDE -->
-                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                        <label class="block text-sm font-bold text-green-900 mb-2">
-                            <i data-lucide="building-2" class="w-4 h-4 inline mr-1"></i>
-                            Cliente *
-                        </label>
-                        <input type="hidden" id="wizard-cliente-select">
-                        <button type="button" id="wizardClientPickerBtn" onclick="openWizardClientPicker()"
-                                class="w-full flex items-center justify-between px-4 py-3 border-2 border-green-300 rounded-xl bg-white hover:border-green-500 hover:bg-green-50 transition-all text-left group">
-                            <span id="wizardClientPickerLabel" class="text-gray-400 text-sm group-hover:text-green-700">
-                                <i data-lucide="search" class="w-4 h-4 inline mr-2 text-green-500"></i>
-                                Seleziona cliente...
-                            </span>
-                            <i data-lucide="chevron-down" class="w-4 h-4 text-green-400 flex-shrink-0"></i>
-                        </button>
-                        <div id="wizardClientPickerActions" class="hidden flex gap-2 mt-2">
-                            <button type="button" onclick="clearWizardClientPicker()"
-                                    class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
-                                <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Priorità + Scadenza -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <!-- Priorità - ROSSO/ROSA -->
-                        <div class="bg-gradient-to-br from-red-50 to-pink-100 border-2 border-red-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-red-900 mb-2">
-                                <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
-                                Priorità
-                            </label>
-                            <select id="wizard-priorita"
-                                    class="w-full px-3 py-2 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-400 bg-white">
-                                <option value="bassa">🟢 Bassa</option>
-                                <option value="media" selected>🟡 Media</option>
-                                <option value="alta">🔴 Alta</option>
-                            </select>
-                        </div>
-                        <!-- Scadenza - ARANCIO -->
-                        <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-orange-900 mb-2">
-                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
-                                Scadenza *
-                            </label>
-                            <input type="hidden" id="wizard-scadenza">
-                            <button type="button" onclick="openDatePicker()"
-                                    class="w-full flex items-center justify-between px-3 py-2.5 border-2 border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-left group">
-                                <span id="datePickerLabel" class="text-gray-400 text-sm group-hover:text-orange-700">
-                                    <i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-orange-400"></i>
-                                    Scegli data...
-                                </span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-orange-300 flex-shrink-0"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Orari - BLU -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-blue-900 mb-2">
-                                <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
-                                Ora Inizio
-                            </label>
-                            <input type="time" id="wizard-ora-inizio"
-                                   class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
-                        </div>
-                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-blue-900 mb-2">
-                                <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
-                                Ora Fine
-                            </label>
-                            <input type="time" id="wizard-ora-fine"
-                                   class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
-                        </div>
-                    </div>
-
-                    <!-- Categoria - VIOLA -->
-                    <div class="bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-4">
-                        <label class="block text-sm font-bold text-purple-900 mb-2">
-                            <i data-lucide="tag" class="w-4 h-4 inline mr-1"></i>
-                            Categoria
-                        </label>
-                        <input type="text" id="wizard-categoria"
-                               class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-                               placeholder="Es: Elettrico, Idraulico, Manutenzione...">
-                    </div>
-
-                    <!-- Descrizione - GRIGIO -->
-                    <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i data-lucide="align-left" class="w-4 h-4 inline mr-1"></i>
-                            Descrizione
-                        </label>
-                        <textarea id="wizard-descrizione" rows="3"
-                                  class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                  placeholder="Descrizione dettagliata della lavorazione..."></textarea>
-                    </div>
-                </div>
-
-                <!-- STEP 2: Assegnazione -->
-                <div id="wizard-step-2" class="hidden space-y-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">👤 Assegnazione Lavorazione</h3>
-                    
-                    <div class="flex flex-wrap gap-4 mb-6">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-user" value="user" checked
-                                   onchange="document.getElementById('wizard-dipendente-container').classList.remove('hidden'); document.getElementById('wizard-squadra-container').classList.add('hidden'); document.getElementById('wizard-multi-container').classList.add('hidden');"
-                                   class="w-4 h-4 text-blue-600">
-                            <span class="font-medium">Dipendente Singolo</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-multi" value="multi"
-                                   onchange="document.getElementById('wizard-dipendente-container').classList.add('hidden'); document.getElementById('wizard-squadra-container').classList.add('hidden'); document.getElementById('wizard-multi-container').classList.remove('hidden');"
-                                   class="w-4 h-4 text-blue-600">
-                            <span class="font-medium">🆕 Più Utenti</span>
-                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">NUOVO</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="tipo-assegnazione" id="wizard-tipo-team" value="team"
-                                   onchange="document.getElementById('wizard-dipendente-container').classList.add('hidden'); document.getElementById('wizard-squadra-container').classList.remove('hidden'); document.getElementById('wizard-multi-container').classList.add('hidden');"
-                                   class="w-4 h-4 text-blue-600">
-                            <span class="font-medium">Squadra Esistente</span>
-                        </label>
-                    </div>
-
-                    <div id="wizard-dipendente-container">
-                        <!-- Dipendente - BLU -->
-                        <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-blue-900 mb-2">
-                                <i data-lucide="user" class="w-4 h-4 inline mr-1"></i>
-                                Seleziona Dipendente *
-                            </label>
-                            <input type="hidden" id="wizard-dipendente-select">
-                            <button type="button" id="wizardDipPickerBtn" onclick="openWizardDipPicker()"
-                                    class="w-full flex items-center justify-between px-4 py-3 border-2 border-blue-300 rounded-xl bg-white hover:border-blue-500 hover:bg-blue-50 transition-all text-left group">
-                                <span id="wizardDipPickerLabel" class="text-gray-400 text-sm group-hover:text-blue-700">
-                                    <i data-lucide="search" class="w-4 h-4 inline mr-2 text-blue-400"></i>
-                                    Cerca dipendente...
-                                </span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-blue-300 flex-shrink-0"></i>
-                            </button>
-                            <div id="wizardDipPickerActions" class="hidden flex gap-2 mt-2">
-                                <button type="button" onclick="clearWizardDipPicker()"
-                                        class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
-                                    <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
-                                </button>
-                            </div>
-                        </div>
-                        <!-- Ore dipendente singolo -->
-                        <div id="wizardDipOreContainer" class="hidden mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="clock" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
-                                <label class="text-sm font-semibold text-blue-800">Ore assegnate</label>
-                                <input type="number" id="wizard-dip-ore" min="0" step="0.5" placeholder="Es: 8"
-                                       class="ml-auto w-28 px-3 py-1.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm text-center">
-                                <span class="text-xs text-blue-500">h</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="wizard-multi-container" class="hidden">
-                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
-                            <div class="flex items-center gap-3 mb-4">
-                                <i data-lucide="users-2" class="w-8 h-8 text-purple-600"></i>
-                                <div>
-                                    <h4 class="font-bold text-lg">Assegnazione Multipla</h4>
-                                    <p class="text-sm text-gray-600">Seleziona più utenti senza creare una squadra</p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3 mb-4">
-                                <button onclick="openWizardMultiUserPicker()" 
-                                        class="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold">
-                                    <i data-lucide="user-plus" class="w-5 h-5"></i>
-                                    Seleziona Manualmente
-                                </button>
-                                <button onclick="window.multiUserAssignment.mostraSuggerimentoMultiUtente()" 
-                                        class="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold">
-                                    <i data-lucide="sparkles" class="w-5 h-5"></i>
-                                    Suggerisci AI
-                                </button>
-                            </div>
-
-                            <div id="wizard-multi-users-container">
-                                <div class="text-center text-gray-500 py-6">
-                                    <i data-lucide="user-plus" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-                                    <p class="text-sm">Nessun utente selezionato</p>
-                                    <p class="text-xs mt-1">Clicca "Seleziona Manualmente" oppure usa il suggerimento AI</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="wizard-squadra-container" class="hidden">
-                        <!-- Squadra - INDIGO -->
-                        <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-indigo-900 mb-2">
-                                <i data-lucide="users-2" class="w-4 h-4 inline mr-1"></i>
-                                Seleziona Squadra *
-                            </label>
-                            <input type="hidden" id="wizard-squadra-select">
-                            <button type="button" id="wizardSquadraPickerBtn" onclick="openWizardSquadraPicker()"
-                                    class="w-full flex items-center justify-between px-4 py-3 border-2 border-indigo-300 rounded-xl bg-white hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left group">
-                                <span id="wizardSquadraPickerLabel" class="text-gray-400 text-sm group-hover:text-indigo-700">
-                                    <i data-lucide="search" class="w-4 h-4 inline mr-2 text-indigo-400"></i>
-                                    Cerca squadra...
-                                </span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-indigo-300 flex-shrink-0"></i>
-                            </button>
-                            <div id="wizardSquadraPickerActions" class="hidden flex gap-2 mt-2">
-                                <button type="button" onclick="clearWizardSquadraPicker()"
-                                        class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
-                                    <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
-                                </button>
-                            </div>
-                        </div>
-                        <!-- Ore per membri squadra -->
-                        <div id="wizardSquadraOreContainer" class="hidden mt-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                            <div class="flex items-center gap-2 mb-3">
-                                <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
-                                <span class="text-sm font-semibold text-indigo-800">Ore per membro</span>
-                                <span class="text-xs text-indigo-500">(opzionale)</span>
-                            </div>
-                            <div id="wizardSquadraOreList" class="space-y-2"></div>
-                        </div>
-                    </div>
-
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-                        <p class="text-sm text-blue-800">
-                            💡 <strong>Suggerimento:</strong> Con "Più Utenti" puoi assegnare la lavorazione a membri indipendenti senza creare una squadra permanente!
-                        </p>
-                    </div>
-                </div>
-
-                <!-- STEP 3: Dettagli e Componenti -->
-                <div id="wizard-step-3" class="hidden space-y-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">⚙️ Dettagli Tecnici e Componenti</h3>
-                    
-                    <div class="max-w-xs">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ore Stimate Totali</label>
-                        <input type="number" id="wizard-ore-stimate" min="0" step="0.5"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                               placeholder="Es: 8">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Componenti/Materiali Necessari</label>
-                        
-                        <!-- Bottone Principale: Sistema Doppia Colonna come Magazzino -->
-                        <button type="button" 
-                                onclick="openWizardComponentSelector()"
-                                class="w-full mb-3 px-6 py-5 bg-gradient-to-r from-orange-600 via-red-600 to-rose-600 text-white rounded-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3 font-bold text-xl hover:scale-[1.02]">
-                            <i class="fas fa-bolt text-2xl animate-pulse"></i>
-                            <span>Selezione Rapida (Scanner Multiplo)</span>
-                            <i class="fas fa-barcode text-2xl"></i>
-                        </button>
-
-                        <!-- Bottone Scanner Rapido -->
-                        <button type="button"
-                                onclick="componentScanner?.open([])"
-                                class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
-                            <i class="fas fa-qrcode"></i>
-                            Solo Scanner (doppia colonna)
-                        </button>
-
-                        <div class="text-center text-gray-500 text-sm mb-3">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Usa il sistema come nel magazzino: scansiona multipli e vedi trovati/non trovati
-                        </div>
-
-                        <!-- Lista Prodotti Selezionati -->
-                        <div id="wizard-componenti-selezionati">
-                            <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                                <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-                                <p class="text-sm">Nessun componente selezionato</p>
-                                <p class="text-xs mt-1">Usa il sistema scanner multiplo per aggiungere componenti</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- STEP 4: Riepilogo e Conferma -->
-                <div id="wizard-step-4" class="hidden space-y-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">✅ Riepilogo Finale</h3>
-                    
-                    <div id="wizard-riepilogo-container">
-                        <p class="text-center text-gray-500 py-8">Generazione riepilogo...</p>
-                    </div>
-
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
-                            <p class="text-sm text-green-800 font-medium">
-                                Tutto pronto! Clicca "Crea Lavorazione" per salvare.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer con Pulsanti Navigazione -->
-            <div class="sticky bottom-0 bg-gray-50 px-8 py-4 rounded-b-2xl border-t flex justify-between items-center">
-                <button id="wizard-prev-btn" 
-                        onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.prevStep();" 
-                        class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    ← Indietro
-                </button>
-
-                <div class="flex gap-3">
-                    <button onclick="window.taskWizard.closeWizard()" 
-                            class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                        Annulla
-                    </button>
-                    <button id="wizard-next-btn" 
-                            onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.nextStep();" 
-                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Avanti →
-                    </button>
-                    <button id="wizard-submit-btn" 
-                            onclick="window.taskWizard.submitWizard();" 
-                            class="hidden px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        🎉 Crea Lavorazione
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        #step-indicator-1.active, #step-indicator-2.active, 
-        #step-indicator-3.active, #step-indicator-4.active {
-            opacity: 1;
-        }
-        #step-indicator-1.completed div, #step-indicator-2.completed div,
-        #step-indicator-3.completed div, #step-indicator-4.completed div {
-            background-color: #10b981;
-            color: white;
-        }
-    </style>
-
     <script>
-        // ===================================
-        // MENU SELEZIONE TIPO CREAZIONE
-        // ===================================
-        
-        function mostraMenuCreazione() {
-            const menu = document.getElementById('creation-menu-modal');
-            if (menu) {
-                menu.classList.remove('hidden');
-                lucide.createIcons();
-            }
-        }
+        // Stub out functions not needed in wizard-only mode
+        function loadTasks() { return Promise.resolve(); }
+        function updateStats() { return Promise.resolve(); }
+        function setupFilters() {}
+        function editTask(id) {}
+        window._wizardMode = true;
 
-        // NUOVO: Apri selettore componenti dal wizard
-        async function openWizardComponentSelector() {
-            if (!componentScanner) {
-                console.error('ComponentMultiScanner non inizializzato');
-                return;
-            }
-            
-            // Ottieni componenti dal wizard (se esistono)
-            const wizardComponents = window.taskWizard?.wizardData?.componenti || [];
-            const formattedComponents = wizardComponents.map(c => ({
-                id: c.prodotto_id || c.id,
-                quantita: c.quantita || 1
-            }));
-            
-            // Configura callback per aggiornare wizard
-            componentScanner.onComponentsSelected = (selectedComponents) => {
-                // Aggiorna dati wizard
-                if (window.taskWizard) {
-                    window.taskWizard.wizardData.componenti = selectedComponents.map(item => ({
-                        prodotto_id: item.id,
-                        quantita: item.quantita,
-                        nome: item.component.nome,
-                        codice: item.component.codice
-                    }));
-                    
-                    // Ricarica la visualizzazione
-                    updateWizardComponentsList(selectedComponents);
-                }
-            };
-            
-            await componentScanner.open(formattedComponents);
-        }
+        document.addEventListener('DOMContentLoaded', async function() {
+            lucide && lucide.createIcons && lucide.createIcons();
 
-        // Aggiorna lista componenti nel wizard
-        function updateWizardComponentsList(components) {
-            const container = document.getElementById('wizard-componenti-selezionati');
-            if (!container) return;
+            const urlParams = new URLSearchParams(window.location.search);
 
-            if (components.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-                        <p class="text-sm">Nessun prodotto selezionato</p>
-                        <p class="text-xs mt-1">Usa uno dei pulsanti sopra per aggiungere componenti</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = `
-                <div class="space-y-2">
-                    ${components.map(item => `
-                        <div class="flex items-center justify-between p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                            <div class="flex-1">
-                                <p class="font-semibold text-gray-900">${item.component.nome}</p>
-                                <p class="text-sm text-gray-600">${item.component.codice || 'N/A'}</p>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <span class="px-3 py-1 bg-purple-600 text-white rounded-lg font-bold">
-                                    ${item.quantita} ${item.component.unita_misura || 'pz'}
-                                </span>
-                                <button onclick="removeWizardComponent('${item.id}')"
-                                        class="text-red-600 hover:text-red-800 transition">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            lucide.createIcons();
-        }
-
-        function removeWizardComponent(componentId) {
-            if (window.taskWizard) {
-                window.taskWizard.wizardData.componenti = window.taskWizard.wizardData.componenti.filter(
-                    c => (c.prodotto_id || c.id) !== componentId
-                );
-                
-                const formattedComponents = window.taskWizard.wizardData.componenti.map(c => ({
-                    id: c.prodotto_id || c.id,
-                    quantita: c.quantita,
-                    component: {
-                        nome: c.nome,
-                        codice: c.codice,
-                        unita_misura: c.unita_misura || 'pz'
+            // Init componentScanner
+            if (typeof ComponentMultiScanner !== 'undefined') {
+                window._componentScanner = new ComponentMultiScanner({
+                    modalId: 'componentMultiScannerModal',
+                    onComponentsSelected: (sel) => {
+                        window._taskComponents = sel.map(i => ({ id: i.id, quantita: i.quantita }));
+                        updateTaskComponentsList();
                     }
-                }));
-                
-                updateWizardComponentsList(formattedComponents);
+                });
+                await window._componentScanner.initialize();
             }
-        }
 
-        function apriWizard() {
-            // Chiudi menu
-            document.getElementById('creation-menu-modal').classList.add('hidden');
-            // Apri wizard
-            window.taskWizard.iniziaWizard();
-        }
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            setDeadlinePicker(nextWeek.toISOString().split('T')[0]);
 
-        function apriFormClassico() {
-            // Chiudi menu
-            document.getElementById('creation-menu-modal').classList.add('hidden');
-            // Apri form classico (funzione originale)
             openTaskModal();
-        }
 
-        // ===================================
-        // WIZARD SETUP
-        // ===================================
-        
-        // Override renderWizard per mostrare il modal
-        window.taskWizard.renderWizard = async function() {
-            const modal = document.getElementById('task-wizard-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-            }
-            lucide.createIcons();
-        };
-
-        // ===================================
-        // WAREHOUSE PRODUCT MODAL
-        // ===================================
-        function openWarehouseProductModal() {
-            document.getElementById('warehouseProductForm').reset();
-            document.getElementById('warehouseProductModal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeWarehouseProductModal() {
-            document.getElementById('warehouseProductModal').classList.add('hidden');
-            document.getElementById('warehouseProductForm').reset();
-        }
-        
-        // ===================================
-        // DELETE TASK CONFIRMATION
-        // ===================================
-        function showDeleteConfirmModal(taskId) {
-            // Crea modal di conferma
-            const confirmModal = document.createElement('div');
-            confirmModal.id = 'delete-confirm-modal';
-            confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4';
-            confirmModal.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-                    <!-- Header rosso -->
-                    <div class="bg-gradient-to-r from-red-600 to-red-700 p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
-                                <i data-lucide="alert-triangle" class="w-7 h-7 text-red-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Conferma Eliminazione</h3>
-                        </div>
-                    </div>
-                    
-                    <!-- Content -->
-                    <div class="p-6">
-                        <p class="text-gray-700 text-lg mb-2">
-                            Sei sicuro di voler eliminare questa lavorazione?
-                        </p>
-                        <p class="text-gray-600 text-sm">
-                            ⚠️ Questa azione è <strong>irreversibile</strong> e cancellerà:
-                        </p>
-                        <ul class="mt-3 space-y-2 text-sm text-gray-600">
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="x-circle" class="w-4 h-4 text-red-500"></i>
-                                La lavorazione e tutti i suoi dati
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="users" class="w-4 h-4 text-red-500"></i>
-                                Le assegnazioni a utenti e team
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="calendar" class="w-4 h-4 text-red-500"></i>
-                                I collegamenti ai calendari
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <i data-lucide="package" class="w-4 h-4 text-red-500"></i>
-                                I componenti associati
-                            </li>
-                        </ul>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                        <button onclick="document.getElementById('delete-confirm-modal').remove()"
-                                class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-white">
-                            Annulla
-                        </button>
-                        <button id="confirm-delete-btn" data-task-id="${taskId}"
-                                class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl hover:from-red-700 hover:to-red-800 shadow-lg flex items-center gap-2">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                            Elimina Definitivamente
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(confirmModal);
-            lucide.createIcons();
-            
-            // Event listener per conferma eliminazione
-            document.getElementById('confirm-delete-btn').addEventListener('click', async function() {
-                const taskId = this.dataset.taskId;
-                await deleteTask(taskId);
-            });
-        }
-        
-        async function deleteTask(taskId) {
-            const btn = document.getElementById('confirm-delete-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Eliminazione...';
-            lucide.createIcons();
-            
-            try {
-                console.log('🗑️ Eliminazione lavorazione:', taskId);
-                
-                // 1. Elimina assegnazioni multiple (task_assignments - CASCADE)
-                const { error: assignError } = await supabaseClient
-                    .from('task_assignments')
-                    .delete()
-                    .eq('task_id', taskId);
-                
-                if (assignError) console.warn('Warning deleting assignments:', assignError);
-                
-                // 2. Elimina componenti associati (task_components - CASCADE)
-                const { error: compError } = await supabaseClient
-                    .from('task_components')
-                    .delete()
-                    .eq('task_id', taskId);
-                
-                if (compError) console.warn('Warning deleting components:', compError);
-                
-                // 3. Elimina eventi calendario collegati (se esistono)
-                // Assumo che ci sia una tabella calendar_events con task_id
-                try {
-                    await supabaseClient
-                        .from('calendar_events')
-                        .delete()
-                        .eq('task_id', taskId);
-                } catch (e) {
-                    console.log('No calendar events table or no events');
-                }
-                
-                // 4. Elimina la lavorazione principale
-                const { error: deleteError } = await supabaseClient
-                    .from('tasks')
-                    .delete()
-                    .eq('id', taskId);
-                
-                if (deleteError) throw deleteError;
-                
-                console.log('✅ Lavorazione eliminata con successo');
-                
-                // Chiudi tutte le modal
-                document.getElementById('delete-confirm-modal')?.remove();
-                document.getElementById('edit-task-modal')?.remove();
-                
-                // Ricarica lista
-                if (typeof loadTasks === 'function') {
-                    loadTasks();
-                }
-                
-                // Mostra modal di successo
-                showSuccessModal('Lavorazione Eliminata', 'La lavorazione è stata eliminata con successo dal sistema.');
-                
-            } catch (error) {
-                console.error('❌ Errore eliminazione:', error);
-                showErrorModal('Errore Eliminazione', error.message || 'Si è verificato un errore durante l\'eliminazione della lavorazione.');
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="trash-2" class="w-5 h-5"></i> Elimina Definitivamente';
-                lucide.createIcons();
-            }
-        }
-        
-        // ===================================
-        // SUCCESS/ERROR MODALS
-        // ===================================
-        function showSuccessModal(title, message) {
-            const successModal = document.createElement('div');
-            successModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4';
-            successModal.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
-                    <!-- Header verde -->
-                    <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
-                                <i data-lucide="check-circle" class="w-7 h-7 text-green-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">${title}</h3>
-                        </div>
-                    </div>
-                    
-                    <!-- Content -->
-                    <div class="p-6">
-                        <p class="text-gray-700 text-lg">
-                            ${message}
-                        </p>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
-                        <button onclick="this.closest('.fixed').remove()"
-                                class="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 shadow-lg">
-                            Ok
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(successModal);
-            lucide.createIcons();
-        }
-        
-        function showErrorModal(title, message) {
-            const errorModal = document.createElement('div');
-            errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4';
-            errorModal.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
-                    <!-- Header rosso -->
-                    <div class="bg-gradient-to-r from-red-600 to-red-700 p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
-                                <i data-lucide="x-circle" class="w-7 h-7 text-red-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">${title}</h3>
-                        </div>
-                    </div>
-                    
-                    <!-- Content -->
-                    <div class="p-6">
-                        <p class="text-gray-700 text-lg">
-                            ${message}
-                        </p>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
-                        <button onclick="this.closest('.fixed').remove()"
-                                class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl hover:from-red-700 hover:to-red-800 shadow-lg">
-                            Ok
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(errorModal);
-            lucide.createIcons();
-        }
-
-        // ===================================
-        // WAREHOUSE PRODUCT MODAL
-        // ===================================
-        function openWarehouseProductModal() {
-            document.getElementById('warehouseProductForm').reset();
-            document.getElementById('warehouseProductModal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeWarehouseProductModal() {
-            document.getElementById('warehouseProductModal').classList.add('hidden');
-            document.getElementById('warehouseProductForm').reset();
-        }
-
-        // Handle form submit
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            
-            // Form submit handler
-            document.getElementById('warehouseProductForm')?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const btn = e.submitter;
-                const originalHTML = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
-                lucide.createIcons();
-                
-                try {
-                    const productData = {
-                        nome: document.getElementById('whProductName').value,
-                        codice: document.getElementById('whProductCode').value,
-                        categoria: document.getElementById('whProductCategory').value,
-                        fornitore: document.getElementById('whProductBrand').value || null,
-                        quantita_disponibile: parseFloat(document.getElementById('whProductQuantity').value) || 0,
-                        unita_misura: document.getElementById('whProductUnit').value,
-                        descrizione: document.getElementById('whProductDescription').value || null
-                    };
-                    
-                    const { data: newProduct, error } = await supabaseClient
-                        .from('components')
-                        .insert(productData)
-                        .select()
-                        .single();
-                    
-                    if (error) throw error;
-                    
-                showNotification('✅ Prodotto creato con successo!', 'success');
-                    closeWarehouseProductModal();
-                    
-                    // Aggiorna lista magazzino in memoria (se aperta dalla modal edit)
-                    if (window.currentEditTaskMagazzinoProducts) {
-                        window.currentEditTaskMagazzinoProducts.push(newProduct);
-                    }
-                    
-                } catch (error) {
-                    console.error('Error saving product:', error);
-                    showNotification('❌ Errore: ' + error.message, 'error');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = originalHTML;
-                    lucide.createIcons();
-                }
-            });
+            const d = urlParams.get('date');
+            if (d) setTimeout(() => setDeadlinePicker(d), 150);
         });
+
     </script>
-
-    <!-- Modal Nuovo Prodotto Magazzino -->
-    <div id="warehouseProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
-                <!-- Header con gradiente -->
-                <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 p-6 sticky top-0 z-10">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                                <i data-lucide="package" class="w-7 h-7 text-green-600"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">Nuovo Prodotto</h3>
-                        </div>
-                        <button type="button" onclick="closeWarehouseProductModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Content scrollabile -->
-                <form id="warehouseProductForm" class="p-6 overflow-y-auto flex-1 space-y-4">
-                    <!-- Nome Prodotto -->
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
-                        <label for="whProductName" class="flex items-center gap-2 text-sm font-bold text-blue-700 mb-2">
-                            <i data-lucide="tag" class="w-4 h-4"></i>
-                            Nome Prodotto *
-                        </label>
-                        <input type="text" id="whProductName" required placeholder="Es: Connettori RJ45" 
-                               class="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
-                    </div>
-
-                    <!-- Codice e Categoria -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200 rounded-xl p-4">
-                            <label for="whProductCode" class="flex items-center gap-2 text-sm font-bold text-purple-700 mb-2">
-                                <i data-lucide="hash" class="w-4 h-4"></i>
-                                Codice Prodotto *
-                            </label>
-                            <input type="text" id="whProductCode" required placeholder="Es: 180.811" 
-                                   class="w-full px-4 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium">
-                        </div>
-
-                        <div class="bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-cyan-200 rounded-xl p-4">
-                            <label for="whProductCategory" class="flex items-center gap-2 text-sm font-bold text-cyan-700 mb-2">
-                                <i data-lucide="folder" class="w-4 h-4"></i>
-                                Categoria *
-                            </label>
-                            <select id="whProductCategory" required class="w-full px-4 py-2 border-2 border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium bg-white">
-                                <option value="">Seleziona categoria</option>
-                                <option value="Componentistica">Componentistica</option>
-                                <option value="Materiali">Materiali</option>
-                                <option value="Accessori">Accessori</option>
-                                <option value="Antifurto">Antifurto</option>
-                                <option value="Videosorveglianza">Videosorveglianza</option>
-                                <option value="Rete">Rete</option>
-                                <option value="Altro">Altro</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Brand -->
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 border-2 border-indigo-200 rounded-xl p-4">
-                        <label for="whProductBrand" class="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-2">
-                            <i data-lucide="award" class="w-4 h-4"></i>
-                            Brand / Fornitore
-                        </label>
-                        <input type="text" id="whProductBrand" placeholder="Es: Dahua, Tecnoalarm, Daikin..." 
-                               class="w-full px-4 py-2 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium">
-                    </div>
-
-                    <!-- Quantità e Unità -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
-                            <label for="whProductQuantity" class="flex items-center gap-2 text-sm font-bold text-green-700 mb-2">
-                                <i data-lucide="package-2" class="w-4 h-4"></i>
-                                Quantità *
-                            </label>
-                            <input type="number" id="whProductQuantity" min="0" step="0.01" required value="0" 
-                                   class="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
-                        </div>
-
-                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 rounded-xl p-4">
-                            <label for="whProductUnit" class="flex items-center gap-2 text-sm font-bold text-yellow-700 mb-2">
-                                <i data-lucide="ruler" class="w-4 h-4"></i>
-                                Unità di Misura *
-                            </label>
-                            <select id="whProductUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
-                                <option value="pz">Pezzi (pz)</option>
-                                <option value="kg">Kilogrammi (kg)</option>
-                                <option value="m">Metri (m)</option>
-                                <option value="l">Litri (l)</option>
-                                <option value="confezione">Confezione</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Descrizione -->
-                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
-                        <label for="whProductDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
-                            <i data-lucide="file-text" class="w-4 h-4"></i>
-                            Descrizione
-                        </label>
-                        <textarea id="whProductDescription" rows="2" placeholder="Descrizione dettagliata del prodotto..." 
-                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
-                    </div>
-
-                    <!-- Buttons -->
-                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
-                        <button type="button" onclick="closeWarehouseProductModal()" 
-                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
-                            Annulla
-                        </button>
-                        <button type="submit" 
-                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
-                            <i data-lucide="save" class="w-5 h-5"></i>
-                            Salva Prodotto
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================= -->
-    <!-- MODAL SELEZIONE MULTIPLA COMPONENTI STILE MAGAZZINO -->
-    <!-- ========================================= -->
-    <div id="componentMultiScannerModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[60] items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
-            <!-- Campo hidden per catturare focus e scanner -->
-            <input 
-                type="text" 
-                id="componentScannerFocusInput" 
-                style="position: absolute; opacity: 0; pointer-events: none;"
-                autocomplete="off"
-            />
-            
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 p-6 rounded-t-2xl flex justify-between items-center">
-                <div>
-                    <h3 class="text-3xl font-bold text-white flex items-center">
-                        <i class="fas fa-bolt mr-3 animate-pulse"></i>
-                        Selezione Multipla Componenti
-                    </h3>
-                    <p class="text-purple-100 mt-1">Scansiona tutti i componenti - prodotti uguali si sommano automaticamente</p>
-                </div>
-                <button onclick="componentScanner?.close()" class="text-white hover:bg-white/20 p-2 rounded-lg transition">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
-            </div>
-
-            <!-- Scanner Status Bar -->
-            <div class="bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 px-6 py-4 text-white">
-                <div class="flex items-center justify-between gap-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="bg-white/20 p-2 rounded-lg">
-                            <i class="fas fa-barcode text-xl"></i>
-                        </div>
-                        <span class="font-semibold">Scanner Attivo - Scansiona i codici</span>
-                    </div>
-                    
-                    <!-- INPUT MANUALE -->
-                    <div class="flex items-center gap-3">
-                        <input 
-                            type="text" 
-                            id="componentManualSearchInput" 
-                            placeholder="Inserisci codice manualmente..."
-                            class="px-4 py-2 rounded-lg border-2 border-white/30 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:border-white focus:bg-white/20 transition w-80"
-                            autocomplete="off"
-                        />
-                        <button 
-                            onclick="componentScanner?.searchManual()"
-                            class="px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold hover:bg-purple-50 transition flex items-center gap-2"
-                        >
-                            <i class="fas fa-search"></i>
-                            Cerca
-                        </button>
-                    </div>
-                    
-                    <div id="componentScannerStatus" class="bg-white/30 px-4 py-2 rounded-lg font-mono text-sm">
-                        In attesa...
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Content: Schermo Diviso -->
-            <div class="flex-1 grid grid-cols-2 gap-6 p-6 overflow-hidden">
-                
-                <!-- COLONNA SINISTRA: Componenti TROVATI -->
-                <div class="flex flex-col bg-purple-50 rounded-xl border-2 border-purple-200 overflow-hidden">
-                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 flex items-center justify-between">
-                        <h4 class="text-xl font-bold text-white flex items-center">
-                            <i class="fas fa-check-circle mr-2"></i>
-                            Componenti Trovati
-                        </h4>
-                        <span id="componentCountTrovati" class="bg-white text-purple-700 px-4 py-1 rounded-full font-bold">0</span>
-                    </div>
-                    <div id="componentListaTrovati" class="flex-1 overflow-y-auto p-4 space-y-2">
-                        <div class="text-center text-gray-400 py-12">
-                            <i class="fas fa-box-open text-6xl mb-4 opacity-30"></i>
-                            <p class="text-lg">Nessun componente scansionato</p>
-                            <p class="text-sm mt-2">Inizia a scansionare per vedere i componenti qui</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- COLONNA DESTRA: Componenti NON TROVATI -->
-                <div class="flex flex-col bg-red-50 rounded-xl border-2 border-red-200 overflow-hidden">
-                    <div class="bg-gradient-to-r from-red-600 to-rose-600 p-4 flex items-center justify-between">
-                        <h4 class="text-xl font-bold text-white flex items-center">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            Codici Non Trovati
-                        </h4>
-                        <span id="componentCountNonTrovati" class="bg-white text-red-700 px-4 py-1 rounded-full font-bold">0</span>
-                    </div>
-                    <div id="componentListaNonTrovati" class="flex-1 overflow-y-auto p-4 space-y-2">
-                        <div class="text-center text-gray-400 py-12">
-                            <i class="fas fa-question-circle text-6xl mb-4 opacity-30"></i>
-                            <p class="text-lg">Nessun codice sconosciuto</p>
-                            <p class="text-sm mt-2">I codici non trovati appariranno qui</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer: Riepilogo e Azioni -->
-            <div class="bg-gray-50 border-t-2 border-gray-200 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center space-x-6 text-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-barcode text-purple-600 mr-2"></i>
-                            <span class="font-semibold">Totale scansioni:</span>
-                            <span id="componentTotalScansioni" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-boxes text-purple-600 mr-2"></i>
-                            <span class="font-semibold">Componenti unici:</span>
-                            <span id="componentUnici" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <button onclick="componentScanner?.reset()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
-                            <i class="fas fa-redo mr-2"></i>Reset
-                        </button>
-                        <button onclick="componentScanner?.close()" class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition">
-                            <i class="fas fa-times mr-2"></i>Annulla
-                        </button>
-                        <button onclick="componentScanner?.confirm()" id="btnConfermaComponenti" class="px-8 py-3 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white rounded-lg font-bold text-lg hover:shadow-xl transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            <i class="fas fa-check-double mr-2"></i>CONFERMA SELEZIONE
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Includi i nuovi script -->
-    <script src="component-multi-scanner.js"></script>
-    <script src="component-multi-selector.js"></script>
-
-    <!-- ===== MODALE PICKER CLIENTI ===== -->
-    <!-- DATE PICKER MODAL -->
-    <div id="datePickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <!-- Header mese/anno -->
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5">
-                <div class="flex items-center justify-between mb-1">
-                    <button onclick="dpPrevMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
-                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
-                    </button>
-                    <span id="dpMonthYear" class="text-white font-bold text-lg"></span>
-                    <button onclick="dpNextMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
-                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
-                    </button>
-                </div>
-                <p id="dpSelectedLabel" class="text-center text-purple-200 text-sm min-h-[1.25rem]"></p>
-            </div>
-            <!-- Griglia giorni -->
-            <div class="p-4">
-                <div class="grid grid-cols-7 mb-2">
-                    <div class="text-center text-xs font-bold text-gray-400 py-1">L</div>
-                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
-                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
-                    <div class="text-center text-xs font-bold text-gray-400 py-1">G</div>
-                    <div class="text-center text-xs font-bold text-gray-400 py-1">V</div>
-                    <div class="text-center text-xs font-bold text-red-400 py-1">S</div>
-                    <div class="text-center text-xs font-bold text-red-400 py-1">D</div>
-                </div>
-                <div id="dpGrid" class="grid grid-cols-7 gap-y-1"></div>
-            </div>
-            <!-- Footer -->
-            <div class="px-4 pb-4 flex gap-2">
-                <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
-                <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- WIZARD SQUADRA PICKER MODAL -->
-    <div id="wizardSquadraPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 flex items-center justify-between flex-shrink-0">
-                <div>
-                    <h3 class="text-white font-bold text-lg">Seleziona Squadra</h3>
-                    <p class="text-indigo-100 text-sm">Scegli la squadra da assegnare</p>
-                </div>
-                <button onclick="closeWizardSquadraPicker()" class="text-white hover:text-indigo-200 transition-colors">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-            <div class="p-4 border-b flex-shrink-0">
-                <div class="relative">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
-                    <input type="text" id="wizardSquadraSearch" placeholder="Cerca squadra..."
-                           oninput="filterWizardSquadraList()"
-                           class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-sm">
-                </div>
-            </div>
-            <div class="p-3 border-b flex-shrink-0">
-                <button onclick="toggleNewSquadraForm()" id="newSquadraToggleBtn"
-                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-indigo-600 border-2 border-dashed border-indigo-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-                    <i data-lucide="users" class="w-4 h-4"></i> + Nuova squadra
-                </button>
-                <div id="newSquadraForm" class="hidden mt-3 p-4 bg-indigo-50 rounded-xl space-y-3">
-                    <input type="text" id="newSquadraNome" placeholder="Nome squadra *"
-                           class="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400">
-                    <div class="flex items-center gap-3">
-                        <label class="text-xs text-indigo-700 font-semibold flex-shrink-0">Colore:</label>
-                        <div class="flex gap-2 flex-wrap">
-                            <button type="button" onclick="setSquadraColor('#6366f1', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#6366f1" data-selected="true"></button>
-                            <button type="button" onclick="setSquadraColor('#0ea5e9', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#0ea5e9"></button>
-                            <button type="button" onclick="setSquadraColor('#10b981', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#10b981"></button>
-                            <button type="button" onclick="setSquadraColor('#f59e0b', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#f59e0b"></button>
-                            <button type="button" onclick="setSquadraColor('#ef4444', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#ef4444"></button>
-                            <button type="button" onclick="setSquadraColor('#8b5cf6', this)" class="squadra-color-btn w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform" style="background:#8b5cf6"></button>
-                        </div>
-                        <input type="hidden" id="newSquadraColore" value="#6366f1">
-                    </div>
-                    <div>
-                        <label class="text-xs text-indigo-700 font-semibold block mb-1.5">Membri <span id="newSquadraMembriCount" class="text-indigo-400 font-normal"></span></label>
-                        <div id="newSquadraMembriList" class="max-h-36 overflow-y-auto space-y-1 pr-0.5">
-                            <p class="text-xs text-indigo-400">Caricamento dipendenti...</p>
-                        </div>
-                    </div>
-                    <button onclick="saveNewSquadra()" class="w-full py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-                        Crea e Seleziona
-                    </button>
-                </div>
-            </div>
-            <div id="wizardSquadraPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
-                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- WIZARD MULTI USER MANUAL PICKER MODAL -->
-    <div id="wizardMultiUserPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 flex items-center justify-between flex-shrink-0">
-                <div>
-                    <p class="text-purple-200 text-xs font-semibold uppercase tracking-wider mb-1">Assegnazione Multipla</p>
-                    <h3 class="text-white font-bold text-lg">Seleziona Dipendenti</h3>
-                </div>
-                <button onclick="closeWizardMultiUserPicker()" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 text-xl leading-none">&times;</button>
-            </div>
-            <div class="p-4 border-b flex-shrink-0">
-                <div style="position:relative;">
-                    <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;pointer-events:none;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input id="wizardMultiUserSearch" type="text" placeholder="Cerca per nome o ruolo..."
-                           style="width:100%;padding:10px 16px 10px 38px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;font-size:14px;outline:none;box-sizing:border-box;"
-                           oninput="filterWizardMultiUserList()"
-                           onfocus="this.style.borderColor='#a78bfa';this.style.boxShadow='0 0 0 3px rgba(167,139,250,0.2)';"
-                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';">
-                </div>
-            </div>
-            <div id="wizardMultiUserPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50 p-2">
-                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
-            </div>
-            <div class="p-4 border-t bg-gray-50 flex-shrink-0">
-                <div id="wizardMultiUserSelectionPreview" class="text-sm text-gray-500 mb-3">Nessun utente selezionato</div>
-                <button onclick="applyWizardMultiUserSelection()"
-                        class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
-                    Conferma Selezione →
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- WIZARD DIPENDENTE PICKER MODAL -->
-    <div id="wizardDipPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 flex items-center justify-between flex-shrink-0">
-                <div>
-                    <h3 class="text-white font-bold text-lg">Seleziona Dipendente</h3>
-                    <p class="text-blue-100 text-sm">Cerca per nome o ruolo</p>
-                </div>
-                <button onclick="closeWizardDipPicker()" class="text-white hover:text-blue-200 transition-colors">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-            <div class="p-4 border-b flex-shrink-0">
-                <div class="relative">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
-                    <input type="text" id="wizardDipSearch" placeholder="Cerca per nome o ruolo..."
-                           oninput="filterWizardDipList()"
-                           class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm">
-                </div>
-            </div>
-            <div class="p-3 border-b flex-shrink-0">
-                <button onclick="toggleNewDipForm()" id="newDipToggleBtn"
-                        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-blue-600 border-2 border-dashed border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                    <i data-lucide="user-plus" class="w-4 h-4"></i> + Nuovo dipendente
-                </button>
-                <div id="newDipForm" class="hidden mt-3 p-4 bg-blue-50 rounded-xl space-y-3">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="newDipNome" placeholder="Nome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
-                        <input type="text" id="newDipCognome" placeholder="Cognome *" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="email" id="newDipEmail" placeholder="Email" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
-                        <input type="tel" id="newDipTelefono" placeholder="Telefono" class="px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400">
-                    </div>
-                    <input type="hidden" id="newDipRuolo" value="dipendente">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="setNewDipRuolo('dipendente', this)"
-                                class="dip-ruolo-btn selected px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-500 bg-blue-500 text-white transition-all">
-                            Dipendente
-                        </button>
-                        <button type="button" onclick="setNewDipRuolo('tecnico', this)"
-                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
-                            Tecnico
-                        </button>
-                        <button type="button" onclick="setNewDipRuolo('segreteria', this)"
-                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
-                            Segreteria
-                        </button>
-                        <button type="button" onclick="setNewDipRuolo('titolare', this)"
-                                class="dip-ruolo-btn px-3 py-2 rounded-lg text-sm font-semibold border-2 border-blue-200 bg-white text-blue-700 hover:border-blue-400 transition-all">
-                            Titolare
-                        </button>
-                    </div>
-                    <button onclick="saveNewDipendente()" class="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-                        Crea e Seleziona
-                    </button>
-                </div>
-            </div>
-            <div id="wizardDipPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50">
-                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="clientPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 flex items-center justify-between flex-shrink-0">
-                <div>
-                    <h3 class="text-lg font-bold text-white">Seleziona Cliente</h3>
-                    <p class="text-green-100 text-xs mt-0.5">Cerca o aggiungi un nuovo cliente</p>
-                </div>
-                <button onclick="closeClientPicker()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- Search + Add button -->
-            <div class="p-4 border-b border-gray-100 flex-shrink-0">
-                <div class="flex gap-2">
-                    <div class="relative flex-1">
-                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="clientPickerSearch" placeholder="Cerca per nome o ragione sociale..."
-                               oninput="filterClientPickerList()"
-                               class="w-full pl-9 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:border-green-400 focus:ring-0 text-sm outline-none">
-                    </div>
-                    <button onclick="toggleAddClientForm()"
-                            class="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        Nuovo
-                    </button>
-                </div>
-            </div>
-
-            <!-- Form aggiunta rapida (inizialmente nascosto) -->
-            <div id="addClientForm" class="hidden p-4 bg-green-50 border-b border-green-200 flex-shrink-0">
-                <p class="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
-                    <i data-lucide="user-plus" class="w-4 h-4"></i>
-                    Aggiungi nuovo cliente
-                </p>
-                <div class="space-y-2">
-                    <input type="text" id="newClientRagioneSociale" placeholder="Ragione sociale / Nome *"
-                           class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="newClientTelefono" placeholder="Telefono"
-                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
-                        <input type="email" id="newClientEmail" placeholder="Email"
-                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
-                    </div>
-                    <select id="newClientTipo" class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
-                        <option value="azienda">Azienda</option>
-                        <option value="privato">Privato</option>
-                        <option value="condominio">Condominio</option>
-                        <option value="associazione">Associazione</option>
-                        <option value="comune">Comune</option>
-                    </select>
-                    <div class="flex gap-2 pt-1">
-                        <button onclick="saveNewClientFromPicker()"
-                                class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors">
-                            <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>Salva e Seleziona
-                        </button>
-                        <button onclick="toggleAddClientForm(false)"
-                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg transition-colors">
-                            Annulla
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Lista clienti -->
-            <div id="clientPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-100">
-                <div class="p-8 text-center text-gray-400">
-                    <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
-                    <p class="text-sm">Caricamento clienti...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </body>
 </html>
