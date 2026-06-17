@@ -1640,6 +1640,125 @@
             lucide.createIcons();
         }
 
+        // ===== EDIT MODAL – ASSIGNMENT PICKER FUNCTIONS =====
+        let _editDipAllUsers = [];
+        let _editMultiSelected = []; // [{id, nome, cognome}]
+        let _editCurrentAssignType = 'single';
+
+        function editSetAssignType(type) {
+            _editCurrentAssignType = type;
+            ['single','multi','team'].forEach(t => {
+                const pill = document.getElementById('edit-pill-' + t);
+                const container = document.getElementById('edit-' + t + '-container');
+                if (pill) {
+                    pill.className = pill.className.replace(/bg-purple-600 text-white border-purple-600|bg-white text-purple-700 border-purple-300/g, '');
+                    if (t === type) {
+                        pill.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
+                        pill.classList.remove('bg-white', 'text-purple-700', 'border-purple-300');
+                    } else {
+                        pill.classList.add('bg-white', 'text-purple-700', 'border-purple-300');
+                        pill.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
+                    }
+                }
+                if (container) container.classList.toggle('hidden', t !== type);
+            });
+        }
+
+        async function editOpenDipPicker() {
+            // Riusa la modale wizardDipPickerModal ma con callback per il form edit
+            window._editDipPickerCallback = function(id, nome) {
+                document.getElementById('edit-utente-singolo').value = id;
+                const lbl = document.getElementById('edit-dip-picker-label');
+                if (lbl) lbl.innerHTML = '<span class="text-gray-800 font-semibold">' + nome + '</span>';
+                const clearBtn = document.getElementById('edit-dip-clear-btn');
+                if (clearBtn) clearBtn.classList.remove('hidden');
+            };
+            // Override selectWizardDip temporaneamente
+            window._origSelectWizardDip = window.selectWizardDip;
+            window.selectWizardDip = function(id) {
+                const u = _wizardDipAllUsers.find(x => x.id === id);
+                const nome = u ? (u.nome + ' ' + u.cognome).trim() : 'Dipendente';
+                if (window._editDipPickerCallback) { window._editDipPickerCallback(id, nome); window._editDipPickerCallback = null; }
+                if (window._origSelectWizardDip) { window.selectWizardDip = window._origSelectWizardDip; window._origSelectWizardDip = null; }
+                closeWizardDipPicker();
+                lucide.createIcons();
+            };
+            openWizardDipPicker();
+        }
+
+        function editClearDipPicker() {
+            document.getElementById('edit-utente-singolo').value = '';
+            const lbl = document.getElementById('edit-dip-picker-label');
+            if (lbl) lbl.innerHTML = '<i data-lucide="search" class="w-4 h-4 inline mr-2 text-purple-400"></i>Cerca dipendente...';
+            const clearBtn = document.getElementById('edit-dip-clear-btn');
+            if (clearBtn) clearBtn.classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function editOpenMultiPicker() {
+            // Copia gli utenti già selezionati in _wizardMultiSelected
+            const chips = document.querySelectorAll('#edit-multi-chips [data-user-id]');
+            _wizardMultiSelected = [];
+            chips.forEach(chip => {
+                const uid = chip.dataset.userId;
+                const u = (_editDipAllUsers.length > 0 ? _editDipAllUsers : window._wizardDipendentiCache || []).find(x => x.id === uid);
+                if (u) _wizardMultiSelected.push({id: u.id, nome: u.nome, cognome: u.cognome, ruolo: u.ruolo});
+            });
+            // Override onConfirm
+            window._editMultiPickerConfirm = function(selected) {
+                _editMultiSelected = selected;
+                const container = document.getElementById('edit-multi-chips');
+                if (container) {
+                    container.innerHTML = selected.map(u =>
+                        '<span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-200" data-user-id="' + u.id + '">' +
+                        u.nome + ' ' + u.cognome +
+                        '<button type="button" onclick="editRemoveMultiUser(\'' + u.id + '\')" class="text-purple-400 hover:text-red-500 ml-1">\xd7</button></span>'
+                    ).join('');
+                }
+                const lbl = document.getElementById('edit-multi-picker-label');
+                if (lbl) lbl.innerHTML = '<span class="text-gray-800 font-semibold">' + selected.length + ' utenti selezionati</span>';
+            };
+            openWizardMultiUserPicker();
+        }
+
+        function editRemoveMultiUser(id) {
+            const chip = document.querySelector('#edit-multi-chips [data-user-id="' + id + '"]');
+            if (chip) chip.remove();
+            _editMultiSelected = _editMultiSelected.filter(u => u.id !== id);
+            const remaining = document.querySelectorAll('#edit-multi-chips [data-user-id]').length;
+            const lbl = document.getElementById('edit-multi-picker-label');
+            if (lbl) lbl.innerHTML = remaining > 0 ? '<span class="text-gray-800 font-semibold">' + remaining + ' utenti selezionati</span>' : 'Seleziona utenti...';
+        }
+
+        async function editOpenTeamPicker() {
+            window._editTeamPickerCallback = function(id, nome) {
+                document.getElementById('edit-team-id').value = id;
+                const lbl = document.getElementById('edit-team-picker-label');
+                if (lbl) lbl.innerHTML = '<span class="text-gray-800 font-semibold">' + nome + '</span>';
+                const clearBtn = document.getElementById('edit-team-clear-btn');
+                if (clearBtn) clearBtn.classList.remove('hidden');
+            };
+            const origSelect = window.selectWizardSquadra;
+            window.selectWizardSquadra = function(id) {
+                const squadreEl = document.querySelectorAll('#wizardSquadraPickerList button');
+                let nome = 'Squadra';
+                squadreEl.forEach(btn => { if (btn.getAttribute('onclick')?.includes(id)) { const n = btn.querySelector('.font-semibold'); if(n) nome = n.textContent.trim(); } });
+                if (window._editTeamPickerCallback) { window._editTeamPickerCallback(id, nome); window._editTeamPickerCallback = null; }
+                window.selectWizardSquadra = origSelect;
+                closeWizardSquadraPicker();
+                lucide.createIcons();
+            };
+            openTaskTeamPicker();
+        }
+
+        function editClearTeamPicker() {
+            document.getElementById('edit-team-id').value = '';
+            const lbl = document.getElementById('edit-team-picker-label');
+            if (lbl) lbl.innerHTML = 'Scegli squadra...';
+            const clearBtn = document.getElementById('edit-team-clear-btn');
+            if (clearBtn) clearBtn.classList.add('hidden');
+        }
+
         // ===== WIZARD MULTI USER MANUAL PICKER =====
         let _wizardMultiAllUsers = [];
         let _wizardMultiSelected = []; // [{id, nome, ruolo}]
@@ -1728,6 +1847,13 @@
 
         function applyWizardMultiUserSelection() {
             if (!_wizardMultiSelected.length) {
+                return;
+            }
+            // Se siamo in edit picker mode, usa il callback edit
+            if (window._editMultiPickerConfirm) {
+                window._editMultiPickerConfirm(_wizardMultiSelected);
+                window._editMultiPickerConfirm = null;
+                closeWizardMultiUserPicker();
                 return;
             }
             // Salva in taskWizard
@@ -3324,69 +3450,79 @@
                             </div>
                             
                             <!-- Assegnazioni -->
-                            <div class="space-y-4">
-                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="users" class="w-5 h-5 text-purple-600"></i>
+                            <div class="bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-4 space-y-3">
+                                <h3 class="font-bold text-sm text-purple-900 flex items-center gap-2">
+                                    <i data-lucide="users" class="w-4 h-4"></i>
                                     Assegnazione Team
                                 </h3>
-                                
-                                <div class="flex gap-4 mb-4">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="edit-tipo-assegnazione" value="single" ${tipoAssegnazione === 'single' ? 'checked' : ''}
-                                               class="text-purple-600 focus:ring-purple-500">
-                                        <span class="text-sm font-medium">Utente Singolo</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="edit-tipo-assegnazione" value="multi" ${tipoAssegnazione === 'multi' ? 'checked' : ''}
-                                               class="text-purple-600 focus:ring-purple-500">
-                                        <span class="text-sm font-medium">Multi-Utente</span>
-                                    </label>
+
+                                <!-- Tipo assegnazione pills -->
+                                <div class="flex gap-2">
+                                    <button type="button" id="edit-pill-single" onclick="editSetAssignType('single')"
+                                            class="flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${tipoAssegnazione === 'single' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-700 border-purple-300 hover:border-purple-500'}">
+                                        Singolo
+                                    </button>
+                                    <button type="button" id="edit-pill-multi" onclick="editSetAssignType('multi')"
+                                            class="flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${tipoAssegnazione === 'multi' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-700 border-purple-300 hover:border-purple-500'}">
+                                        Multi-Utente
+                                    </button>
+                                    <button type="button" id="edit-pill-team" onclick="editSetAssignType('team')"
+                                            class="flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all bg-white text-purple-700 border-purple-300 hover:border-purple-500">
+                                        Squadra
+                                    </button>
                                 </div>
-                                
-                                <!-- Singolo -->
+
+                                <!-- Singolo: picker button -->
                                 <div id="edit-single-container" class="${tipoAssegnazione === 'single' ? '' : 'hidden'}">
-                                    <div class="relative">
-                                    <select id="edit-utente-singolo"
-                                            class="w-full appearance-none px-4 py-3 pr-10 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:ring-0 focus:border-purple-500 outline-none transition-all">
-                                        <option value="">Seleziona utente...</option>
-                                        ${utenti?.map(u => `
-                                            <option value="${u.id}" ${u.id === task.assigned_user_id ? 'selected' : ''}>
-                                                ${u.nome} ${u.cognome} (${u.ruolo})
-                                            </option>
-                                        `).join('')}
-                                    </select>
-                                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                                    <input type="hidden" id="edit-utente-singolo" value="${task.assigned_user_id || ''}">
+                                    <button type="button" id="edit-dip-picker-btn" onclick="editOpenDipPicker()"
+                                            class="w-full flex items-center justify-between px-4 py-3 border-2 border-purple-300 rounded-xl bg-white hover:border-purple-500 hover:bg-purple-50 transition-all text-left group">
+                                        <span id="edit-dip-picker-label" class="text-gray-400 text-sm group-hover:text-purple-700">
+                                            <i data-lucide="search" class="w-4 h-4 inline mr-2 text-purple-400"></i>
+                                            ${utenti?.find(u => u.id === task.assigned_user_id) ? `<span class="text-gray-800 font-semibold">${utenti.find(u => u.id === task.assigned_user_id).nome} ${utenti.find(u => u.id === task.assigned_user_id).cognome}</span>` : 'Cerca dipendente...'}
+                                        </span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-purple-300 flex-shrink-0"></i>
+                                    </button>
+                                    <button type="button" id="edit-dip-clear-btn" onclick="editClearDipPicker()"
+                                            class="${task.assigned_user_id ? '' : 'hidden'} mt-1.5 flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium">
+                                        <i data-lucide="x" class="w-3 h-3"></i> Rimuovi
+                                    </button>
+                                </div>
+
+                                <!-- Multi: picker button + preview chips -->
+                                <div id="edit-multi-container" class="${tipoAssegnazione === 'multi' ? '' : 'hidden'}">
+                                    <button type="button" onclick="editOpenMultiPicker()"
+                                            class="w-full flex items-center gap-3 px-4 py-3 border-2 border-purple-300 rounded-xl bg-white hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
+                                        <i data-lucide="users" class="w-5 h-5 text-purple-500 flex-shrink-0"></i>
+                                        <span id="edit-multi-picker-label" class="text-gray-400 text-sm flex-1">
+                                            ${selectedUsers.length > 0 ? `<span class="text-gray-800 font-semibold">${selectedUsers.length} utenti selezionati</span>` : 'Seleziona utenti...'}
+                                        </span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-purple-300 flex-shrink-0"></i>
+                                    </button>
+                                    <div id="edit-multi-chips" class="mt-2 flex flex-wrap gap-1.5">
+                                        ${selectedUsers.map(a => {
+                                            const u = utenti?.find(x => x.id === a.user_id);
+                                            if (!u) return '';
+                                            return `<span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-200" data-user-id="${u.id}">
+                                                ${u.nome} ${u.cognome}
+                                                <button type="button" onclick="editRemoveMultiUser('${u.id}')" class="text-purple-400 hover:text-red-500 ml-1">×</button>
+                                            </span>`;
+                                        }).join('')}
                                     </div>
                                 </div>
-                                
-                                <!-- Multi -->
-                                <div id="edit-multi-container" class="${tipoAssegnazione === 'multi' ? '' : 'hidden'}">
-                                    <div id="edit-selected-users" class="space-y-2 mb-3">
-                                        ${selectedUsers.map(a => {
-                                            const user = utenti?.find(u => u.id === a.user_id);
-                                            if (!user) return '';
-                                            return `
-                                                <div class="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3" data-user-id="${user.id}">
-                                                    <div class="flex items-center gap-3">
-                                                        <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
-                                                            ${user.nome[0]}${user.cognome[0]}
-                                                        </div>
-                                                        <div>
-                                                            <div class="font-semibold">${user.nome} ${user.cognome}</div>
-                                                            <div class="text-xs text-gray-600">${user.ruolo}</div>
-                                                        </div>
-                                                    </div>
-                                                    <button type="button" onclick="this.closest('[data-user-id]').remove()"
-                                                            class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                                                        <i data-lucide="x" class="w-4 h-4"></i>
-                                                    </button>
-                                                </div>
-                                            `;
-                                        }).join('') || '<p class="text-gray-500 text-sm italic">Nessun utente selezionato</p>'}
-                                    </div>
-                                    <button type="button" id="edit-add-user-btn"
-                                            class="w-full px-4 py-2 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50">
-                                        + Aggiungi Utente
+
+                                <!-- Squadra: picker button -->
+                                <div id="edit-team-container" class="hidden">
+                                    <input type="hidden" id="edit-team-id" value="">
+                                    <button type="button" onclick="editOpenTeamPicker()"
+                                            class="group w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl hover:border-indigo-400 transition-all">
+                                        <i data-lucide="users-2" class="w-5 h-5 text-indigo-500 flex-shrink-0"></i>
+                                        <span id="edit-team-picker-label" class="text-gray-400 text-sm group-hover:text-indigo-700 flex-1 text-left">Scegli squadra...</span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-indigo-400 flex-shrink-0"></i>
+                                    </button>
+                                    <button type="button" id="edit-team-clear-btn" onclick="editClearTeamPicker()"
+                                            class="hidden mt-1.5 flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium">
+                                        <i data-lucide="x" class="w-3 h-3"></i> Rimuovi squadra
                                     </button>
                                 </div>
                             </div>
@@ -3771,62 +3907,9 @@
                     document.getElementById('edit-preventivoImportatoLabel').textContent = '';
                 });
                 
-                // Toggle tipo assegnazione
-                document.querySelectorAll('input[name="edit-tipo-assegnazione"]').forEach(radio => {
-                    radio.addEventListener('change', (e) => {
-                        const tipo = e.target.value;
-                        document.getElementById('edit-single-container').classList.toggle('hidden', tipo !== 'single');
-                        document.getElementById('edit-multi-container').classList.toggle('hidden', tipo !== 'multi');
-                    });
-                });
-                
-                // Aggiungi utente al multi
-                document.getElementById('edit-add-user-btn')?.addEventListener('click', () => {
-                    const container = document.getElementById('edit-selected-users');
-                    const select = document.createElement('select');
-                    select.className = 'w-full px-4 py-2 border border-gray-300 rounded-lg mb-2';
-                    select.innerHTML = `
-                        <option value="">Seleziona utente...</option>
-                        ${utenti?.filter(u => {
-                            // Escludi già selezionati
-                            const selected = Array.from(container.querySelectorAll('[data-user-id]')).map(el => el.dataset.userId);
-                            return !selected.includes(u.id);
-                        }).map(u => `<option value="${u.id}">${u.nome} ${u.cognome} (${u.ruolo})</option>`).join('')}
-                    `;
-                    
-                    select.addEventListener('change', (e) => {
-                        const userId = e.target.value;
-                        if (!userId) return;
-                        
-                        const user = utenti?.find(u => u.id === userId);
-                        if (!user) return;
-                        
-                        const userCard = document.createElement('div');
-                        userCard.className = 'flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3';
-                        userCard.dataset.userId = user.id;
-                        userCard.innerHTML = `
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
-                                    ${user.nome[0]}${user.cognome[0]}
-                                </div>
-                                <div>
-                                    <div class="font-semibold">${user.nome} ${user.cognome}</div>
-                                    <div class="text-xs text-gray-600">${user.ruolo}</div>
-                                </div>
-                            </div>
-                            <button type="button" onclick="this.closest('[data-user-id]').remove()"
-                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                                <i data-lucide="x" class="w-4 h-4"></i>
-                            </button>
-                        `;
-                        
-                        container.appendChild(userCard);
-                        select.remove();
-                        lucide.createIcons();
-                    });
-                    
-                    container.appendChild(select);
-                });
+                // Inizializza tipo assegnazione picker edit modal
+                const _initEditAssignType = task.assigned_team_id ? 'team' : (task.assigned_user_id ? 'single' : 'single');
+                editSetAssignType(_initEditAssignType);
                 
                 // Toggle lucchetto cliente
                 document.getElementById('toggle-cliente-lock')?.addEventListener('click', function() {
@@ -3945,16 +4028,19 @@
                         btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
                         lucide.createIcons();
                         
-                        const tipoAssegnazione = document.querySelector('input[name="edit-tipo-assegnazione"]:checked').value;
+                        const tipoAssegnazione = _editCurrentAssignType || 'single';
                         
                         // Per multi-utente, calcola il primo utente selezionato
                         let assignedUserId = null;
+                        let assignedTeamId = null;
                         if (tipoAssegnazione === 'single') {
-                            assignedUserId = document.getElementById('edit-utente-singolo').value;
+                            assignedUserId = document.getElementById('edit-utente-singolo').value || null;
                         } else if (tipoAssegnazione === 'multi') {
-                            const selectedUserIds = Array.from(document.querySelectorAll('#edit-selected-users [data-user-id]'))
+                            const selectedUserIds = Array.from(document.querySelectorAll('#edit-multi-chips [data-user-id]'))
                                 .map(el => el.dataset.userId);
                             assignedUserId = selectedUserIds.length > 0 ? selectedUserIds[0] : null;
+                        } else if (tipoAssegnazione === 'team') {
+                            assignedTeamId = document.getElementById('edit-team-id')?.value || null;
                         }
                         
                         const taskData = {
@@ -3971,7 +4057,7 @@
                             progresso: parseInt(document.getElementById('edit-progresso').value) || 0,
                             note_progresso: document.getElementById('edit-note-progresso').value || null,
                             assigned_user_id: assignedUserId,
-                            assigned_team_id: null,
+                            assigned_team_id: assignedTeamId,
                             preventivo_id: _editPrevSelectedId || null
                         };
                         
