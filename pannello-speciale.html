@@ -9,8 +9,8 @@
     <script src="supabase-client.js"></script>
     <script src="Admin/auth-helper.js"></script>
     <script src="data-migration.js"></script>
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <link href='https://unpkg.com/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <script src='https://unpkg.com/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#f8faff;min-height:100vh}
@@ -471,12 +471,14 @@ async function salvaNuovoEvento() {
 
     try {
         const dipIds = getSelectedDipendenti('crDipendenti');
+        if (dipIds.length === 0) { spToast('⚠️ Seleziona almeno un dipendente'); btn.disabled = false; btn.textContent = '💾 Aggiungi'; return; }
+
         const newTask = await window.TasksAPI.create({
             titolo, descrizione: desc || null,
             scadenza: data, data_inizio: data,
             ora_inizio: oraI, ora_fine: oraF,
             stato: 'da_fare', priorita: prio,
-            assigned_user_id: dipIds[0] || null
+            assigned_user_id: dipIds[0]
         });
 
         // Salva assegnazioni multiple
@@ -556,11 +558,13 @@ async function salvaModificaEvento() {
 
     try {
         const dipIds = getSelectedDipendenti('edDipendenti');
+        if (dipIds.length === 0) { spToast('⚠️ Seleziona almeno un dipendente'); btn.disabled = false; btn.textContent = '💾 Salva'; return; }
+
         await window.TasksAPI.update(_editingTaskId, {
             titolo, scadenza: data, data_inizio: data,
             ora_inizio: oraI, ora_fine: oraF,
             stato, priorita: prio, descrizione: desc || null,
-            assigned_user_id: dipIds[0] || null
+            assigned_user_id: dipIds[0]
         });
 
         // Aggiorna assegnazioni
