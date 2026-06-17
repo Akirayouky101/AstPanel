@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richieste Speciali - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .tipo-badge { padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+        .tipo-sposta { background: #fef3c7; color: #92400e; }
+        .tipo-duplica { background: #dbeafe; color: #1e40af; }
+        .tipo-aggiungi { background: #d1fae5; color: #065f46; }
+        .tipo-nota { background: #f3e8ff; color: #6b21a8; }
+        .tipo-modifica_orario { background: #fee2e2; color: #991b1b; }
+        .card-enter { animation: cardIn .3s ease; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- HEADER -->
+    <div class="bg-gradient-to-r from-amber-500 to-orange-600 shadow-lg">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-4">
+            <a href="/admin-functional.html" class="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="flex-1">
+                <h1 class="text-white text-xl font-bold flex items-center gap-2">
+                    ⭐ Richieste Speciali
+                    <span id="headerBadge" class="hidden bg-white text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </h1>
+                <p class="text-amber-100 text-sm">Richieste e note dall'accesso speciale</p>
+            </div>
+            <button onclick="segnaLetteTutte()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+                <i data-lucide="check-check" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Segna tutte lette</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="max-w-5xl mx-auto px-4 py-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex flex-wrap gap-2 items-center">
+            <span class="text-sm font-semibold text-gray-600 mr-1">Filtra:</span>
+            <button onclick="filtraRichieste('')" class="filter-btn active px-3 py-1.5 rounded-lg text-sm font-semibold bg-amber-100 text-amber-700 border border-amber-200" data-tipo="">Tutte</button>
+            <button onclick="filtraRichieste('sposta')" class="filter-btn px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600" data-tipo="sposta">📍 Spostamento</button>
+            <button onclick="filtraRichieste('aggiungi')" class="filter-btn px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600" data-tipo="aggiungi">➕ Aggiunte</button>
+            <button onclick="filtraRichieste('duplica')" class="filter-btn px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600" data-tipo="duplica">📋 Duplicazioni</button>
+            <button onclick="filtraRichieste('nota')" class="filter-btn px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600" data-tipo="nota">📝 Note</button>
+            <div class="ml-auto flex items-center gap-2">
+                <label class="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+                    <input type="checkbox" id="soloNonElaborate" onchange="caricaRichieste()" class="rounded">
+                    Solo non elaborate
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIST -->
+    <div class="max-w-5xl mx-auto px-4 pb-12">
+        <div id="richiesteList">
+            <div class="text-center py-12"><div class="inline-block border-4 border-amber-200 border-t-amber-500 rounded-full w-10 h-10 animate-spin"></div></div>
+        </div>
+    </div>
+
+    <!-- MODAL DETTAGLIO -->
+    <div id="modalDettaglio" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div id="modalDettaglioContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const supabase = window.supabaseClient;
+        let _allRichieste = [];
+        let _filtroTipo = '';
+
+        async function init() {
+            if (!await window.AuthHelper.requireAdmin()) return;
+            lucide.createIcons();
+            await caricaRichieste();
+            avviaRealtime();
+        }
+
+        async function caricaRichieste() {
+            const { data } = await supabase
+                .from('richieste_speciali')
+                .select(`*, users:user_id(nome, cognome)`)
+                .order('created_at', { ascending: false });
+
+            _allRichieste = data || [];
+            renderRichieste();
+            aggiornaBadge();
+        }
+
+        function renderRichieste() {
+            const soloNonElaborate = document.getElementById('soloNonElaborate')?.checked;
+            let list = _allRichieste;
+            if (_filtroTipo) list = list.filter(r => r.tipo === _filtroTipo);
+            if (soloNonElaborate) list = list.filter(r => !r.elaborata);
+
+            const container = document.getElementById('richiesteList');
+            if (list.length === 0) {
+                container.innerHTML = `<div class="text-center py-16 text-gray-400">
+                    <div style="font-size:48px;margin-bottom:12px">📭</div>
+                    <div class="text-lg font-semibold text-gray-500">Nessuna richiesta</div>
+                    <div class="text-sm mt-1">Quando il capo invia richieste, appariranno qui</div>
+                </div>`;
+                return;
+            }
+
+            const tipoLabel = { sposta:'📍 Spostamento', duplica:'📋 Duplicazione', aggiungi:'➕ Nuova', nota:'📝 Nota', modifica_orario:'⏰ Orario' };
+
+            container.innerHTML = list.map(r => {
+                const userName = r.users ? (r.users.nome + ' ' + r.users.cognome) : 'Utente';
+                const dataFmt = new Date(r.created_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const isNuova = !r.letta;
+
+                return `
+                <div class="card-enter bg-white rounded-2xl shadow-sm border ${isNuova ? 'border-amber-300 shadow-amber-100' : 'border-gray-100'} mb-3 overflow-hidden">
+                    ${isNuova ? '<div style="height:4px;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>' : ''}
+                    <div class="p-4">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <span class="tipo-badge tipo-${r.tipo}">${tipoLabel[r.tipo] || r.tipo}</span>
+                                    ${isNuova ? '<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">NUOVA</span>' : ''}
+                                    ${r.elaborata ? '<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">✅ Elaborata</span>' : ''}
+                                </div>
+                                <div class="text-base font-bold text-gray-900">${r.titolo}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">Da: <strong>${userName}</strong> • ${dataFmt}</div>
+                            </div>
+                        </div>
+                        ${r.descrizione ? `<div class="text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2 mb-3 whitespace-pre-wrap max-h-24 overflow-y-auto">${r.descrizione}</div>` : ''}
+                        <div class="flex gap-2 flex-wrap">
+                            <button onclick="apriDettaglio('${r.id}')" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 transition-colors">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Dettaglio
+                            </button>
+                            ${!r.elaborata ? `
+                            <button onclick="segnaElaborata('${r.id}')" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 hover:bg-green-200 rounded-lg text-sm font-semibold text-green-700 transition-colors">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i> Segna Elaborata
+                            </button>` : ''}
+                            ${!r.letta ? `
+                            <button onclick="segnaLetta('${r.id}')" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 rounded-lg text-sm font-semibold text-blue-700 transition-colors">
+                                <i data-lucide="bookmark-check" class="w-3.5 h-3.5"></i> Segna Vista
+                            </button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function aggiornaBadge() {
+            const nonLette = _allRichieste.filter(r => !r.letta).length;
+            const badge = document.getElementById('headerBadge');
+            if (badge) {
+                badge.textContent = nonLette;
+                badge.classList.toggle('hidden', nonLette === 0);
+            }
+        }
+
+        function filtraRichieste(tipo) {
+            _filtroTipo = tipo;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                const isActive = btn.dataset.tipo === tipo;
+                btn.className = 'filter-btn px-3 py-1.5 rounded-lg text-sm font-semibold ' + (isActive ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-gray-100 text-gray-600');
+            });
+            renderRichieste();
+        }
+
+        async function segnaElaborata(id) {
+            await supabase.from('richieste_speciali').update({ elaborata: true, letta: true }).eq('id', id);
+            const r = _allRichieste.find(x => x.id === id);
+            if (r) { r.elaborata = true; r.letta = true; }
+            renderRichieste();
+        }
+
+        async function segnaLetta(id) {
+            await supabase.from('richieste_speciali').update({ letta: true }).eq('id', id);
+            const r = _allRichieste.find(x => x.id === id);
+            if (r) r.letta = true;
+            renderRichieste();
+            aggiornaBadge();
+        }
+
+        async function segnaLetteTutte() {
+            await supabase.from('richieste_speciali').update({ letta: true }).eq('letta', false);
+            _allRichieste.forEach(r => r.letta = true);
+            renderRichieste();
+            aggiornaBadge();
+        }
+
+        function apriDettaglio(id) {
+            const r = _allRichieste.find(x => x.id === id);
+            if (!r) return;
+            const tipoLabel = { sposta:'📍 Spostamento', duplica:'📋 Duplicazione', aggiungi:'➕ Nuova Richiesta', nota:'📝 Nota', modifica_orario:'⏰ Modifica Orario' };
+            const userName = r.users ? (r.users.nome + ' ' + r.users.cognome) : 'Utente';
+            const dataFmt = new Date(r.created_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            let extraHtml = '';
+            if (r.dati_extra && Object.keys(r.dati_extra).length > 0) {
+                const extra = r.dati_extra;
+                extraHtml = `<div class="border-t pt-4 mt-4">
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Dati richiesta</div>
+                    <div class="space-y-1">
+                    ${extra.nuova_data ? `<div class="text-sm text-gray-700"><strong>Nuova data:</strong> ${extra.nuova_data}</div>` : ''}
+                    ${extra.nuova_ora_inizio ? `<div class="text-sm text-gray-700"><strong>Ora inizio:</strong> ${extra.nuova_ora_inizio}</div>` : ''}
+                    ${extra.nuova_ora_fine ? `<div class="text-sm text-gray-700"><strong>Ora fine:</strong> ${extra.nuova_ora_fine}</div>` : ''}
+                    ${extra.data_desiderata ? `<div class="text-sm text-gray-700"><strong>Data desiderata:</strong> ${extra.data_desiderata}</div>` : ''}
+                    ${extra.note ? `<div class="text-sm text-gray-700"><strong>Note extra:</strong> ${extra.note}</div>` : ''}
+                    </div>
+                </div>`;
+            }
+
+            document.getElementById('modalDettaglioContent').innerHTML = `
+                <div class="bg-gradient-to-r from-amber-500 to-orange-500 p-5 rounded-t-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-amber-100 text-xs font-semibold mb-1">${tipoLabel[r.tipo] || r.tipo}</div>
+                            <div class="text-white text-lg font-bold">${r.titolo}</div>
+                        </div>
+                        <button onclick="document.getElementById('modalDettaglio').classList.add('hidden')" class="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="flex gap-2 text-xs text-gray-500 mb-4">
+                        <span>👤 ${userName}</span>
+                        <span>•</span>
+                        <span>🕐 ${dataFmt}</span>
+                    </div>
+                    ${r.descrizione ? `<div class="text-sm text-gray-700 bg-gray-50 rounded-xl p-4 whitespace-pre-wrap mb-4">${r.descrizione}</div>` : ''}
+                    ${extraHtml}
+                    <div class="flex gap-3 mt-5">
+                        ${!r.elaborata ? `<button onclick="segnaElaborata('${r.id}');document.getElementById('modalDettaglio').classList.add('hidden')" class="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-green-700 transition-colors">✅ Segna Elaborata</button>` : '<div class="flex-1 bg-green-50 text-green-700 py-2.5 rounded-xl font-semibold text-sm text-center">✅ Già Elaborata</div>'}
+                        <button onclick="document.getElementById('modalDettaglio').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors">Chiudi</button>
+                    </div>
+                </div>`;
+
+            document.getElementById('modalDettaglio').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function avviaRealtime() {
+            supabase.channel('rs-admin-page')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'richieste_speciali' }, () => {
+                    caricaRichieste();
+                })
+                .subscribe();
+        }
+
+        document.getElementById('modalDettaglio').addEventListener('click', function(e) {
+            if (e.target === this) this.classList.add('hidden');
+        });
+
+        init().catch(console.error);
+    </script>
+</body>
+</html>

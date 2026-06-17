@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Il Mio Pannello</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #f0f4ff; font-family: 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+        /* Header */
+        .sp-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px; position: sticky; top: 0; z-index: 100; }
+
+        /* Tabs */
+        .tab-bar { display: flex; background: #fff; border-bottom: 2px solid #e5e7eb; position: sticky; top: 68px; z-index: 90; }
+        .tab-btn { flex: 1; padding: 12px 8px; font-size: 14px; font-weight: 600; color: #6b7280; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+
+        /* Calendar */
+        .fc { font-family: 'Segoe UI', Roboto, Arial, sans-serif; }
+        .fc .fc-toolbar-title { font-size: 16px !important; font-weight: 700; color: #1e1b4b; }
+        .fc .fc-button { background: #667eea !important; border-color: #667eea !important; border-radius: 8px !important; font-size: 12px !important; padding: 4px 10px !important; }
+        .fc .fc-button:hover { background: #5a6fd6 !important; }
+        .fc .fc-button-active { background: #4c3f9e !important; border-color: #4c3f9e !important; }
+        .fc .fc-event { border-radius: 6px !important; border: none !important; padding: 2px 4px !important; font-size: 11px !important; cursor: grab; }
+        .fc .fc-event:active { cursor: grabbing; }
+        .fc-day-today { background: #eef2ff !important; }
+        .fc .fc-col-header-cell-cushion { font-size: 11px; font-weight: 700; color: #667eea; text-transform: uppercase; text-decoration: none; }
+        .fc .fc-daygrid-day-number { font-size: 12px; color: #374151; text-decoration: none; }
+
+        /* Notes */
+        .note-card { background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); border-left: 4px solid #667eea; }
+        .note-card.elaborata { border-left-color: #10b981; opacity: .7; }
+
+        /* FAB */
+        .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff; font-size: 28px; cursor: pointer; box-shadow: 0 6px 20px rgba(102,126,234,.5); display: flex; align-items: center; justify-content: center; z-index: 200; transition: transform .2s; }
+        .fab:hover { transform: scale(1.1); }
+        .fab:active { transform: scale(.95); }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 300; display: flex; align-items: flex-end; justify-content: center; }
+        .modal-sheet { background: #fff; border-radius: 24px 24px 0 0; padding: 24px 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+        .modal-handle { width: 40px; height: 4px; background: #d1d5db; border-radius: 9999px; margin: 0 auto 20px; }
+
+        /* Input */
+        .sp-input { width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; outline: none; transition: border-color .2s; }
+        .sp-input:focus { border-color: #667eea; }
+        .sp-textarea { width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; outline: none; resize: vertical; min-height: 90px; font-family: inherit; transition: border-color .2s; }
+        .sp-textarea:focus { border-color: #667eea; }
+
+        /* Btn */
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; border-radius: 12px; padding: 13px 24px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity .2s; }
+        .btn-primary:hover { opacity: .9; }
+        .btn-secondary { background: #f3f4f6; color: #374151; border: none; border-radius: 12px; padding: 13px 24px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; transition: background .2s; }
+        .btn-secondary:hover { background: #e5e7eb; }
+
+        /* Badge */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; }
+        .badge-yellow { background: #fef3c7; color: #92400e; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+
+        /* Toast */
+        #spToast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1e1b4b; color: #fff; padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 9999; display: none; white-space: nowrap; }
+        #spToast.show { display: block; animation: toastIn .3s ease; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        .hidden { display: none !important; }
+        .scroll-area { padding: 16px; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 40px 20px; color: #9ca3af; }
+        .empty-state svg { margin: 0 auto 12px; display: block; }
+
+        /* Spinner */
+        .spinner { border: 3px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; width: 32px; height: 32px; animation: spin .8s linear infinite; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Chip tipo */
+        .chip-sposta { background: #fef3c7; color: #92400e; }
+        .chip-duplica { background: #dbeafe; color: #1e40af; }
+        .chip-aggiungi { background: #d1fae5; color: #065f46; }
+        .chip-nota { background: #f3e8ff; color: #6b21a8; }
+        .chip-modifica_orario { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="sp-header">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+            <div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:2px">Accesso Speciale</div>
+            <div id="spUserName" style="font-size:18px;font-weight:700;color:#fff">Caricamento...</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+            <button id="spNotifBtn" onclick="toggleNotifPanel()" style="position:relative;background:rgba(255,255,255,.2);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff">
+                🔔
+                <span id="spNotifBadge" class="hidden" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:9999px;font-size:10px;font-weight:700;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+            </button>
+            <button onclick="spLogout()" style="background:rgba(255,255,255,.2);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:16px" title="Esci">
+                🚪
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+    <button class="tab-btn active" id="tab-cal" onclick="switchTab('cal')">
+        📅 Calendario
+    </button>
+    <button class="tab-btn" id="tab-note" onclick="switchTab('note')">
+        📝 Note
+        <span id="notesBadge" class="hidden" style="background:#ef4444;color:#fff;border-radius:9999px;font-size:10px;padding:1px 6px;font-weight:700">0</span>
+    </button>
+</div>
+
+<!-- TAB CALENDARIO -->
+<div id="tabCal" class="scroll-area">
+    <div style="margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:12px;border:1px solid #a5b4fc;font-size:12px;color:#4f46e5;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">💡</span>
+        <span>Trascina un evento per richiedere uno spostamento. Usa <strong>+</strong> per aggiungere nuove richieste.</span>
+    </div>
+    <div id="spCalendar"></div>
+</div>
+
+<!-- TAB NOTE -->
+<div id="tabNote" class="hidden scroll-area">
+    <div id="notesList">
+        <div style="text-align:center;padding:40px"><div class="spinner"></div></div>
+    </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openAddModal()" title="Nuova richiesta">+</button>
+
+<!-- TOAST -->
+<div id="spToast"></div>
+
+<!-- ========== MODALS ========== -->
+
+<!-- Modal: Richiesta Spostamento -->
+<div id="modalSposta" class="modal-overlay hidden">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div style="font-size:20px;font-weight:700;color:#1e1b4b;margin-bottom:6px">📍 Richiesta Spostamento</div>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:20px">Indica la nuova data/ora desiderata. Noi elaboreremo la richiesta.</div>
+        <div id="spostaTitleInfo" style="background:#f3f4f6;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#374151;font-weight:600"></div>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Nuova Data</label>
+        <input type="date" id="spostaData" class="sp-input" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Ora Inizio</label>
+        <input type="time" id="spostaOraInizio" class="sp-input" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Ora Fine</label>
+        <input type="time" id="spostaOraFine" class="sp-input" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Note aggiuntive (facoltativo)</label>
+        <textarea id="spostaNote" class="sp-textarea" placeholder="Es: cliente chiede urgenza, posticipare di 1h..."></textarea>
+        <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn-secondary" onclick="closeModal('modalSposta')">Annulla</button>
+            <button class="btn-primary" onclick="inviaRichiestaSposta()">📤 Invia Richiesta</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Aggiungi Evento -->
+<div id="modalAggiungi" class="modal-overlay hidden">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div style="font-size:20px;font-weight:700;color:#1e1b4b;margin-bottom:6px">➕ Nuova Richiesta</div>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:20px">Descrivi cosa vorresti aggiungere al calendario. Noi creeremo la lavorazione.</div>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Tipo di richiesta</label>
+        <select id="aggiungiTipo" class="sp-input" style="margin-bottom:12px">
+            <option value="aggiungi">➕ Aggiungi nuova lavorazione</option>
+            <option value="duplica">📋 Duplica lavorazione esistente</option>
+            <option value="nota">📝 Lascia una nota per noi</option>
+        </select>
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Titolo</label>
+        <input type="text" id="aggiungiTitolo" class="sp-input" placeholder="Es: Manutenzione impianto cliente X" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Data desiderata</label>
+        <input type="date" id="aggiungiData" class="sp-input" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Descrizione / Note</label>
+        <textarea id="aggiungiDescrizione" class="sp-textarea" placeholder="Spiega nel dettaglio cosa serve..."></textarea>
+        <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn-secondary" onclick="closeModal('modalAggiungi')">Annulla</button>
+            <button class="btn-primary" onclick="inviaRichiestaAggiungi()">📤 Invia Richiesta</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dettaglio evento (click su evento) -->
+<div id="modalDettaglio" class="modal-overlay hidden">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div id="dettaglioContent"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+            <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="apriSpostaFromDettaglio()">📍 Richiedi Spostamento</button>
+            <button class="btn-primary" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)" onclick="apriDuplicaFromDettaglio()">📋 Richiedi Duplicazione</button>
+            <button class="btn-secondary" onclick="closeModal('modalDettaglio')">Chiudi</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Notifiche proprie (stato richieste inviate) -->
+<div id="modalNotif" class="modal-overlay hidden">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div style="font-size:18px;font-weight:700;color:#1e1b4b;margin-bottom:4px">🔔 Le tue richieste</div>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:16px">Stato delle richieste che hai inviato</div>
+        <div id="notifListContent">
+            <div style="text-align:center;padding:24px"><div class="spinner"></div></div>
+        </div>
+        <button class="btn-secondary" style="margin-top:16px" onclick="closeModal('modalNotif')">Chiudi</button>
+    </div>
+</div>
+
+<!-- Modal: Conferma successo -->
+<div id="modalSuccesso" class="modal-overlay hidden">
+    <div class="modal-sheet" style="text-align:center">
+        <div class="modal-handle"></div>
+        <div style="font-size:56px;margin-bottom:12px">✅</div>
+        <div style="font-size:20px;font-weight:700;color:#065f46;margin-bottom:8px">Richiesta Inviata!</div>
+        <div id="successoMsg" style="font-size:14px;color:#6b7280;margin-bottom:24px"></div>
+        <button class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="closeModal('modalSuccesso')">OK</button>
+    </div>
+</div>
+
+<script>
+    const supabase = window.supabaseClient;
+    let _currentUser = null;
+    let _calendar = null;
+    let _allTasks = [];
+    let _pendingEventForSposta = null; // evento selezionato per spostamento
+    let _pendingEventForDettaglio = null;
+
+    // ===================== INIT =====================
+    async function init() {
+        // Auth check
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { window.location.href = '/Admin/index.html'; return; }
+
+        // Carica utente
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id, nome, cognome, ruolo')
+            .eq('auth_id', session.user.id)
+            .single();
+
+        if (!userData || userData.ruolo !== 'accesso_speciale') {
+            // Ruolo non autorizzato → redirect
+            if (['titolare','tecnico','segreteria'].includes(userData?.ruolo)) {
+                window.location.href = '/admin-functional.html';
+            } else {
+                window.location.href = '/pannello-utente.html';
+            }
+            return;
+        }
+
+        _currentUser = userData;
+        document.getElementById('spUserName').textContent = userData.nome + ' ' + userData.cognome;
+
+        // Carica tutto
+        await Promise.all([
+            initCalendar(),
+            caricaNote(),
+            aggiornaContatoriBadge()
+        ]);
+    }
+
+    // ===================== CALENDAR =====================
+    async function initCalendar() {
+        // Carica tasks
+        const { data: tasks } = await supabase
+            .from('tasks')
+            .select('id, titolo, descrizione, data_inizio, data_completamento, ora_inizio, ora_fine, stato, priorita, colore')
+            .order('data_inizio', { ascending: true });
+
+        _allTasks = tasks || [];
+
+        const events = _allTasks.map(t => {
+            const start = t.data_inizio || new Date().toISOString().split('T')[0];
+            const end = t.data_completamento || start;
+            const ev = {
+                id: t.id,
+                title: t.titolo || 'Lavorazione',
+                start: t.ora_inizio ? start + 'T' + t.ora_inizio : start,
+                end: t.ora_fine ? (t.data_completamento || start) + 'T' + t.ora_fine : (t.data_completamento || start),
+                backgroundColor: getEventColor(t.stato, t.priorita),
+                borderColor: 'transparent',
+                extendedProps: { task: t }
+            };
+            return ev;
+        });
+
+        const calEl = document.getElementById('spCalendar');
+        _calendar = new FullCalendar.Calendar(calEl, {
+            locale: 'it',
+            initialView: window.innerWidth < 600 ? 'dayGridMonth' : 'timeGridWeek',
+            headerToolbar: {
+                left: 'prev,next',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            buttonText: { month: 'Mese', week: 'Sett.', day: 'Oggi' },
+            height: 'auto',
+            events: events,
+            editable: true,        // permette drag
+            droppable: false,
+            selectable: false,
+            // Drag: non salviamo nulla, apriamo modal richiesta spostamento
+            eventDrop: function(info) {
+                info.revert(); // ripristina posizione originale
+                const task = info.event.extendedProps.task;
+                _pendingEventForSposta = { task, newDate: info.event.startStr };
+                apriModaleSposta(task, info.event.startStr);
+            },
+            eventResize: function(info) {
+                info.revert();
+                const task = info.event.extendedProps.task;
+                _pendingEventForSposta = { task, newDate: info.event.startStr };
+                apriModaleSposta(task, info.event.startStr);
+            },
+            eventClick: function(info) {
+                _pendingEventForDettaglio = info.event.extendedProps.task;
+                mostraDettaglio(info.event.extendedProps.task);
+            }
+        });
+        _calendar.render();
+    }
+
+    function getEventColor(stato, priorita) {
+        if (stato === 'completato') return '#10b981';
+        if (stato === 'in_corso') return '#3b82f6';
+        if (priorita === 'alta') return '#ef4444';
+        if (priorita === 'media') return '#f59e0b';
+        return '#667eea';
+    }
+
+    // ===================== DETTAGLIO EVENTO =====================
+    function mostraDettaglio(task) {
+        const statoLabel = { 'da_fare': 'Da fare', 'in_corso': 'In corso', 'completato': 'Completato', 'sospeso': 'Sospeso' };
+        document.getElementById('dettaglioContent').innerHTML = `
+            <div style="font-size:18px;font-weight:700;color:#1e1b4b;margin-bottom:4px">${task.titolo || 'Lavorazione'}</div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:16px">${task.data_inizio || '-'} ${task.ora_inizio ? '• ' + task.ora_inizio : ''}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <span class="badge ${task.stato === 'completato' ? 'badge-green' : task.stato === 'in_corso' ? 'badge-blue' : 'badge-yellow'}">${statoLabel[task.stato] || task.stato}</span>
+                ${task.priorita ? `<span class="badge ${task.priorita === 'alta' ? 'badge-red' : 'badge-yellow'}">${task.priorita}</span>` : ''}
+            </div>
+            ${task.descrizione ? `<div style="font-size:13px;color:#4b5563;background:#f9fafb;border-radius:10px;padding:10px 12px">${task.descrizione}</div>` : ''}
+        `;
+        openModal('modalDettaglio');
+    }
+
+    function apriSpostaFromDettaglio() {
+        closeModal('modalDettaglio');
+        apriModaleSposta(_pendingEventForDettaglio, null);
+    }
+
+    function apriDuplicaFromDettaglio() {
+        closeModal('modalDettaglio');
+        const task = _pendingEventForDettaglio;
+        document.getElementById('aggiungiTipo').value = 'duplica';
+        document.getElementById('aggiungiTitolo').value = 'Copia di: ' + (task.titolo || 'Lavorazione');
+        document.getElementById('aggiungiDescrizione').value = 'Richiesta duplicazione della lavorazione: ' + (task.titolo || 'Lavorazione') + ' (ID: ' + task.id + ')';
+        openModal('modalAggiungi');
+    }
+
+    // ===================== MODAL SPOSTAMENTO =====================
+    function apriModaleSposta(task, suggestedDate) {
+        _pendingEventForSposta = task;
+        document.getElementById('spostaTitleInfo').textContent = '📋 ' + (task.titolo || 'Lavorazione');
+        // Pre-compila con la data suggerita dal drag oppure quella originale
+        const d = suggestedDate ? suggestedDate.split('T')[0] : (task.data_inizio || '');
+        document.getElementById('spostaData').value = d;
+        document.getElementById('spostaOraInizio').value = task.ora_inizio || '';
+        document.getElementById('spostaOraFine').value = task.ora_fine || '';
+        document.getElementById('spostaNote').value = '';
+        openModal('modalSposta');
+    }
+
+    async function inviaRichiestaSposta() {
+        const data = document.getElementById('spostaData').value;
+        const oraInizio = document.getElementById('spostaOraInizio').value;
+        const oraFine = document.getElementById('spostaOraFine').value;
+        const note = document.getElementById('spostaNote').value;
+
+        if (!data) { spToast('Inserisci la nuova data'); return; }
+
+        const task = _pendingEventForSposta;
+        const desc = `Richiesta spostamento: "${task.titolo || 'Lavorazione'}"\nNuova data: ${data}${oraInizio ? ' ore ' + oraInizio : ''}${oraFine ? ' → ' + oraFine : ''}${note ? '\nNote: ' + note : ''}`;
+
+        await salvaRichiesta({
+            tipo: 'sposta',
+            titolo: 'Sposta: ' + (task.titolo || 'Lavorazione'),
+            descrizione: desc,
+            task_id: task.id,
+            dati_extra: { nuova_data: data, nuova_ora_inizio: oraInizio, nuova_ora_fine: oraFine, note }
+        });
+
+        closeModal('modalSposta');
+        mostraSuccesso('La tua richiesta di spostamento è stata inviata. La elaboreremo al più presto.');
+    }
+
+    // ===================== MODAL AGGIUNGI / DUPLICA / NOTA =====================
+    function openAddModal() {
+        document.getElementById('aggiungiTipo').value = 'aggiungi';
+        document.getElementById('aggiungiTitolo').value = '';
+        document.getElementById('aggiungiData').value = '';
+        document.getElementById('aggiungiDescrizione').value = '';
+        openModal('modalAggiungi');
+    }
+
+    async function inviaRichiestaAggiungi() {
+        const tipo = document.getElementById('aggiungiTipo').value;
+        const titolo = document.getElementById('aggiungiTitolo').value.trim();
+        const data = document.getElementById('aggiungiData').value;
+        const desc = document.getElementById('aggiungiDescrizione').value.trim();
+
+        if (!titolo) { spToast('Inserisci un titolo'); return; }
+
+        const descFull = [
+            titolo,
+            data ? 'Data: ' + data : '',
+            desc
+        ].filter(Boolean).join('\n');
+
+        await salvaRichiesta({
+            tipo,
+            titolo: titolo,
+            descrizione: descFull,
+            task_id: null,
+            dati_extra: { data_desiderata: data }
+        });
+
+        closeModal('modalAggiungi');
+        mostraSuccesso(
+            tipo === 'nota'
+                ? 'La tua nota è stata inviata. La leggeremo subito!'
+                : 'La tua richiesta è stata inviata. La elaboreremo al più presto.'
+        );
+
+        if (tipo === 'nota') await caricaNote();
+    }
+
+    // ===================== SALVA RICHIESTA =====================
+    async function salvaRichiesta({ tipo, titolo, descrizione, task_id, dati_extra }) {
+        const { error } = await supabase.from('richieste_speciali').insert({
+            user_id: _currentUser.id,
+            tipo,
+            titolo,
+            descrizione,
+            task_id: task_id || null,
+            dati_extra: dati_extra || {}
+        });
+        if (error) {
+            console.error('Errore salvataggio richiesta:', error);
+            spToast('❌ Errore invio richiesta');
+            throw error;
+        }
+    }
+
+    // ===================== NOTE =====================
+    async function caricaNote() {
+        const { data: note } = await supabase
+            .from('richieste_speciali')
+            .select('*')
+            .eq('user_id', _currentUser.id)
+            .eq('tipo', 'nota')
+            .order('created_at', { ascending: false });
+
+        const container = document.getElementById('notesList');
+        if (!note || note.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size:40px;margin-bottom:12px">📝</div>
+                    <div style="font-size:15px;font-weight:600;color:#374151">Nessuna nota</div>
+                    <div style="font-size:13px;margin-top:6px">Usa il pulsante + per aggiungere una nota per noi</div>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = note.map(n => {
+            const data = new Date(n.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="note-card ${n.elaborata ? 'elaborata' : ''}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+                        <div style="font-size:13px;font-weight:700;color:#1e1b4b">${n.titolo}</div>
+                        ${n.elaborata
+                            ? '<span class="badge badge-green">✅ Elaborata</span>'
+                            : '<span class="badge badge-yellow">⏳ In attesa</span>'
+                        }
+                    </div>
+                    <div style="font-size:13px;color:#4b5563;white-space:pre-wrap;margin-bottom:8px">${n.descrizione || ''}</div>
+                    <div style="font-size:11px;color:#9ca3af">${data}</div>
+                </div>`;
+        }).join('');
+    }
+
+    // ===================== BADGE & NOTIFICHE =====================
+    async function aggiornaContatoriBadge() {
+        const { data } = await supabase
+            .from('richieste_speciali')
+            .select('id, letta')
+            .eq('user_id', _currentUser.id)
+            .eq('letta', false);
+
+        const count = data?.length || 0;
+        const badge = document.getElementById('spNotifBadge');
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    async function toggleNotifPanel() {
+        openModal('modalNotif');
+        await caricaStoricoRichieste();
+    }
+
+    async function caricaStoricoRichieste() {
+        const { data } = await supabase
+            .from('richieste_speciali')
+            .select('*')
+            .eq('user_id', _currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+        const container = document.getElementById('notifListContent');
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:13px">Nessuna richiesta inviata</div></div>';
+            return;
+        }
+
+        const tipoLabel = { sposta: '📍 Spostamento', duplica: '📋 Duplicazione', aggiungi: '➕ Nuova', nota: '📝 Nota', modifica_orario: '⏰ Orario' };
+        container.innerHTML = data.map(r => {
+            const data_f = new Date(r.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return `
+                <div style="background:#f9fafb;border-radius:12px;padding:12px;margin-bottom:10px;border-left:3px solid ${r.elaborata ? '#10b981' : r.letta ? '#3b82f6' : '#f59e0b'}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <span style="font-size:12px;font-weight:600;color:#374151">${tipoLabel[r.tipo] || r.tipo}</span>
+                        <span style="font-size:11px;color:#9ca3af">${data_f}</span>
+                    </div>
+                    <div style="font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:4px">${r.titolo}</div>
+                    <div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:9999px;display:inline-block;${r.elaborata ? 'background:#d1fae5;color:#065f46' : r.letta ? 'background:#dbeafe;color:#1e40af' : 'background:#fef3c7;color:#92400e'}">
+                        ${r.elaborata ? '✅ Elaborata' : r.letta ? '👁️ Vista' : '⏳ In attesa'}
+                    </div>
+                </div>`;
+        }).join('');
+
+        // Marca tutte come lette
+        await supabase.from('richieste_speciali')
+            .update({ letta: true })
+            .eq('user_id', _currentUser.id)
+            .eq('letta', false);
+        document.getElementById('spNotifBadge').classList.add('hidden');
+    }
+
+    // ===================== HELPERS =====================
+    function switchTab(tab) {
+        document.getElementById('tabCal').classList.toggle('hidden', tab !== 'cal');
+        document.getElementById('tabNote').classList.toggle('hidden', tab !== 'note');
+        document.getElementById('tab-cal').classList.toggle('active', tab === 'cal');
+        document.getElementById('tab-note').classList.toggle('active', tab === 'note');
+        if (tab === 'note') caricaNote();
+        if (tab === 'cal' && _calendar) _calendar.updateSize();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function mostraSuccesso(msg) {
+        document.getElementById('successoMsg').textContent = msg;
+        openModal('modalSuccesso');
+        aggiornaContatoriBadge();
+    }
+
+    function spToast(msg) {
+        const t = document.getElementById('spToast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    async function spLogout() {
+        await supabase.auth.signOut();
+        window.location.href = '/Admin/index.html';
+    }
+
+    // Chiudi modal cliccando overlay
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) this.classList.add('hidden');
+        });
+    });
+
+    // Avvia
+    init().catch(err => {
+        console.error('Init error:', err);
+        alert('Errore di caricamento. Aggiorna la pagina.');
+    });
+</script>
+</body>
+</html>
