@@ -44,19 +44,13 @@ CREATE POLICY "richieste_speciali_delete" ON richieste_speciali
 FOR DELETE TO authenticated
 USING (true);
 
--- 7. Aggiungi ruolo 'accesso_speciale' al constraint se esiste
--- (cerca il nome del constraint sulla colonna ruolo della tabella users)
--- Se esiste un CHECK constraint, aggiungere 'accesso_speciale' alla lista
--- Esegui questa query per vedere i constraint esistenti:
-SELECT conname, pg_get_constraintdef(oid)
-FROM pg_constraint
-WHERE conrelid = 'users'::regclass AND contype = 'c';
+-- 7. Aggiorna il constraint ruolo nella tabella users per includere 'accesso_speciale'
+-- Prima verifica quale constraint esiste:
+-- SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'users'::regclass AND contype = 'c';
 
--- 8. Se esiste un constraint sul campo ruolo, aggiornalo:
--- (sostituisci il nome del constraint con quello trovato sopra)
--- ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ruolo_check;
--- ALTER TABLE users ADD CONSTRAINT users_ruolo_check
---     CHECK (ruolo IN ('titolare', 'tecnico', 'segreteria', 'dipendente', 'accesso_speciale'));
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ruolo_check;
+ALTER TABLE users ADD CONSTRAINT users_ruolo_check
+    CHECK (ruolo IN ('titolare', 'tecnico', 'segreteria', 'dipendente', 'accesso_speciale'));
 
 -- 9. Abilita Realtime per le notifiche admin
 ALTER PUBLICATION supabase_realtime ADD TABLE richieste_speciali;
