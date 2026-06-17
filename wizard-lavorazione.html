@@ -5256,5 +5256,209 @@
         });
 
     </script>
+    <div id="clientPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Seleziona Cliente</h3>
+                    <p class="text-green-100 text-xs mt-0.5">Cerca o aggiungi un nuovo cliente</p>
+                </div>
+                <button onclick="closeClientPicker()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Search + Add button -->
+            <div class="p-4 border-b border-gray-100 flex-shrink-0">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="clientPickerSearch" placeholder="Cerca per nome o ragione sociale..."
+                               oninput="filterClientPickerList()"
+                               class="w-full pl-9 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:border-green-400 focus:ring-0 text-sm outline-none">
+                    </div>
+                    <button onclick="toggleAddClientForm()"
+                            class="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Nuovo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Form aggiunta rapida (inizialmente nascosto) -->
+            <div id="addClientForm" class="hidden p-4 bg-green-50 border-b border-green-200 flex-shrink-0">
+                <p class="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Aggiungi nuovo cliente
+                </p>
+                <div class="space-y-2">
+                    <input type="text" id="newClientRagioneSociale" placeholder="Ragione sociale / Nome *"
+                           class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newClientTelefono" placeholder="Telefono"
+                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <input type="email" id="newClientEmail" placeholder="Email"
+                               class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    </div>
+                    <select id="newClientTipo" class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <option value="azienda">Azienda</option>
+                        <option value="privato">Privato</option>
+                        <option value="condominio">Condominio</option>
+                        <option value="associazione">Associazione</option>
+                        <option value="comune">Comune</option>
+                    </select>
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="saveNewClientFromPicker()"
+                                class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors">
+                            <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>Salva e Seleziona
+                        </button>
+                        <button onclick="toggleAddClientForm(false)"
+                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg transition-colors">
+                            Annulla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista clienti -->
+            <div id="clientPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-100">
+                <div class="p-8 text-center text-gray-400">
+                    <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
+                    <p class="text-sm">Caricamento clienti...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="stockAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+            <!-- Header arancio -->
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px 24px 16px">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:42px;height:42px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚠️</div>
+                    <div>
+                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Materiali non disponibili</h3>
+                        <p style="color:#fef3c7;font-size:12px;margin-top:2px">Alcuni componenti non hanno scorte sufficienti</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Corpo -->
+            <div style="padding:20px 24px">
+                <p style="font-size:13px;color:#374151;margin-bottom:14px;line-height:1.5">I seguenti componenti non sono sufficientemente disponibili in magazzino:</p>
+                <div id="stockAlertList" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;margin-bottom:16px;font-size:12px"></div>
+                <p style="font-size:13px;color:#374151;margin-bottom:6px">Se prosegui, il magazzino andrà in <strong style="color:#dc2626">negativo</strong> per le quantità mancanti.</p>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer;margin-top:12px;padding:10px 12px;background:#fef3c7;border-radius:10px;border:1.5px solid #fde68a">
+                    <input type="checkbox" id="stockAlertGeneraOrdine" style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;flex-shrink:0">
+                    <span><strong>Genera ordine automatico</strong> per i materiali mancanti</span>
+                </label>
+            </div>
+            <!-- Azioni -->
+            <div style="display:flex;gap:10px;padding:0 24px 20px">
+                <button onclick="stockAlertRisolvi(false)" style="flex:1;padding:10px 0;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Annulla</button>
+                <button onclick="stockAlertRisolvi(true)" style="flex:1;padding:10px 0;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Prosegui comunque</button>
+            </div>
+        </div>
+    </div>
+    <div id="componentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+                <!-- Header con gradiente -->
+                <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-6 sticky top-0 z-10">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-white text-center flex-1">
+                            <i class="fas fa-warehouse mr-2"></i>
+                            Seleziona Componenti da Magazzino
+                        </h3>
+                        <button onclick="closeComponentModal()" class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors ml-3" title="Chiudi">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search and Filter - GRIGIO CHIARO -->
+                <div class="p-4 bg-gray-50 border-b-2 border-gray-200 space-y-3">
+                    <!-- Search Bar -->
+                    <div class="bg-white border-2 border-blue-200 rounded-xl p-3">
+                        <label for="componentSearch" class="block text-sm font-bold text-blue-900 mb-2">
+                            <i class="fas fa-search mr-1"></i>
+                            Cerca Componente
+                        </label>
+                        <input type="text" id="componentSearch" 
+                               oninput="filterComponents()"
+                               placeholder="Cerca per nome, codice o descrizione..."
+                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    <div class="bg-white border-2 border-purple-200 rounded-xl p-3">
+                        <label for="componentCategoryFilter" class="block text-sm font-bold text-purple-900 mb-2">
+                            <i class="fas fa-filter mr-1"></i>
+                            Filtra per Categoria
+                        </label>
+                        <select id="componentCategoryFilter" onchange="filterComponents()" 
+                                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white">
+                            <option value="">Tutte le categorie</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                            <option value="Rete">Rete</option>
+                            <option value="Accessori">Accessori</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Components List -->
+                <div class="p-4 overflow-y-auto flex-1">
+                    <div id="componentsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Components will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="flex justify-end p-4 border-t-2 border-gray-200 bg-gray-50">
+                    <button type="button" onclick="closeComponentModal()" 
+                            class="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 font-bold transition-colors">
+                        Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="datePickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <!-- Header mese/anno -->
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5">
+                <div class="flex items-center justify-between mb-1">
+                    <button onclick="dpPrevMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <span id="dpMonthYear" class="text-white font-bold text-lg"></span>
+                    <button onclick="dpNextMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <p id="dpSelectedLabel" class="text-center text-purple-200 text-sm min-h-[1.25rem]"></p>
+            </div>
+            <!-- Griglia giorni -->
+            <div class="p-4">
+                <div class="grid grid-cols-7 mb-2">
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">L</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">G</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">V</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">S</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">D</div>
+                </div>
+                <div id="dpGrid" class="grid grid-cols-7 gap-y-1"></div>
+            </div>
+            <!-- Footer -->
+            <div class="px-4 pb-4 flex gap-2">
+                <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
+                <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
