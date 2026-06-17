@@ -162,6 +162,17 @@
     <span id="fabLabel">Nuovo Evento</span>
 </button>
 
+<!-- ===== IFRAME OVERLAY: WIZARD LAVORAZIONE ===== -->
+<div id="wizardOverlay" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);">
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;">
+        <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px">📋 Nuova Lavorazione</span>
+            <button onclick="chiudiWizard()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer">× Chiudi</button>
+        </div>
+        <iframe id="wizardIframe" src="" style="flex:1;border:none;width:100%;background:#fff;"></iframe>
+    </div>
+</div>
+
 <div id="spToast"></div>
 
 <!-- ===== MODAL: CREA EVENTO ===== -->
@@ -304,6 +315,17 @@ async function init() {
     document.querySelectorAll('.modal-ov').forEach(el =>
         el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); })
     );
+
+    // Ascolta messaggi dal wizard iframe
+    window.addEventListener('message', (e) => {
+        if (e.data?.type === 'task-saved') {
+            chiudiWizard();
+            ricaricaCalendario();
+            spToast('✅ Lavorazione creata!');
+        } else if (e.data?.type === 'wizard-closed') {
+            chiudiWizard();
+        }
+    });
 }
 
 // ===================== DIPENDENTI =====================
@@ -372,19 +394,10 @@ async function initCalendar() {
         unselectAuto: true,
         events: _allEvents,
 
-        // Clic su spazio vuoto → crea evento
-        select: function(info) {
-            const d = info.startStr.split('T')[0];
-            const oraI = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0,5) : '';
-            const oraF = info.endStr && info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0,5) : '';
-            document.getElementById('crData').value = d;
-            document.getElementById('crOraInizio').value = oraI;
-            document.getElementById('crOraFine').value = oraF;
-            document.getElementById('crTitolo').value = '';
-            document.getElementById('crDescrizione').value = '';
-            document.getElementById('crPriorita').value = 'normale';
-            renderChips('crDipendenti');
-            openModal('modalCrea');
+// Clic su spazio vuoto → apri wizard con data pre-impostata
+            select: function(info) {
+                const d = info.startStr.split('T')[0];
+                apriWizard(d);
             _cal.unselect();
         },
 
@@ -702,15 +715,20 @@ function fabAction() {
         document.getElementById('notaTesto').value = '';
         openModal('modalNota');
     } else {
-        document.getElementById('crTitolo').value = '';
-        document.getElementById('crData').value = new Date().toISOString().split('T')[0];
-        document.getElementById('crOraInizio').value = '';
-        document.getElementById('crOraFine').value = '';
-        document.getElementById('crDescrizione').value = '';
-        document.getElementById('crPriorita').value = 'normale';
-        renderChips('crDipendenti');
-        openModal('modalCrea');
+        apriWizard();
     }
+}
+
+function apriWizard(date) {
+    const params = new URLSearchParams({ iframe: '1', wizard: 'open' });
+    if (date) params.set('date', date);
+    document.getElementById('wizardIframe').src = 'gestione-lavorazioni.html?' + params.toString();
+    document.getElementById('wizardOverlay').style.display = 'block';
+}
+
+function chiudiWizard() {
+    document.getElementById('wizardOverlay').style.display = 'none';
+    document.getElementById('wizardIframe').src = '';
 }
 
 function apriNote() { switchTab('note'); }

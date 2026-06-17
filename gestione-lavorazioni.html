@@ -86,7 +86,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="ml-64 p-8">
+    <div class="ml-64 p-8" id="mainContent">
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
             <div>
@@ -802,6 +802,21 @@
                 setTimeout(() => {
                     editTask(taskId);
                 }, 500);
+            }
+
+            // Modalità iframe (da pannello-speciale)
+            if (urlParams.get('iframe') === '1') {
+                document.getElementById('sidebar').style.display = 'none';
+                document.getElementById('mainContent').style.marginLeft = '0';
+                document.getElementById('mainContent').style.padding = '0';
+                document.body.style.background = 'transparent';
+            }
+            if (urlParams.get('wizard') === 'open') {
+                setTimeout(() => {
+                    openTaskModal();
+                    const d = urlParams.get('date');
+                    if (d) setTimeout(() => setDeadlinePicker(d), 100);
+                }, 400);
             }
         });
 
@@ -2729,6 +2744,11 @@
             
             // Hide delete button
             document.getElementById('deleteTaskButton').classList.add('hidden');
+
+            // Notify parent if inside iframe
+            if (window.self !== window.top) {
+                window.parent.postMessage({ type: 'wizard-closed' }, '*');
+            }
         }
 
         // ===================================
@@ -4682,6 +4702,7 @@
                     }
                     
                     showNotification(`Lavorazione assegnata a ${selectedMultiUsers.length} dipendenti!`, 'success');
+                    if (window.self !== window.top) window.parent.postMessage({ type: 'task-saved' }, '*');
                 } else {
                     // Single assignment
                     const assigneeId = document.getElementById('taskAssignee').value;
@@ -4710,6 +4731,7 @@
                     await window.dataManager.saveLavorazione(taskData);
                     
                     showNotification(currentEditingTask ? 'Lavorazione aggiornata!' : 'Lavorazione creata!', 'success');
+                    if (window.self !== window.top) window.parent.postMessage({ type: 'task-saved' }, '*');
                 }
                 
                 closeTaskModal();
