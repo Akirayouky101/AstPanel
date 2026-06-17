@@ -266,12 +266,7 @@ window.AuthHelper = {
         if (!await this.requireLogin()) return false;
         
         if (!this.isAdmin()) {
-            const ruolo = (this.currentUser?.ruolo || '').toLowerCase();
-            if (ruolo === 'accesso_speciale') {
-                window.location.href = '../pannello-speciale.html';
-            } else {
-                window.location.href = '../pannello-utente.html';
-            }
+            window.location.href = '../pannello-utente.html';
             return false;
         }
         return true;

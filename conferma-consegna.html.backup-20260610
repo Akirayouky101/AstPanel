@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📦 Conferma Consegna Kit - AST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="supabase-client.js"></script>
+    <style>
+        body {
+            -webkit-user-select: none;
+            user-select: none;
+            overscroll-behavior: none;
+        }
+        .scanner-frame {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            background: #000;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .scanner-corners {
+            position: absolute;
+            inset: 20px;
+            border: 3px solid rgba(139, 92, 246, 0.8);
+            border-radius: 1rem;
+        }
+        .scanner-corners::before,
+        .scanner-corners::after,
+        .scanner-corners > div::before,
+        .scanner-corners > div::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #8b5cf6;
+        }
+        .scanner-corners::before {
+            top: -3px;
+            left: -3px;
+            border-right: none;
+            border-bottom: none;
+            border-radius: 1rem 0 0 0;
+        }
+        .scanner-corners::after {
+            top: -3px;
+            right: -3px;
+            border-left: none;
+            border-bottom: none;
+            border-radius: 0 1rem 0 0;
+        }
+        .scanner-corners > div::before {
+            bottom: -3px;
+            left: -3px;
+            border-right: none;
+            border-top: none;
+            border-radius: 0 0 0 1rem;
+        }
+        .scanner-corners > div::after {
+            bottom: -3px;
+            right: -3px;
+            border-left: none;
+            border-top: none;
+            border-radius: 0 0 1rem 0;
+        }
+        .scan-line {
+            position: absolute;
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(to right, transparent, #8b5cf6, transparent);
+            left: 10%;
+            animation: scan 2s ease-in-out infinite;
+            box-shadow: 0 0 20px #8b5cf6;
+        }
+        @keyframes scan {
+            0%, 100% { top: 20%; }
+            50% { top: 80%; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 min-h-screen">
+    <div class="container mx-auto p-4 max-w-md">
+        <!-- Header -->
+        <div class="text-white text-center py-8">
+            <i class="fas fa-box-open text-6xl mb-4 animate-pulse"></i>
+            <h1 class="text-3xl font-bold mb-2">Conferma Consegna Kit</h1>
+            <p class="text-purple-200">Scansiona il QR di consegna</p>
+        </div>
+
+        <!-- Scanner Section DESKTOP -->
+        <div id="scannerSectionDesktop" class="hidden bg-white rounded-2xl shadow-2xl p-6 mb-4">
+            <div class="flex justify-center mb-6">
+                <div class="scanner-frame">
+                    <div class="scanner-corners"><div></div></div>
+                    <div class="scan-line"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <i class="fas fa-qrcode text-purple-500 text-8xl opacity-20"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <h3 class="font-bold text-xl text-gray-800 mb-2">Scanner Attivo</h3>
+                <p class="text-gray-600 mb-4">Usa il lettore barcode USB/Bluetooth</p>
+                
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-purple-700 mb-2">
+                        <i class="fas fa-barcode mr-2"></i>
+                        Scansiona il QR verde di consegna
+                    </p>
+                    <p id="statusScanner" class="text-xs text-gray-600 font-mono">In attesa...</p>
+                </div>
+
+                <button onclick="inserisciManualmente()" class="w-full bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold">
+                    <i class="fas fa-keyboard mr-2"></i>Inserisci Codice Manualmente
+                </button>
+            </div>
+        </div>
+
+        <!-- Scanner Section MOBILE -->
+        <div id="scannerSectionMobile" class="hidden bg-white rounded-2xl shadow-2xl p-6 mb-4">
+            <div class="text-center mb-4">
+                <h3 class="font-bold text-xl text-gray-800 mb-2">Scansiona QR Consegna</h3>
+                <p class="text-gray-600 text-sm">Inquadra il QR verde con la fotocamera</p>
+            </div>
+
+            <!-- Video Camera -->
+            <div class="relative mb-4 rounded-xl overflow-hidden bg-black">
+                <div id="qrReader" class="w-full"></div>
+            </div>
+
+            <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 mb-4">
+                <p id="statusCamera" class="text-sm text-purple-700 text-center">
+                    <i class="fas fa-camera mr-2"></i>Avvio fotocamera...
+                </p>
+            </div>
+
+            <button onclick="inserisciManualmente()" class="w-full bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 transition font-semibold">
+                <i class="fas fa-keyboard mr-2"></i>Inserisci Codice Manualmente
+            </button>
+        </div>
+
+        <!-- Info Section -->
+        <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-white text-center text-sm">
+            <i class="fas fa-shield-check mr-2"></i>
+            Connessione sicura - GPS attivo
+        </div>
+
+        <!-- Dettaglio Kit (hidden inizialmente) -->
+        <div id="kitDettaglioSection" class="hidden bg-white rounded-2xl shadow-2xl p-6 mb-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-box-open text-purple-600 text-5xl mb-3"></i>
+                <h3 class="font-bold text-2xl text-gray-800 mb-2" id="kitNome">-</h3>
+                <p class="text-gray-600 text-sm" id="kitCodice">-</p>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <div class="bg-purple-50 rounded-lg p-3">
+                    <p class="text-xs text-purple-700 font-semibold mb-1">Destinatario</p>
+                    <p class="text-sm font-bold text-gray-800" id="kitDestinatario">-</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-3">
+                    <p class="text-xs text-purple-700 font-semibold mb-1">Componenti</p>
+                    <p class="text-sm font-bold text-gray-800" id="kitComponenti">0 componenti</p>
+                </div>
+            </div>
+
+            <div id="componentesList" class="space-y-2 mb-6 max-h-60 overflow-y-auto">
+                <!-- Lista componenti -->
+            </div>
+
+            <button onclick="confermaConsegna()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition transform hover:scale-105">
+                <i class="fas fa-check-circle mr-2"></i>Conferma Consegna
+            </button>
+        </div>
+
+        <!-- Success Section -->
+        <div id="successSection" class="hidden bg-white rounded-2xl shadow-2xl p-8 text-center">
+            <div class="mb-6">
+                <div class="inline-block bg-green-100 rounded-full p-6 mb-4">
+                    <i class="fas fa-check-circle text-green-500 text-6xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Consegna Confermata!</h2>
+                <p class="text-gray-600">Il kit è stato consegnato con successo</p>
+            </div>
+
+            <div class="bg-green-50 rounded-lg p-4 mb-6 text-left">
+                <p class="text-sm text-gray-700 mb-2">
+                    <i class="fas fa-box mr-2 text-green-600"></i>
+                    <span class="font-semibold">Kit:</span> <span id="successKitNome">-</span>
+                </p>
+                <p class="text-sm text-gray-700 mb-2">
+                    <i class="fas fa-user mr-2 text-green-600"></i>
+                    <span class="font-semibold">Consegnato da:</span> <span id="successConsegnatoDa">-</span>
+                </p>
+                <p class="text-sm text-gray-700 mb-2">
+                    <i class="fas fa-clock mr-2 text-green-600"></i>
+                    <span class="font-semibold">Data/Ora:</span> <span id="successDataOra">-</span>
+                </p>
+                <p class="text-sm text-gray-700">
+                    <i class="fas fa-map-marker-alt mr-2 text-green-600"></i>
+                    <span class="font-semibold">Posizione GPS:</span> <span id="successGPS">-</span>
+                </p>
+            </div>
+
+            <button onclick="resetScanner()" class="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+                <i class="fas fa-redo mr-2"></i>Scansiona Altro Kit
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Input Manuale -->
+    <div id="inputManualeModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Inserisci Codice Consegna</h3>
+            <input type="text" id="codiceManuale" placeholder="CONS-YYYYMMDD-XXXXX" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 mb-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center font-mono">
+            <div class="flex space-x-3">
+                <button onclick="closeInputManuale()" class="flex-1 bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
+                    Annulla
+                </button>
+                <button onclick="processaCodiceManuale()" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+                    Conferma
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let currentKit = null;
+        let currentPosition = null;
+        let scannerActive = false;
+        let barcodeBuffer = '';
+        let barcodeTimeout = null;
+        let html5QrCode = null;
+        let isMobile = false;
+
+        // ========================================
+        // INIT
+        // ========================================
+        async function init() {
+            // Rileva se è mobile
+            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                       (window.innerWidth <= 768);
+            
+            // Mostra interfaccia corretta
+            if (isMobile) {
+                document.getElementById('scannerSectionMobile').classList.remove('hidden');
+                await avviaScannerMobile();
+            } else {
+                document.getElementById('scannerSectionDesktop').classList.remove('hidden');
+                avviaScannerDesktop();
+            }
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                // Per mobile, permetti anche accesso senza login (usa nome da form)
+                console.log('Accesso senza autenticazione (mobile)');
+            }
+            currentUser = user;
+            
+            // Richiedi permessi GPS
+            await getGPSPosition();
+        }
+
+        async function getGPSPosition() {
+            if (!navigator.geolocation) {
+                console.warn('GPS non disponibile');
+                return;
+            }
+
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    });
+                });
+
+                currentPosition = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+
+                console.log('GPS Position:', currentPosition);
+            } catch (error) {
+                console.error('Error getting GPS:', error);
+            }
+        }
+
+        // ========================================
+        // SCANNER
+        // ========================================
+        function avviaScanner() {
+            if (scannerActive) return;
+            
+            barcodeBuffer = '';
+            scannerActive = true;
+            document.addEventListener('keypress', handleScannerInput);
+            updateStatus('In attesa di scansione...');
+        }
+
+        function stopScanner() {
+            scannerActive = false;
+            document.removeEventListener('keypress', handleScannerInput);
+            barcodeBuffer = '';
+        }
+
+        function handleScannerInput(e) {
+            if (!scannerActive) return;
+
+            if (e.key === 'Enter') {
+                const code = barcodeBuffer.trim();
+                barcodeBuffer = '';
+                if (code) {
+                    processScannedCode(code);
+                }
+            } else {
+                barcodeBuffer += e.key;
+                clearTimeout(barcodeTimeout);
+                barcodeTimeout = setTimeout(() => {
+                    barcodeBuffer = '';
+                }, 100);
+            }
+        }
+
+        async function processScannedCode(code) {
+            updateStatus(`Ricerca codice: ${code}...`);
+
+            // Cerca kit per codice_consegna
+            const { data, error } = await supabase
+                .from('v_kits_completi')
+                .select('*')
+                .eq('codice_consegna', code)
+                .single();
+
+            if (error || !data) {
+                updateStatus('❌ Codice non valido!');
+                setTimeout(() => updateStatus('In attesa di scansione...'), 2000);
+                return;
+            }
+
+            // Verifica se già consegnato
+            if (data.stato === 'consegnato') {
+                updateStatus('⚠️ Kit già consegnato!');
+                setTimeout(() => updateStatus('In attesa di scansione...'), 2000);
+                return;
+            }
+
+            // Mostra dettaglio kit
+            currentKit = data;
+            await mostraDettaglioKit(data);
+        }
+
+        function updateStatus(message) {
+            document.getElementById('statusScanner').textContent = message;
+        }
+
+        // ========================================
+        // DETTAGLIO KIT
+        // ========================================
+        async function mostraDettaglioKit(kit) {
+            stopScanner();
+
+            document.getElementById('kitNome').textContent = kit.nome_kit;
+            document.getElementById('kitCodice').textContent = `Codice: ${kit.codice_kit}`;
+            document.getElementById('kitDestinatario').textContent = kit.destinatario_nome || 'Non specificato';
+            document.getElementById('kitComponenti').textContent = `${kit.numero_componenti || 0} componenti (${kit.quantita_totale || 0} pz totali)`;
+
+            // Carica componenti
+            const { data: componenti } = await supabase
+                .from('v_kit_items_dettaglio')
+                .select('*')
+                .eq('kit_id', kit.id);
+
+            const container = document.getElementById('componentesList');
+            container.innerHTML = (componenti || []).map(c => `
+                <div class="bg-gray-50 rounded-lg p-3 flex items-center">
+                    <i class="fas fa-box text-purple-600 mr-3"></i>
+                    <div class="flex-1">
+                        <p class="font-semibold text-sm text-gray-800">${c.prodotto_nome}</p>
+                        <p class="text-xs text-gray-600">Qtà: ${c.quantita}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Nascondi scanner, mostra dettaglio
+            document.getElementById('scannerSection').classList.add('hidden');
+            document.getElementById('kitDettaglioSection').classList.remove('hidden');
+        }
+
+        // ========================================
+        // CONFERMA CONSEGNA
+        // ========================================
+        async function confermaConsegna() {
+            if (!currentKit) return;
+
+            // Se non autenticato, chiedi nome
+            let consegnatoDaNome = null;
+            if (!currentUser) {
+                consegnatoDaNome = prompt('Inserisci il tuo nome:');
+                if (!consegnatoDaNome || !consegnatoDaNome.trim()) {
+                    alert('Nome obbligatorio per confermare la consegna');
+                    return;
+                }
+            }
+
+            const updateData = {
+                stato: 'consegnato',
+                consegnato_a: new Date().toISOString(),
+                consegnato_da_user: currentUser?.id || null,
+                consegnato_da_nome: consegnatoDaNome || null,
+                consegna_latitudine: currentPosition?.latitude || null,
+                consegna_longitudine: currentPosition?.longitude || null
+            };
+
+            const { error } = await supabase
+                .from('kits')
+                .update(updateData)
+                .eq('id', currentKit.id);
+
+            if (error) {
+                console.error('Error updating kit:', error);
+                alert('Errore nella conferma della consegna');
+                return;
+            }
+
+            // Mostra success
+            mostraSuccess();
+        }
+
+        function mostraSuccess() {
+            document.getElementById('kitDettaglioSection').classList.add('hidden');
+            
+            document.getElementById('successKitNome').textContent = currentKit.nome_kit;
+            document.getElementById('successConsegnatoDa').textContent = currentUser 
+                ? `${currentUser.user_metadata?.nome || ''} ${currentUser.user_metadata?.cognome || ''}`
+                : document.getElementById('consegnatoDaNome')?.value || 'Utente mobile';
+            document.getElementById('successDataOra').textContent = new Date().toLocaleString('it-IT');
+            document.getElementById('successGPS').textContent = currentPosition 
+                ? `${currentPosition.latitude.toFixed(6)}, ${currentPosition.longitude.toFixed(6)}`
+                : 'Non disponibile';
+
+            document.getElementById('successSection').classList.remove('hidden');
+        }
+
+        function resetScanner() {
+            currentKit = null;
+            document.getElementById('successSection').classList.add('hidden');
+            document.getElementById('scannerSection').classList.remove('hidden');
+            updateStatus('In attesa di scansione...');
+            avviaScanner();
+        }
+
+        // ========================================
+        // INPUT MANUALE
+        // ========================================
+        function inserisciManualmente() {
+            document.getElementById('inputManualeModal').classList.remove('hidden');
+            document.getElementById('inputManualeModal').classList.add('flex');
+            document.getElementById('codiceManuale').focus();
+        }
+
+        function closeInputManuale() {
+            document.getElementById('inputManualeModal').classList.add('hidden');
+            document.getElementById('inputManualeModal').classList.remove('flex');
+            document.getElementById('codiceManuale').value = '';
+        }
+
+        function processaCodiceManuale() {
+            const code = document.getElementById('codiceManuale').value.trim();
+            if (!code) {
+                alert('Inserisci un codice valido');
+                return;
+            }
+            closeInputManuale();
+            processScannedCode(code);
+        }
+
+        // ========================================
+        // START
+        // ========================================
+        init();
+    </script>
+</body>
+</html>

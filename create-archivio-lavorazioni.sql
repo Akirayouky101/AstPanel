@@ -39,8 +39,12 @@ CREATE INDEX IF NOT EXISTS idx_archivio_lavorazioni_data ON archivio_lavorazioni
 -- RLS
 ALTER TABLE archivio_lavorazioni ENABLE ROW LEVEL SECURITY;
 
--- Admin vede tutto
+-- Admin vede tutto (ruoli case-insensitive)
+DROP POLICY IF EXISTS "admin_all_archivio" ON archivio_lavorazioni;
 CREATE POLICY "admin_all_archivio" ON archivio_lavorazioni
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND ruolo IN ('admin','Titolare','Tecnico','Segreteria'))
+        EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid() AND lower(ruolo) IN ('admin','titolare','tecnico','segreteria'))
+    )
+    WITH CHECK (
+        EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid() AND lower(ruolo) IN ('admin','titolare','tecnico','segreteria'))
     );

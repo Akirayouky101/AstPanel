@@ -558,11 +558,18 @@
                             </div>
                             <button type="button" id="btnImportaPreventivo" onclick="importaDaPreventivo()"
                                     class="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-sm font-bold hover:from-violet-700 hover:to-purple-700 transition-all shadow disabled:opacity-40">
-                                <i class="fas fa-plus"></i> Aggiungi preventivo
+                                <i class="fas fa-file-import"></i> Importa componenti
                             </button>
                         </div>
-                        <!-- Lista preventivi importati (multi) -->
-                        <div id="preventiviChipsList" class="mt-2 flex flex-wrap gap-2" style="display:none !important"></div>
+                        <div id="preventivoImportatoInfo" style="display:none" class="mt-2 flex items-center justify-between bg-white border border-violet-200 rounded-lg px-3 py-2">
+                            <div class="flex items-center gap-2 text-sm">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span id="preventivoImportatoLabel" class="text-violet-900 font-semibold"></span>
+                            </div>
+                            <button type="button" onclick="clearPreventivoImportato()" class="text-xs text-red-400 hover:text-red-600 font-medium flex items-center gap-1">
+                                <i class="fas fa-times"></i> Rimuovi
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Components Section - VERDE CHIARO -->
@@ -1202,9 +1209,8 @@
         // 📋 IMPORTA DA PREVENTIVO
         // ============================================
         let _stockAlertResolve = null;
-        let _preventivoImportatoId = null;   // preventivo selezionato nel picker (da importare)
-        let _preventiviList = [];             // cache per la ricerca
-        let _preventiviImportati = [];        // [{id, label, components:[{id,quantita}]}]
+        let _preventivoImportatoId = null;
+        let _preventiviList = []; // cache per la ricerca
 
         async function caricaPreventiviPerTask() {
             // Mostra loading nel dropdown se è già aperto
@@ -1322,12 +1328,6 @@
             }
             const label = document.getElementById('preventivoSearchInput')?.value || '';
             try {
-                // Controlla duplicato
-                if (_preventiviImportati.find(p => p.id === prevId)) {
-                    _lavorToast('Questo preventivo è già stato aggiunto', 'warning');
-                    return;
-                }
-
                 const { data: items, error } = await window.supabaseClient
                     .from('preventivi_items')
                     .select('prodotto_id, descrizione, codice, quantita, um')
@@ -1363,84 +1363,29 @@
                     if (!prosegui) return;
                 }
 
-                // MERGE: aggiungi ai componenti esistenti (non sostituire)
-                nuoviComp.forEach(nc => {
-                    const esistente = taskComponents.find(c => c.id === nc.id);
-                    if (esistente) {
-                        esistente.quantita = (parseFloat(esistente.quantita) || 0) + nc.quantita;
-                    } else {
-                        taskComponents.push({ ...nc });
-                    }
-                });
+                taskComponents = nuoviComp;
                 await updateTaskComponentsList();
 
-                // Salva traccia dei preventivi importati
-                _preventiviImportati.push({ id: prevId, label, components: nuoviComp });
-                _aggiornaPreventiviChips();
+                document.getElementById('preventivoPickerWrap').style.display = 'none';
+                const info = document.getElementById('preventivoImportatoInfo');
+                info.style.display = 'flex';
+                document.getElementById('preventivoImportatoLabel').textContent = label;
 
-                // Reset picker per il prossimo
-                preventivoSearchClearInput();
-                _preventivoImportatoId = null;
-
-                _lavorToast(`${nuoviComp.length} componenti aggiunti da "${label}"`, 'success');
+                _lavorToast(`${nuoviComp.length} componenti importati dal preventivo`, 'success');
             } catch (e) {
                 console.error('Errore import preventivo:', e);
                 _lavorToast('Errore nell\'importazione: ' + e.message, 'error');
             }
         }
 
-        function _aggiornaPreventiviChips() {
-            const container = document.getElementById('preventiviChipsList');
-            if (!container) return;
-            if (_preventiviImportati.length === 0) {
-                container.style.display = 'none';
-                return;
-            }
-            container.style.display = 'flex';
-            container.innerHTML = _preventiviImportati.map(p => `
-                <div style="display:inline-flex;align-items:center;gap:6px;background:#ede9fe;border:1.5px solid #c4b5fd;border-radius:20px;padding:4px 10px;font-size:12px;color:#5b21b6;font-weight:600">
-                    <i class="fas fa-file-invoice" style="font-size:10px;color:#7c3aed"></i>
-                    <span>${p.label}</span>
-                    <button type="button" onclick="_rimuoviPreventivoImportato('${p.id}')" style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:11px;padding:0;margin-left:2px;line-height:1" title="Rimuovi">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        function _rimuoviPreventivoImportato(id) {
-            const idx = _preventiviImportati.findIndex(p => p.id === id);
-            if (idx === -1) return;
-            const rimosso = _preventiviImportati[idx];
-            // Rimuovi/riduci i componenti di questo preventivo
-            rimosso.components.forEach(rc => {
-                const ci = taskComponents.findIndex(c => c.id === rc.id);
-                if (ci === -1) return;
-                const nuovaQt = (parseFloat(taskComponents[ci].quantita) || 0) - rc.quantita;
-                if (nuovaQt <= 0) {
-                    taskComponents.splice(ci, 1);
-                } else {
-                    taskComponents[ci].quantita = nuovaQt;
-                }
-            });
-            _preventiviImportati.splice(idx, 1);
-            _aggiornaPreventiviChips();
-            updateTaskComponentsList();
-            _lavorToast(`Preventivo "${rimosso.label}" rimosso`, 'info');
-        }
-
         function clearPreventivoImportato() {
             _preventivoImportatoId = null;
-            _preventiviImportati = [];
-            _aggiornaPreventiviChips();
+            document.getElementById('preventivoPickerWrap').style.display = '';
+            document.getElementById('preventivoImportatoInfo').style.display = 'none';
             const inp = document.getElementById('preventivoSearchInput');
             if (inp) inp.value = '';
             const drop = document.getElementById('preventivoDropdown');
             if (drop) drop.style.display = 'none';
-            const chevron = document.getElementById('preventivoChevron');
-            if (chevron) { chevron.style.display = 'block'; chevron.style.transform = ''; }
-            const clearBtn = document.getElementById('preventivoSearchClear');
-            if (clearBtn) clearBtn.style.display = 'none';
         }
 
         function _stockAlert(mancanti, prevId) {
@@ -2539,8 +2484,8 @@
                 
                 select.innerHTML = '<option value="">Seleziona dipendente</option>';
                 
-                // Filter only active users (exclude accesso_speciale)
-                const activeUsers = users.filter(u => u.stato === 'attivo' && u.ruolo !== 'accesso_speciale');
+                // Filter only active users
+                const activeUsers = users.filter(u => u.stato === 'attivo');
                 
                 activeUsers.forEach(user => {
                     const option = document.createElement('option');
@@ -2784,11 +2729,6 @@
             
             // Hide delete button
             document.getElementById('deleteTaskButton').classList.add('hidden');
-
-            // Notify parent if inside iframe
-            if (window.self !== window.top) {
-                window.parent.postMessage({ type: 'wizard-closed' }, '*');
-            }
         }
 
         // ===================================
@@ -4147,7 +4087,7 @@
 
                 document.getElementById('task-view-modal')?.remove();
                 showNotification(nuovoValore ? '✅ Lavorazione attivata — ora visibile ai dipendenti' : '🔒 Lavorazione in Standby — nascosta ai dipendenti', nuovoValore ? 'success' : 'info');
-                await loadTasks();
+                await loadLavorazioni();
             } catch (err) {
                 console.error('Errore toggle standby:', err);
                 showNotification('❌ Errore: ' + err.message, 'error');
@@ -4661,8 +4601,7 @@
                     note_progresso: currentEditingTask ? (document.getElementById('progressNotes').value || null) : null,
                     ora_inizio: document.getElementById('taskOraInizio').value || null,
                     ora_fine: document.getElementById('taskOraFine').value || null,
-                    created_by: null, // Will be set by backend or current user
-                    preventivo_id: _preventiviImportati.length > 0 ? _preventiviImportati[0].id : null
+                    created_by: null // Will be set by backend or current user
                 };
 
                 if (assignType === 'team') {
@@ -4743,7 +4682,6 @@
                     }
                     
                     showNotification(`Lavorazione assegnata a ${selectedMultiUsers.length} dipendenti!`, 'success');
-                    if (window.self !== window.top) window.parent.postMessage({ type: 'task-saved' }, '*');
                 } else {
                     // Single assignment
                     const assigneeId = document.getElementById('taskAssignee').value;
@@ -4772,7 +4710,6 @@
                     await window.dataManager.saveLavorazione(taskData);
                     
                     showNotification(currentEditingTask ? 'Lavorazione aggiornata!' : 'Lavorazione creata!', 'success');
-                    if (window.self !== window.top) window.parent.postMessage({ type: 'task-saved' }, '*');
                 }
                 
                 closeTaskModal();
