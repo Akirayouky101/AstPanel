@@ -320,18 +320,11 @@
                             </div>
                             <button type="button" id="btnImportaPreventivo" onclick="importaDaPreventivo()"
                                     class="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-sm font-bold hover:from-violet-700 hover:to-purple-700 transition-all shadow disabled:opacity-40">
-                                <i class="fas fa-file-import"></i> Importa componenti
+                                <i class="fas fa-plus"></i> Aggiungi preventivo
                             </button>
                         </div>
-                        <div id="preventivoImportatoInfo" style="display:none" class="mt-2 flex items-center justify-between bg-white border border-violet-200 rounded-lg px-3 py-2">
-                            <div class="flex items-center gap-2 text-sm">
-                                <i class="fas fa-check-circle text-green-500"></i>
-                                <span id="preventivoImportatoLabel" class="text-violet-900 font-semibold"></span>
-                            </div>
-                            <button type="button" onclick="clearPreventivoImportato()" class="text-xs text-red-400 hover:text-red-600 font-medium flex items-center gap-1">
-                                <i class="fas fa-times"></i> Rimuovi
-                            </button>
-                        </div>
+                        <!-- Lista preventivi importati (multi) -->
+                        <div id="preventiviChipsList" class="mt-2 flex flex-wrap gap-2" style="display:none !important"></div>
                     </div>
 
                     <!-- Components Section - VERDE CHIARO -->
@@ -521,6 +514,69 @@
             </div>
         </div>
     </div>
+
+    <script>
+        let currentEditingTask = null;
+        let currentView = 'kanban';
+        let taskComponents = [];
+
+        // Initialize page
+                                Unità di Misura *
+                            </label>
+                            <select id="whProductUnit" required class="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-medium bg-white">
+                                <option value="pz">Pezzi (pz)</option>
+                                <option value="kg">Kilogrammi (kg)</option>
+                                <option value="m">Metri (m)</option>
+                                <option value="l">Litri (l)</option>
+                                <option value="confezione">Confezione</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Descrizione -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <label for="whProductDescription" class="flex items-center gap-2 text-sm font-bold text-violet-700 mb-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Descrizione
+                        </label>
+                        <textarea id="whProductDescription" rows="2" placeholder="Descrizione dettagliata del prodotto..." 
+                                  class="w-full px-4 py-2 border-2 border-violet-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-medium"></textarea>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
+                        <button type="button" onclick="closeWarehouseProductModal()" 
+                                class="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 font-bold border-2 border-gray-300 transition-all">
+                            Annulla
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            Salva Prodotto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- MODAL SELEZIONE MULTIPLA COMPONENTI STILE MAGAZZINO -->
+    <!-- ========================================= -->
+    <div id="componentMultiScannerModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[60] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
+            <!-- Campo hidden per catturare focus e scanner -->
+            <input 
+                type="text" 
+                id="componentScannerFocusInput" 
+                style="position: absolute; opacity: 0; pointer-events: none;"
+                autocomplete="off"
+            />
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 p-6 rounded-t-2xl flex justify-between items-center">
+                <div>
+                    <h3 class="text-3xl font-bold text-white flex items-center">
                         <i class="fas fa-bolt mr-3 animate-pulse"></i>
                         Selezione Multipla Componenti
                     </h3>
@@ -581,62 +637,6 @@
                         <div class="text-center text-gray-400 py-12">
                             <i class="fas fa-box-open text-6xl mb-4 opacity-30"></i>
                             <p class="text-lg">Nessun componente scansionato</p>
-                            <p class="text-sm mt-2">Inizia a scansionare per vedere i componenti qui</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- COLONNA DESTRA: Componenti NON TROVATI -->
-                <div class="flex flex-col bg-red-50 rounded-xl border-2 border-red-200 overflow-hidden">
-                    <div class="bg-gradient-to-r from-red-600 to-rose-600 p-4 flex items-center justify-between">
-                        <h4 class="text-xl font-bold text-white flex items-center">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            Codici Non Trovati
-                        </h4>
-                        <span id="componentCountNonTrovati" class="bg-white text-red-700 px-4 py-1 rounded-full font-bold">0</span>
-                    </div>
-                    <div id="componentListaNonTrovati" class="flex-1 overflow-y-auto p-4 space-y-2">
-                        <div class="text-center text-gray-400 py-12">
-                            <i class="fas fa-question-circle text-6xl mb-4 opacity-30"></i>
-                            <p class="text-lg">Nessun codice sconosciuto</p>
-                            <p class="text-sm mt-2">I codici non trovati appariranno qui</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer: Riepilogo e Azioni -->
-            <div class="bg-gray-50 border-t-2 border-gray-200 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center space-x-6 text-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-barcode text-purple-600 mr-2"></i>
-                            <span class="font-semibold">Totale scansioni:</span>
-                            <span id="componentTotalScansioni" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-boxes text-purple-600 mr-2"></i>
-                            <span class="font-semibold">Componenti unici:</span>
-                            <span id="componentUnici" class="ml-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">0</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <button onclick="componentScanner?.reset()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
-                            <i class="fas fa-redo mr-2"></i>Reset
-                        </button>
-                        <button onclick="componentScanner?.close()" class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition">
-                            <i class="fas fa-times mr-2"></i>Annulla
-                        </button>
-                        <button onclick="componentScanner?.confirm()" id="btnConfermaComponenti" class="px-8 py-3 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white rounded-lg font-bold text-lg hover:shadow-xl transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            <i class="fas fa-check-double mr-2"></i>CONFERMA SELEZIONE
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Includi i nuovi script -->
 
     <script>
         // ===== STUBS (non usati nel pannello speciale) =====
@@ -648,13 +648,6 @@
         window._wizardMode = true;
 
         // ===== WIZARD CORE (da gestione-lavorazioni.html) =====
-        let currentEditingTask = null;
-        let currentView = 'kanban';
-        let taskComponents = [];
-
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', async function() {
-            lucide.createIcons();
             await loadTasks();
             await updateStats();
             setupFilters();
@@ -1096,8 +1089,9 @@
         // 📋 IMPORTA DA PREVENTIVO
         // ============================================
         let _stockAlertResolve = null;
-        let _preventivoImportatoId = null;
-        let _preventiviList = []; // cache per la ricerca
+        let _preventivoImportatoId = null;   // preventivo selezionato nel picker (da importare)
+        let _preventiviList = [];             // cache per la ricerca
+        let _preventiviImportati = [];        // [{id, label, components:[{id,quantita}]}]
 
         async function caricaPreventiviPerTask() {
             // Mostra loading nel dropdown se è già aperto
@@ -1215,6 +1209,12 @@
             }
             const label = document.getElementById('preventivoSearchInput')?.value || '';
             try {
+                // Controlla duplicato
+                if (_preventiviImportati.find(p => p.id === prevId)) {
+                    _lavorToast('Questo preventivo è già stato aggiunto', 'warning');
+                    return;
+                }
+
                 const { data: items, error } = await window.supabaseClient
                     .from('preventivi_items')
                     .select('prodotto_id, descrizione, codice, quantita, um')
@@ -1250,29 +1250,84 @@
                     if (!prosegui) return;
                 }
 
-                taskComponents = nuoviComp;
+                // MERGE: aggiungi ai componenti esistenti (non sostituire)
+                nuoviComp.forEach(nc => {
+                    const esistente = taskComponents.find(c => c.id === nc.id);
+                    if (esistente) {
+                        esistente.quantita = (parseFloat(esistente.quantita) || 0) + nc.quantita;
+                    } else {
+                        taskComponents.push({ ...nc });
+                    }
+                });
                 await updateTaskComponentsList();
 
-                document.getElementById('preventivoPickerWrap').style.display = 'none';
-                const info = document.getElementById('preventivoImportatoInfo');
-                info.style.display = 'flex';
-                document.getElementById('preventivoImportatoLabel').textContent = label;
+                // Salva traccia dei preventivi importati
+                _preventiviImportati.push({ id: prevId, label, components: nuoviComp });
+                _aggiornaPreventiviChips();
 
-                _lavorToast(`${nuoviComp.length} componenti importati dal preventivo`, 'success');
+                // Reset picker per il prossimo
+                preventivoSearchClearInput();
+                _preventivoImportatoId = null;
+
+                _lavorToast(`${nuoviComp.length} componenti aggiunti da "${label}"`, 'success');
             } catch (e) {
                 console.error('Errore import preventivo:', e);
                 _lavorToast('Errore nell\'importazione: ' + e.message, 'error');
             }
         }
 
+        function _aggiornaPreventiviChips() {
+            const container = document.getElementById('preventiviChipsList');
+            if (!container) return;
+            if (_preventiviImportati.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'flex';
+            container.innerHTML = _preventiviImportati.map(p => `
+                <div style="display:inline-flex;align-items:center;gap:6px;background:#ede9fe;border:1.5px solid #c4b5fd;border-radius:20px;padding:4px 10px;font-size:12px;color:#5b21b6;font-weight:600">
+                    <i class="fas fa-file-invoice" style="font-size:10px;color:#7c3aed"></i>
+                    <span>${p.label}</span>
+                    <button type="button" onclick="_rimuoviPreventivoImportato('${p.id}')" style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:11px;padding:0;margin-left:2px;line-height:1" title="Rimuovi">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function _rimuoviPreventivoImportato(id) {
+            const idx = _preventiviImportati.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            const rimosso = _preventiviImportati[idx];
+            // Rimuovi/riduci i componenti di questo preventivo
+            rimosso.components.forEach(rc => {
+                const ci = taskComponents.findIndex(c => c.id === rc.id);
+                if (ci === -1) return;
+                const nuovaQt = (parseFloat(taskComponents[ci].quantita) || 0) - rc.quantita;
+                if (nuovaQt <= 0) {
+                    taskComponents.splice(ci, 1);
+                } else {
+                    taskComponents[ci].quantita = nuovaQt;
+                }
+            });
+            _preventiviImportati.splice(idx, 1);
+            _aggiornaPreventiviChips();
+            updateTaskComponentsList();
+            _lavorToast(`Preventivo "${rimosso.label}" rimosso`, 'info');
+        }
+
         function clearPreventivoImportato() {
             _preventivoImportatoId = null;
-            document.getElementById('preventivoPickerWrap').style.display = '';
-            document.getElementById('preventivoImportatoInfo').style.display = 'none';
+            _preventiviImportati = [];
+            _aggiornaPreventiviChips();
             const inp = document.getElementById('preventivoSearchInput');
             if (inp) inp.value = '';
             const drop = document.getElementById('preventivoDropdown');
             if (drop) drop.style.display = 'none';
+            const chevron = document.getElementById('preventivoChevron');
+            if (chevron) { chevron.style.display = 'block'; chevron.style.transform = ''; }
+            const clearBtn = document.getElementById('preventivoSearchClear');
+            if (clearBtn) clearBtn.style.display = 'none';
         }
 
         function _stockAlert(mancanti, prevId) {
@@ -3979,7 +4034,7 @@
 
                 document.getElementById('task-view-modal')?.remove();
                 showNotification(nuovoValore ? '✅ Lavorazione attivata — ora visibile ai dipendenti' : '🔒 Lavorazione in Standby — nascosta ai dipendenti', nuovoValore ? 'success' : 'info');
-                await loadLavorazioni();
+                await loadTasks();
             } catch (err) {
                 console.error('Errore toggle standby:', err);
                 showNotification('❌ Errore: ' + err.message, 'error');
@@ -4493,7 +4548,8 @@
                     note_progresso: currentEditingTask ? (document.getElementById('progressNotes').value || null) : null,
                     ora_inizio: document.getElementById('taskOraInizio').value || null,
                     ora_fine: document.getElementById('taskOraFine').value || null,
-                    created_by: null // Will be set by backend or current user
+                    created_by: null, // Will be set by backend or current user
+                    preventivo_id: _preventiviImportati.length > 0 ? _preventiviImportati[0].id : null
                 };
 
                 if (assignType === 'team') {
@@ -5144,65 +5200,65 @@
                 
                 showNotification('Suggerimento multi-dipendente generato! ✨', 'success');
             } catch (error) {
-                console.error('Errore suggerimento multi:', error);
-                showNotification('Errore nel calcolo suggerimento: ' + error.message, 'error');
-            }
-        }
-
-        async function suggerisciSquadra() {
-            showNotification('Funzionalità in sviluppo', 'info');
-        }
-
-        // Keep old function name for compatibility
-        async function suggerisciDipendenteAutomatico() {
-            await suggerisciAutomatico();
-        }
-
-        function applicaSuggerimento() {
-            const assignType = document.querySelector('input[name="assignType"]:checked').value;
-            
-            if (assignType === 'single') {
-                if (!suggestedUser) {
-                    showNotification('Nessun suggerimento disponibile', 'error');
-                    return;
-                }
-
-                // Select the suggested user
-                const select = document.getElementById('taskAssignee');
-                select.value = suggestedUser.userId;
-
-                showNotification(`✓ Assegnato a ${suggestedUser.nome}!`, 'success');
-                
-            } else if (assignType === 'multi') {
-                if (!suggestedUsers || suggestedUsers.length === 0) {
-                    showNotification('Nessun suggerimento disponibile', 'error');
-                    return;
-                }
-
-                // Select all suggested users
-                selectedMultiUsers = suggestedUsers.map(u => u.userId);
-                
-                // Update checkboxes
-                const checkboxes = document.querySelectorAll('#multiUsersList input[type="checkbox"]');
-                checkboxes.forEach(cb => {
-                    if (selectedMultiUsers.includes(cb.value)) {
-                        cb.checked = true;
-                    }
-                });
-
-                // Update preview
-                updateSelectedUsersPreview();
-
-                showNotification(`✓ Selezionati ${suggestedUsers.length} dipendenti!`, 'success');
-            }
-
-            // Hide suggestion
-            document.getElementById('suggestionAlert').classList.add('hidden');
-            lucide.createIcons();
-        }
 
 
         // ===== MENU CREAZIONE =====
+                    <div id="wizard-riepilogo-container">
+                        <p class="text-center text-gray-500 py-8">Generazione riepilogo...</p>
+                    </div>
+
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                            <p class="text-sm text-green-800 font-medium">
+                                Tutto pronto! Clicca "Crea Lavorazione" per salvare.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer con Pulsanti Navigazione -->
+            <div class="sticky bottom-0 bg-gray-50 px-8 py-4 rounded-b-2xl border-t flex justify-between items-center">
+                <button id="wizard-prev-btn" 
+                        onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.prevStep();" 
+                        class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    ← Indietro
+                </button>
+
+                <div class="flex gap-3">
+                    <button onclick="window.taskWizard.closeWizard()" 
+                            class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                        Annulla
+                    </button>
+                    <button id="wizard-next-btn" 
+                            onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.nextStep();" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Avanti →
+                    </button>
+                    <button id="wizard-submit-btn" 
+                            onclick="window.taskWizard.submitWizard();" 
+                            class="hidden px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        🎉 Crea Lavorazione
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #step-indicator-1.active, #step-indicator-2.active, 
+        #step-indicator-3.active, #step-indicator-4.active {
+            opacity: 1;
+        }
+        #step-indicator-1.completed div, #step-indicator-2.completed div,
+        #step-indicator-3.completed div, #step-indicator-4.completed div {
+            background-color: #10b981;
+            color: white;
+        }
+    </style>
+
+    <script>
         // ===================================
         // MENU SELEZIONE TIPO CREAZIONE
         // ===================================
@@ -5574,62 +5630,6 @@
             lucide.createIcons();
         }
 
-        function closeWarehouseProductModal() {
-            document.getElementById('warehouseProductModal').classList.add('hidden');
-            document.getElementById('warehouseProductForm').reset();
-        }
-
-        // Handle form submit
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            
-            // Form submit handler
-            document.getElementById('warehouseProductForm')?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const btn = e.submitter;
-                const originalHTML = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
-                lucide.createIcons();
-                
-                try {
-                    const productData = {
-                        nome: document.getElementById('whProductName').value,
-                        codice: document.getElementById('whProductCode').value,
-                        categoria: document.getElementById('whProductCategory').value,
-                        fornitore: document.getElementById('whProductBrand').value || null,
-                        quantita_disponibile: parseFloat(document.getElementById('whProductQuantity').value) || 0,
-                        unita_misura: document.getElementById('whProductUnit').value,
-                        descrizione: document.getElementById('whProductDescription').value || null
-                    };
-                    
-                    const { data: newProduct, error } = await supabaseClient
-                        .from('components')
-                        .insert(productData)
-                        .select()
-                        .single();
-                    
-                    if (error) throw error;
-                    
-                showNotification('✅ Prodotto creato con successo!', 'success');
-                    closeWarehouseProductModal();
-                    
-                    // Aggiorna lista magazzino in memoria (se aperta dalla modal edit)
-                    if (window.currentEditTaskMagazzinoProducts) {
-                        window.currentEditTaskMagazzinoProducts.push(newProduct);
-                    }
-                    
-                } catch (error) {
-                    console.error('Error saving product:', error);
-                    showNotification('❌ Errore: ' + error.message, 'error');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = originalHTML;
-                    lucide.createIcons();
-                }
-            });
-        });
 
 
         // ===== CALENDARIO =====
