@@ -3438,7 +3438,7 @@
                             </div>
                             <div class="space-y-4">
                                 <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="file-invoice" class="w-5 h-5 text-violet-600"></i>
+                                    <i data-lucide="file-text" class="w-5 h-5 text-violet-600"></i>
                                     Preventivo collegato
                                 </h3>
                                 <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #ddd6fe;border-radius:12px;padding:16px">
@@ -3596,6 +3596,20 @@
                     if (_editPrevList.length === 0 && !q) {
                         drop.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Caricamento preventivi…</div>';
                         drop.style.display = 'block';
+                        // Triggerare il caricamento se non ancora avvenuto
+                        if (!window._editPrevLoading) {
+                            window._editPrevLoading = true;
+                            let pq = window.supabaseClient.from('preventivi').select('id,numero,oggetto,cliente_nome,stato').in('stato',['accettato','inviato','bozza']).order('created_at',{ascending:false});
+                            const clientId = document.getElementById('taskClient')?.value || '';
+                            if (clientId) pq = pq.eq('cliente_id', clientId);
+                            pq.then(({data}) => {
+                                window._editPrevLoading = false;
+                                _editPrevList = (data||[]).map(p => ({id:p.id,numero:p.numero||'',oggetto:p.oggetto||'',cliente:p.cliente_nome||'',stato:p.stato,label:(p.numero||'')+'\u00b7 '+(p.oggetto||'')+(p.cliente_nome?' ('+p.cliente_nome+')':'')}));
+                                const d2 = document.getElementById('edit-preventivoDropdown');
+                                const i2 = document.getElementById('edit-preventivo-search');
+                                if (d2 && d2.style.display==='block' && i2) { _editPrevSearch(i2.value); }
+                            }).catch(()=>{ window._editPrevLoading=false; });
+                        }
                         return;
                     }
                     const filtered = q
