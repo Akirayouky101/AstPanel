@@ -985,18 +985,18 @@
         }
 
         function mostraModalRichiestaSpeciale(richiesta) {
+            // Avvisi automatici calendario → stile blu informativo, non warning
+            const isAvviso = richiesta.tipo === 'avviso';
+
             const tipoLabel = {
                 sposta: '📍 Richiesta Spostamento',
                 duplica: '📋 Richiesta Duplicazione',
                 aggiungi: '➕ Nuova Richiesta',
                 nota: '📝 Nota dal Capo',
-                modifica_orario: '⏰ Modifica Orario'
+                modifica_orario: '⏰ Modifica Orario',
+                avviso: 'ℹ️ Modifica Calendario'
             };
-            const tipoColor = {
-                sposta: '#f59e0b', duplica: '#3b82f6', aggiungi: '#10b981',
-                nota: '#8b5cf6', modifica_orario: '#ef4444'
-            };
-            const color = tipoColor[richiesta.tipo] || '#667eea';
+            const color = isAvviso ? '#3b82f6' : '#f59e0b';
             const label = tipoLabel[richiesta.tipo] || '🔔 Richiesta Speciale';
 
             // Rimuovi eventuale modale precedente
@@ -1022,11 +1022,9 @@
                         <div style="font-size:12px;color:#9ca3af;margin-bottom:20px">Ricevuta: ${new Date(richiesta.created_at || Date.now()).toLocaleString('it-IT')}</div>
                         <div style="display:flex;gap:10px">
                             <button onclick="document.getElementById('modalRichiestaSpeciale').remove()" style="flex:1;padding:11px;background:#f3f4f6;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;color:#374151">
-                                Chiudi
+                                ${isAvviso ? 'Ho capito' : 'Chiudi'}
                             </button>
-                            <a href="/richieste-speciali.html" style="flex:1;padding:11px;background:linear-gradient(135deg,${color},${color}cc);border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center">
-                                Vedi Tutte →
-                            </a>
+                            ${!isAvviso ? `<a href="/richieste-speciali.html" style="flex:1;padding:11px;background:linear-gradient(135deg,${color},${color}cc);border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center">Vedi Tutte →</a>` : ''}
                         </div>
                     </div>
                 </div>`;
