@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="Admin/auth-helper.js"></script>
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <!-- FullCalendar v6: CSS è già bundled nel JS, link rimosso -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
         * { box-sizing: border-box; }
@@ -233,7 +233,7 @@
 </div>
 
 <script>
-    const supabase = window.supabaseClient;
+    const _db = window.supabaseClient;
     let _currentUser = null;
     let _calendar = null;
     let _allTasks = [];
@@ -243,11 +243,11 @@
     // ===================== INIT =====================
     async function init() {
         // Auth check
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await _db.auth.getSession();
         if (!session) { window.location.href = '/Admin/index.html'; return; }
 
         // Carica utente
-        const { data: userData } = await supabase
+        const { data: userData } = await _db
             .from('users')
             .select('id, nome, cognome, ruolo')
             .eq('auth_id', session.user.id)
@@ -277,7 +277,7 @@
     // ===================== CALENDAR =====================
     async function initCalendar() {
         // Carica tasks
-        const { data: tasks } = await supabase
+        const { data: tasks } = await _db
             .from('tasks')
             .select('id, titolo, descrizione, data_inizio, data_completamento, ora_inizio, ora_fine, stato, priorita, colore')
             .order('data_inizio', { ascending: true });
@@ -451,7 +451,7 @@
 
     // ===================== SALVA RICHIESTA =====================
     async function salvaRichiesta({ tipo, titolo, descrizione, task_id, dati_extra }) {
-        const { error } = await supabase.from('richieste_speciali').insert({
+        const { error } = await _db.from('richieste_speciali').insert({
             user_id: _currentUser.id,
             tipo,
             titolo,
@@ -468,7 +468,7 @@
 
     // ===================== NOTE =====================
     async function caricaNote() {
-        const { data: note } = await supabase
+        const { data: note } = await _db
             .from('richieste_speciali')
             .select('*')
             .eq('user_id', _currentUser.id)
@@ -505,7 +505,7 @@
 
     // ===================== BADGE & NOTIFICHE =====================
     async function aggiornaContatoriBadge() {
-        const { data } = await supabase
+        const { data } = await _db
             .from('richieste_speciali')
             .select('id, letta')
             .eq('user_id', _currentUser.id)
@@ -527,7 +527,7 @@
     }
 
     async function caricaStoricoRichieste() {
-        const { data } = await supabase
+        const { data } = await _db
             .from('richieste_speciali')
             .select('*')
             .eq('user_id', _currentUser.id)
@@ -557,7 +557,7 @@
         }).join('');
 
         // Marca tutte come lette
-        await supabase.from('richieste_speciali')
+        await _db.from('richieste_speciali')
             .update({ letta: true })
             .eq('user_id', _currentUser.id)
             .eq('letta', false);
@@ -591,7 +591,7 @@
     }
 
     async function spLogout() {
-        await supabase.auth.signOut();
+        await _db.auth.signOut();
         window.location.href = '/Admin/index.html';
     }
 
