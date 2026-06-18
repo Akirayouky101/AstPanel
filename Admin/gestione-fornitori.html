@@ -304,6 +304,29 @@
                     </div>
                 </div>
 
+                <!-- Logo -->
+                <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-6 rounded-xl mb-6 border border-purple-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                        <div class="bg-purple-600 text-white w-10 h-10 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-image"></i>
+                        </div>
+                        Logo Fornitore
+                    </h4>
+                    <div class="flex items-center gap-4">
+                        <div id="logoPreviewGF" class="w-20 h-20 rounded-xl bg-white border-2 border-dashed border-purple-300 flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer" onclick="document.getElementById('logoFileGF').click()" title="Clicca per caricare">
+                            <i class="fas fa-building text-purple-300 text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
+                                <i class="fas fa-upload"></i> Seleziona immagine (jpg/png)
+                                <input type="file" id="logoFileGF" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="anteprimaLogoGF(this)">
+                            </label>
+                            <p id="logoFileNameGF" class="text-xs text-gray-400 mt-1">Nessun file selezionato</p>
+                            <input type="hidden" id="logoUrlAttuale">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Note -->
                 <div class="mb-6">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -515,6 +538,10 @@
             document.getElementById('iban').value = '';
             document.getElementById('note').value = '';
             document.getElementById('attivo').checked = true;
+            document.getElementById('logoFileGF').value = '';
+            document.getElementById('logoFileNameGF').textContent = 'Nessun file selezionato';
+            document.getElementById('logoUrlAttuale').value = '';
+            document.getElementById('logoPreviewGF').innerHTML = '<i class="fas fa-building text-purple-300 text-2xl"></i>';
 
             document.getElementById('fornitoreModal').classList.remove('hidden');
         }
@@ -543,6 +570,14 @@
             document.getElementById('iban').value = fornitore.iban || '';
             document.getElementById('note').value = fornitore.note || '';
             document.getElementById('attivo').checked = fornitore.attivo !== false;
+            document.getElementById('logoFileGF').value = '';
+            document.getElementById('logoFileNameGF').textContent = 'Nessun file selezionato';
+            document.getElementById('logoUrlAttuale').value = fornitore.logo_url || '';
+            if (fornitore.logo_url) {
+                document.getElementById('logoPreviewGF').innerHTML = `<img src="${fornitore.logo_url}" class="w-full h-full object-contain p-1" onerror="this.parentElement.innerHTML='<i class=\'fas fa-building text-purple-300 text-2xl\'></i>'">`;
+            } else {
+                document.getElementById('logoPreviewGF').innerHTML = '<i class="fas fa-building text-purple-300 text-2xl"></i>';
+            }
 
             document.getElementById('fornitoreModal').classList.remove('hidden');
         }
@@ -576,6 +611,21 @@
                     attivo: document.getElementById('attivo').checked,
                     created_by: currentUser.id
                 };
+
+                // Upload logo se selezionato
+                const logoFile = document.getElementById('logoFileGF')?.files?.[0];
+                if (logoFile) {
+                    const ext = logoFile.name.split('.').pop().toLowerCase();
+                    const tempId = fornitoreId || ('new_' + Date.now());
+                    const fileName = `fornitore_${tempId}_${Date.now()}.${ext}`;
+                    const { error: upErr } = await window.supabase.storage.from('loghi-fornitori').upload(fileName, logoFile, { upsert: true, contentType: logoFile.type });
+                    if (!upErr) {
+                        const { data: urlData } = window.supabase.storage.from('loghi-fornitori').getPublicUrl(fileName);
+                        fornitore.logo_url = urlData?.publicUrl || null;
+                    }
+                } else {
+                    fornitore.logo_url = document.getElementById('logoUrlAttuale').value || null;
+                }
 
                 const fornitoreId = document.getElementById('fornitoreId').value;
                 let result;
@@ -629,6 +679,17 @@
 
         function closeModal() {
             document.getElementById('fornitoreModal').classList.add('hidden');
+        }
+
+        function anteprimaLogoGF(input) {
+            const file = input.files?.[0];
+            const nameEl = document.getElementById('logoFileNameGF');
+            const preview = document.getElementById('logoPreviewGF');
+            if (!file) { if (nameEl) nameEl.textContent = 'Nessun file selezionato'; return; }
+            if (nameEl) nameEl.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = e => { if (preview) preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain p-1">`; };
+            reader.readAsDataURL(file);
         }
 
         function showToast(msg, type = 'success') {
