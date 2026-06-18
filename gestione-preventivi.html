@@ -321,6 +321,21 @@
                         <div class="sc-title"><i class="fas fa-file-invoice"></i> Dati Preventivo</div>
 
                         <div class="mb10">
+                            <span class="field-label">Azienda emittente</span>
+                            <div class="sel-wrap">
+                                <select id="aziendaId">
+                                    <option value="">— Nessuna (preventivo generico) —</option>
+                                </select>
+                                <i class="fas fa-chevron-down sel-arrow"></i>
+                            </div>
+                            <div style="margin-top:4px;font-size:11px;color:#8b5cf6">
+                                <a href="gestione-aziende.html" target="_blank" style="color:#7c3aed;text-decoration:none;font-weight:600">
+                                    <i class="fas fa-building" style="margin-right:3px"></i>Gestisci aziende
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="mb10">
                             <span class="field-label">Oggetto *</span>
                             <input type="text" id="oggetto" class="inp" required placeholder="es: Fornitura impianto idraulico">
                         </div>
@@ -503,6 +518,7 @@
         let preventivi = [];
         let clienti = [];
         let prodotti = [];
+        let aziende = [];
         let currentItems = [];
         let currentProdottoIndex = null;
 
@@ -530,7 +546,8 @@
             await Promise.all([
                 loadPreventivi(),
                 loadClienti(),
-                loadProdotti()
+                loadProdotti(),
+                loadAziende()
             ]);
         }
 
@@ -541,7 +558,7 @@
                 
                 let query = window.supabase
                     .from('preventivi')
-                    .select('*, cliente:clients(ragione_sociale, nome, cognome), created_by_user:users!created_by(nome, cognome)')
+                    .select('*, cliente:clients(ragione_sociale, nome, cognome), created_by_user:users!created_by(nome, cognome), azienda:aziende(id, nome, ragione_sociale, prefisso_numero)')
                     .order('data_emissione', { ascending: false });
                 
                 if (filterStato) query = query.eq('stato', filterStato);
@@ -556,6 +573,28 @@
                 console.error('Errore:', error);
                 showToast('Errore nel caricamento: ' + error.message, 'error');
             }
+        }
+
+        // Carica aziende
+        async function loadAziende() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('aziende')
+                    .select('*')
+                    .eq('attiva', true)
+                    .order('nome');
+                if (error) throw error;
+                aziende = data || [];
+                // Popola select nel modal
+                const sel = document.getElementById('aziendaId');
+                if (sel) {
+                    sel.innerHTML = '<option value="">— Nessuna (preventivo generico) —</option>';
+                    aziende.forEach(a => {
+                        sel.innerHTML += `<option value="${a.id}">${a.nome}${a.ragione_sociale ? ' – ' + a.ragione_sociale : ''}</option>`;
+                    });
+                    if (aziende.length === 1) sel.value = aziende[0].id;
+                }
+            } catch (e) { console.warn('Aziende non caricate:', e); }
         }
 
         // Carica clienti
@@ -629,6 +668,7 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azienda</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oggetto</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
@@ -642,6 +682,9 @@
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4">
                                         <span class="font-semibold text-purple-600">${p.numero}</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        ${p.azienda ? `<span style="display:inline-block;padding:2px 10px;border-radius:20px;background:#ede9fe;color:#5b21b6;font-size:11px;font-weight:700">${p.azienda.nome}</span>` : '<span style="color:#d1d5db;font-size:11px">—</span>'}
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-medium text-gray-900">${p.cliente_nome || 'N/D'}</div>
@@ -727,6 +770,10 @@
             document.getElementById('stato').value = 'bozza';
             document.getElementById('scontoPercentuale').value = '0';
             document.getElementById('ivaPercentuale').value = '22';
+            // Preseleziona se c'è solo un'azienda
+            const azSel = document.getElementById('aziendaId');
+            if (azSel && aziende.length === 1) azSel.value = aziende[0].id;
+            else if (azSel) azSel.value = '';
             
             currentItems = [];
             renderProdottiTable();
@@ -1126,9 +1173,16 @@
                 // Genera numero se nuovo
                 let numero = null;
                 if (isNew) {
-                    const { data: numeroData, error: numeroError } = await window.supabase.rpc('generate_preventivo_numero');
-                    if (numeroError) throw numeroError;
-                    numero = numeroData;
+                    const aziendaIdVal = document.getElementById('aziendaId')?.value || '';
+                    if (aziendaIdVal) {
+                        const { data: numeroData, error: numeroError } = await window.supabase.rpc('generate_preventivo_numero_azienda', { p_azienda_id: aziendaIdVal });
+                        if (numeroError) throw numeroError;
+                        numero = numeroData;
+                    } else {
+                        const { data: numeroData, error: numeroError } = await window.supabase.rpc('generate_preventivo_numero');
+                        if (numeroError) throw numeroError;
+                        numero = numeroData;
+                    }
                 }
 
                 // Calcola totali
@@ -1158,7 +1212,8 @@
                     iva_percentuale: ivaPerc,
                     totale_iva: totaleIva,
                     subtotale: subtotale,
-                    totale: totale
+                    totale: totale,
+                    azienda_id: document.getElementById('aziendaId')?.value || null
                 };
 
                 if (isNew) {
@@ -1260,6 +1315,8 @@
                 document.getElementById('stato').value = preventivo.stato;
                 document.getElementById('scontoPercentuale').value = preventivo.sconto_percentuale || 0;
                 document.getElementById('ivaPercentuale').value = preventivo.iva_percentuale || 22;
+                const azSel = document.getElementById('aziendaId');
+                if (azSel) azSel.value = preventivo.azienda_id || '';
 
                 currentItems = items.map(item => ({
                     id: item.id,
