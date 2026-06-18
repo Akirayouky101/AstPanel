@@ -52,6 +52,9 @@
                         <i class="fas fa-barcode"></i>
                         <span>Scansiona</span>
                     </button>
+                    <button onclick="apriGestioneFornitori()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg font-bold hover:bg-opacity-30 transition-all border border-white border-opacity-30">
+                        <i class="fas fa-building mr-2"></i>Fornitori
+                    </button>
                     <button onclick="showStampaEtichette()" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-600 transition-all">
                         <i class="fas fa-print mr-2"></i>Etichette
                     </button>
@@ -480,6 +483,19 @@
             </div>
             <div class="p-6">
                 <canvas id="graficoCanvas" width="800" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gestione Fornitori -->
+    <div id="gestioneFornitoriModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-building mr-2"></i>Gestione Fornitori</h3>
+                <button onclick="chiudiGestioneFornitori()" class="text-white hover:text-gray-200 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="gfLista" class="overflow-y-auto flex-1 p-4 space-y-3">
+                <p class="text-gray-400 text-sm text-center py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</p>
             </div>
         </div>
     </div>
@@ -1495,6 +1511,82 @@
                 if (preview) preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain p-1">`;
             };
             reader.readAsDataURL(file);
+        }
+
+        // ── Gestione Fornitori Modal ──────────────────────────────────
+        async function apriGestioneFornitori() {
+            document.getElementById('gestioneFornitoriModal').classList.remove('hidden');
+            const lista = document.getElementById('gfLista');
+            lista.innerHTML = '<p class="text-gray-400 text-sm text-center py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</p>';
+            try {
+                const { data, error } = await supabase.from('fornitori').select('id,ragione_sociale,logo_url').order('ragione_sociale');
+                if (error) throw error;
+                if (!data.length) { lista.innerHTML = '<p class="text-gray-400 text-center py-8">Nessun fornitore trovato.</p>'; return; }
+                lista.innerHTML = data.map(f => {
+                    const iniziali = (f.ragione_sociale||'?').substring(0,2).toUpperCase();
+                    const logoHtml = f.logo_url
+                        ? `<img src="${f.logo_url}" class="w-full h-full object-contain p-1" onerror="this.parentElement.innerHTML='<span class=\\'font-bold text-gray-400 text-sm\\'>${iniziali}</span>'">`
+                        : `<span class="font-bold text-gray-400 text-sm">${iniziali}</span>`;
+                    const trashBtn = f.logo_url
+                        ? `<button onclick="rimuoviLogoFornitore('${f.id}')" class="px-2 py-2 text-red-400 hover:text-red-600 transition flex-shrink-0" title="Rimuovi logo"><i class="fas fa-trash text-xs"></i></button>`
+                        : '';
+                    return `<div class="flex items-center gap-4 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+                        <div class="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer" id="gfPrev_${f.id}" onclick="document.getElementById('gfFile_${f.id}').click()" title="Clicca per cambiare logo">
+                            ${logoHtml}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 truncate">${f.ragione_sociale}</p>
+                            <p class="text-xs text-gray-400">${f.logo_url ? 'Logo caricato ✓' : 'Nessun logo'}</p>
+                        </div>
+                        <label class="cursor-pointer px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-700 hover:bg-indigo-100 transition flex items-center gap-1 flex-shrink-0">
+                            <i class="fas fa-upload text-xs"></i> ${f.logo_url ? 'Cambia' : 'Carica'}
+                            <input type="file" id="gfFile_${f.id}" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="uploadLogoFornitore('${f.id}', this)">
+                        </label>
+                        ${trashBtn}
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                lista.innerHTML = `<p class="text-red-500 text-sm text-center py-8">Errore: ${e.message}</p>`;
+            }
+        }
+
+        function chiudiGestioneFornitori() {
+            document.getElementById('gestioneFornitoriModal').classList.add('hidden');
+            caricaProdotti();
+        }
+
+        async function uploadLogoFornitore(fornitoreId, input) {
+            const file = input.files?.[0];
+            if (!file) return;
+            const label = input.closest('label');
+            const origHtml = label.innerHTML;
+            label.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
+            label.style.pointerEvents = 'none';
+            try {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const fileName = `fornitore_${fornitoreId}_${Date.now()}.${ext}`;
+                const { error: upErr } = await supabase.storage.from('loghi-fornitori').upload(fileName, file, { upsert: true, contentType: file.type });
+                if (upErr) throw upErr;
+                const { data: urlData } = supabase.storage.from('loghi-fornitori').getPublicUrl(fileName);
+                const logoUrl = urlData?.publicUrl;
+                const { error: dbErr } = await supabase.from('fornitori').update({ logo_url: logoUrl }).eq('id', fornitoreId);
+                if (dbErr) throw dbErr;
+                const prev = document.getElementById('gfPrev_' + fornitoreId);
+                if (prev) prev.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-contain p-1">`;
+                label.innerHTML = '<i class="fas fa-check text-green-600"></i> Salvato!';
+                setTimeout(() => apriGestioneFornitori(), 1000);
+            } catch(e) {
+                console.error(e);
+                label.innerHTML = origHtml;
+                label.style.pointerEvents = '';
+                alert('Errore upload: ' + e.message);
+            }
+        }
+
+        async function rimuoviLogoFornitore(fornitoreId) {
+            if (!confirm('Rimuovere il logo di questo fornitore?')) return;
+            await supabase.from('fornitori').update({ logo_url: null }).eq('id', fornitoreId);
+            apriGestioneFornitori();
         }
 
         function renderProdottiPerFornitore() {
