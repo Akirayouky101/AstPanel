@@ -4001,6 +4001,22 @@
                 // Inizializza tipo assegnazione picker edit modal
                 const _initEditAssignType = task.assigned_team_id ? 'team' : (task.assigned_user_id ? 'single' : 'single');
                 editSetAssignType(_initEditAssignType);
+
+                // Pre-popola team ID se il task è assegnato a una squadra
+                if (task.assigned_team_id) {
+                    const teamIdInput = document.getElementById('edit-team-id');
+                    if (teamIdInput) {
+                        teamIdInput.value = task.assigned_team_id;
+                        // Carica nome squadra
+                        try {
+                            const { data: teamData } = await supabaseClient.from('teams').select('nome').eq('id', task.assigned_team_id).single();
+                            const lbl = document.getElementById('edit-team-picker-label');
+                            if (lbl && teamData) lbl.innerHTML = `<span class="text-gray-800 font-semibold">${teamData.nome}</span>`;
+                        } catch(e) {}
+                        const clearBtn = document.getElementById('edit-team-clear-btn');
+                        if (clearBtn) clearBtn.classList.remove('hidden');
+                    }
+                }
                 
                 // Toggle lucchetto cliente
                 document.getElementById('toggle-cliente-lock')?.addEventListener('click', function() {
