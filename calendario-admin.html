@@ -929,7 +929,16 @@
                     'normale': '🔵 Normale'
                 };
                 
-                const assigneeName = task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : 'Non assegnato';
+                let assigneeName = 'Non assegnato';
+                if (task.assigned_user) {
+                    assigneeName = `${task.assigned_user.nome} ${task.assigned_user.cognome}`;
+                } else if (task.assigned_team) {
+                    assigneeName = `👥 ${task.assigned_team.nome}`;
+                } else if (task.team_name) {
+                    assigneeName = `👥 ${task.team_name}`;
+                } else if (task.multi_user_names && task.multi_user_names.length > 0) {
+                    assigneeName = task.multi_user_names.join(', ');
+                }
                 const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                 
                 // Populate modal
