@@ -930,26 +930,29 @@
                 };
                 
                 let assigneeName = 'Non assegnato';
-                // Priorità: multi-utente > team > singolo
-                if (task.multi_user_names && task.multi_user_names.length > 1) {
-                    assigneeName = task.multi_user_names.join(', ');
-                } else if (task.team_name) {
-                    assigneeName = `👥 ${task.team_name}`;
-                } else if (task.assigned_team?.nome) {
-                    assigneeName = `👥 ${task.assigned_team.nome}`;
-                } else if (task.assigned_team_id) {
-                    try {
-                        const { data: tData } = await window.supabaseClient.from('teams').select('nome').eq('id', task.assigned_team_id).single();
-                        if (tData) assigneeName = `👥 ${tData.nome}`;
-                    } catch(e) { assigneeName = '👥 Squadra'; }
-                } else if (task.assigned_user) {
-                    assigneeName = `${task.assigned_user.nome} ${task.assigned_user.cognome}`;
-                } else if (task.multi_user_names && task.multi_user_names.length === 1) {
-                    assigneeName = task.multi_user_names[0];
-                } else if (event.extendedProps?.teamName) {
+                // Prima usa i dati già nell'evento (sempre presenti)
+                if (event.extendedProps?.teamName) {
                     assigneeName = `👥 ${event.extendedProps.teamName}`;
-                } else if (event.extendedProps?.userName) {
+                } else if (event.extendedProps?.userName && event.extendedProps.userName !== 'undefined undefined') {
                     assigneeName = event.extendedProps.userName;
+                } else {
+                    // Poi usa il task dal DB
+                    if (task.multi_user_names && task.multi_user_names.length > 1) {
+                        assigneeName = task.multi_user_names.join(', ');
+                    } else if (task.team_name) {
+                        assigneeName = `👥 ${task.team_name}`;
+                    } else if (task.assigned_team?.nome) {
+                        assigneeName = `👥 ${task.assigned_team.nome}`;
+                    } else if (task.assigned_team_id) {
+                        try {
+                            const { data: tData } = await window.supabaseClient.from('teams').select('nome').eq('id', task.assigned_team_id).single();
+                            if (tData) assigneeName = `👥 ${tData.nome}`;
+                        } catch(e) { assigneeName = '👥 Squadra'; }
+                    } else if (task.assigned_user) {
+                        assigneeName = `${task.assigned_user.nome} ${task.assigned_user.cognome}`;
+                    } else if (task.multi_user_names && task.multi_user_names.length === 1) {
+                        assigneeName = task.multi_user_names[0];
+                    }
                 }
                 const clientName = task.client ? task.client.ragione_sociale : 'Nessun cliente';
                 

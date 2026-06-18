@@ -426,6 +426,29 @@ window.dataManager = {
                         if (times.end) evt.end = times.end;
                         events.push(evt);
                     });
+
+                    // Se la squadra non ha membri, crea comunque un evento per il task
+                    if (teamMembers.length === 0) {
+                        const evt = {
+                            id: `task-${task.id}-team`,
+                            title: `${task.titolo} (${teamNome})`,
+                            start: times.start,
+                            allDay: times.allDay,
+                            backgroundColor: teamColore,
+                            borderColor: teamColore,
+                            extendedProps: {
+                                taskId: task.id,
+                                teamId: task.assigned_team_id,
+                                teamName: teamNome,
+                                userId: null,
+                                userName: `👥 ${teamNome}`,
+                                stato: task.stato,
+                                priorita: task.priorita
+                            }
+                        };
+                        if (times.end) evt.end = times.end;
+                        events.push(evt);
+                    }
                 }
                 // Se multi-assegnazione (task_assignments)
                 else if (task.task_assignments && task.task_assignments.length > 0) {
