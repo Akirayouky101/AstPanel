@@ -1166,6 +1166,20 @@ class TaskWizard {
                 }
             }
 
+            // Salva preventivi collegati (multi-preventivo)
+            const prevSelezionati = window._preventiviSelezionati || [];
+            if (prevSelezionati.length > 0) {
+                console.log('📋 [WIZARD] Salvando', prevSelezionati.length, 'preventivi collegati...');
+                // Elimina vecchi collegamenti per questo task (in caso di update)
+                await supabaseClient.from('task_preventivi').delete().eq('task_id', task.id);
+                const prevRows = prevSelezionati.map(p => ({ task_id: task.id, preventivo_id: p.id }));
+                const { error: prevErr } = await supabaseClient.from('task_preventivi').insert(prevRows);
+                if (prevErr) console.error('❌ [WIZARD] Errore preventivi collegati:', prevErr);
+                else console.log('✅ [WIZARD] Preventivi collegati salvati');
+                // Aggiorna anche preventivo_id singolo (compatibilità)
+                await supabaseClient.from('tasks').update({ preventivo_id: prevSelezionati[0].id }).eq('id', task.id);
+            }
+
             console.log('🎉 [WIZARD] Lavorazione completata! Mostrando alert...');
             await showWizardAlert(this.wizardData.id ? 'Lavorazione aggiornata con successo!' : 'Lavorazione creata con successo!', 'success');
             

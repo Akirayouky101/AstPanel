@@ -493,7 +493,8 @@ window.TasksAPI = {
                 client:clients(id, ragione_sociale, email, indirizzo, citta, cap),
                 assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
                 assigned_team:teams(id, nome),
-                task_assignments(user_id, ore_assegnate, ruolo_assegnazione, users(id, nome, cognome, email))
+                task_assignments(user_id, ore_assegnate, ruolo_assegnazione, users(id, nome, cognome, email)),
+                task_preventivi(preventivo_id, preventivi(id, numero, oggetto, cliente_nome))
             `)
             .order('created_at', { ascending: false });
         
@@ -509,7 +510,9 @@ window.TasksAPI = {
             user_name: task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : null,
             team_name: task.assigned_team?.nome || null,
             // Per multi-assegnazione: lista nomi
-            multi_user_names: (task.task_assignments || []).map(a => a.users ? `${a.users.nome} ${a.users.cognome}` : null).filter(Boolean)
+            multi_user_names: (task.task_assignments || []).map(a => a.users ? `${a.users.nome} ${a.users.cognome}` : null).filter(Boolean),
+            // Preventivi collegati (multi)
+            preventivi_collegati: (task.task_preventivi || []).map(r => r.preventivi).filter(Boolean)
         }));
     },
 
