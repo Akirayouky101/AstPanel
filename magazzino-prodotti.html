@@ -1496,17 +1496,16 @@
                 const iniziali = gruppo.nome.substring(0,2).toUpperCase();
                 const colori = ['from-blue-600 to-indigo-700','from-purple-600 to-pink-600','from-green-600 to-teal-600','from-orange-500 to-red-500','from-cyan-600 to-blue-600'];
                 const colore = colori[gruppo.nome.charCodeAt(0) % colori.length];
-
-                // Barra ricerca locale per questa sezione
-                const searchId = `search_${fId.replace(/-/g,'_')}`;
-                const gridId = `grid_${fId.replace(/-/g,'_')}`;
-
-                const cardsHtml = gruppo.prodotti.map(p => buildProductCard(p)).join('');
+                const safeId = fId.replace(/[^a-zA-Z0-9]/g,'_');
+                const bodyId = `body_${safeId}`;
+                const searchId = `search_${safeId}`;
+                const gridId = `grid_${safeId}`;
 
                 return `
                 <div class="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
-                    <!-- Banner fornitore -->
-                    <div class="bg-gradient-to-r ${colore} p-4 flex items-center justify-between">
+                    <!-- Banner fornitore (cliccabile) -->
+                    <div class="bg-gradient-to-r ${colore} p-4 flex items-center justify-between cursor-pointer select-none"
+                         onclick="toggleFornitore('${bodyId}')">
                         <div class="flex items-center gap-4">
                             <div class="w-14 h-14 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
                                 ${gruppo.logo
@@ -1516,23 +1515,58 @@
                             </div>
                             <div>
                                 <h2 class="text-xl font-bold text-white">${gruppo.nome}</h2>
-                                <p class="text-white text-opacity-80 text-sm">${gruppo.prodotti.length} prodotti</p>
+                                <p class="text-white/80 text-sm">${gruppo.prodotti.length} prodotti</p>
                             </div>
                         </div>
-                        <!-- Barra ricerca locale -->
-                        <div class="relative w-64">
-                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white text-opacity-60 text-sm pointer-events-none"></i>
-                            <input type="text" id="${searchId}" placeholder="Cerca in ${gruppo.nome}..."
-                                   oninput="filtraGruppo('${gridId}', this.value)"
-                                   class="w-full pl-9 pr-4 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-sm text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:bg-opacity-30 focus:ring-2 focus:ring-white focus:ring-opacity-40 transition">
-                        </div>
+                        <i class="fas fa-chevron-down text-white/80 text-xl transition-transform duration-200" id="chevron_${safeId}"></i>
                     </div>
-                    <!-- Griglia prodotti -->
-                    <div id="${gridId}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                        ${cardsHtml}
+                    <!-- Corpo collassabile -->
+                    <div id="${bodyId}" class="hidden">
+                        <!-- Barra ricerca locale -->
+                        <div class="px-4 pt-4 pb-2">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                                <input type="text" id="${searchId}" placeholder="Cerca in ${gruppo.nome}..."
+                                       oninput="filtraGruppo('${gridId}', this.value)"
+                                       class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition">
+                            </div>
+                        </div>
+                        <!-- Griglia prodotti -->
+                        <div id="${gridId}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                            <!-- Lazy: caricato all'apertura -->
+                        </div>
                     </div>
                 </div>`;
             }).join('');
+
+            // Salva i dati gruppi per il lazy load
+            window._gruppiFornitore = {};
+            ordinati.forEach(([fId, gruppo]) => {
+                const safeId = fId.replace(/[^a-zA-Z0-9]/g,'_');
+                window._gruppiFornitore[safeId] = gruppo;
+            });
+        }
+
+        function toggleFornitore(bodyId) {
+            const body = document.getElementById(bodyId);
+            if (!body) return;
+            const safeId = bodyId.replace('body_', '');
+            const chevron = document.getElementById('chevron_' + safeId);
+            const isOpen = !body.classList.contains('hidden');
+
+            if (isOpen) {
+                body.classList.add('hidden');
+                if (chevron) chevron.style.transform = '';
+            } else {
+                body.classList.remove('hidden');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+                // Lazy load prodotti se la griglia è vuota
+                const gridId = 'grid_' + safeId;
+                const grid = document.getElementById(gridId);
+                if (grid && grid.children.length === 0 && window._gruppiFornitore?.[safeId]) {
+                    grid.innerHTML = window._gruppiFornitore[safeId].prodotti.map(p => buildProductCard(p)).join('');
+                }
+            }
         }
 
         function filtraGruppo(gridId, search) {
