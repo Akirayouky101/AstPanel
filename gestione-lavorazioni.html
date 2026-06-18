@@ -4047,73 +4047,9 @@
                     lucide.createIcons();
                 });
                 
-                // Aggiungi componente da magazzino
+                // Aggiungi componente da magazzino – apre modal di ricerca
                 document.getElementById('edit-add-componente-btn')?.addEventListener('click', function() {
-                    const container = document.getElementById('edit-componenti-list');
-                    
-                    // Rimuovi messaggio "nessun componente" se presente
-                    const noMsg = container.querySelector('#no-components-msg');
-                    if (noMsg) noMsg.remove();
-                    
-                    // Crea dropdown per selezione prodotto
-                    const selectDiv = document.createElement('div');
-                    selectDiv.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
-                    selectDiv.innerHTML = `
-                        <div class="flex-1 grid grid-cols-3 gap-2">
-                            <select class="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
-                                <option value="">Seleziona prodotto da magazzino...</option>
-                                ${magazzinoProducts?.filter(p => {
-                                    // Escludi già selezionati
-                                    const selected = Array.from(container.querySelectorAll('[data-component-id]')).map(el => el.dataset.componentId);
-                                    return !selected.includes(p.id);
-                                }).map(p => `
-                                    <option value="${p.id}" data-nome="${p.nome}" data-codice="${p.codice || ''}">
-                                        ${p.nome} ${p.codice ? `(${p.codice})` : ''} - Disp: ${p.quantita_disponibile} ${p.unita_misura}
-                                    </option>
-                                `).join('')}
-                            </select>
-                            <input type="number" placeholder="Q.tà" min="1" value="1"
-                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
-                        </div>
-                        <button type="button" onclick="this.closest('div').remove()"
-                                class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
-                    `;
-                    
-                    const select = selectDiv.querySelector('select');
-                    select.addEventListener('change', function() {
-                        if (!this.value) return;
-                        
-                        const selectedOption = this.options[this.selectedIndex];
-                        const productId = this.value;
-                        const productName = selectedOption.dataset.nome;
-                        const productCode = selectedOption.dataset.codice;
-                        const quantita = selectDiv.querySelector('input[type="number"]').value;
-                        
-                        // Converti in card fissa
-                        selectDiv.setAttribute('data-component-id', productId);
-                        selectDiv.innerHTML = `
-                            <div class="flex-1 grid grid-cols-3 gap-2">
-                                <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
-                                    <strong>${productName}</strong>
-                                    ${productCode ? `<span class="text-gray-500 text-xs ml-2">${productCode}</span>` : ''}
-                                </div>
-                                <input type="number" value="${quantita}" min="1"
-                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                                       placeholder="Q.tà">
-                            </div>
-                            <button type="button" onclick="this.closest('[data-component-id]').remove()"
-                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                                <i data-lucide="x" class="w-4 h-4"></i>
-                            </button>
-                        `;
-                        
-                        lucide.createIcons();
-                    });
-                    
-                    container.appendChild(selectDiv);
-                    lucide.createIcons();
+                    openEditComponentPicker(magazzinoProducts || []);
                 });
                 
                 // Nuovo prodotto (apre modal magazzino)
@@ -6161,6 +6097,128 @@
             }
             lucide.createIcons();
         };
+
+        // ===================================
+        // EDIT COMPONENT PICKER MODAL
+        // ===================================
+        let _editCompAllProducts = [];
+
+        function openEditComponentPicker(products) {
+            _editCompAllProducts = products || window.currentEditTaskMagazzinoProducts || [];
+            let modal = document.getElementById('editCompPickerModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'editCompPickerModal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4';
+                modal.style.backdropFilter = 'blur(4px)';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-h-[85vh] overflow-hidden flex flex-col" style="max-width:700px">
+                        <div style="background:linear-gradient(135deg,#ea580c,#f97316);padding:18px 22px">
+                            <div style="display:flex;align-items:center;justify-content:space-between">
+                                <div>
+                                    <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0">📦 Magazzino Prodotti</h3>
+                                    <p style="color:#fed7aa;font-size:12px;margin-top:3px">Cerca e seleziona i prodotti da aggiungere alla lavorazione</p>
+                                </div>
+                                <button onclick="document.getElementById('editCompPickerModal').remove()" style="color:#fff;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button>
+                            </div>
+                        </div>
+                        <div style="padding:14px 18px;border-bottom:1px solid #fed7aa;background:#fff7ed">
+                            <div style="position:relative">
+                                <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#ea580c;font-size:13px;pointer-events:none"></i>
+                                <input type="text" id="editCompSearch" placeholder="Cerca per nome, codice, categoria…"
+                                       style="width:100%;padding:10px 12px 10px 36px;border:2px solid #fed7aa;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box"
+                                       oninput="filterEditCompList(this.value)">
+                            </div>
+                        </div>
+                        <div id="editCompList" style="overflow-y:auto;flex:1;padding:10px 12px"></div>
+                        <div style="padding:12px 18px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:flex-end">
+                            <button onclick="document.getElementById('editCompPickerModal').remove()" style="padding:8px 20px;border:1.5px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                `;
+                modal.addEventListener('click', function(e) { if (e.target === this) this.remove(); });
+                document.body.appendChild(modal);
+            }
+            renderEditCompList(_editCompAllProducts);
+        }
+
+        function filterEditCompList(q) {
+            const lower = q.trim().toLowerCase();
+            const filtered = lower
+                ? _editCompAllProducts.filter(p =>
+                    (p.nome || '').toLowerCase().includes(lower) ||
+                    (p.codice || '').toLowerCase().includes(lower) ||
+                    (p.categoria || '').toLowerCase().includes(lower))
+                : _editCompAllProducts;
+            renderEditCompList(filtered);
+        }
+
+        function renderEditCompList(products) {
+            const container = document.getElementById('editCompList');
+            if (!container) return;
+            if (!products || products.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:32px;color:#9ca3af"><i class="fas fa-box-open" style="font-size:36px;margin-bottom:8px"></i><p>Nessun prodotto trovato</p></div>';
+                return;
+            }
+            const alreadySel = new Set(Array.from(document.querySelectorAll('#edit-componenti-list [data-component-id]')).map(el => el.dataset.componentId));
+            container.innerHTML = products.map(p => {
+                const isSel = alreadySel.has(p.id);
+                const disp = p.quantita_disponibile ?? '–';
+                const nomeEsc = (p.nome || '').replace(/"/g,'&quot;');
+                const codEsc = (p.codice || '').replace(/'/g,"\\'");
+                return `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid ${isSel ? '#fb923c' : '#e5e7eb'};border-radius:10px;margin-bottom:6px;background:${isSel ? '#fff7ed' : '#fff'}">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:700;font-size:13px;color:#1f2937">${p.nome}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+                            ${p.codice ? `<span>📦 ${p.codice}</span>` : ''}
+                            ${p.categoria ? `<span>🏷️ ${p.categoria}</span>` : ''}
+                            <span style="color:${disp > 0 ? '#059669' : '#dc2626'};font-weight:600">Disp: ${disp} ${p.unita_misura || ''}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                        <input type="number" id="editCompQty_${p.id}" min="1" value="1" ${isSel ? 'disabled' : ''}
+                               style="width:60px;padding:6px 8px;border:1.5px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center">
+                        <button onclick="addEditComponent('${p.id}','${nomeEsc}','${codEsc}','${(p.unita_misura||'').replace(/'/g,"\\'")}' )"
+                                ${isSel ? 'disabled' : ''}
+                                style="padding:6px 14px;background:${isSel ? '#d1d5db' : 'linear-gradient(135deg,#ea580c,#f97316)'};color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:${isSel ? 'default' : 'pointer'}">
+                            ${isSel ? '✓ Aggiunto' : '+ Aggiungi'}
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function addEditComponent(id, nome, codice, um) {
+            const container = document.getElementById('edit-componenti-list');
+            if (!container) return;
+            container.querySelector('#no-components-msg')?.remove();
+            if (container.querySelector('[data-component-id="' + id + '"]')) return;
+            const qty = parseInt(document.getElementById('editCompQty_' + id)?.value || 1);
+            const row = document.createElement('div');
+            row.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
+            row.setAttribute('data-component-id', id);
+            row.innerHTML = `
+                <div class="flex-1 grid grid-cols-3 gap-2">
+                    <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+                        <strong>${nome}</strong>
+                        ${codice ? '<span class="text-gray-500 text-xs ml-2">' + codice + '</span>' : ''}
+                    </div>
+                    <input type="number" value="${qty}" min="1"
+                           class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                           placeholder="Q.tà">
+                </div>
+                <button type="button" onclick="this.closest('[data-component-id]').remove();filterEditCompList(document.getElementById('editCompSearch')?.value||'')"
+                        class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+            container.appendChild(row);
+            lucide.createIcons();
+            filterEditCompList(document.getElementById('editCompSearch')?.value || '');
+        }
 
         // ===================================
         // WAREHOUSE PRODUCT MODAL

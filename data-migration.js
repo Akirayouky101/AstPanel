@@ -379,32 +379,53 @@ window.dataManager = {
                 const times = buildEventTimes(task);
 
                 // Se assegnato a squadra, crea evento per ogni membro
-                if (task.assigned_team_id && task.assigned_team_id) {
-                    const team = await window.TeamsAPI.getById(task.assigned_team_id);
-                    
-                    if (team && team.membri) {
-                        team.membri.forEach(member => {
-                            const evt = {
-                                id: `task-${task.id}-member-${member.id}`,
-                                title: `${task.titolo} (${team.nome})`,
-                                start: times.start,
-                                allDay: times.allDay,
-                                backgroundColor: team.colore || '#3b82f6',
-                                borderColor: team.colore || '#3b82f6',
-                                extendedProps: {
-                                    taskId: task.id,
-                                    teamId: team.id,
-                                    teamName: team.nome,
-                                    userId: member.id,
-                                    userName: `${member.nome} ${member.cognome}`,
-                                    stato: task.stato,
-                                    priorita: task.priorita
-                                }
-                            };
-                            if (times.end) evt.end = times.end;
-                            events.push(evt);
-                        });
-                    }
+                if (task.assigned_team_id) {
+                    let teamMembers = [];
+                    let teamNome = task.team_name || 'Squadra';
+                    let teamColore = '#3b82f6';
+                    try {
+                        // Query diretta a team_members (più affidabile di teams_with_members)
+                        const { data: membersData } = await supabase
+                            .from('team_members')
+                            .select('user_id, users(id, nome, cognome)')
+                            .eq('team_id', task.assigned_team_id);
+                        if (membersData && membersData.length > 0) {
+                            teamMembers = membersData.map(m => m.users).filter(Boolean);
+                        }
+                        // Prendi colore e nome dalla vista se non in cache
+                        const team = await window.TeamsAPI.getById(task.assigned_team_id);
+                        if (team) {
+                            teamNome = team.nome || teamNome;
+                            teamColore = team.colore || teamColore;
+                            // Fallback: usa membri dalla vista se query diretta è vuota
+                            if (teamMembers.length === 0 && team.membri) {
+                                teamMembers = team.membri.filter(m => m && m.id);
+                            }
+                        }
+                    } catch(e) { console.warn('Team load error:', e); }
+
+                    teamMembers.forEach(member => {
+                        if (!member || !member.id) return;
+                        const evt = {
+                            id: `task-${task.id}-member-${member.id}`,
+                            title: `${task.titolo} (${teamNome})`,
+                            start: times.start,
+                            allDay: times.allDay,
+                            backgroundColor: teamColore,
+                            borderColor: teamColore,
+                            extendedProps: {
+                                taskId: task.id,
+                                teamId: task.assigned_team_id,
+                                teamName: teamNome,
+                                userId: member.id,
+                                userName: `${member.nome} ${member.cognome}`,
+                                stato: task.stato,
+                                priorita: task.priorita
+                            }
+                        };
+                        if (times.end) evt.end = times.end;
+                        events.push(evt);
+                    });
                 }
                 // Se multi-assegnazione (task_assignments)
                 else if (task.task_assignments && task.task_assignments.length > 0) {
