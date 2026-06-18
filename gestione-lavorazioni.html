@@ -3638,6 +3638,8 @@
                                                 <i class="fas fa-search" style="position:absolute;left:11px;color:#8b5cf6;font-size:13px;pointer-events:none;z-index:1"></i>
                                                 <input type="text" id="edit-preventivo-search" autocomplete="off"
                                                        placeholder="Clicca per vedere tutti, oppure cerca per numero…"
+                                                       oninput="if(window._editPrevSearchFn)window._editPrevSearchFn(this.value)"
+                                                       onfocus="if(window._editPrevSearchFn)window._editPrevSearchFn(this.value)"
                                                        style="width:100%;padding:10px 34px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box;cursor:pointer">
                                                 <i class="fas fa-chevron-down" id="edit-prev-chevron" style="position:absolute;right:10px;color:#8b5cf6;font-size:11px;pointer-events:none;transition:transform .2s"></i>
                                                 <button type="button" id="edit-prev-search-clear"
@@ -3844,15 +3846,15 @@
                         <span data-prev-id="${p.id}" style="display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600">
                             <i class="fas fa-file-invoice" style="font-size:10px"></i>
                             ${p.label.split('·').slice(0,2).join('·').trim()}
-                            <button type="button" onclick="_removeEditPrev('${p.id}')" style="background:none;border:none;color:#e9d5ff;cursor:pointer;padding:0;margin-left:2px;font-size:12px">✕</button>
+                            <button type="button" onclick="window._removeEditPrev('${p.id}')" style="background:none;border:none;color:#e9d5ff;cursor:pointer;padding:0;margin-left:2px;font-size:12px">✕</button>
                         </span>`).join('');
                 }
 
-                function _removeEditPrev(id) {
+                window._removeEditPrev = function(id) {
                     window._editPrevSelezionati = window._editPrevSelezionati.filter(p => p.id !== id);
-                    _editPrevSelectedId = window._editPrevSelezionati.length ? window._editPrevSelezionati[window._editPrevSelezionati.length-1].id : null;
+                    window._editPrevSelectedId = window._editPrevSelezionati.length ? window._editPrevSelezionati[window._editPrevSelezionati.length-1].id : null;
                     _renderEditPrevChips();
-                }
+                };
 
                 function _editPrevPick(id, label) {
                     if (!window._editPrevSelezionati.find(p => p.id === id)) {
@@ -3887,6 +3889,8 @@
 
                 // Collega eventi input/focus al campo ricerca
                 const _editPrevInp = document.getElementById('edit-preventivo-search');
+                // Esponi globalmente per oninput/onfocus inline
+                window._editPrevSearchFn = _editPrevSearch;
                 if (_editPrevInp) {
                     _editPrevInp.addEventListener('input', function() { _editPrevSearch(this.value); });
                     _editPrevInp.addEventListener('focus', function() { _editPrevSearch(this.value); });
