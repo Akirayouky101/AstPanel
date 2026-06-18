@@ -868,14 +868,18 @@
                 <p class="text-sm font-bold text-blue-800 mb-3"><i class="fas fa-plus-circle mr-1"></i> Crea Nuovo Fornitore</p>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="col-span-2 flex items-center gap-3 mb-1">
-                        <div id="nfLogoPreview" class="w-12 h-12 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 overflow-hidden flex-shrink-0">
+                        <div id="nfLogoPreview" class="w-12 h-12 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 overflow-hidden flex-shrink-0 cursor-pointer" onclick="document.getElementById('nfLogoFile').click()" title="Clicca per caricare logo">
                             <i class="fas fa-image text-lg"></i>
                         </div>
                         <div class="flex-1">
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">URL Logo (opzionale)</label>
-                            <input type="url" id="nfLogoUrl" placeholder="https://esempio.com/logo.png"
-                                   oninput="aggiornaLogoPreview('nfLogoPreview', this.value)"
-                                   class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Logo fornitore (jpg/png, opzionale)</label>
+                            <div class="flex items-center gap-2">
+                                <label class="cursor-pointer px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100 transition flex items-center gap-1">
+                                    <i class="fas fa-upload text-xs"></i> Carica immagine
+                                    <input type="file" id="nfLogoFile" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="anteprimaLogoFile(this)">
+                                </label>
+                                <span id="nfLogoFileName" class="text-xs text-gray-500 truncate max-w-32">Nessun file</span>
+                            </div>
                         </div>
                     </div>
                     <div class="col-span-2">
@@ -1094,9 +1098,12 @@
             } else {
                 form.classList.add('hidden');
                 btn.classList.remove('hidden');
-                ['nfRagioneSociale','nfPartitaIva','nfTelefono','nfEmail','nfCitta','nfLogoUrl'].forEach(id => {
+                ['nfRagioneSociale','nfPartitaIva','nfTelefono','nfEmail','nfCitta'].forEach(id => {
                     document.getElementById(id).value = '';
                 });
+                document.getElementById('nfLogoFile').value = '';
+                document.getElementById('nfLogoFileName').textContent = 'Nessun file';
+                document.getElementById('nfLogoPreview').innerHTML = '<i class="fas fa-image text-lg"></i>';
             }
         }
 
@@ -1113,6 +1120,25 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvataggio...';
 
+            // Upload logo se selezionato
+            window._nfLogoUploadedUrl = null;
+            const logoFile = document.getElementById('nfLogoFile')?.files?.[0];
+            if (logoFile) {
+                try {
+                    const ext = logoFile.name.split('.').pop().toLowerCase();
+                    const fileName = `fornitore_${Date.now()}.${ext}`;
+                    const { error: upErr } = await supabase.storage
+                        .from('loghi-fornitori')
+                        .upload(fileName, logoFile, { upsert: true, contentType: logoFile.type });
+                    if (!upErr) {
+                        const { data: urlData } = supabase.storage.from('loghi-fornitori').getPublicUrl(fileName);
+                        window._nfLogoUploadedUrl = urlData?.publicUrl || null;
+                    } else {
+                        console.warn('Upload logo fallito:', upErr.message);
+                    }
+                } catch (e) { console.warn('Upload logo errore:', e); }
+            }
+
             try {
                 const payload = {
                     ragione_sociale: ragioneSociale,
@@ -1120,7 +1146,7 @@
                     telefono: document.getElementById('nfTelefono').value.trim() || null,
                     email: document.getElementById('nfEmail').value.trim() || null,
                     citta: document.getElementById('nfCitta').value.trim() || null,
-                    logo_url: document.getElementById('nfLogoUrl').value.trim() || null,
+                    logo_url: window._nfLogoUploadedUrl || null,
                     attivo: true,
                 };
 
@@ -1452,6 +1478,23 @@
             } else {
                 el.innerHTML = '<i class="fas fa-image text-lg"></i>';
             }
+        }
+
+        function anteprimaLogoFile(input) {
+            const file = input.files?.[0];
+            const nameEl = document.getElementById('nfLogoFileName');
+            const preview = document.getElementById('nfLogoPreview');
+            if (!file) {
+                if (nameEl) nameEl.textContent = 'Nessun file';
+                if (preview) preview.innerHTML = '<i class="fas fa-image text-lg"></i>';
+                return;
+            }
+            if (nameEl) nameEl.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = e => {
+                if (preview) preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain p-1">`;
+            };
+            reader.readAsDataURL(file);
         }
 
         function renderProdottiPerFornitore() {
