@@ -194,12 +194,17 @@
         <!-- Filters -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
             <div class="flex flex-wrap items-center gap-3">
-                <!-- Employee multi-select chips -->
+                <!-- Employee filter button -->
                 <input type="hidden" id="filterEmployee">
-                <div id="employeeFilterWrap" class="flex items-center gap-2 flex-wrap flex-1">
-                    <!-- renderEmployeeChips() will inject pills here -->
-                </div>
-                <!-- Bottone Assegna Colori -->
+                <div id="employeeFilterWrap" class="hidden"></div>
+                <button type="button" id="filterEmployeeBtn" onclick="openEmployeeFilterDropdown(event)"
+                        class="flex items-center gap-2 px-4 py-2.5 border-2 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+                        style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">
+                    <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span id="filterEmployeeBtnLabel">Tutti i dipendenti</span>
+                    <svg style="width:13px;height:13px;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <!-- Bottone Colori -->
                 <button type="button" onclick="openColorAssignModal()"
                         class="flex items-center gap-1.5 px-3 py-2.5 bg-white border-2 border-gray-200 text-gray-500 rounded-xl text-sm font-semibold hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-all flex-shrink-0"
                         title="Assegna colori ai dipendenti">
@@ -689,43 +694,91 @@
             window.USER_COLORS = stored;
         }
 
-        // Palette colori disponibili
-        const COLOR_PALETTE_OPTIONS = [
-            '#4f46e5','#7c3aed','#a855f7','#ec4899','#db2777',
-            '#dc2626','#ea580c','#d97706','#ca8a04','#65a30d',
-            '#16a34a','#0891b2','#0284c7','#0369a1','#0d9488',
-            '#374151','#6b7280','#be123c','#7e22ce','#1d4ed8'
-        ];
-
-        function renderEmployeeChips() {
-            const wrap = document.getElementById('employeeFilterWrap');
-            if (!wrap) return;
+        function updateEmployeeFilterBtn() {
+            const btn = document.getElementById('filterEmployeeBtn');
+            const lbl = document.getElementById('filterEmployeeBtnLabel');
+            if (!btn || !lbl) return;
             const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
-            const allActive = selectedEmployeeIds.length === 0;
-            let html = `<button type="button" onclick="toggleEmployeeFilter('')"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-xs font-bold transition-all ${allActive ? 'bg-gray-800 border-gray-800 text-white shadow-md' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}"
-                title="Tutti i dipendenti">
-                <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Tutti
-            </button>`;
+            if (selectedEmployeeIds.length === 0) {
+                btn.style.cssText = 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;';
+                lbl.textContent = 'Tutti i dipendenti';
+            } else {
+                // Mostra avatar colorati dei selezionati + conteggio
+                const sorted = [...allUsers].filter(u => selectedEmployeeIds.includes(u.id));
+                const avatarsHtml = sorted.slice(0,4).map(u => {
+                    const c = colors[u.id] || '#6b7280';
+                    const ini = (u.nome[0]||'')+(u.cognome[0]||'');
+                    return `<span style="width:18px;height:18px;border-radius:50%;background:${c};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;border:1.5px solid white;margin-left:-4px;">${ini}</span>`;
+                }).join('');
+                const extra = sorted.length > 4 ? `<span style="font-size:11px;font-weight:700;color:#4f46e5;">+${sorted.length-4}</span>` : '';
+                lbl.innerHTML = `<span style="display:inline-flex;align-items:center;margin-left:4px;">${avatarsHtml}</span>${extra}&nbsp;${sorted.length === 1 ? sorted[0].nome+' '+sorted[0].cognome : sorted.length+' dipendenti'}`;
+                btn.style.cssText = 'background:#eef2ff;border-color:#6366f1;color:#4f46e5;';
+            }
+        }
+
+        // alias per compatibilità (non fa nulla di visibile, il wrap è hidden)
+        function renderEmployeeChips() { updateEmployeeFilterBtn(); }
+
+        // ===== DROPDOWN SELEZIONE DIPENDENTI =====
+        function openEmployeeFilterDropdown(event) {
+            document.querySelectorAll('.emp-filter-dropdown').forEach(el => el.remove());
+            const btn = document.getElementById('filterEmployeeBtn');
+            const rect = btn.getBoundingClientRect();
+            const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
             const sorted = [...allUsers].sort((a,b) => (a.nome+a.cognome).localeCompare(b.nome+b.cognome));
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'emp-filter-dropdown';
+            dropdown.style.cssText = `position:fixed;top:${rect.bottom+6}px;left:${rect.left}px;z-index:99999;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);border:1px solid #e5e7eb;min-width:220px;max-width:280px;overflow:hidden;`;
+
+            // Header
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:10px 14px 8px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;';
+            header.innerHTML = `<span style="font-size:12px;font-weight:700;color:#374151;">Filtra dipendenti</span><button onclick="selectedEmployeeIds=[];updateEmployeeFilterBtn();filterCalendar();document.querySelectorAll('.emp-filter-dropdown').forEach(e=>e.remove());" style="font-size:11px;color:#6366f1;font-weight:600;background:none;border:none;cursor:pointer;padding:0;">Tutti</button>`;
+            dropdown.appendChild(header);
+
+            // Lista
+            const list = document.createElement('div');
+            list.style.cssText = 'max-height:280px;overflow-y:auto;padding:6px;';
             sorted.forEach(u => {
                 const color = colors[u.id] || '#6b7280';
+                const ini = (u.nome[0]||'')+(u.cognome[0]||'');
                 const isActive = selectedEmployeeIds.includes(u.id);
-                const initials = (u.nome[0] || '') + (u.cognome[0] || '');
-                const lightColor = color + '22';
-                html += `<button type="button" onclick="toggleEmployeeFilter('${u.id}')"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border-2 text-xs font-bold transition-all"
-                    style="${isActive
-                        ? `background:${color};border-color:${color};color:white;box-shadow:0 2px 8px ${color}55;`
-                        : `background:${lightColor};border-color:${color}44;color:${color};`}"
-                    title="${u.nome} ${u.cognome}">
-                    <span style="width:16px;height:16px;border-radius:50%;background:${isActive ? 'rgba(255,255,255,0.3)' : color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${initials}</span>
-                    ${u.nome} ${u.cognome}
-                </button>`;
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.style.cssText = `width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:none;cursor:pointer;text-align:left;transition:background 0.1s;background:${isActive ? '#eef2ff' : 'transparent'};`;
+                row.innerHTML = `
+                    <span style="width:28px;height:28px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">${ini}</span>
+                    <span style="flex:1;font-size:13px;font-weight:${isActive?'700':'500'};color:${isActive?'#4f46e5':'#374151'};">${u.nome} ${u.cognome}</span>
+                    ${isActive ? `<span style="width:16px;height:16px;border-radius:50%;background:#4f46e5;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="9" height="9" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></span>` : ''}
+                `;
+                row.onmouseover = () => { if (!isActive) row.style.background = '#f9fafb'; };
+                row.onmouseout  = () => { if (!isActive) row.style.background = 'transparent'; };
+                row.onclick = () => {
+                    const idx = selectedEmployeeIds.indexOf(u.id);
+                    if (idx > -1) selectedEmployeeIds.splice(idx, 1);
+                    else selectedEmployeeIds.push(u.id);
+                    updateEmployeeFilterBtn();
+                    filterCalendar();
+                    // Riapri il dropdown aggiornato
+                    dropdown.remove();
+                    openEmployeeFilterDropdown();
+                };
+                list.appendChild(row);
             });
-            wrap.innerHTML = html;
+            dropdown.appendChild(list);
+            document.body.appendChild(dropdown);
+
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                        dropdown.remove();
+                        document.removeEventListener('click', handler);
+                    }
+                });
+            }, 50);
         }
+        window.openEmployeeFilterDropdown = openEmployeeFilterDropdown;
 
         // ===== MODALE ASSEGNA COLORI =====
         function openColorAssignModal() {
@@ -798,7 +851,7 @@
                 if (idx > -1) selectedEmployeeIds.splice(idx, 1);
                 else selectedEmployeeIds.push(userId);
             }
-            renderEmployeeChips();
+            updateEmployeeFilterBtn();
             filterCalendar();
         }
         window.toggleEmployeeFilter = toggleEmployeeFilter;
@@ -815,10 +868,9 @@
         async function loadEmployees() {
             try {
                 allUsers = await window.UsersAPI.getAll();
-                console.log('👥 Dipendenti caricati:', allUsers);
                 assignUserColors(allUsers);
-                window.getUserColor = getUserColor; // esponi per data-migration.js
-                renderEmployeeChips();
+                window.getUserColor = getUserColor;
+                updateEmployeeFilterBtn();
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento dipendenti:', error);
@@ -1039,9 +1091,9 @@
         }
 
         function resetFilters() {
-            // Reset employee chips
+            // Reset employee filter
             selectedEmployeeIds = [];
-            renderEmployeeChips();
+            updateEmployeeFilterBtn();
             
             // Reset other filters
             document.getElementById('filterPriority').value = '';
