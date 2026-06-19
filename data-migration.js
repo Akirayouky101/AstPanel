@@ -452,17 +452,17 @@ window.dataManager = {
                 }
                 // Se multi-assegnazione (task_assignments)
                 else if (task.task_assignments && task.task_assignments.length > 0) {
-                    const priorityColors = { 'alta': '#ef4444', 'media': '#f59e0b', 'bassa': '#10b981' };
                     task.task_assignments.forEach(a => {
                         const u = a.users;
                         if (!u) return;
+                        const userColor = (window.USER_COLORS && window.USER_COLORS[a.user_id]) || '#6366f1';
                         const evt = {
                             id: `task-${task.id}-user-${a.user_id}`,
                             title: `${task.titolo} (${u.nome} ${u.cognome})`,
                             start: times.start,
                             allDay: times.allDay,
-                            backgroundColor: priorityColors[task.priorita] || '#6366f1',
-                            borderColor: priorityColors[task.priorita] || '#6366f1',
+                            backgroundColor: userColor,
+                            borderColor: userColor,
                             extendedProps: {
                                 taskId: task.id,
                                 userId: a.user_id,
@@ -479,19 +479,15 @@ window.dataManager = {
                 }
                 // Se assegnato a singolo utente
                 else if (task.assigned_user_id) {
-                    const priorityColors = {
-                        'alta': '#ef4444',
-                        'media': '#f59e0b',
-                        'bassa': '#10b981'
-                    };
+                    const userColor = (window.USER_COLORS && window.USER_COLORS[task.assigned_user_id]) || '#3b82f6';
 
                     const evt = {
                         id: `task-${task.id}`,
                         title: task.titolo,
                         start: times.start,
                         allDay: times.allDay,
-                        backgroundColor: priorityColors[task.priorita] || '#3b82f6',
-                        borderColor: priorityColors[task.priorita] || '#3b82f6',
+                        backgroundColor: userColor,
+                        borderColor: userColor,
                         extendedProps: {
                             taskId: task.id,
                             userId: task.assigned_user_id,
