@@ -123,154 +123,144 @@
         #employeeFilterWrap { gap: 6px; }
         #employeeFilterWrap button { white-space: nowrap; transition: all 0.15s ease; }
         #employeeFilterWrap button:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+        /* Google Calendar look */
+        body { font-family: 'Google Sans', Roboto, Arial, sans-serif !important; background: white !important; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #e8eaed !important; }
+        .fc .fc-daygrid-day { min-height: 90px; }
+        .mc-day:hover { background: #f1f3f4 !important; }
+        .mc-today { background: #1a73e8 !important; color: white !important; font-weight: 600 !important; }
     </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Sidebar -->
-    <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
-        <div class="flex items-center justify-center h-16 gradient-bg">
-            <h1 class="text-white text-xl font-bold">AST Panel</h1>
+<body class="bg-white" style="height:100vh;overflow:hidden;">
+    <!-- Sidebar Google-style -->
+    <div class="fixed inset-y-0 left-0 bg-white z-50 flex flex-col" style="width:256px;border-right:1px solid #e8eaed;overflow:hidden;">
+        <!-- Logo -->
+        <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:64px;flex-shrink:0;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#1a73e8" stroke-width="1.5"/><line x1="16" y1="2" x2="16" y2="6" stroke="#1a73e8" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="#1a73e8" stroke-width="1.5" stroke-linecap="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="#1a73e8" stroke-width="1.5"/></svg>
+            <span style="font-size:20px;color:#3c4043;font-weight:400;letter-spacing:-0.2px;">AST Panel</span>
         </div>
-        <nav class="mt-8">
-            <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="home" class="w-5 h-5 mr-3"></i>
-                Dashboard
+        <!-- Crea button -->
+        <div style="padding:4px 12px 10px;flex-shrink:0;">
+            <button onclick="openCreateTaskModal(new Date().toISOString().split('T')[0])"
+                    style="display:flex;align-items:center;gap:10px;padding:10px 20px 10px 14px;background:white;border:1px solid #dadce0;border-radius:24px;box-shadow:0 1px 3px rgba(0,0,0,0.12);cursor:pointer;font-size:14px;color:#3c4043;font-weight:500;transition:box-shadow 0.2s;white-space:nowrap;"
+                    onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.12)'">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#e8f0fe"><rect x="2" y="2" width="20" height="20" rx="10" fill="#e8f0fe"/><line x1="12" y1="7" x2="12" y2="17" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"/><line x1="7" y1="12" x2="17" y2="12" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"/></svg>
+                Nuova lavorazione
+            </button>
+        </div>
+        <!-- Mini Calendar -->
+        <div id="miniCalContainer" style="padding:0 8px 4px;flex-shrink:0;"></div>
+        <!-- Nav Links -->
+        <nav style="flex:1;overflow-y:auto;padding:4px 0;">
+            <a href="admin-functional.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="home" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Dashboard
             </a>
-            <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="users" class="w-5 h-5 mr-3"></i>
-                Gestione Utenti
+            <a href="gestione-utenti.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="users" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Utenti
             </a>
-            <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>
-                Gestione Clienti
+            <a href="gestione-clienti.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="building-2" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Clienti
             </a>
-            <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
-                Gestione Lavorazioni
+            <a href="gestione-lavorazioni.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="clipboard-list" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Lavorazioni
             </a>
-            <a href="calendario-admin.html" class="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
-                <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>
-                Calendario
+            <a href="calendario-admin.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#1a73e8;text-decoration:none;font-weight:700;background:#e8f0fe;">
+                <i data-lucide="calendar" style="width:18px;height:18px;flex-shrink:0;color:#1a73e8;"></i>Calendario
             </a>
-            <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>
-                Gestione Richieste
+            <a href="gestione-richieste.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="file-text" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Richieste
             </a>
-            <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                Comunicazioni
+            <a href="comunicazioni.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="message-circle" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Comunicazioni
             </a>
-            
-            <div class="mt-8 border-t pt-4">
-                <a href="pannello-utente.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
-                    <i data-lucide="user" class="w-5 h-5 mr-3"></i>
-                    Pannello Utente
-                </a>
-                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
-                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
-                    Logout
-                </a>
-            </div>
+            <div style="border-top:1px solid #e8eaed;margin:6px 12px 6px 0;"></div>
+            <a href="pannello-utente.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="user" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Pannello Utente
+            </a>
+            <a href="#" onclick="logout()" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#d93025;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#fce8e6'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="log-out" style="width:18px;height:18px;flex-shrink:0;color:#d93025;"></i>Logout
+            </a>
         </nav>
+        <!-- Dipendenti ("I miei calendari") -->
+        <div style="border-top:1px solid #e8eaed;flex-shrink:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px 16px;">
+                <span style="font-size:11px;font-weight:600;color:#5f6368;text-transform:uppercase;letter-spacing:0.07em;">Dipendenti</span>
+                <button onclick="openEmployeeFilterModal()" title="Configura colori"
+                        style="width:24px;height:24px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                        onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                </button>
+            </div>
+            <div id="sidebarEmployees" style="padding:0 8px 12px;max-height:180px;overflow-y:auto;"></div>
+        </div>
     </div>
 
     <!-- Main Content -->
-    <div class="ml-64 p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">
-                    <i data-lucide="calendar" class="w-8 h-8 inline mr-2"></i>
-                    Calendario Lavorazioni
-                </h2>
-                <p class="text-gray-600">Visualizza e gestisci tutte le lavorazioni programmate</p>
+    <div style="margin-left:256px;display:flex;flex-direction:column;height:100vh;">
+        <!-- Top bar Google-style -->
+        <div style="display:flex;align-items:center;gap:8px;height:64px;padding:0 20px;border-bottom:1px solid #e8eaed;flex-shrink:0;background:white;position:sticky;top:0;z-index:40;">
+            <button onclick="calendar.today();updateCalTopTitle();"
+                    style="padding:7px 16px;border:1px solid #dadce0;border-radius:4px;background:white;font-size:14px;font-weight:500;color:#3c4043;cursor:pointer;transition:background 0.1s;"
+                    onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Oggi</button>
+            <button onclick="calendar.prev();updateCalTopTitle();"
+                    style="width:32px;height:32px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;color:#3c4043;line-height:1;"
+                    onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">&#8249;</button>
+            <button onclick="calendar.next();updateCalTopTitle();"
+                    style="width:32px;height:32px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;color:#3c4043;line-height:1;"
+                    onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">&#8250;</button>
+            <h1 id="calTopTitle" style="font-size:22px;font-weight:400;color:#3c4043;min-width:180px;white-space:nowrap;margin:0;"></h1>
+            <div style="flex:1;"></div>
+            <!-- Filtri -->
+            <select id="filterPriority" onchange="filterCalendar()"
+                    style="padding:6px 10px;border:1px solid #dadce0;border-radius:4px;font-size:13px;color:#3c4043;background:white;cursor:pointer;outline:none;">
+                <option value="">Tutte le priorità</option>
+                <option value="alta">🔴 Alta</option>
+                <option value="media">🟡 Media</option>
+                <option value="bassa">🟢 Bassa</option>
+            </select>
+            <select id="filterStatus" onchange="filterCalendar()"
+                    style="padding:6px 10px;border:1px solid #dadce0;border-radius:4px;font-size:13px;color:#3c4043;background:white;cursor:pointer;outline:none;">
+                <option value="">Tutti gli stati</option>
+                <option value="da_fare">Da Fare</option>
+                <option value="in_corso">In Corso</option>
+                <option value="revisione">In Revisione</option>
+                <option value="completato">Completato</option>
+            </select>
+            <button onclick="resetFilters()"
+                    style="padding:6px 10px;border:1px solid #dadce0;border-radius:4px;font-size:13px;color:#3c4043;background:white;cursor:pointer;transition:background 0.1s;"
+                    onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Reset</button>
+            <!-- Hidden elementi per compatibilità JS -->
+            <input type="hidden" id="filterEmployee">
+            <div id="employeeFilterWrap" class="hidden"></div>
+            <button type="button" id="filterEmployeeBtn" class="hidden"><span id="filterEmployeeBtnLabel"></span></button>
+            <!-- View selector -->
+            <div style="display:flex;border:1px solid #dadce0;border-radius:4px;overflow:hidden;margin-left:4px;">
+                <button id="viewBtnMonth" onclick="calendar.changeView('dayGridMonth');updateCalTopTitle();setActiveViewBtn('viewBtnMonth');"
+                        style="padding:6px 14px;border:none;border-right:1px solid #dadce0;font-size:13px;font-weight:600;color:#1a73e8;background:#e8f0fe;cursor:pointer;">Mese</button>
+                <button id="viewBtnWeek" onclick="calendar.changeView('timeGridWeek');updateCalTopTitle();setActiveViewBtn('viewBtnWeek');"
+                        style="padding:6px 14px;border:none;border-right:1px solid #dadce0;font-size:13px;font-weight:500;color:#3c4043;background:white;cursor:pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Settimana</button>
+                <button id="viewBtnList" onclick="calendar.changeView('listWeek');updateCalTopTitle();setActiveViewBtn('viewBtnList');"
+                        style="padding:6px 14px;border:none;font-size:13px;font-weight:500;color:#3c4043;background:white;cursor:pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Lista</button>
             </div>
-            <button onclick="openCreateTaskModal(new Date().toISOString().split('T')[0])" class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg font-bold flex items-center gap-2">
-                <i data-lucide="plus" class="w-5 h-5"></i>
-                Nuova Lavorazione
+        </div>
+        <!-- Calendar fills the rest -->
+        <div style="flex:1;overflow:hidden;">
+            <div id="calendar" style="height:100%;"></div>
+        </div>
+        <!-- Task Summary (compact bottom bar) -->
+        <div style="background:white;border-top:1px solid #e8eaed;flex-shrink:0;">
+            <button onclick="toggleTaskSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border:none;background:white;cursor:pointer;transition:background 0.1s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i data-lucide="list" style="width:16px;height:16px;color:#5f6368;flex-shrink:0;"></i>
+                    <span style="font-size:13px;font-weight:500;color:#3c4043;">Riepilogo Lavorazioni</span>
+                    <span id="taskCount" style="padding:1px 8px;background:#e8f0fe;color:#1a73e8;border-radius:12px;font-size:12px;font-weight:600;">0</span>
+                </div>
+                <i data-lucide="chevron-down" id="accordionIcon" style="width:16px;height:16px;color:#5f6368;transition:transform 0.2s;"></i>
             </button>
-        </div>
-
-        <!-- Filters -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
-            <div class="flex flex-wrap items-center gap-3">
-                <!-- Employee filter button -->
-                <input type="hidden" id="filterEmployee">
-                <div id="employeeFilterWrap" class="hidden"></div>
-                <button type="button" id="filterEmployeeBtn" onclick="openEmployeeFilterModal()"
-                        class="flex items-center gap-2 px-4 py-2.5 border-2 rounded-xl text-sm font-semibold transition-all cursor-pointer"
-                        style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">
-                    <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span id="filterEmployeeBtnLabel">Tutti i dipendenti</span>
-                </button>
-                <select id="filterPriority" onchange="filterCalendar()"
-                        class="px-4 py-2.5 bg-red-50 border-2 border-red-200 text-red-700 rounded-xl text-sm font-semibold focus:ring-0 focus:border-red-400 outline-none transition cursor-pointer">
-                    <option value="">⚡ Tutte le priorità</option>
-                    <option value="alta">🔴 Alta</option>
-                    <option value="media">🟡 Media</option>
-                    <option value="bassa">🟢 Bassa</option>
-                </select>
-                <select id="filterStatus" onchange="filterCalendar()"
-                        class="px-4 py-2.5 bg-purple-50 border-2 border-purple-200 text-purple-700 rounded-xl text-sm font-semibold focus:ring-0 focus:border-purple-400 outline-none transition cursor-pointer">
-                    <option value="">🔵 Tutti gli stati</option>
-                    <option value="da_fare">Da Fare</option>
-                    <option value="in_corso">In Corso</option>
-                    <option value="revisione">In Revisione</option>
-                    <option value="completato">Completato</option>
-                </select>
-                <button onclick="resetFilters()"
-                        class="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-semibold transition">
-                    ↺ Reset Filtri
-                </button>
+            <div id="taskSummaryAccordion" class="hidden" style="border-top:1px solid #e8eaed;max-height:220px;overflow-y:auto;">
+                <div id="taskSummary" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;"></div>
             </div>
         </div>
-
-        <!-- Calendar -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div id="calendar"></div>
-        </div>
-
-        <!-- Task Summary List -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <button onclick="toggleTaskSummary()" class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                <div class="flex items-center gap-3">
-                    <i data-lucide="list" class="w-5 h-5 text-gray-700"></i>
-                    <h3 class="text-lg font-semibold text-gray-800">Riepilogo Lavorazioni Filtrate</h3>
-                    <span id="taskCount" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">0 task</span>
-                </div>
-                <i data-lucide="chevron-down" id="accordionIcon" class="w-5 h-5 text-gray-600 transition-transform"></i>
-            </button>
-            <div id="taskSummaryAccordion" class="hidden border-t">
-                <div id="taskSummary" class="p-6 space-y-3">
-                    <!-- Summary will be populated dynamically -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Legenda</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="flex items-center">
-                    <div class="w-4 h-4 rounded bg-red-500"></div>
-                    <span class="ml-2 text-sm text-gray-700">Priorità Alta</span>
-                </div>
-                <div class="flex items-center">
-                    <div class="w-4 h-4 rounded bg-yellow-500"></div>
-                    <span class="ml-2 text-sm text-gray-700">Priorità Media</span>
-                </div>
-                <div class="flex items-center">
-                    <div class="w-4 h-4 rounded bg-green-500"></div>
-                    <span class="ml-2 text-sm text-gray-700">Priorità Bassa</span>
-                </div>
-                <div class="flex items-center">
-                    <div class="w-4 h-4 rounded bg-blue-500"></div>
-                    <span class="ml-2 text-sm text-gray-700">Priorità Default</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Task Details Modal -->
     <div id="taskDetailsModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -764,6 +754,7 @@
         function closeEmployeeFilterModal() {
             document.getElementById('colorAssignModal').classList.add('hidden');
             updateEmployeeFilterBtn();
+            renderSidebarEmployees();
             filterCalendar();
         }
 
@@ -772,6 +763,7 @@
             if (idx > -1) selectedEmployeeIds.splice(idx, 1);
             else selectedEmployeeIds.push(userId);
             updateEmployeeFilterBtn();
+            renderSidebarEmployees();
             filterCalendar();
             renderEmployeeFilterModal();
         }
@@ -819,8 +811,86 @@
         }
         window.toggleEmployeeFilter = toggleEmployeeFilter;
 
+        // ===== MINI CALENDARIO SIDEBAR =====
+        let miniCalYear = new Date().getFullYear();
+        let miniCalMonth = new Date().getMonth();
+        const MINI_MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+        function renderMiniCalendar() {
+            const container = document.getElementById('miniCalContainer');
+            if (!container) return;
+            const today = new Date();
+            const firstDay = new Date(miniCalYear, miniCalMonth, 1);
+            const lastDay = new Date(miniCalYear, miniCalMonth + 1, 0);
+            const startDow = (firstDay.getDay() + 6) % 7;
+            const dayLabels = ['L','M','M','G','V','S','D'];
+            let cells = '';
+            for (let i = 0; i < startDow; i++) cells += '<div></div>';
+            for (let d = 1; d <= lastDay.getDate(); d++) {
+                const isToday = d === today.getDate() && miniCalMonth === today.getMonth() && miniCalYear === today.getFullYear();
+                const ds = `${miniCalYear}-${String(miniCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                cells += `<div onclick="miniCalGoToDate('${ds}')" style="display:flex;align-items:center;justify-content:center;height:26px;cursor:pointer;"><span class="${isToday ? 'mc-today' : 'mc-day'}" style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;${isToday ? 'background:#1a73e8;color:white;font-weight:600;' : 'color:#3c4043;'}transition:background 0.1s;">${d}</span></div>`;
+            }
+            container.innerHTML = `<div style="padding:0 4px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;font-weight:500;color:#3c4043;">${MINI_MONTHS[miniCalMonth]} ${miniCalYear}</span><div style="display:flex;"><button onclick="miniCalPrev()" style="width:28px;height:28px;border-radius:50%;border:none;background:none;cursor:pointer;font-size:18px;color:#3c4043;display:flex;align-items:center;justify-content:center;line-height:1;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">&#8249;</button><button onclick="miniCalNext()" style="width:28px;height:28px;border-radius:50%;border:none;background:none;cursor:pointer;font-size:18px;color:#3c4043;display:flex;align-items:center;justify-content:center;line-height:1;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">&#8250;</button></div></div><div style="display:grid;grid-template-columns:repeat(7,1fr);">${dayLabels.map(l => `<div style="text-align:center;font-size:10px;font-weight:500;color:#70757a;padding:2px 0;">${l}</div>`).join('')}${cells}</div></div>`;
+        }
+        function miniCalPrev() { miniCalMonth--; if (miniCalMonth < 0) { miniCalMonth = 11; miniCalYear--; } renderMiniCalendar(); }
+        function miniCalNext() { miniCalMonth++; if (miniCalMonth > 11) { miniCalMonth = 0; miniCalYear++; } renderMiniCalendar(); }
+        function miniCalGoToDate(ds) { if (calendar) { calendar.gotoDate(ds); updateCalTopTitle(); } }
+        window.miniCalPrev = miniCalPrev;
+        window.miniCalNext = miniCalNext;
+        window.miniCalGoToDate = miniCalGoToDate;
+
+        // ===== TOP BAR SYNC =====
+        function updateCalTopTitle() {
+            if (!calendar) return;
+            const el = document.getElementById('calTopTitle');
+            if (el) el.textContent = calendar.view.title;
+            const d = calendar.getDate();
+            miniCalYear = d.getFullYear();
+            miniCalMonth = d.getMonth();
+            renderMiniCalendar();
+        }
+
+        function setActiveViewBtn(btnId) {
+            ['viewBtnMonth','viewBtnWeek','viewBtnList'].forEach(id => {
+                const b = document.getElementById(id);
+                if (!b) return;
+                if (id === btnId) { b.style.color='#1a73e8'; b.style.background='#e8f0fe'; b.style.fontWeight='600'; }
+                else { b.style.color='#3c4043'; b.style.background='white'; b.style.fontWeight='500'; }
+            });
+        }
+
+        // ===== SIDEBAR EMPLOYEE CHECKBOXES =====
+        function renderSidebarEmployees() {
+            const container = document.getElementById('sidebarEmployees');
+            if (!container || allUsers.length === 0) return;
+            const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
+            const sorted = [...allUsers].sort((a,b) => (a.nome+a.cognome).localeCompare(b.nome+b.cognome));
+            container.innerHTML = sorted.map(u => {
+                const color = colors[u.id] || '#6b7280';
+                const isChecked = selectedEmployeeIds.length === 0 || selectedEmployeeIds.includes(u.id);
+                const check = isChecked ? `<svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg>` : '';
+                return `<button type="button" onclick="toggleSidebarEmployee('${u.id}')" style="width:100%;display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:4px;border:none;background:transparent;cursor:pointer;text-align:left;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'"><span style="width:16px;height:16px;border-radius:3px;border:2px solid ${color};background:${isChecked ? color : 'transparent'};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s;">${check}</span><span style="font-size:13px;color:${isChecked ? '#3c4043' : '#9aa0a6'};transition:color 0.1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.nome} ${u.cognome}</span></button>`;
+            }).join('');
+        }
+        function toggleSidebarEmployee(userId) {
+            if (selectedEmployeeIds.length === 0) {
+                selectedEmployeeIds = allUsers.map(u => u.id).filter(id => id !== userId);
+            } else {
+                const idx = selectedEmployeeIds.indexOf(userId);
+                if (idx > -1) selectedEmployeeIds.splice(idx, 1);
+                else selectedEmployeeIds.push(userId);
+                if (selectedEmployeeIds.length === allUsers.length) selectedEmployeeIds = [];
+            }
+            renderSidebarEmployees();
+            updateEmployeeFilterBtn();
+            filterCalendar();
+        }
+        window.toggleSidebarEmployee = toggleSidebarEmployee;
+
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
+            renderMiniCalendar();
             await loadEmployees();
             await initCalendar();
         });
@@ -834,6 +904,7 @@
                 assignUserColors(allUsers);
                 window.getUserColor = getUserColor;
                 updateEmployeeFilterBtn();
+                renderSidebarEmployees();
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento dipendenti:', error);
@@ -853,19 +924,8 @@
                 
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'dayGridMonth',
-                    headerToolbar: {
-                        left: 'prev,next today',
-                        center: 'title',
-                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-                    },
+                    headerToolbar: false,
                     locale: 'it',
-                    buttonText: {
-                        today: 'Oggi',
-                        month: 'Mese',
-                        week: 'Settimana',
-                        day: 'Giorno',
-                        list: 'Lista'
-                    },
                     events: allEvents,
                     editable: false,
                     selectable: false,
@@ -883,9 +943,8 @@
                         // Add tooltip
                         info.el.title = `${info.event.title}\n${info.event.extendedProps.assigneeName}\nPriorità: ${info.event.extendedProps.priority}`;
                     },
-                    height: 'auto',
-                    contentHeight: 600,
-                    aspectRatio: 2,
+                    datesSet: function() { updateCalTopTitle(); },
+                    height: '100%',
                     slotMinTime: '06:00:00',
                     slotMaxTime: '21:00:00',
                     scrollTime: '07:30:00',
@@ -1054,11 +1113,9 @@
         }
 
         function resetFilters() {
-            // Reset employee filter
             selectedEmployeeIds = [];
             updateEmployeeFilterBtn();
-            
-            // Reset other filters
+            renderSidebarEmployees();
             document.getElementById('filterPriority').value = '';
             document.getElementById('filterStatus').value = '';
             
