@@ -700,19 +700,93 @@
                 const color = colors[u.id] || '#6b7280';
                 const isActive = selectedEmployeeIds.includes(u.id);
                 const initials = (u.nome[0] || '') + (u.cognome[0] || '');
-                const lightColor = color + '22'; // 13% opacity
-                html += `<button type="button" onclick="toggleEmployeeFilter('${u.id}')"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-xs font-bold transition-all"
-                    style="${isActive
-                        ? `background:${color};border-color:${color};color:white;box-shadow:0 2px 8px ${color}55;`
-                        : `background:${lightColor};border-color:${color}44;color:${color};`}"
-                    title="${u.nome} ${u.cognome}">
-                    <span style="width:16px;height:16px;border-radius:50%;background:${isActive ? 'rgba(255,255,255,0.3)' : color};color:${isActive ? 'white' : 'white'};display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${initials}</span>
-                    ${u.nome} ${u.cognome}
-                </button>`;
+                const lightColor = color + '22';
+                html += `<div class="employee-chip-wrap" style="position:relative;display:inline-flex;align-items:center;">
+                    <button type="button" onclick="toggleEmployeeFilter('${u.id}')"
+                        class="flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full border-2 text-xs font-bold transition-all"
+                        style="${isActive
+                            ? `background:${color};border-color:${color};color:white;box-shadow:0 2px 8px ${color}55;border-radius:999px 0 0 999px;`
+                            : `background:${lightColor};border-color:${color}44;color:${color};border-radius:999px 0 0 999px;`}"
+                        title="${u.nome} ${u.cognome} — clicca per filtrare">
+                        <span style="width:16px;height:16px;border-radius:50%;background:${isActive ? 'rgba(255,255,255,0.3)' : color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${initials}</span>
+                        ${u.nome} ${u.cognome}
+                    </button>
+                    <!-- color picker trigger -->
+                    <button type="button" onclick="openColorPicker('${u.id}', this)"
+                        title="Cambia colore"
+                        style="width:22px;height:28px;border:2px solid ${isActive ? color : color+'44'};border-left:none;border-radius:0 999px 999px 0;background:${isActive ? color : lightColor};display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;padding:0;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${color};border:1.5px solid rgba(255,255,255,0.8);display:block;"></span>
+                    </button>
+                </div>`;
             });
             wrap.innerHTML = html;
         }
+
+        // Mini palette per cambiare colore dipendente
+        const COLOR_PALETTE_OPTIONS = [
+            '#4f46e5','#7c3aed','#a855f7','#ec4899','#db2777',
+            '#dc2626','#ea580c','#d97706','#ca8a04','#65a30d',
+            '#16a34a','#0891b2','#0284c7','#0369a1','#0d9488',
+            '#374151','#6b7280','#be123c','#7e22ce','#1d4ed8'
+        ];
+
+        function openColorPicker(userId, btn) {
+            // Chiudi eventuali picker aperti
+            document.querySelectorAll('.cal-color-picker-popup').forEach(el => el.remove());
+
+            const rect = btn.getBoundingClientRect();
+            const popup = document.createElement('div');
+            popup.className = 'cal-color-picker-popup';
+            popup.style.cssText = `
+                position:fixed;top:${rect.bottom + 6}px;left:${rect.left}px;
+                z-index:99999;background:white;border-radius:12px;padding:10px;
+                box-shadow:0 8px 30px rgba(0,0,0,0.18);display:grid;
+                grid-template-columns:repeat(5,1fr);gap:6px;min-width:160px;
+                border:1px solid #e5e7eb;
+            `;
+
+            const stored = JSON.parse(localStorage.getItem('calUserColors') || '{}');
+            const currentColor = stored[userId] || '#6b7280';
+
+            // Label nome
+            const u = allUsers.find(x => x.id === userId);
+            const label = document.createElement('p');
+            label.style.cssText = 'grid-column:1/-1;font-size:11px;font-weight:700;color:#374151;margin:0 0 4px;text-align:center;';
+            label.textContent = u ? `${u.nome} ${u.cognome}` : 'Colore';
+            popup.appendChild(label);
+
+            COLOR_PALETTE_OPTIONS.forEach(c => {
+                const swatch = document.createElement('button');
+                swatch.type = 'button';
+                swatch.style.cssText = `width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${c === currentColor ? '#111' : 'transparent'};cursor:pointer;transition:transform 0.1s;`;
+                swatch.title = c;
+                swatch.onclick = () => {
+                    stored[userId] = c;
+                    localStorage.setItem('calUserColors', JSON.stringify(stored));
+                    window.USER_COLORS = stored;
+                    popup.remove();
+                    renderEmployeeChips();
+                    filterCalendar(); // aggiorna colori eventi
+                };
+                swatch.onmouseover = () => swatch.style.transform = 'scale(1.2)';
+                swatch.onmouseout  = () => swatch.style.transform = 'scale(1)';
+                popup.appendChild(swatch);
+            });
+
+            document.body.appendChild(popup);
+
+            // Chiudi cliccando fuori
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!popup.contains(e.target)) {
+                        popup.remove();
+                        document.removeEventListener('click', handler);
+                    }
+                });
+            }, 50);
+        }
+
+        window.openColorPicker = openColorPicker;
 
         function toggleEmployeeFilter(userId) {
             if (!userId) {
@@ -725,6 +799,7 @@
             renderEmployeeChips();
             filterCalendar();
         }
+        window.toggleEmployeeFilter = toggleEmployeeFilter;
 
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
@@ -1674,7 +1749,6 @@
         window.openFilterEmployeePicker = openFilterEmployeePicker;
         window.selectFilterEmployee = selectFilterEmployee;
         window.clearFilterEmployee = clearFilterEmployee;
-        window.toggleEmployeeFilter = toggleEmployeeFilter;
         window.renderEmployeeChips = renderEmployeeChips;
         window.getUserColor = getUserColor;
     </script>
