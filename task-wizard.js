@@ -134,7 +134,7 @@ class TaskWizard {
             assigned_user_id: null,
             assigned_team_id: null,
             assigned_users: [], // Array per multi-utente
-            tipo_assegnazione: 'user', // 'user', 'multi' o 'team'
+            tipo_assegnazione: 'multi', // sempre multi (dipendenti)
             
             // Step 3: Dettagli e Componenti
             ore_stimate: 0,
@@ -302,16 +302,8 @@ class TaskWizard {
     }
 
     async validateStep2() {
-        if (this.wizardData.tipo_assegnazione === 'user' && !this.wizardData.assigned_user_id) {
-            await showWizardAlert('Seleziona un dipendente', 'warning');
-            return false;
-        }
-        if (this.wizardData.tipo_assegnazione === 'multi' && (!this.wizardData.assigned_users || this.wizardData.assigned_users.length === 0)) {
-            await showWizardAlert('Seleziona almeno un membro per la lavorazione', 'warning');
-            return false;
-        }
-        if (this.wizardData.tipo_assegnazione === 'team' && !this.wizardData.assigned_team_id) {
-            await showWizardAlert('Seleziona una squadra', 'warning');
+        if (!this.wizardData.assigned_users || this.wizardData.assigned_users.length === 0) {
+            await showWizardAlert('Seleziona almeno un dipendente', 'warning');
             return false;
         }
         return true;
@@ -602,7 +594,7 @@ class TaskWizard {
 
     async applicaSuggerimentoDisponibilita(userId) {
         this.wizardData.assigned_user_id = userId;
-        this.wizardData.tipo_assegnazione = 'user';
+        this.wizardData.tipo_assegnazione = 'multi';
         this.wizardData.disponibilita_verificata = true;
         this.wizardData.suggerimento_accettato = true;
         
@@ -628,49 +620,16 @@ class TaskWizard {
         
         let assegnazioneHTML = '';
         
-        // ASSEGNAZIONE SINGOLA
-        if (this.wizardData.tipo_assegnazione === 'user' && this.wizardData.assigned_user_id) {
-            console.log('👤 [WIZARD] Caricando utente singolo:', this.wizardData.assigned_user_id);
-            
-            const { data: user } = await supabaseClient
-                .from('users')
-                .select('nome, cognome, ruolo, email')
-                .eq('id', this.wizardData.assigned_user_id)
-                .single();
-            
-            console.log('✅ [WIZARD] Utente caricato:', user);
-            
-            if (user) {
-                assegnazioneHTML = `
-                    <div class="bg-white border border-green-300 rounded-lg p-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
-                                ${user.nome[0]}${user.cognome[0]}
-                            </div>
-                            <div class="flex-1">
-                                <div class="font-semibold">${user.nome} ${user.cognome}</div>
-                                <div class="text-xs text-gray-500">${user.email}</div>
-                                <div class="text-xs font-medium text-green-700">${user.ruolo}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // ASSEGNAZIONE MULTIPLA
-        else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users?.length > 0) {
-            console.log('👥 [WIZARD] Caricando utenti multipli:', this.wizardData.assigned_users.length);
+        // ASSEGNAZIONE DIPENDENTI (sempre multi)
+        if (this.wizardData.assigned_users?.length > 0) {
+            console.log('👥 [WIZARD] Caricando dipendenti:', this.wizardData.assigned_users.length);
             
             const userIds = this.wizardData.assigned_users.map(u => u.user_id);
-            console.log('📋 [WIZARD] IDs utenti:', userIds);
             
             const { data: users } = await supabaseClient
                 .from('users')
                 .select('id, nome, cognome, ruolo, email')
                 .in('id', userIds);
-            
-            console.log('✅ [WIZARD] Utenti caricati:', users);
             
             assegnazioneHTML = `
                 <div class="space-y-2">
@@ -678,16 +637,16 @@ class TaskWizard {
                         const user = users?.find(u => u.id === assignment.user_id);
                         if (!user) return '';
                         return `
-                            <div class="bg-white border border-blue-300 rounded-lg p-3">
+                            <div class="bg-white border border-purple-300 rounded-lg p-3">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-3 flex-1">
-                                        <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                                        <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
                                             ${user.nome[0]}${user.cognome[0]}
                                         </div>
                                         <div class="flex-1">
                                             <div class="font-semibold">${user.nome} ${user.cognome}</div>
                                             <div class="text-xs text-gray-500">${user.email}</div>
-                                            <div class="text-xs font-medium text-blue-700">${user.ruolo}</div>
+                                            <div class="text-xs font-medium text-purple-700">${user.ruolo}</div>
                                         </div>
                                     </div>
                                     <div class="text-sm text-gray-600">
@@ -697,57 +656,6 @@ class TaskWizard {
                             </div>
                         `;
                     }).join('')}
-                </div>
-            `;
-        }
-        
-        // ASSEGNAZIONE SQUADRA
-        else if (this.wizardData.tipo_assegnazione === 'team' && this.wizardData.assigned_team_id) {
-            const { data: team } = await supabaseClient
-                .from('teams')
-                .select('nome, descrizione')
-                .eq('id', this.wizardData.assigned_team_id)
-                .single();
-            
-            const { data: members } = await supabaseClient
-                .from('team_members')
-                .select(`
-                    ruolo_team,
-                    users:user_id (
-                        nome,
-                        cognome,
-                        ruolo,
-                        email
-                    )
-                `)
-                .eq('team_id', this.wizardData.assigned_team_id);
-            
-            assegnazioneHTML = `
-                <div class="bg-purple-50 border border-purple-300 rounded-lg p-4 mb-3">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i data-lucide="users" class="w-5 h-5 text-purple-600"></i>
-                        <span class="font-bold text-purple-900">${team?.nome || 'Squadra'}</span>
-                    </div>
-                    ${team?.descrizione ? `<p class="text-sm text-gray-600 mb-3">${team.descrizione}</p>` : ''}
-                </div>
-                <div class="space-y-2">
-                    ${members?.map(member => {
-                        const user = member.users;
-                        return `
-                            <div class="bg-white border border-purple-200 rounded-lg p-3">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
-                                        ${user.nome[0]}${user.cognome[0]}
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold">${user.nome} ${user.cognome}</div>
-                                        <div class="text-xs text-gray-500">${user.email}</div>
-                                        <div class="text-xs font-medium text-purple-700">${user.ruolo} • ${member.ruolo_team}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('') || '<p class="text-gray-500 text-sm">Nessun membro</p>'}
                 </div>
             `;
         }
@@ -837,8 +745,8 @@ class TaskWizard {
                     <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
                         <i data-lucide="users" class="w-5 h-5"></i>
                         Assegnazione
-                        ${this.wizardData.tipo_assegnazione === 'multi' ? 
-                            `<span class="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">${this.wizardData.assigned_users?.length || 0} membri</span>` : ''}
+                        ${this.wizardData.assigned_users?.length > 0 ? 
+                            `<span class="text-xs bg-purple-500 text-white px-2 py-1 rounded-full">${this.wizardData.assigned_users.length} dipendenti</span>` : ''}
                     </h4>
                     ${assegnazioneHTML || '<p class="text-gray-500 text-sm">Nessuna assegnazione</p>'}
                 </div>
@@ -935,58 +843,13 @@ class TaskWizard {
     }
 
     populateStep2Form() {
-        const radioUser = document.getElementById('wizard-tipo-user');
-        const radioTeam = document.getElementById('wizard-tipo-team');
-        const radioMulti = document.getElementById('wizard-tipo-multi');
-
-        const dipContainer = document.getElementById('wizard-dipendente-container');
-        const squadraContainer = document.getElementById('wizard-squadra-container');
+        // Mostra sempre il multi-container (dipendenti)
         const multiContainer = document.getElementById('wizard-multi-container');
-
-        // Hide all first
-        dipContainer?.classList.add('hidden');
-        squadraContainer?.classList.add('hidden');
-        multiContainer?.classList.add('hidden');
-
-        if (this.wizardData.tipo_assegnazione === 'user') {
-            if (radioUser) radioUser.checked = true;
-            dipContainer?.classList.remove('hidden');
-        } else if (this.wizardData.tipo_assegnazione === 'multi') {
-            if (radioMulti) radioMulti.checked = true;
-            multiContainer?.classList.remove('hidden');
-        } else {
-            if (radioTeam) radioTeam.checked = true;
-            squadraContainer?.classList.remove('hidden');
-        }
+        multiContainer?.classList.remove('hidden');
         
-        const wDipId = this.wizardData.assigned_user_id || '';
-        document.getElementById('wizard-dipendente-select').value = wDipId;
-        if (wDipId) {
-            const cache = window._wizardDipendentiCache || [];
-            const d = cache.find(x => x.id === wDipId);
-            const nome = d ? `${d.nome} ${d.cognome}` : 'Dipendente';
-            const lbl = document.getElementById('wizardDipPickerLabel');
-            if (lbl) {
-                lbl.innerHTML = `<i data-lucide="user" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nome}</span>`;
-                lbl.classList.remove('text-gray-400');
-                document.getElementById('wizardDipPickerActions')?.classList.remove('hidden');
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
-        }
-        // Ripristina picker squadra
-        const wTeamId = this.wizardData.assigned_team_id || '';
-        document.getElementById('wizard-squadra-select').value = wTeamId;
-        if (wTeamId) {
-            const cache = window._wizardSquadreCache || [];
-            const sq = cache.find(x => x.id === wTeamId);
-            const nomeS = sq?.nome || 'Squadra';
-            const lblS = document.getElementById('wizardSquadraPickerLabel');
-            if (lblS) {
-                lblS.innerHTML = `<i data-lucide="users" class="w-4 h-4 inline mr-2 text-indigo-600"></i><span class="text-gray-800 font-semibold">${nomeS}</span>`;
-                lblS.classList.remove('text-gray-400');
-                document.getElementById('wizardSquadraPickerActions')?.classList.remove('hidden');
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
+        // Ripristina chip dipendenti selezionati se presenti
+        if (this.wizardData.assigned_users?.length > 0 && typeof window.multiUserAssignment !== 'undefined') {
+            window.multiUserAssignment.renderWizardPreview(this.wizardData.assigned_users);
         }
     }
 
@@ -1010,9 +873,11 @@ class TaskWizard {
     }
 
     saveStep2Data() {
-        this.wizardData.tipo_assegnazione = document.querySelector('input[name="tipo-assegnazione"]:checked').value;
-        this.wizardData.assigned_user_id = document.getElementById('wizard-dipendente-select').value; // hidden input
-        this.wizardData.assigned_team_id = document.getElementById('wizard-squadra-select').value;
+        // Sempre multi-assegnazione (dipendenti)
+        this.wizardData.tipo_assegnazione = 'multi';
+        this.wizardData.assigned_user_id = null;
+        this.wizardData.assigned_team_id = null;
+        // assigned_users viene già gestito da openWizardMultiUserPicker → window._editMultiPickerConfirm
     }
 
     saveStep3Data() {
@@ -1041,25 +906,18 @@ class TaskWizard {
             console.log('📊 [WIZARD] wizardData completo:', JSON.stringify(this.wizardData, null, 2));
 
             // Crea la lavorazione
-            // Per tipo_assegnazione === 'multi', assegniamo al primo utente della lista
+            // Sempre assegnazione multipla (dipendenti)
             let assignedUserId = null;
-            let assignedTeamId = null;
+            const assignedTeamId = null;
             
-            console.log('👥 [WIZARD] Tipo assegnazione:', this.wizardData.tipo_assegnazione);
+            console.log('👥 [WIZARD] Tipo assegnazione: multi (dipendenti)');
             
-            if (this.wizardData.tipo_assegnazione === 'user') {
-                assignedUserId = this.wizardData.assigned_user_id;
-                console.log('✅ [WIZARD] Assegnazione singola:', assignedUserId);
-            } else if (this.wizardData.tipo_assegnazione === 'team') {
-                assignedTeamId = this.wizardData.assigned_team_id;
-                console.log('✅ [WIZARD] Assegnazione team:', assignedTeamId);
-            } else if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
+            if (this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
                 // Per multi-user, assegna al primo utente (required dal constraint)
-                // assigned_users può contenere oggetti o solo IDs
                 const firstUser = this.wizardData.assigned_users[0];
                 assignedUserId = typeof firstUser === 'object' ? firstUser.user_id : firstUser;
-                console.log('✅ [WIZARD] Assegnazione multi-utente. Primo utente:', assignedUserId);
-                console.log('📋 [WIZARD] Totale utenti assegnati:', this.wizardData.assigned_users.length);
+                console.log('✅ [WIZARD] Assegnazione dipendenti. Primo utente:', assignedUserId);
+                console.log('📋 [WIZARD] Totale dipendenti assegnati:', this.wizardData.assigned_users.length);
             }
             
             const taskData = {
@@ -1086,13 +944,11 @@ class TaskWizard {
                 console.log('🔄 [WIZARD] UPDATE task esistente, ID:', this.wizardData.id);
                 
                 // Prima elimina assegnazioni vecchie
-                if (this.wizardData.tipo_assegnazione === 'multi') {
-                    await supabaseClient
-                        .from('task_assignments')
-                        .delete()
-                        .eq('task_id', this.wizardData.id);
-                    console.log('🗑️ [WIZARD] Assegnazioni vecchie eliminate');
-                }
+                await supabaseClient
+                    .from('task_assignments')
+                    .delete()
+                    .eq('task_id', this.wizardData.id);
+                console.log('🗑️ [WIZARD] Assegnazioni vecchie eliminate');
                 
                 const { data: updatedTask, error: updateError } = await supabaseClient
                     .from('tasks')
@@ -1127,9 +983,9 @@ class TaskWizard {
                 console.log('✅ [WIZARD] Task creato con ID:', task.id);
             }
 
-            // Salva assegnazioni multiple se tipo 'multi'
-            if (this.wizardData.tipo_assegnazione === 'multi' && this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
-                console.log('👥 [WIZARD] Salvando assegnazioni multiple...');
+            // Salva assegnazioni dipendenti
+            if (this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
+                console.log('👥 [WIZARD] Salvando assegnazioni dipendenti...');
                 console.log('📊 [WIZARD] Utenti da assegnare:', this.wizardData.assigned_users);
                 
                 const assignResult = await window.multiUserAssignment.salvaAssegnazioni(
@@ -1141,7 +997,7 @@ class TaskWizard {
                 if (!assignResult.success) {
                     console.error('❌ [WIZARD] Errore salvataggio assegnazioni:', assignResult.error);
                 } else {
-                    console.log('✅ [WIZARD] Assegnazioni multiple salvate con successo');
+                    console.log('✅ [WIZARD] Assegnazioni dipendenti salvate con successo');
                 }
             }
 
@@ -1295,7 +1151,7 @@ class TaskWizard {
             assigned_user_id: null,
             assigned_team_id: null,
             assigned_users: [],
-            tipo_assegnazione: 'user',
+            tipo_assegnazione: 'multi',
             ore_stimate: 0,
             costo_stimato: 0,
             indirizzo_lavoro: '',
