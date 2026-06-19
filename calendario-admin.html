@@ -197,19 +197,11 @@
                 <!-- Employee filter button -->
                 <input type="hidden" id="filterEmployee">
                 <div id="employeeFilterWrap" class="hidden"></div>
-                <button type="button" id="filterEmployeeBtn" onclick="openEmployeeFilterDropdown(event)"
+                <button type="button" id="filterEmployeeBtn" onclick="openEmployeeFilterModal()"
                         class="flex items-center gap-2 px-4 py-2.5 border-2 rounded-xl text-sm font-semibold transition-all cursor-pointer"
                         style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">
                     <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span id="filterEmployeeBtnLabel">Tutti i dipendenti</span>
-                    <svg style="width:13px;height:13px;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <!-- Bottone Colori -->
-                <button type="button" onclick="openColorAssignModal()"
-                        class="flex items-center gap-1.5 px-3 py-2.5 bg-white border-2 border-gray-200 text-gray-500 rounded-xl text-sm font-semibold hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-all flex-shrink-0"
-                        title="Assegna colori ai dipendenti">
-                    <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
-                    Colori
                 </button>
                 <select id="filterPriority" onchange="filterCalendar()"
                         class="px-4 py-2.5 bg-red-50 border-2 border-red-200 text-red-700 rounded-xl text-sm font-semibold focus:ring-0 focus:border-red-400 outline-none transition cursor-pointer">
@@ -716,100 +708,72 @@
             }
         }
 
-        // alias per compatibilità (non fa nulla di visibile, il wrap è hidden)
+        // alias per compatibilità
         function renderEmployeeChips() { updateEmployeeFilterBtn(); }
 
-        // ===== DROPDOWN SELEZIONE DIPENDENTI =====
-        function openEmployeeFilterDropdown(event) {
-            document.querySelectorAll('.emp-filter-dropdown').forEach(el => el.remove());
-            const btn = document.getElementById('filterEmployeeBtn');
-            const rect = btn.getBoundingClientRect();
-            const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
-            const sorted = [...allUsers].sort((a,b) => (a.nome+a.cognome).localeCompare(b.nome+b.cognome));
+        // ===== PALETTE COLORI =====
+        const COLOR_PALETTE_OPTIONS = [
+            '#4f46e5','#7c3aed','#a855f7','#ec4899','#db2777',
+            '#dc2626','#ea580c','#d97706','#ca8a04','#65a30d',
+            '#16a34a','#0891b2','#0284c7','#0369a1','#0d9488',
+            '#374151','#6b7280','#be123c','#7e22ce','#1d4ed8'
+        ];
 
-            const dropdown = document.createElement('div');
-            dropdown.className = 'emp-filter-dropdown';
-            dropdown.style.cssText = `position:fixed;top:${rect.bottom+6}px;left:${rect.left}px;z-index:99999;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);border:1px solid #e5e7eb;min-width:220px;max-width:280px;overflow:hidden;`;
-
-            // Header
-            const header = document.createElement('div');
-            header.style.cssText = 'padding:10px 14px 8px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;';
-            header.innerHTML = `<span style="font-size:12px;font-weight:700;color:#374151;">Filtra dipendenti</span><button onclick="selectedEmployeeIds=[];updateEmployeeFilterBtn();filterCalendar();document.querySelectorAll('.emp-filter-dropdown').forEach(e=>e.remove());" style="font-size:11px;color:#6366f1;font-weight:600;background:none;border:none;cursor:pointer;padding:0;">Tutti</button>`;
-            dropdown.appendChild(header);
-
-            // Lista
-            const list = document.createElement('div');
-            list.style.cssText = 'max-height:280px;overflow-y:auto;padding:6px;';
-            sorted.forEach(u => {
-                const color = colors[u.id] || '#6b7280';
-                const ini = (u.nome[0]||'')+(u.cognome[0]||'');
-                const isActive = selectedEmployeeIds.includes(u.id);
-                const row = document.createElement('button');
-                row.type = 'button';
-                row.style.cssText = `width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:none;cursor:pointer;text-align:left;transition:background 0.1s;background:${isActive ? '#eef2ff' : 'transparent'};`;
-                row.innerHTML = `
-                    <span style="width:28px;height:28px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">${ini}</span>
-                    <span style="flex:1;font-size:13px;font-weight:${isActive?'700':'500'};color:${isActive?'#4f46e5':'#374151'};">${u.nome} ${u.cognome}</span>
-                    ${isActive ? `<span style="width:16px;height:16px;border-radius:50%;background:#4f46e5;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="9" height="9" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></span>` : ''}
-                `;
-                row.onmouseover = () => { if (!isActive) row.style.background = '#f9fafb'; };
-                row.onmouseout  = () => { if (!isActive) row.style.background = 'transparent'; };
-                row.onclick = () => {
-                    const idx = selectedEmployeeIds.indexOf(u.id);
-                    if (idx > -1) selectedEmployeeIds.splice(idx, 1);
-                    else selectedEmployeeIds.push(u.id);
-                    updateEmployeeFilterBtn();
-                    filterCalendar();
-                    // Riapri il dropdown aggiornato
-                    dropdown.remove();
-                    openEmployeeFilterDropdown();
-                };
-                list.appendChild(row);
-            });
-            dropdown.appendChild(list);
-            document.body.appendChild(dropdown);
-
-            setTimeout(() => {
-                document.addEventListener('click', function handler(e) {
-                    if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-                        dropdown.remove();
-                        document.removeEventListener('click', handler);
-                    }
-                });
-            }, 50);
-        }
-        window.openEmployeeFilterDropdown = openEmployeeFilterDropdown;
-
-        // ===== MODALE ASSEGNA COLORI =====
-        function openColorAssignModal() {
+        // ===== MODALE UNICA: FILTRA + COLORI =====
+        function renderEmployeeFilterModal() {
             const stored = JSON.parse(localStorage.getItem('calUserColors') || '{}');
             const sorted = [...allUsers].sort((a,b) => (a.nome+a.cognome).localeCompare(b.nome+b.cognome));
 
-            let cardsHtml = sorted.map(u => {
+            const cardsHtml = sorted.map(u => {
                 const color = stored[u.id] || '#6b7280';
                 const initials = (u.nome[0]||'') + (u.cognome[0]||'');
+                const isSelected = selectedEmployeeIds.includes(u.id);
+                const borderStyle = isSelected
+                    ? `border:2.5px solid ${color};box-shadow:0 0 0 3px ${color}33;`
+                    : 'border:2px solid #e5e7eb;';
                 const swatches = COLOR_PALETTE_OPTIONS.map(c => `
-                    <button type="button" onclick="setUserColorInModal('${u.id}','${c}',this)"
-                        style="width:22px;height:22px;border-radius:50%;background:${c};border:2.5px solid ${c===color?'#111':'transparent'};cursor:pointer;transition:transform 0.1s;flex-shrink:0;"
+                    <button type="button" onclick="event.stopPropagation();setUserColorInModal('${u.id}','${c}',this)"
+                        style="width:20px;height:20px;border-radius:50%;background:${c};border:2.5px solid ${c===color?'#111':'transparent'};cursor:pointer;transition:transform 0.1s;flex-shrink:0;"
                         title="${c}"
-                        onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'"></button>
+                        onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'"></button>
                 `).join('');
                 return `
-                <div class="color-assign-card" data-user-id="${u.id}" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+                <div class="color-assign-card" data-user-id="${u.id}"
+                    onclick="toggleEmployeeFilterFromModal('${u.id}')"
+                    style="background:${isSelected ? color+'0d' : 'white'};${borderStyle}border-radius:16px;padding:13px 14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all 0.15s;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;box-shadow:0 2px 8px ${color}55;">${initials}</div>
-                        <div>
-                            <div style="font-size:13px;font-weight:700;color:#111827;">${u.nome} ${u.cognome}</div>
+                        <div class="card-avatar-${u.id}" style="width:36px;height:36px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;box-shadow:0 2px 8px ${color}55;">${initials}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:${isSelected?'800':'700'};color:${isSelected?color:'#111827'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.nome} ${u.cognome}</div>
                             <div style="font-size:11px;color:#6b7280;">${u.ruolo||'Dipendente'}</div>
                         </div>
-                        <div style="margin-left:auto;width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #e5e7eb;" id="color-preview-${u.id}"></div>
+                        ${isSelected ? `<span style="width:18px;height:18px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></span>` : `<div id="color-preview-${u.id}" style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #e5e7eb;flex-shrink:0;"></div>`}
                     </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;">${swatches}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;">${swatches}</div>
                 </div>`;
             }).join('');
 
             document.getElementById('colorModalCards').innerHTML = cardsHtml;
+        }
+
+        function openEmployeeFilterModal() {
+            renderEmployeeFilterModal();
             document.getElementById('colorAssignModal').classList.remove('hidden');
+        }
+
+        function closeEmployeeFilterModal() {
+            document.getElementById('colorAssignModal').classList.add('hidden');
+            updateEmployeeFilterBtn();
+            filterCalendar();
+        }
+
+        function toggleEmployeeFilterFromModal(userId) {
+            const idx = selectedEmployeeIds.indexOf(userId);
+            if (idx > -1) selectedEmployeeIds.splice(idx, 1);
+            else selectedEmployeeIds.push(userId);
+            updateEmployeeFilterBtn();
+            filterCalendar();
+            renderEmployeeFilterModal();
         }
 
         function setUserColorInModal(userId, color, swatchBtn) {
@@ -817,31 +781,30 @@
             stored[userId] = color;
             localStorage.setItem('calUserColors', JSON.stringify(stored));
             window.USER_COLORS = stored;
-            // Aggiorna preview e bordo swatches nella card
             const card = document.querySelector(`.color-assign-card[data-user-id="${userId}"]`);
             if (card) {
-                // Avatar
-                const avatar = card.querySelector('div[style*="border-radius:50%"]');
+                // Aggiorna avatar
+                const avatar = card.querySelector(`.card-avatar-${userId}`);
                 if (avatar) { avatar.style.background = color; avatar.style.boxShadow = `0 2px 8px ${color}55`; }
-                // Preview dot
+                // Aggiorna preview dot (se visibile)
                 const preview = document.getElementById('color-preview-' + userId);
                 if (preview) preview.style.background = color;
-                // Swatches border
-                card.querySelectorAll('button[style*="border-radius:50%"]').forEach(b => {
+                // Aggiorna bordi swatches
+                card.querySelectorAll('button[title]').forEach(b => {
                     b.style.border = `2.5px solid ${b.title === color ? '#111' : 'transparent'}`;
                 });
             }
-        }
-
-        function closeColorAssignModal() {
-            document.getElementById('colorAssignModal').classList.add('hidden');
-            renderEmployeeChips();
             filterCalendar();
         }
 
-        window.openColorAssignModal = openColorAssignModal;
+        // aliases compatibilità
+        window.openEmployeeFilterModal = openEmployeeFilterModal;
+        window.closeEmployeeFilterModal = closeEmployeeFilterModal;
+        window.toggleEmployeeFilterFromModal = toggleEmployeeFilterFromModal;
         window.setUserColorInModal = setUserColorInModal;
-        window.closeColorAssignModal = closeColorAssignModal;
+        // vecchie refs per retrocompatibilità
+        window.openColorAssignModal = openEmployeeFilterModal;
+        window.closeColorAssignModal = closeEmployeeFilterModal;
 
         function toggleEmployeeFilter(userId) {
             if (!userId) {
@@ -1835,25 +1798,27 @@
         </div>
     </div>
 
-    <!-- Modale Assegna Colori Dipendenti -->
+    <!-- Modale Filtra Dipendenti + Colori -->
     <div id="colorAssignModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4" style="background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);">
-        <div style="background:white;border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,0.25);width:100%;max-width:560px;display:flex;flex-direction:column;max-height:85vh;overflow:hidden;">
+        <div style="background:white;border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,0.25);width:100%;max-width:580px;display:flex;flex-direction:column;max-height:88vh;overflow:hidden;">
             <!-- Header -->
-            <div style="padding:20px 22px 16px;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="padding:18px 22px 14px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
                 <div>
-                    <p style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 2px;">Calendario</p>
-                    <h4 style="font-weight:800;color:white;font-size:18px;margin:0;display:flex;align-items:center;gap:8px;">
-                        <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
-                        Colori Dipendenti
+                    <p style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 2px;">Calendario</p>
+                    <h4 style="font-weight:800;color:white;font-size:17px;margin:0;display:flex;align-items:center;gap:8px;">
+                        <svg style="width:17px;height:17px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Filtra Dipendenti
                     </h4>
+                    <p style="font-size:10px;color:rgba(255,255,255,0.6);margin:4px 0 0;">Clicca una card per filtrare &nbsp;·&nbsp; Tocca il pallino per cambiare colore</p>
                 </div>
-                <button onclick="closeColorAssignModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.18);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.32)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'">&times;</button>
+                <button onclick="closeEmployeeFilterModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.18);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.32)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'">&times;</button>
             </div>
             <!-- Cards -->
             <div id="colorModalCards" style="overflow-y:auto;flex:1;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;"></div>
             <!-- Footer -->
-            <div style="padding:14px 20px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;flex-shrink:0;">
-                <button onclick="closeColorAssignModal()" style="padding:9px 22px;background:#4f46e5;color:white;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Fatto</button>
+            <div style="padding:12px 20px;border-top:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                <button onclick="selectedEmployeeIds=[];updateEmployeeFilterBtn();filterCalendar();renderEmployeeFilterModal();" style="padding:8px 18px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Tutti</button>
+                <button onclick="closeEmployeeFilterModal()" style="padding:8px 22px;background:#4f46e5;color:white;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Fatto</button>
             </div>
         </div>
     </div>
