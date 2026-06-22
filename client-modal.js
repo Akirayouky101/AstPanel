@@ -87,6 +87,55 @@ window.ClientModal = {
             } catch(e) { console.error('❌ [ClientModal] Errore caricamento scuole:', e); }
         }
 
+        let aziendaSection = '';
+        if (client.tipoCliente === 'struttura') {
+            try {
+                const aziende = await window.dataManager.getAziende();
+                const azienda = aziende.find(a => String(a.id) === String(clientData.azienda_id));
+                aziendaSection = '<div style="background:linear-gradient(135deg,#ecfeff,#ccfbf1);border:2px solid #2dd4bf;border-radius:12px;padding:12px;margin-bottom:4px">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+                    + '<div style="width:30px;height:30px;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:8px;display:flex;align-items:center;justify-content:center">'
+                    + '<i class="fas fa-building" style="color:white;font-size:11px"></i></div>'
+                    + '<p style="font-weight:700;color:#134e4a;font-size:13px">Azienda di riferimento</p></div>'
+                    + '<div style="background:#fff;border-radius:8px;padding:10px 12px;border:1px solid #d1fae5">'
+                    + '<div style="font-weight:600;color:#0f766e;font-size:13px">' + (azienda ? (azienda.nome || azienda.ragione_sociale) : 'Azienda non trovata') + '</div>'
+                    + (azienda && azienda.indirizzo ? '<div style="font-size:11px;color:#4b5563">' + azienda.indirizzo + '</div>' : '')
+                    + (azienda && azienda.telefono ? '<div style="font-size:11px;color:#4b5563">Telefono: ' + azienda.telefono + '</div>' : '')
+                    + (azienda && azienda.email ? '<div style="font-size:11px;color:#4b5563">Email: ' + azienda.email + '</div>' : '')
+                    + '</div></div>';
+            } catch(e) { console.error('❌ [ClientModal] Errore caricamento azienda collegata:', e); }
+        }
+
+        // Strutture collegate (mostrate quando il tipo è 'azienda')
+        let struttureSection = '';
+        if (client.tipoCliente === 'azienda') {
+            try {
+                const allCl = await window.dataManager.getClienti();
+                const strutture = allCl.filter(c => String(c.azienda_id) === String(clientId));
+                struttureSection = '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #6ee7b7;border-radius:12px;padding:12px;margin-bottom:4px">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+                    + '<div style="width:30px;height:30px;background:linear-gradient(135deg,#059669,#10b981);border-radius:8px;display:flex;align-items:center;justify-content:center">'
+                    + '<i class="fas fa-sitemap" style="color:white;font-size:11px"></i></div>'
+                    + '<p style="font-weight:700;color:#064e3b;font-size:13px">Strutture Collegate (' + strutture.length + ')</p></div>'
+                    + (strutture.length === 0
+                        ? '<p style="color:#6b7280;font-size:12px;padding:0 4px">Nessuna struttura collegata</p>'
+                        : strutture.map(function(s) {
+                            const nome = s.ragione_sociale || s.nome || 'N/A';
+                            const sub = [s.indirizzo, s.citta].filter(Boolean).join(', ');
+                            const tel = s.telefono ? '<div style="font-size:11px;color:#6b7280">📞 ' + s.telefono + '</div>' : '';
+                            return '<div style="background:#fff;border-radius:8px;padding:9px 11px;margin-bottom:6px;border:1px solid #a7f3d0;display:flex;align-items:center;gap:10px">'
+                                + '<div style="width:28px;height:28px;background:linear-gradient(135deg,#059669,#10b981);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+                                + '<i class="fas fa-building" style="color:white;font-size:10px"></i></div>'
+                                + '<div style="flex:1;min-width:0">'
+                                + '<div style="font-weight:600;color:#1f2937;font-size:13px">' + nome + '</div>'
+                                + (sub ? '<div style="font-size:11px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+                                + tel
+                                + '</div></div>';
+                        }).join(''))
+                    + '</div>';
+            } catch(e) { console.error('❌ [ClientModal] Errore caricamento strutture collegate:', e); }
+        }
+
         // Create modal HTML
         const modalHTML = `
             <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" onclick="if(event.target === this) window.ClientModal.close()">
@@ -213,6 +262,10 @@ window.ClientModal = {
                             </div>
                         </div>
                         ` : ''}
+
+                        ${aziendaSection}
+
+                        ${struttureSection}
 
                         ${condominiiSection}
 
