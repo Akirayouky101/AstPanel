@@ -17,9 +17,9 @@ window.dataManager = {
     async getAziende() {
         try {
             const { data, error } = await window.supabase
-                .from('clienti')
-                .select('id, nome, ragione_sociale, partita_iva, telefono, email, pec, tipo')
-                .eq('tipo', 'azienda')
+                .from('clients')
+                .select('id, nome, ragione_sociale, partita_iva, telefono, email, pec, tipo_cliente')
+                .eq('tipo_cliente', 'azienda')
                 .order('ragione_sociale', { ascending: true });
             if (error) throw error;
             // Normalizza: usa ragione_sociale come "nome" se nome è vuoto
