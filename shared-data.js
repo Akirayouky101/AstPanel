@@ -820,6 +820,7 @@ window.syncData = {
                             extendedProps: {
                                 taskId: task.id,
                                 assignee: memberId,
+                                userId: memberId,
                                 teamId: team.id,
                                 teamName: team.nome,
                                 priority: task.priorita,
@@ -831,16 +832,48 @@ window.syncData = {
                         events.push(evt);
                     });
                 }
-            } else if (task.assegnatario) {
-                // Single assignment (no team)
+            } else if (task.task_assignments && task.task_assignments.length > 0) {
+                task.task_assignments.forEach(assignment => {
+                    if (!assignment || !assignment.user_id) return;
+                    const user = assignment.users;
+                    const evt = {
+                        id: `task-${task.id}-assignment-${assignment.user_id}`,
+                        title: task.titolo,
+                        start: times.start,
+                        allDay: times.allDay,
+                        taskId: task.id,
+                        assignee: assignment.user_id,
+                        assigneeName: user ? `${user.nome} ${user.cognome}` : assignment.user_id,
+                        status: task.stato,
+                        priority: task.priorita,
+                        client: task.cliente,
+                        description: task.descrizione,
+                        backgroundColor: this.getTaskColor(task),
+                        borderColor: this.getTaskColor(task),
+                        textColor: '#ffffff',
+                        extendedProps: {
+                            taskId: task.id,
+                            assignee: assignment.user_id,
+                            userId: assignment.user_id,
+                            priority: task.priorita,
+                            status: task.stato,
+                            client: task.cliente
+                        }
+                    };
+                    if (times.end && !times.allDay) evt.end = times.end;
+                    events.push(evt);
+                });
+            } else if (task.assigned_user_id || task.assegnatario) {
+                const userId = task.assigned_user_id || task.assegnatario;
+                const userName = task.assigned_user ? `${task.assigned_user.nome} ${task.assigned_user.cognome}` : task.nomeAssegnatario;
                 const evt = {
                     id: `task-${task.id}`,
                     title: task.titolo,
                     start: times.start,
                     allDay: times.allDay,
                     taskId: task.id,
-                    assignee: task.assegnatario,
-                    assigneeName: task.nomeAssegnatario,
+                    assignee: userId,
+                    assigneeName: userName,
                     status: task.stato,
                     priority: task.priorita,
                     client: task.cliente,
@@ -850,7 +883,8 @@ window.syncData = {
                     textColor: '#ffffff',
                     extendedProps: {
                         taskId: task.id,
-                        assignee: task.assegnatario,
+                        assignee: userId,
+                        userId: userId,
                         priority: task.priorita,
                         status: task.stato,
                         client: task.cliente
@@ -883,7 +917,7 @@ window.syncData = {
     getCalendarEventsForUser: function(userId) {
         this.syncCalendarFromTasks();
         return window.sharedData.calendarEvents.filter(event => 
-            event.assignee === userId
+            event.assignee === userId || event.extendedProps?.userId === userId
         );
     },
 

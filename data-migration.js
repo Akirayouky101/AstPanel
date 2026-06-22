@@ -453,24 +453,29 @@ window.dataManager = {
                 // Se multi-assegnazione (task_assignments)
                 else if (task.task_assignments && task.task_assignments.length > 0) {
                     task.task_assignments.forEach(a => {
+                        const userId = a.user_id;
+                        if (!userId) return;
                         const u = a.users;
-                        if (!u) return;
-                        const userColor = (window.USER_COLORS && window.USER_COLORS[a.user_id]) || '#6366f1';
+                        const assigneeName = u ? `${u.nome} ${u.cognome}` : userId;
+                        const userColor = (window.USER_COLORS && window.USER_COLORS[userId]) || '#6366f1';
                         const evt = {
-                            id: `task-${task.id}-user-${a.user_id}`,
-                            title: `${task.titolo} (${u.nome} ${u.cognome})`,
+                            id: `task-${task.id}-user-${userId}`,
+                            title: `${task.titolo} (${assigneeName})`,
                             start: times.start,
                             allDay: times.allDay,
+                            assignee: userId,
+                            assigneeName: assigneeName,
                             backgroundColor: userColor,
                             borderColor: userColor,
                             extendedProps: {
                                 taskId: task.id,
-                                userId: a.user_id,
-                                userName: `${u.nome} ${u.cognome}`,
+                                assignee: userId,
+                                userId: userId,
+                                assigneeName: assigneeName,
+                                userName: assigneeName,
                                 clientName: task.client_name,
                                 stato: task.stato,
-                                priorita: task.priorita,
-                                assigneeName: `${u.nome} ${u.cognome}`
+                                priorita: task.priorita
                             }
                         };
                         if (times.end) evt.end = times.end;

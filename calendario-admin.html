@@ -1470,11 +1470,13 @@
                     if (!employee) continue;
 
                     // Get employee's tasks for this day
-                    const employeeTasks = tasks.filter(t => 
-                        t.assigned_user_id === employeeId &&
-                        t.scadenza &&
-                        new Date(t.scadenza).toDateString() === checkDate.toDateString()
-                    );
+                    const employeeTasks = tasks.filter(t => {
+                        const assignedDirectly = t.assigned_user_id === employeeId;
+                        const assignedMulti = (t.task_assignments || []).some(a => a.user_id === employeeId);
+                        return (assignedDirectly || assignedMulti) &&
+                            t.scadenza &&
+                            new Date(t.scadenza).toDateString() === checkDate.toDateString();
+                    });
 
                     // Calculate available hours (8:00-18:00 = 10 hours)
                     const totalMinutes = 10 * 60;
