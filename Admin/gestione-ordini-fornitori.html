@@ -965,7 +965,8 @@
         async function confermaRicezione() {
             try {
                 const ordineId = document.getElementById('ricezioneOrdineId').value;
-                
+
+                // Leggi gli item non ancora ricevuti
                 const { data: items, error: itemsError } = await window.supabase
                     .from('ordini_fornitore_items')
                     .select('*')
@@ -974,28 +975,99 @@
 
                 if (itemsError) throw itemsError;
 
-                // Per ogni item, carica in magazzino
+                // Leggi numero ordine per la causale
+                const ordine = ordini.find(o => o.id === ordineId);
+                const numeroOrdine = ordine?.numero || ordineId;
+
+                let caricati = 0;
                 for (const item of items) {
                     const qtaInput = document.getElementById(`qta_${item.id}`);
                     const qtaRicevuta = parseFloat(qtaInput?.value || 0);
+                    if (qtaRicevuta <= 0) continue;
 
-                    if (qtaRicevuta > 0) {
-                        const { error: caricaError } = await window.supabase
-                            .rpc('carica_magazzino', {
-                                p_ordine_item_id: item.id,
-                                p_quantita_ricevuta: qtaRicevuta,
-                                p_user_id: currentUser.id
-                            });
-
-                        if (caricaError) throw caricaError;
+                    // 1. Leggi giacenza attuale del componente
+                    let giacenzaPrima = 0;
+                    if (item.prodotto_id) {
+                        const { data: comp } = await window.supabase
+                            .from('components')
+                            .select('giacenza')
+                            .eq('id', item.prodotto_id)
+                            .single();
+                        giacenzaPrima = parseFloat(comp?.giacenza || 0);
                     }
+                    const giacenzaDopo = giacenzaPrima + qtaRicevuta;
+
+                    // 2. Aggiorna giacenza componente
+                    if (item.prodotto_id) {
+                        const { error: updCompErr } = await window.supabase
+                            .from('components')
+                            .update({ giacenza: giacenzaDopo, updated_at: new Date().toISOString() })
+                            .eq('id', item.prodotto_id);
+                        if (updCompErr) throw updCompErr;
+                    }
+
+                    // 3. Inserisci movimento magazzino
+                    const { error: movErr } = await window.supabase
+                        .from('movimenti_magazzino')
+                        .insert({
+                            prodotto_id: item.prodotto_id || null,
+                            ordine_fornitore_id: ordineId,
+                            codice: item.codice || '',
+                            descrizione: item.descrizione || '',
+                            tipo_movimento: 'carico',
+                            quantita: qtaRicevuta,
+                            giacenza_prima: giacenzaPrima,
+                            giacenza_dopo: giacenzaDopo,
+                            causale: `Carico da ordine fornitore ${numeroOrdine}`,
+                            data_movimento: new Date().toISOString().split('T')[0],
+                            created_by: currentUser.id,
+                            note: `Ordine: ${numeroOrdine}`
+                        });
+                    if (movErr) throw movErr;
+
+                    // 4. Aggiorna quantita_ricevuta e stato item
+                    const nuovaQtaRicevuta = parseFloat(item.quantita_ricevuta || 0) + qtaRicevuta;
+                    const nuovoStatoItem = nuovaQtaRicevuta >= parseFloat(item.quantita_ordinata)
+                        ? 'ricevuto'
+                        : 'parzialmente_ricevuto';
+
+                    const { error: updItemErr } = await window.supabase
+                        .from('ordini_fornitore_items')
+                        .update({
+                            quantita_ricevuta: nuovaQtaRicevuta,
+                            stato: nuovoStatoItem
+                        })
+                        .eq('id', item.id);
+                    if (updItemErr) throw updItemErr;
+
+                    caricati++;
                 }
 
-                showSuccessModal('Merce ricevuta e caricata in magazzino!');
+                // 5. Controlla se tutti gli item sono ricevuti → aggiorna stato ordine
+                const { data: allItems } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .select('stato')
+                    .eq('ordine_id', ordineId);
+
+                const tuttiRicevuti = allItems && allItems.length > 0 &&
+                    allItems.every(i => i.stato === 'ricevuto');
+                const almenoUnoRicevuto = allItems && allItems.some(i =>
+                    i.stato === 'ricevuto' || i.stato === 'parzialmente_ricevuto');
+
+                let nuovoStatoOrdine = ordine?.stato || 'confermato';
+                if (tuttiRicevuti) nuovoStatoOrdine = 'ricevuto';
+                else if (almenoUnoRicevuto) nuovoStatoOrdine = 'parzialmente_ricevuto';
+
+                await window.supabase
+                    .from('ordini_fornitore')
+                    .update({ stato: nuovoStatoOrdine })
+                    .eq('id', ordineId);
+
+                showSuccessModal(`Merce ricevuta! ${caricati} prodott${caricati === 1 ? 'o caricato' : 'i caricati'} in magazzino.`);
                 closeRicezioneModal();
                 await loadOrdini();
             } catch (error) {
-                console.error('Errore:', error);
+                console.error('Errore ricezione:', error);
                 showErrorModal('Errore nella ricezione della merce', error.message);
             }
         }
