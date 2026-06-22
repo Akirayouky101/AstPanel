@@ -164,12 +164,22 @@ window.ClientModal = {
                                 <div class="flex items-start gap-3">
                                     <i class="fas fa-phone text-sky-600 mt-0.5 w-5"></i>
                                     <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-sky-700 font-medium">Telefono</p>
+                                        <p class="text-xs text-sky-700 font-medium">Tel. Azienda</p>
                                         <a href="tel:${client.telefono}" class="text-sm text-gray-900 hover:text-sky-700 font-bold break-all">
                                             ${client.telefono}
                                         </a>
                                     </div>
                                 </div>
+                                ${client.telefono_referente ? `
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-mobile-alt text-sky-600 mt-0.5 w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-sky-700 font-medium">Tel. Referente</p>
+                                        <a href="tel:${client.telefono_referente}" class="text-sm text-gray-900 hover:text-sky-700 font-bold break-all">
+                                            ${client.telefono_referente}
+                                        </a>
+                                    </div>
+                                </div>` : ''}
                                 <div class="flex items-start gap-3">
                                     <i class="fas fa-envelope text-sky-600 mt-0.5 w-5"></i>
                                     <div class="flex-1 min-w-0">
