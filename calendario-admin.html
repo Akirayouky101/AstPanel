@@ -242,6 +242,12 @@
                 <button id="viewBtnList" onclick="calendar.changeView('listWeek');updateCalTopTitle();setActiveViewBtn('viewBtnList');"
                         style="padding:6px 14px;border:none;font-size:13px;font-weight:500;color:#3c4043;background:white;cursor:pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Lista</button>
             </div>
+            <!-- Blocca Giorni -->
+            <button onclick="openBloccaModal()"
+                    style="margin-left:8px;padding:6px 14px;border:1px solid #d93025;border-radius:4px;background:white;font-size:13px;font-weight:600;color:#d93025;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.1s;"
+                    onmouseover="this.style.background='#fce8e6'" onmouseout="this.style.background='white'">
+                <i class="fas fa-ban" style="font-size:12px;"></i> Blocca Giorni
+            </button>
         </div>
         <!-- Calendar fills the rest -->
         <div style="flex:1;overflow:hidden;">
@@ -1881,5 +1887,237 @@
             </div>
         </div>
     </div>
+
+    <!-- ===== MODAL BLOCCA GIORNI ===== -->
+    <div id="bloccaGiorniModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-red-500 to-rose-600 p-5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-ban text-white text-xl"></i>
+                    <h2 class="text-xl font-bold text-white">Blocca Giorni</h2>
+                </div>
+                <button onclick="closeBloccaModal()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <!-- Form nuovo blocco -->
+            <div class="p-5 border-b border-gray-100 flex-shrink-0">
+                <p class="text-sm font-semibold text-gray-700 mb-4">Nuovo blocco</p>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Dal</label>
+                            <input type="date" id="bloccaDal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Al</label>
+                            <input type="date" id="bloccaAl" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Per chi</label>
+                        <select id="bloccaUserId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent bg-white">
+                            <option value="">🚫 Tutti i dipendenti</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+                        <input type="text" id="bloccaMotivo" placeholder="es. Ferie, Festività, Chiusura aziendale…"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs font-medium text-gray-600">Colore</label>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="selectBloccaColor('#ef4444')" data-color="#ef4444" class="blocca-color-btn w-7 h-7 rounded-full bg-red-500 border-2 border-white ring-2 ring-red-500"></button>
+                            <button type="button" onclick="selectBloccaColor('#f97316')" data-color="#f97316" class="blocca-color-btn w-7 h-7 rounded-full bg-orange-500 border-2 border-white"></button>
+                            <button type="button" onclick="selectBloccaColor('#eab308')" data-color="#eab308" class="blocca-color-btn w-7 h-7 rounded-full bg-yellow-500 border-2 border-white"></button>
+                            <button type="button" onclick="selectBloccaColor('#6b7280')" data-color="#6b7280" class="blocca-color-btn w-7 h-7 rounded-full bg-gray-500 border-2 border-white"></button>
+                            <button type="button" onclick="selectBloccaColor('#8b5cf6')" data-color="#8b5cf6" class="blocca-color-btn w-7 h-7 rounded-full bg-purple-500 border-2 border-white"></button>
+                        </div>
+                        <input type="hidden" id="bloccaColore" value="#ef4444">
+                    </div>
+                    <button onclick="salvaBloccaGiorno()"
+                            class="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-ban"></i> Aggiungi Blocco
+                    </button>
+                </div>
+            </div>
+            <!-- Lista blocchi esistenti -->
+            <div class="flex-1 overflow-y-auto p-5">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Blocchi attivi</p>
+                <div id="bloccaListContainer">
+                    <p class="text-sm text-gray-400 text-center py-4">Nessun blocco attivo</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== GIORNI BLOCCATI =====
+    let _bloccaColoreSelezionato = '#ef4444';
+    let _giorniBlocchi = [];
+
+    function selectBloccaColor(color) {
+        _bloccaColoreSelezionato = color;
+        document.getElementById('bloccaColore').value = color;
+        document.querySelectorAll('.blocca-color-btn').forEach(btn => {
+            btn.style.ringColor = '';
+            if (btn.dataset.color === color) {
+                btn.style.outline = '3px solid ' + color;
+                btn.style.outlineOffset = '2px';
+            } else {
+                btn.style.outline = 'none';
+            }
+        });
+    }
+
+    async function openBloccaModal() {
+        // Popola select dipendenti
+        const sel = document.getElementById('bloccaUserId');
+        sel.innerHTML = '<option value="">🚫 Tutti i dipendenti</option>';
+        (allUsers || []).sort((a,b)=>(a.nome+a.cognome).localeCompare(b.nome+b.cognome)).forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.nome + ' ' + u.cognome;
+            sel.appendChild(opt);
+        });
+        // Default dates
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('bloccaDal').value = today;
+        document.getElementById('bloccaAl').value = today;
+        document.getElementById('bloccaMotivo').value = '';
+        selectBloccaColor('#ef4444');
+        // Carica lista
+        await caricaListaBlocchi();
+        document.getElementById('bloccaGiorniModal').classList.remove('hidden');
+    }
+    window.openBloccaModal = openBloccaModal;
+
+    function closeBloccaModal() {
+        document.getElementById('bloccaGiorniModal').classList.add('hidden');
+    }
+    window.closeBloccaModal = closeBloccaModal;
+
+    async function caricaListaBlocchi() {
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('giorni_bloccati')
+                .select('*, users:user_id(nome, cognome)')
+                .order('data_inizio', { ascending: true });
+            if (error) throw error;
+            _giorniBlocchi = data || [];
+            renderListaBlocchi();
+        } catch(e) {
+            console.error('Errore caricamento blocchi:', e);
+        }
+    }
+
+    function renderListaBlocchi() {
+        const container = document.getElementById('bloccaListContainer');
+        if (!_giorniBlocchi.length) {
+            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Nessun blocco attivo</p>';
+            return;
+        }
+        container.innerHTML = _giorniBlocchi.map(b => {
+            const chi = b.users ? b.users.nome + ' ' + b.users.cognome : 'Tutti';
+            const dal = new Date(b.data_inizio + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
+            const al  = new Date(b.data_fine  + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
+            const range = b.data_inizio === b.data_fine ? dal : dal + ' → ' + al;
+            return `<div class="flex items-center gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                <span style="width:12px;height:12px;border-radius:50%;background:${b.colore || '#ef4444'};flex-shrink:0;"></span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-800 truncate">${b.motivo || 'Blocco'}</p>
+                    <p class="text-xs text-gray-500">${range} · <span class="font-medium">${chi}</span></p>
+                </div>
+                <button onclick="eliminaBlocco('${b.id}')" class="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 px-2 py-1 text-xs">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    async function salvaBloccaGiorno() {
+        const dal = document.getElementById('bloccaDal').value;
+        const al  = document.getElementById('bloccaAl').value;
+        const userId = document.getElementById('bloccaUserId').value || null;
+        const motivo = document.getElementById('bloccaMotivo').value.trim();
+        const colore = document.getElementById('bloccaColore').value;
+
+        if (!dal || !al) { alert('Seleziona le date'); return; }
+        if (al < dal)    { alert('La data fine deve essere uguale o successiva alla data inizio'); return; }
+
+        try {
+            const { data: { user } } = await window.supabaseClient.auth.getUser();
+            const { error } = await window.supabaseClient.from('giorni_bloccati').insert([{
+                data_inizio: dal, data_fine: al,
+                user_id: userId, motivo: motivo || null,
+                colore, created_by: user?.id || null
+            }]);
+            if (error) throw error;
+            await caricaListaBlocchi();
+            await aggiornaBlocksNelCalendario();
+            document.getElementById('bloccaMotivo').value = '';
+        } catch(e) {
+            alert('Errore: ' + e.message);
+        }
+    }
+    window.salvaBloccaGiorno = salvaBloccaGiorno;
+
+    async function eliminaBlocco(id) {
+        if (!confirm('Eliminare questo blocco?')) return;
+        try {
+            const { error } = await window.supabaseClient.from('giorni_bloccati').delete().eq('id', id);
+            if (error) throw error;
+            await caricaListaBlocchi();
+            await aggiornaBlocksNelCalendario();
+        } catch(e) {
+            alert('Errore eliminazione: ' + e.message);
+        }
+    }
+    window.eliminaBlocco = eliminaBlocco;
+
+    async function caricaBlocksNelCalendario() {
+        if (!calendar) return;
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('giorni_bloccati')
+                .select('*, users:user_id(id, nome, cognome)')
+                .order('data_inizio');
+            if (error) throw error;
+            // Rimuovi eventi background esistenti
+            calendar.getEvents().filter(e => e.extendedProps?.tipo === 'blocco').forEach(e => e.remove());
+            // Aggiungi nuovi
+            (data || []).forEach(b => {
+                const chi = b.users ? b.users.nome + ' ' + b.users.cognome : 'Tutti';
+                // data_fine in FullCalendar è esclusiva, aggiungiamo 1 giorno
+                const endDate = new Date(b.data_fine + 'T00:00:00');
+                endDate.setDate(endDate.getDate() + 1);
+                calendar.addEvent({
+                    id: 'blocco-' + b.id,
+                    title: (b.motivo || 'Blocco') + ' · ' + chi,
+                    start: b.data_inizio,
+                    end: endDate.toISOString().split('T')[0],
+                    display: 'background',
+                    backgroundColor: b.colore || '#ef4444',
+                    classNames: ['blocco-event'],
+                    extendedProps: { tipo: 'blocco', bloccoId: b.id, chi }
+                });
+            });
+        } catch(e) {
+            console.error('Errore caricamento blocchi calendario:', e);
+        }
+    }
+
+    async function aggiornaBlocksNelCalendario() {
+        await caricaBlocksNelCalendario();
+    }
+
+    // Carica blocchi dopo che il calendario è inizializzato
+    document.addEventListener('DOMContentLoaded', function() {
+        // Aspetta che il calendario sia pronto
+        setTimeout(caricaBlocksNelCalendario, 1200);
+    });
+    </script>
 </body>
 </html>
