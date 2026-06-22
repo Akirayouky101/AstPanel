@@ -1755,7 +1755,7 @@
                 row.querySelector('input').addEventListener('change', (e) => {
                     if (e.target.checked) {
                         if (!_wizardMultiSelected.some(s => s.id === u.id))
-                            _wizardMultiSelected.push({ id: u.id, nome, ruolo: u.ruolo });
+                            _wizardMultiSelected.push({ id: u.id, nome: u.nome || '', cognome: u.cognome || '', ruolo: u.ruolo });
                         row.style.background = '#f5f3ff';
                     } else {
                         _wizardMultiSelected = _wizardMultiSelected.filter(s => s.id !== u.id);
@@ -1781,7 +1781,7 @@
                 return;
             }
             preview.innerHTML = `<span style="font-weight:600;color:#6d28d9;">${_wizardMultiSelected.length} selezionati:</span> ` +
-                _wizardMultiSelected.map(u => `<span style="background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:999px;font-size:12px;margin:2px;">${u.nome}</span>`).join('');
+                _wizardMultiSelected.map(u => `<span style="background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:999px;font-size:12px;margin:2px;">${(u.nome || '') + (u.cognome ? ' ' + u.cognome : '')}</span>`).join('');
         }
 
         function applyWizardMultiUserSelection() {
@@ -1812,11 +1812,12 @@
                         ${_wizardMultiSelected.length} dipendenti selezionati:
                     </p>
                     <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        ${_wizardMultiSelected.map(u => `
-                            <span style="display:flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;">
-                                <span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${u.nome.charAt(0)}</span>
-                                ${u.nome}
-                            </span>`).join('')}
+                        ${_wizardMultiSelected.map(u => {
+                                const nomeCompleto = (u.nome || '') + (u.cognome ? ' ' + u.cognome : '');
+                                return `<span style="display:flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;">
+                                <span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${(u.nome||'?').charAt(0).toUpperCase()}</span>
+                                ${nomeCompleto}
+                            </span>`;}).join('')}
                     </div>
                     <button onclick="openWizardMultiUserPicker()" style="margin-top:10px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:underline;background:none;border:none;cursor:pointer;">Modifica selezione</button>
                 </div>`;
