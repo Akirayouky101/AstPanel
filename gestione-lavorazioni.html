@@ -1693,6 +1693,16 @@
         let _wizardMultiSelected = []; // [{id, nome, ruolo}]
 
         async function openWizardMultiUserPicker() {
+            // Sync con i dati correnti del wizard (evita selezione vuota quando si riapre)
+            if (window.taskWizard && window.taskWizard.wizardData.assigned_users.length > 0
+                && _wizardMultiSelected.length === 0) {
+                _wizardMultiSelected = window.taskWizard.wizardData.assigned_users.map(u => ({
+                    id: u.user_id || u.id,
+                    nome: u.nome || '',
+                    cognome: u.cognome || '',
+                    ruolo: u.ruolo_assegnazione || u.ruolo || ''
+                }));
+            }
             document.getElementById('wizardMultiUserPickerModal').classList.remove('hidden');
             document.getElementById('wizardMultiUserSearch').value = '';
             updateWizardMultiPreview();
@@ -1817,6 +1827,22 @@
         window.closeWizardMultiUserPicker = closeWizardMultiUserPicker;
         window.filterWizardMultiUserList = filterWizardMultiUserList;
         window.applyWizardMultiUserSelection = applyWizardMultiUserSelection;
+        // Hook reset per task-wizard.js
+        window._wizardGiornateReset = function() {
+            _wizardGiornate = [];
+            _renderGiornateChips();
+        };
+        // Quando task-wizard.js resetta, aggiorna anche la var locale
+        Object.defineProperty(window, '_wizardMultiSelected', {
+            get() { return this.__wizardMultiSelected || []; },
+            set(v) {
+                this.__wizardMultiSelected = v;
+                // Propaga nella chiusura locale (sovrascriviamo il binding)
+                _wizardMultiSelected.length = 0;
+                if (v && v.length) v.forEach(x => _wizardMultiSelected.push(x));
+            },
+            configurable: true
+        });
 
         function setDeadlinePicker(isoValue) {
             document.getElementById('taskDeadline').value = isoValue || '';

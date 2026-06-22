@@ -1183,6 +1183,9 @@ class TaskWizard {
             coordinate_gps: null,
             componenti: []
         };
+        // Reset anche la selezione locale dipendenti nel picker
+        window._wizardMultiSelected = [];
+        if (typeof window._wizardGiornateReset === 'function') window._wizardGiornateReset();
         
         // Reset product scanner
         if (window.productScanner) {
