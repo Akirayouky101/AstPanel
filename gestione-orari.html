@@ -40,6 +40,10 @@
                         <i data-lucide="mail" class="w-5 h-5"></i>
                         Email Commercialista
                     </button>
+                    <button onclick="openNewTimbratura()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Nuova Timbratura
+                    </button>
                     <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2">
                         <i data-lucide="download" class="w-5 h-5"></i>
                         Esporta CSV
@@ -323,6 +327,97 @@
                 <button onclick="saveEdit()" type="button"
                         class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl">
                     💾 Salva Modifiche
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuova Timbratura (admin) -->
+    <div id="newTimbrModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="bg-gradient-to-r from-indigo-600 to-blue-600 p-6 text-white">
+                <h3 class="text-2xl font-bold flex items-center gap-3">
+                    <i data-lucide="plus-circle" class="w-7 h-7"></i>
+                    Nuova Timbratura Manuale
+                </h3>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <form id="newTimbrForm" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Dipendente *</label>
+                        <select id="newTimbrEmployee" required
+                                class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Seleziona dipendente...</option>
+                        </select>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Data *</label>
+                            <input type="date" id="newTimbrData" required
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipo *</label>
+                            <select id="newTimbrTipo" required
+                                    class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                                <option value="normale">💼 Normale</option>
+                                <option value="straordinario">🕐 Straordinario</option>
+                                <option value="permesso">🚪 Permesso</option>
+                                <option value="ferie">🏖️ Ferie</option>
+                                <option value="malattia">🤒 Malattia</option>
+                                <option value="trasferta">🚗 Trasferta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Ora Ingresso *</label>
+                            <input type="time" id="newTimbrIngresso" required
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Ora Uscita</label>
+                            <input type="time" id="newTimbrUscita"
+                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                        <h4 class="font-bold text-green-800 mb-3">Pausa Pranzo (opzionale)</h4>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-green-700 mb-2">Inizio Pausa</label>
+                                <input type="time" id="newTimbrPausaInizio"
+                                       class="w-full border-2 border-green-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-green-700 mb-2">Fine Pausa</label>
+                                <input type="time" id="newTimbrPausaFine"
+                                       class="w-full border-2 border-green-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Note</label>
+                        <textarea id="newTimbrNote" rows="2"
+                                  class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Note aggiuntive (opzionale)..."></textarea>
+                    </div>
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-orange-800 mb-2">⚠️ Motivo inserimento manuale *</label>
+                        <input type="text" id="newTimbrMotivo" required
+                               class="w-full border-2 border-orange-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-orange-500"
+                               placeholder="Es: Dipendente dimenticato di timbrare, correzione, ecc.">
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t flex justify-end gap-3">
+                <button onclick="closeNewTimbrModal()" type="button"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all">
+                    Annulla
+                </button>
+                <button onclick="saveNewTimbratura()" type="button"
+                        class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                    ✅ Salva Timbratura
                 </button>
             </div>
         </div>
@@ -1513,6 +1608,95 @@
         // Chiudi modal
         function closeEmployeeModal() {
             document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        // Apri modal nuova timbratura manuale
+        function openNewTimbratura() {
+            // Popola select dipendenti
+            const sel = document.getElementById('newTimbrEmployee');
+            sel.innerHTML = '<option value="">Seleziona dipendente...</option>';
+            const filterSel = document.getElementById('filterEmployee');
+            Array.from(filterSel.options).forEach(opt => {
+                if (opt.value) {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = opt.textContent;
+                    sel.appendChild(o);
+                }
+            });
+            // Default data = oggi
+            document.getElementById('newTimbrData').value = new Date().toISOString().split('T')[0];
+            document.getElementById('newTimbrTipo').value = 'normale';
+            document.getElementById('newTimbrIngresso').value = '';
+            document.getElementById('newTimbrUscita').value = '';
+            document.getElementById('newTimbrPausaInizio').value = '';
+            document.getElementById('newTimbrPausaFine').value = '';
+            document.getElementById('newTimbrNote').value = '';
+            document.getElementById('newTimbrMotivo').value = '';
+            document.getElementById('newTimbrModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeNewTimbrModal() {
+            document.getElementById('newTimbrModal').classList.add('hidden');
+        }
+
+        async function saveNewTimbratura() {
+            const userId = document.getElementById('newTimbrEmployee').value;
+            const data = document.getElementById('newTimbrData').value;
+            const tipo = document.getElementById('newTimbrTipo').value;
+            const ingresso = document.getElementById('newTimbrIngresso').value;
+            const uscita = document.getElementById('newTimbrUscita').value;
+            const pausaInizio = document.getElementById('newTimbrPausaInizio').value;
+            const pausaFine = document.getElementById('newTimbrPausaFine').value;
+            const note = document.getElementById('newTimbrNote').value;
+            const motivo = document.getElementById('newTimbrMotivo').value.trim();
+
+            if (!userId) { showNotification('⚠️ Seleziona un dipendente', 'error'); return; }
+            if (!data) { showNotification('⚠️ Inserisci la data', 'error'); return; }
+            if (!ingresso) { showNotification('⚠️ Inserisci l\'ora di ingresso', 'error'); return; }
+            if (!motivo) { showNotification('⚠️ Inserisci il motivo dell\'inserimento manuale', 'error'); return; }
+            if (uscita && uscita <= ingresso) { showNotification('❌ L\'ora di uscita deve essere successiva all\'ingresso', 'error'); return; }
+            if (pausaInizio && pausaFine && pausaFine <= pausaInizio) { showNotification('❌ Fine pausa deve essere successiva all\'inizio', 'error'); return; }
+
+            let oreLavorate = 0;
+            if (ingresso && uscita) {
+                const [hi, mi] = ingresso.split(':').map(Number);
+                const [hu, mu] = uscita.split(':').map(Number);
+                oreLavorate = (hu * 60 + mu - hi * 60 - mi) / 60;
+                if (pausaInizio && pausaFine) {
+                    const [hp1, mp1] = pausaInizio.split(':').map(Number);
+                    const [hp2, mp2] = pausaFine.split(':').map(Number);
+                    oreLavorate -= (hp2 * 60 + mp2 - hp1 * 60 - mp1) / 60;
+                }
+                oreLavorate = Math.max(0, oreLavorate);
+            }
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('timbrature')
+                    .insert({
+                        user_id: userId,
+                        data,
+                        tipo,
+                        ora_ingresso: ingresso,
+                        ora_uscita: uscita || null,
+                        pausa_inizio: pausaInizio || null,
+                        pausa_fine: pausaFine || null,
+                        ore_lavorate: oreLavorate,
+                        note: note || null,
+                        note_modifica: `[INSERIMENTO MANUALE ADMIN] ${motivo}`,
+                        stato: 'approvato'
+                    });
+                if (error) throw error;
+                closeNewTimbrModal();
+                showNotification('✅ Timbratura inserita correttamente', 'success');
+                await loadTimbrature();
+                await loadLiveStatus();
+            } catch (err) {
+                console.error('Errore inserimento timbratura:', err);
+                showNotification('❌ Errore: ' + err.message, 'error');
+            }
         }
 
         // Apri modal modifica timbratura
