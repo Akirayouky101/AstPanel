@@ -1785,9 +1785,14 @@
                 closeWizardMultiUserPicker();
                 return;
             }
-            // Salva in taskWizard
+            // Salva in taskWizard — serve l'oggetto con user_id per salvaAssegnazioni
             if (window.taskWizard) {
-                window.taskWizard.wizardData.assigned_users = _wizardMultiSelected.map(u => u.id);
+                window.taskWizard.wizardData.assigned_users = _wizardMultiSelected.map(u => ({
+                    user_id: u.id,
+                    nome: u.nome,
+                    cognome: u.cognome || '',
+                    ruolo_assegnazione: 'membro'
+                }));
             }
             // Aggiorna UI nel container
             const container = document.getElementById('wizard-multi-users-container');
@@ -1834,13 +1839,39 @@
         let _dpTargetInput = 'wizard-scadenza';
         let _dpTargetLabel = 'datePickerLabel';
         let _dpTargetColor = 'purple';
+        let _dpMode = 'single'; // 'single' | 'giornata'
+        let _wizardGiornate = []; // array ISO dates per multi-giornate
         const _dpMonthNames = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
-        function openDatePicker() {
+        function openDatePicker(mode) {
+            _dpMode = mode === 'giornata' ? 'giornata' : 'single';
             _dpTargetInput = 'wizard-scadenza';
             _dpTargetLabel = 'datePickerLabel';
-            _dpTargetColor = 'purple';
+            _dpTargetColor = 'orange';
             _openDatePickerCore();
+        }
+
+        function _renderGiornateChips() {
+            const container = document.getElementById('wizard-giornate-chips');
+            if (!container) return;
+            if (!_wizardGiornate.length) { container.innerHTML = ''; return; }
+            const sorted = [..._wizardGiornate].sort();
+            container.innerHTML = sorted.map(iso => {
+                const d = new Date(iso + 'T12:00:00');
+                const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+                return `<span style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fb923c;border-radius:20px;padding:3px 10px;font-size:12px;color:#c2410c;font-weight:600">
+                    <i data-lucide="calendar" style="width:12px;height:12px"></i>${label}
+                    <button type="button" onclick="_removeGiornata('${iso}')" style="background:none;border:none;color:#ea580c;cursor:pointer;padding:0;margin-left:2px;font-size:13px;line-height:1">×</button>
+                </span>`;
+            }).join('');
+            // Aggiorna wizard-scadenza con la prima data
+            document.getElementById('wizard-scadenza').value = sorted[0] || '';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function _removeGiornata(iso) {
+            _wizardGiornate = _wizardGiornate.filter(d => d !== iso);
+            _renderGiornateChips();
         }
 
         // ===== CUSTOM DROPDOWN HELPERS (edit modal) =====
@@ -1945,8 +1976,8 @@
 
         function _openDatePickerCore() {
             const today = new Date();
-            const existing = document.getElementById(_dpTargetInput).value;
-            if (existing) {
+            const existing = document.getElementById(_dpTargetInput)?.value;
+            if (existing && _dpMode !== 'giornata') {
                 const d = new Date(existing);
                 _dpYear = d.getFullYear(); _dpMonth = d.getMonth();
                 _dpSelectedDate = new Date(existing + 'T12:00:00');
@@ -1954,6 +1985,9 @@
                 _dpYear = today.getFullYear(); _dpMonth = today.getMonth();
                 _dpSelectedDate = null;
             }
+            // Mostra/nascondi bottone Conferma (solo in modalità giornata)
+            const confermaBtn = document.getElementById('dpConfermaBtn');
+            if (confermaBtn) confermaBtn.style.display = _dpMode === 'giornata' ? '' : 'none';
             document.getElementById('datePickerModal').classList.remove('hidden');
             dpRender();
             lucide.createIcons();
@@ -1965,9 +1999,12 @@
 
         function dpRender() {
             document.getElementById('dpMonthYear').textContent = `${_dpMonthNames[_dpMonth]} ${_dpYear}`;
-            if (_dpSelectedDate) {
+            if (_dpSelectedDate && _dpMode !== 'giornata') {
                 document.getElementById('dpSelectedLabel').textContent =
                     _dpSelectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            } else if (_dpMode === 'giornata') {
+                const n = _wizardGiornate.length;
+                document.getElementById('dpSelectedLabel').textContent = n > 0 ? `${n} giornata/e selezionata/e` : '';
             } else {
                 document.getElementById('dpSelectedLabel').textContent = '';
             }
@@ -1985,16 +2022,21 @@
                 const date = new Date(_dpYear, _dpMonth, d);
                 const isToday = date.getTime() === today.getTime();
                 const isSel = _dpSelectedDate && date.getTime() === _dpSelectedDate.getTime();
+                const mm = String(_dpMonth + 1).padStart(2,'0');
+                const dd = String(d).padStart(2,'0');
+                const iso = `${_dpYear}-${mm}-${dd}`;
+                const isInGiornate = _wizardGiornate.includes(iso);
                 const isPast = date < today;
                 const dow = date.getDay(); // 0=dom, 6=sab
                 const isWeekend = dow === 0 || dow === 6;
                 let cls = 'w-full aspect-square flex items-center justify-center text-sm rounded-xl font-medium transition-all cursor-pointer select-none ';
-                if (isSel) cls += 'bg-purple-600 text-white shadow-lg scale-105 ';
+                if (isInGiornate) cls += 'bg-orange-500 text-white shadow-lg scale-105 ';
+                else if (isSel) cls += 'bg-purple-600 text-white shadow-lg scale-105 ';
                 else if (isToday) cls += 'ring-2 ring-purple-400 text-purple-700 font-bold ';
                 else if (isPast) cls += 'text-gray-300 cursor-not-allowed ';
                 else if (isWeekend) cls += 'text-red-400 hover:bg-red-50 ';
                 else cls += 'text-gray-700 hover:bg-purple-50 hover:text-purple-700 ';
-                const clickable = !isPast || isSel;
+                const clickable = !isPast || isSel || isInGiornate;
                 html += `<div class="${cls}" ${clickable ? `onclick="dpSelectDay(${d})"` : ''}>${d}</div>`;
             }
             grid.innerHTML = html;
@@ -2013,6 +2055,17 @@
             const mm = String(_dpMonth + 1).padStart(2, '0');
             const dd = String(d).padStart(2, '0');
             const iso = `${yyyy}-${mm}-${dd}`;
+
+            if (_dpMode === 'giornata') {
+                // Aggiungi alla lista giornate (evita duplicati)
+                if (!_wizardGiornate.includes(iso)) {
+                    _wizardGiornate.push(iso);
+                }
+                _renderGiornateChips();
+                dpRender(); // aggiorna evidenziazione nel calendario
+                return; // non chiudere il picker (utente può aggiungere più date)
+            }
+
             document.getElementById(_dpTargetInput).value = iso;
             const label = _dpSelectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
             const lbl = document.getElementById(_dpTargetLabel);
@@ -5286,21 +5339,22 @@
                                 <option value="alta">🔴 Alta</option>
                             </select>
                         </div>
-                        <!-- Scadenza - ARANCIO -->
+                        <!-- Giornate - ARANCIO -->
                         <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
                             <label class="block text-sm font-bold text-orange-900 mb-2">
-                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
-                                Scadenza *
+                                <i data-lucide="calendar-days" class="w-4 h-4 inline mr-1"></i>
+                                Giornate *
                             </label>
                             <input type="hidden" id="wizard-scadenza">
-                            <button type="button" onclick="openDatePicker()"
-                                    class="w-full flex items-center justify-between px-3 py-2.5 border-2 border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-left group">
-                                <span id="datePickerLabel" class="text-gray-400 text-sm group-hover:text-orange-700">
-                                    <i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-orange-400"></i>
-                                    Scegli data...
-                                </span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-orange-300 flex-shrink-0"></i>
+                            <!-- chip delle giornate selezionate -->
+                            <div id="wizard-giornate-chips" class="flex flex-wrap gap-2 mb-2 min-h-[28px]"></div>
+                            <!-- bottone aggiungi giornata -->
+                            <button type="button" onclick="openDatePicker('giornata')"
+                                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-orange-600 font-semibold text-sm">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                Aggiungi giornata
                             </button>
+                            <p class="text-xs text-orange-600 mt-1">Aggiungi una o più date. La prima diventa la data di scadenza.</p>
                         </div>
                     </div>
 
@@ -6346,6 +6400,7 @@
             <!-- Footer -->
             <div class="px-4 pb-4 flex gap-2">
                 <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
+                <button id="dpConfermaBtn" onclick="closeDatePicker()" style="display:none" class="flex-1 py-2 text-sm font-bold text-white bg-orange-500 border border-orange-400 rounded-xl hover:bg-orange-600 transition-colors">Conferma</button>
                 <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
             </div>
         </div>

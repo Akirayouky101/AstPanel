@@ -846,10 +846,35 @@ class TaskWizard {
         // Mostra sempre il multi-container (dipendenti)
         const multiContainer = document.getElementById('wizard-multi-container');
         multiContainer?.classList.remove('hidden');
-        
-        // Ripristina chip dipendenti selezionati se presenti
-        if (this.wizardData.assigned_users?.length > 0 && typeof window.multiUserAssignment !== 'undefined') {
-            window.multiUserAssignment.renderWizardPreview(this.wizardData.assigned_users);
+
+        // Ripristina _wizardMultiSelected e preview UI dai dati salvati
+        if (this.wizardData.assigned_users?.length > 0) {
+            // Synca _wizardMultiSelected con i dati del wizard
+            window._wizardMultiSelected = this.wizardData.assigned_users.map(u => ({
+                id: u.user_id || u.id || u,
+                nome: u.nome || u.user_id || u,
+                cognome: u.cognome || '',
+                ruolo: u.ruolo_assegnazione || ''
+            }));
+
+            // Ricostruisce la preview nel container
+            const container = document.getElementById('wizard-multi-users-container');
+            if (container) {
+                container.innerHTML = `
+                    <div style="background:white;border:1px solid #ddd6fe;border-radius:12px;padding:12px;">
+                        <p style="font-size:13px;font-weight:700;color:#6d28d9;margin-bottom:8px;">
+                            ${window._wizardMultiSelected.length} dipendenti selezionati:
+                        </p>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${window._wizardMultiSelected.map(u => `
+                                <span style="display:flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;">
+                                    <span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${(u.nome||'?').charAt(0)}</span>
+                                    ${u.nome}
+                                </span>`).join('')}
+                        </div>
+                        <button onclick="openWizardMultiUserPicker()" style="margin-top:10px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:underline;background:none;border:none;cursor:pointer;">Modifica selezione</button>
+                    </div>`;
+            }
         }
     }
 
