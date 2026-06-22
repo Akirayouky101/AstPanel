@@ -26,6 +26,8 @@
         /* Animation styles */
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceIn { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-bounce-in { animation: bounceIn 0.35s ease-out; }
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -1057,6 +1059,144 @@
         }
 
         setInterval(updateClock, 1000);
+
+        // ─── Notifica realtime nuova richiesta ──────────────────────────
+        let _realtimeQueue = [];   // coda se arriva un'altra mentre una è aperta
+        let _realtimeShowing = false;
+
+        function avviaRealtimeRichieste() {
+            window.supabase
+                .channel('admin-nuove-richieste')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'requests'
+                }, async (payload) => {
+                    const req = payload.new;
+                    // Carica nome utente
+                    let userName = 'Dipendente';
+                    try {
+                        const { data: u } = await window.supabase
+                            .from('users')
+                            .select('nome, cognome')
+                            .eq('id', req.user_id)
+                            .single();
+                        if (u) userName = `${u.nome} ${u.cognome}`;
+                    } catch (_) {}
+
+                    const item = { req, userName };
+                    if (_realtimeShowing) {
+                        _realtimeQueue.push(item);
+                    } else {
+                        mostraNuovaRichiestaModal(item);
+                    }
+                })
+                .subscribe();
+        }
+
+        function mostraNuovaRichiestaModal({ req, userName }) {
+            _realtimeShowing = true;
+            const tipo = req.tipo || req.type || '';
+            const titolo = req.titolo || req.title || tipo || 'Nuova Richiesta';
+            const descrizione = req.descrizione || req.description || '';
+            const priorita = req.priorita || req.priority || '';
+            const initials = userName.split(' ').map(n => n[0] || '').join('').toUpperCase();
+
+            const prioBadge = priorita === 'alta' || priorita === 'urgente'
+                ? `<span class="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-semibold ml-1">🔴 ${priorita}</span>`
+                : priorita === 'media'
+                ? `<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-semibold ml-1">🟡 ${priorita}</span>`
+                : '';
+
+            const modal = document.createElement('div');
+            modal.id = 'nuovaRichiestaModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-bounce-in overflow-hidden">
+                    <!-- Badge "in tempo reale" -->
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 flex items-center gap-2 text-sm font-bold">
+                        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping inline-block"></span>
+                        Nuova richiesta in arrivo!
+                    </div>
+                    <!-- Corpo -->
+                    <div class="p-6 space-y-4">
+                        <!-- Richiedente -->
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">${initials}</div>
+                            <div>
+                                <p class="font-bold text-gray-900">${userName}</p>
+                                <p class="text-sm text-gray-500 capitalize">${tipo.replace(/_/g, ' ')}</p>
+                            </div>
+                        </div>
+                        <!-- Dettagli -->
+                        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-1">
+                            <p class="font-semibold text-gray-900">${titolo} ${prioBadge}</p>
+                            ${descrizione ? `<p class="text-sm text-gray-600">${descrizione}</p>` : ''}
+                            ${req.data_inizio && req.data_fine
+                                ? `<p class="text-xs text-gray-500 mt-1">🗓️ ${new Date(req.data_inizio).toLocaleDateString('it-IT')} → ${new Date(req.data_fine).toLocaleDateString('it-IT')}</p>`
+                                : ''}
+                        </div>
+                        <!-- Azioni -->
+                        <div class="flex gap-2">
+                            <button onclick="realtimeApprova('${req.id}')"
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                ✅ Approva
+                            </button>
+                            <button onclick="realtimeRifiuta('${req.id}')"
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                ❌ Rifiuta
+                            </button>
+                            <button onclick="realtimeGestisciDopo()"
+                                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                📋 Dopo
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function chiudiNuovaRichiestaModal() {
+            document.getElementById('nuovaRichiestaModal')?.remove();
+            _realtimeShowing = false;
+            if (_realtimeQueue.length > 0) {
+                mostraNuovaRichiestaModal(_realtimeQueue.shift());
+            }
+        }
+
+        async function realtimeApprova(requestId) {
+            try {
+                await window.RequestsAPI.update(requestId, { status: 'approved', stato: 'approvata' });
+                showNotification('✅ Richiesta approvata', 'success');
+                await loadPendingRequests();
+            } catch (e) { showNotification('Errore approvazione', 'error'); }
+            chiudiNuovaRichiestaModal();
+        }
+
+        async function realtimeRifiuta(requestId) {
+            try {
+                await window.RequestsAPI.update(requestId, { status: 'rejected', stato: 'rifiutata' });
+                showNotification('Richiesta rifiutata', 'error');
+                await loadPendingRequests();
+            } catch (e) { showNotification('Errore rifiuto', 'error'); }
+            chiudiNuovaRichiestaModal();
+        }
+
+        function realtimeGestisciDopo() {
+            chiudiNuovaRichiestaModal();
+            showNotification('📋 Richiesta spostata in coda', 'info');
+        }
+
+        // Avvia realtime dopo l'init
+        document.addEventListener('DOMContentLoaded', () => {
+            // Attendi che supabase sia pronto
+            const tryStart = setInterval(() => {
+                if (window.supabase) {
+                    clearInterval(tryStart);
+                    avviaRealtimeRichieste();
+                }
+            }, 300);
+        });
     </script>
 </body>
 </html>
