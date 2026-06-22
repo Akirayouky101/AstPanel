@@ -353,8 +353,34 @@
                     <div class="grid md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Data *</label>
-                            <input type="date" id="newTimbrData" required
-                                   class="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500">
+                            <div class="relative" id="calPickerWrapper">
+                                <input type="hidden" id="newTimbrData">
+                                <button type="button" id="calPickerBtn" onclick="toggleCal()"
+                                        class="w-full border-2 border-gray-300 rounded-xl px-4 py-2.5 text-left flex items-center justify-between bg-white hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+                                    <span id="calPickerDisplay" class="text-gray-400 text-sm">Seleziona data...</span>
+                                    <svg class="w-5 h-5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </button>
+                                <div id="calDropdown" class="hidden absolute left-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[200] w-72 select-none">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <button type="button" onclick="calNav(-1)" class="w-9 h-9 rounded-full hover:bg-indigo-100 flex items-center justify-center text-indigo-600 text-lg font-bold transition-colors">&#8249;</button>
+                                        <span id="calMonthLabel" class="font-bold text-gray-800 capitalize text-sm"></span>
+                                        <button type="button" onclick="calNav(1)" class="w-9 h-9 rounded-full hover:bg-indigo-100 flex items-center justify-center text-indigo-600 text-lg font-bold transition-colors">&#8250;</button>
+                                    </div>
+                                    <div class="grid grid-cols-7 mb-2">
+                                        <span class="text-center text-xs font-semibold text-gray-400 py-1">Lun</span>
+                                        <span class="text-center text-xs font-semibold text-gray-400 py-1">Mar</span>
+                                        <span class="text-center text-xs font-semibold text-gray-400 py-1">Mer</span>
+                                        <span class="text-center text-xs font-semibold text-gray-400 py-1">Gio</span>
+                                        <span class="text-center text-xs font-semibold text-gray-400 py-1">Ven</span>
+                                        <span class="text-center text-xs font-semibold text-red-400 py-1">Sab</span>
+                                        <span class="text-center text-xs font-semibold text-red-400 py-1">Dom</span>
+                                    </div>
+                                    <div id="calGrid" class="grid grid-cols-7 gap-0.5"></div>
+                                    <div class="mt-3 pt-3 border-t border-gray-100 text-center">
+                                        <button type="button" onclick="calSelectToday()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">📅 Oggi</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Tipo *</label>
@@ -1625,7 +1651,9 @@
                 }
             });
             // Default data = oggi
-            document.getElementById('newTimbrData').value = new Date().toISOString().split('T')[0];
+            calSelected = new Date();
+            calView = new Date();
+            setCalValue(calSelected);
             document.getElementById('newTimbrTipo').value = 'normale';
             document.getElementById('newTimbrIngresso').value = '';
             document.getElementById('newTimbrUscita').value = '';
@@ -1639,7 +1667,111 @@
 
         function closeNewTimbrModal() {
             document.getElementById('newTimbrModal').classList.add('hidden');
+            closeCal();
         }
+
+        // ─── Custom Date Picker ──────────────────────────────
+        let calView = new Date();
+        let calSelected = null;
+
+        function toggleCal() {
+            const d = document.getElementById('calDropdown');
+            if (d.classList.contains('hidden')) {
+                renderCal();
+                d.classList.remove('hidden');
+                document.getElementById('calPickerBtn').classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
+            } else {
+                closeCal();
+            }
+        }
+
+        function closeCal() {
+            const d = document.getElementById('calDropdown');
+            if (d) d.classList.add('hidden');
+            const btn = document.getElementById('calPickerBtn');
+            if (btn) btn.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500');
+        }
+
+        function calNav(delta) {
+            calView = new Date(calView.getFullYear(), calView.getMonth() + delta, 1);
+            renderCal();
+        }
+
+        function calSelectToday() {
+            calSelected = new Date();
+            calView = new Date();
+            renderCal();
+            setCalValue(calSelected);
+            closeCal();
+        }
+
+        function calPickDay(y, m, d) {
+            calSelected = new Date(y, m, d);
+            calView = new Date(calSelected);
+            renderCal();
+            setCalValue(calSelected);
+            closeCal();
+        }
+
+        function setCalValue(date) {
+            const iso = date.getFullYear() + '-' +
+                String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                String(date.getDate()).padStart(2, '0');
+            document.getElementById('newTimbrData').value = iso;
+            const display = document.getElementById('calPickerDisplay');
+            display.textContent = date.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+            display.classList.remove('text-gray-400');
+            display.classList.add('text-gray-800', 'font-medium');
+        }
+
+        function renderCal() {
+            const today = new Date();
+            const y = calView.getFullYear();
+            const m = calView.getMonth();
+            document.getElementById('calMonthLabel').textContent =
+                new Date(y, m, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+            const firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // Mon=0
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            const daysInPrev = new Date(y, m, 0).getDate();
+
+            let cells = '';
+            // Giorni mese precedente (grigi)
+            for (let i = firstDow - 1; i >= 0; i--) {
+                cells += `<div class="text-center py-1.5 text-xs text-gray-300 rounded-lg">${daysInPrev - i}</div>`;
+            }
+            // Giorni del mese
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === d;
+                const isSel = calSelected && calSelected.getFullYear() === y && calSelected.getMonth() === m && calSelected.getDate() === d;
+                const dow = new Date(y, m, d).getDay(); // 0=Dom, 6=Sab
+                const isWeekend = dow === 0 || dow === 6;
+                let cls = 'text-center py-1.5 text-xs rounded-lg cursor-pointer transition-all font-medium ';
+                if (isSel) {
+                    cls += 'bg-indigo-600 text-white shadow';
+                } else if (isToday) {
+                    cls += 'ring-2 ring-indigo-500 text-indigo-700 font-bold hover:bg-indigo-50';
+                } else if (isWeekend) {
+                    cls += 'text-red-400 hover:bg-red-50';
+                } else {
+                    cls += 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700';
+                }
+                cells += `<div class="${cls}" onclick="calPickDay(${y},${m},${d})">${d}</div>`;
+            }
+            // Riempi resto ultima riga
+            const total = firstDow + daysInMonth;
+            const remainder = (7 - (total % 7)) % 7;
+            for (let d = 1; d <= remainder; d++) {
+                cells += `<div class="text-center py-1.5 text-xs text-gray-300 rounded-lg">${d}</div>`;
+            }
+            document.getElementById('calGrid').innerHTML = cells;
+        }
+
+        // Chiudi se si clicca fuori
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('calPickerWrapper');
+            if (wrapper && !wrapper.contains(e.target)) closeCal();
+        });
 
         async function saveNewTimbratura() {
             const userId = document.getElementById('newTimbrEmployee').value;
