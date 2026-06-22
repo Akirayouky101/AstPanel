@@ -725,6 +725,9 @@
 
     <script>
         let currentEditingTask = null;
+        function isValidUUID(id) {
+            return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        }
         let currentView = 'kanban';
         let taskComponents = [];
 
@@ -755,7 +758,8 @@
             const nextWeek = new Date();
             nextWeek.setDate(nextWeek.getDate() + 7);
             setDeadlinePicker(nextWeek.toISOString().split('T')[0]);
-            document.getElementById('taskTeam').addEventListener('change', updateTeamPreview);
+            const _taskTeamEl = document.getElementById('taskTeam');
+            if (_taskTeamEl) _taskTeamEl.addEventListener('change', updateTeamPreview);
             
             // Check if taskId is in URL parameters
             const urlParams = new URLSearchParams(window.location.search);
@@ -2050,7 +2054,7 @@
         }
 
         function clearTaskTeam() {
-            document.getElementById('taskTeam').value = '';
+            const t = document.getElementById('taskTeam'); if (t) t.value = '';
             const lbl = document.getElementById('taskTeamPickerLabel');
             if (lbl) { lbl.textContent = 'Scegli squadra...'; lbl.className = 'text-gray-400 text-sm group-hover:text-indigo-700 flex-1 text-left'; }
             document.getElementById('taskTeamClearBtn')?.classList.add('hidden');
@@ -2461,8 +2465,9 @@
 
         async function loadTeamsDropdown() {
             try {
-                const teams = await window.dataManager.getSquadre();
                 const select = document.getElementById('taskTeam');
+                if (!select) return;
+                const teams = await window.dataManager.getSquadre();
                 
                 select.innerHTML = '<option value="">Seleziona squadra</option>';
                 
@@ -2487,6 +2492,7 @@
 
         async function showTeamMembers() {
             const select = document.getElementById('taskTeam');
+            if (!select) return;
             const preview = document.getElementById('teamMembersPreview');
             const membersList = document.getElementById('teamMembersList');
             
@@ -2530,13 +2536,14 @@
 
         async function loadUsersDropdown() {
             try {
-                const users = await window.dataManager.getUtenti();
                 const select = document.getElementById('taskAssignee');
+                if (!select) return;
+                const users = await window.dataManager.getUtenti();
                 
                 select.innerHTML = '<option value="">Seleziona dipendente</option>';
                 
                 // Filter only active users
-                const activeUsers = users.filter(u => u.stato === 'attivo');
+                const activeUsers = (users || []).filter(u => u.stato === 'attivo');
                 
                 activeUsers.forEach(user => {
                     const option = document.createElement('option');
@@ -2571,7 +2578,8 @@
         }
 
         function updateTeamPreview() {
-            const teamId = document.getElementById('taskTeam').value;
+            const teamSelect = document.getElementById('taskTeam');
+            const teamId = teamSelect ? teamSelect.value : null;
             const preview = document.getElementById('teamMembersPreview');
             const membersList = document.getElementById('teamMembersList');
             
@@ -2687,17 +2695,25 @@
             }
             
             try {
+                // Sanitize selected IDs
+                const validIds = selectedMultiUsers.filter(id => isValidUUID(id));
+                if (validIds.length === 0) {
+                    list.innerHTML = '';
+                    preview.classList.remove('hidden');
+                    return;
+                }
+
                 const { data: users, error } = await window.supabaseClient
                     .from('users')
                     .select('id, nome, cognome, ruolo')
-                    .in('id', selectedMultiUsers);
+                    .in('id', validIds);
                 
                 if (error) throw error;
                 
                 list.innerHTML = users.map(user => `
                     <span class="px-3 py-1 bg-white border border-purple-200 text-purple-700 rounded-full text-sm flex items-center gap-2">
                         <div class="w-5 h-5 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs font-bold">
-                            ${user.nome[0]}${user.cognome[0]}
+                            ${user.nome[0] || ''}${user.cognome[0] || ''}
                         </div>
                         ${user.nome} ${user.cognome}
                         <button onclick="toggleMultiUser('${user.id}')" class="text-purple-500 hover:text-purple-700">
@@ -3228,6 +3244,9 @@
                     selectedUsers = multiAssignments;
                 } else if (task.assigned_team_id) {
                     tipoAssegnazione = 'team';
+                } else if (task.assigned_user_id) {
+                    tipoAssegnazione = 'multi';
+                    selectedUsers = [{ user_id: task.assigned_user_id, ruolo_assegnazione: 'membro', ore_assegnate: 0 }];
                 }
                 
                 // Crea modale
@@ -3833,9 +3852,17 @@
                         
                         // Dipendenti selezionati dai chip
                         const selectedUserIds = Array.from(document.querySelectorAll('#edit-multi-chips [data-user-id]'))
-                            .map(el => el.dataset.userId);
-                        const assignedUserId = selectedUserIds.length > 0 ? selectedUserIds[0] : null;
+                            .map(el => el.dataset.userId)
+                            .filter(id => isValidUUID(id));
+                        const assignedUserId = selectedUserIds.length > 0 ? selectedUserIds[0] : (isValidUUID(task.assigned_user_id) ? task.assigned_user_id : null);
                         const assignedTeamId = null;
+                        
+                        if (!assignedUserId) {
+                            _lavorToast('Devi assegnare almeno un dipendente prima di salvare.', 'error');
+                            btn.disabled = false;
+                            btn.innerHTML = '💾 Salva Modifiche';
+                            return;
+                        }
                         
                         const taskData = {
                             titolo: document.getElementById('edit-titolo').value,
@@ -4198,16 +4225,16 @@
                 // Popola selectedMultiUsers
                 selectedMultiUsers.length = 0;
                 if (multiAssignments && multiAssignments.length > 0) {
-                    multiAssignments.forEach(a => selectedMultiUsers.push(a.user_id));
+                    multiAssignments.forEach(a => { if (isValidUUID(a.user_id)) selectedMultiUsers.push(a.user_id); });
                     if (window.multiUserAssignment) {
-                        window.multiUserAssignment.selectedUsers = multiAssignments.map(a => ({
+                        window.multiUserAssignment.selectedUsers = multiAssignments.filter(a => isValidUUID(a.user_id)).map(a => ({
                             user_id: a.user_id,
                             ruolo_assegnazione: a.ruolo_assegnazione || 'membro',
                             ore_assegnate: a.ore_assegnate || 0
                         }));
                         setTimeout(() => { updateSelectedUsersPreview(); }, 400);
                     }
-                } else if (task.assigned_user_id) {
+                } else if (task.assigned_user_id && isValidUUID(task.assigned_user_id)) {
                     // Fallback: assigned_user_id singolo
                     selectedMultiUsers.push(task.assigned_user_id);
                 }

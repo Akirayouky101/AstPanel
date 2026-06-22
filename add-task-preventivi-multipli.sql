@@ -30,4 +30,4 @@ CREATE POLICY "task_preventivi_select" ON task_preventivi FOR SELECT USING (true
 CREATE POLICY "task_preventivi_insert" ON task_preventivi FOR INSERT WITH CHECK (true);
 CREATE POLICY "task_preventivi_delete" ON task_preventivi FOR DELETE USING (true);
 
-RAISE NOTICE '✅ Tabella task_preventivi creata e dati migrati';
+DO $$ BEGIN RAISE NOTICE '✅ Tabella task_preventivi creata e dati migrati'; END $$;
