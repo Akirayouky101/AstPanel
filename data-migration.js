@@ -14,6 +14,25 @@ window.dataManager = {
         }
     },
 
+    async getAziende() {
+        try {
+            const { data, error } = await window.supabase
+                .from('clienti')
+                .select('id, nome, ragione_sociale, partita_iva, telefono, email, pec, tipo')
+                .eq('tipo', 'azienda')
+                .order('ragione_sociale', { ascending: true });
+            if (error) throw error;
+            // Normalizza: usa ragione_sociale come "nome" se nome è vuoto
+            return (data || []).map(a => ({
+                ...a,
+                nome: a.nome || a.ragione_sociale || ''
+            }));
+        } catch (error) {
+            console.error('Errore caricamento aziende:', error);
+            return [];
+        }
+    },
+
     async saveCliente(cliente) {
         try {
             if (cliente.id) {
