@@ -5113,5 +5113,83 @@
     
     <!-- MOBILE ENHANCEMENTS - Funzionalità touch e gestures (solo mobile) -->
     <script src="mobile-enhancements.js"></script>
+
+    <!-- Modal notifica approvazione/rifiuto richiesta -->
+    <div id="richiestaStatoModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px">
+        <div id="richiestaStatoBox" style="background:#fff;border-radius:20px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.35);animation:slideUp .3s ease">
+            <div id="richiestaStatoHeader" style="padding:28px 24px 20px;text-align:center">
+                <div id="richiestaStatoIcon" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px"></div>
+                <div id="richiestaStatoTitolo" style="font-size:20px;font-weight:800;color:#1f2937;margin-bottom:6px"></div>
+                <div id="richiestaStatoNome" style="font-size:14px;color:#6b7280"></div>
+            </div>
+            <div style="padding:0 24px 24px">
+                <button onclick="document.getElementById('richiestaStatoModal').style.display='none'" style="width:100%;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(135deg,#4f46e5,#6366f1)">
+                    OK, ho capito
+                </button>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+
+    <script>
+    (function avviaRealtimeRichiesteDipendente() {
+        function tryStart() {
+            if (!window.supabase || !window.AuthHelper) {
+                setTimeout(tryStart, 400);
+                return;
+            }
+            const user = window.AuthHelper.getCurrentUser();
+            if (!user || !user.id) {
+                setTimeout(tryStart, 400);
+                return;
+            }
+
+            window.supabase
+                .channel('richieste-stato-dipendente-' + user.id)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'requests',
+                    filter: 'user_id=eq.' + user.id
+                }, function(payload) {
+                    const row = payload.new;
+                    const stato = row.status || row.stato || '';
+                    const isApprovata = stato === 'approved' || stato === 'approvata';
+                    const isRifiutata = stato === 'rejected' || stato === 'rifiutata';
+                    if (!isApprovata && !isRifiutata) return;
+
+                    const titolo = row.titolo || row.title || row.tipo || 'Richiesta';
+                    const approvata = isApprovata;
+
+                    const modal  = document.getElementById('richiestaStatoModal');
+                    const icon   = document.getElementById('richiestaStatoIcon');
+                    const header = document.getElementById('richiestaStatoHeader');
+                    const titoloEl = document.getElementById('richiestaStatoTitolo');
+                    const nomeEl   = document.getElementById('richiestaStatoNome');
+
+                    if (approvata) {
+                        icon.textContent = '✅';
+                        icon.style.background = 'linear-gradient(135deg,#d1fae5,#6ee7b7)';
+                        header.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)';
+                        titoloEl.textContent = 'Richiesta Approvata!';
+                    } else {
+                        icon.textContent = '❌';
+                        icon.style.background = 'linear-gradient(135deg,#fee2e2,#fca5a5)';
+                        header.style.background = 'linear-gradient(135deg,#fef2f2,#fee2e2)';
+                        titoloEl.textContent = 'Richiesta Rifiutata';
+                    }
+                    nomeEl.textContent = '"' + titolo + '"';
+                    modal.style.display = 'flex';
+
+                    // Aggiorna anche il badge e la lista richieste se visibile
+                    if (typeof loadUserRequests === 'function') loadUserRequests();
+                })
+                .subscribe();
+        }
+        tryStart();
+    })();
+    </script>
 </body>
 </html>
