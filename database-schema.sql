@@ -69,6 +69,34 @@ CREATE TABLE clients (
 );
 
 -- =====================================================
+-- AZIENDE TABLE (Aziende emittenti preventivi)
+-- =====================================================
+CREATE TABLE aziende (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nome VARCHAR(200) NOT NULL,
+    ragione_sociale VARCHAR(300),
+    partita_iva VARCHAR(30),
+    codice_fiscale VARCHAR(20),
+    indirizzo TEXT,
+    cap VARCHAR(10),
+    citta VARCHAR(100),
+    provincia VARCHAR(5),
+    telefono VARCHAR(50),
+    email VARCHAR(200),
+    pec VARCHAR(200),
+    codice_sdi VARCHAR(10),
+    iban VARCHAR(50),
+    logo_url TEXT,
+    prefisso_numero VARCHAR(20) DEFAULT 'PREV',
+    prev_counter INTEGER NOT NULL DEFAULT 0,
+    prev_anno INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
+    note TEXT,
+    attiva BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
 -- TEAMS TABLE (Squadre)
 -- =====================================================
 CREATE TABLE teams (
@@ -200,6 +228,10 @@ CREATE INDEX idx_users_stato ON users(stato);
 CREATE INDEX idx_clients_ragione_sociale ON clients(ragione_sociale);
 CREATE INDEX idx_clients_stato ON clients(stato);
 CREATE INDEX idx_clients_tipo ON clients(tipo_cliente);
+
+-- Aziende indexes
+CREATE INDEX idx_aziende_nome ON aziende(nome);
+CREATE INDEX idx_aziende_attiva ON aziende(attiva);
 
 -- Tasks indexes
 CREATE INDEX idx_tasks_stato ON tasks(stato);

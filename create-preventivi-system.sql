@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS preventivi (
     -- Numerazione
     numero VARCHAR(50) UNIQUE NOT NULL, -- es: "PREV-2026-001"
     
+    -- Azienda emittente
+    azienda_id UUID REFERENCES aziende(id) ON DELETE SET NULL,
+
     -- Cliente
     cliente_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     cliente_nome VARCHAR(200), -- Cache per storico
@@ -82,6 +85,7 @@ CREATE TABLE IF NOT EXISTS preventivi_items (
 
 -- 3. INDICI
 CREATE INDEX idx_preventivi_numero ON preventivi(numero);
+CREATE INDEX idx_preventivi_azienda ON preventivi(azienda_id);
 CREATE INDEX idx_preventivi_cliente ON preventivi(cliente_id);
 CREATE INDEX idx_preventivi_stato ON preventivi(stato);
 CREATE INDEX idx_preventivi_data_emissione ON preventivi(data_emissione DESC);
@@ -133,7 +137,40 @@ $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION generate_preventivo_numero() TO authenticated;
 
--- 6. FUNZIONE: Calcola totali preventivo
+-- 6. FUNZIONE: genera numero preventivo per azienda specifica
+CREATE OR REPLACE FUNCTION generate_preventivo_numero_azienda(p_azienda_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    v_anno     INTEGER := EXTRACT(YEAR FROM NOW())::INTEGER;
+    v_counter  INTEGER;
+    v_prefisso TEXT;
+BEGIN
+    -- Reset counter if the year has changed
+    UPDATE aziende
+    SET prev_counter = 0,
+        prev_anno    = v_anno
+    WHERE id = p_azienda_id
+      AND prev_anno < v_anno;
+
+    UPDATE aziende
+    SET prev_counter = prev_counter + 1,
+        updated_at   = NOW()
+    WHERE id = p_azienda_id
+    RETURNING prev_counter, prefisso_numero
+    INTO v_counter, v_prefisso;
+
+    IF v_counter IS NULL THEN
+        RAISE EXCEPTION 'Azienda % non trovata', p_azienda_id;
+    END IF;
+
+    RETURN v_prefisso || '-' || v_anno || '-' || LPAD(v_counter::TEXT, 3, '0');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION generate_preventivo_numero_azienda(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION generate_preventivo_numero_azienda(UUID) TO anon;
+
+-- 7. FUNZIONE: Calcola totali preventivo
 CREATE OR REPLACE FUNCTION calcola_totali_preventivo(p_preventivo_id UUID)
 RETURNS void
 SECURITY DEFINER
