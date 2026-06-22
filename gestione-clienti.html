@@ -351,14 +351,10 @@
                     </div>
 
                     <div id="aziendaPickerSection">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Cerca Azienda</label>
-                        <div style="position:relative">
-                            <input type="text" id="nomeAziendaSearch" autocomplete="off"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                   placeholder="Digita il nome dell'azienda..."
-                                   oninput="aziendaAutocomplete(this.value)" onblur="setTimeout(()=>hideAziendaDropdown(),200)">
-                            <div id="aziendaDropdown" style="display:none;position:absolute;z-index:9999;top:100%;left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto"></div>
-                        </div>
+                        <button type="button" onclick="openAziendaModal()" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px dashed #14b8a6;border-radius:10px;background:#f0fdfa;cursor:pointer;color:#0f766e;font-size:14px;font-weight:600;transition:background .2s" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'">
+                            <i class="fas fa-search" style="font-size:16px"></i>
+                            <span>Seleziona Azienda di Riferimento...</span>
+                        </button>
                         <p style="font-size:11px;color:#14b8a6;margin-top:4px"><i class="fas fa-info-circle" style="margin-right:3px"></i>Cerca tra le aziende configurate</p>
                     </div>
                 </div>
@@ -677,42 +673,54 @@
             if (d) d.style.display = 'none';
         }
 
-        async function aziendaAutocomplete(val) {
-            const dropdown = document.getElementById('aziendaDropdown');
-            if (!val || val.length < 2) { dropdown.style.display = 'none'; return; }
-            const q = val.toLowerCase();
-            if (!allAziendeCache.length) {
-                await loadAziende();
-            }
-            const matches = allAziendeCache.filter(a => {
-                const nome = (a.nome || '').toLowerCase();
-                const ragione = (a.ragione_sociale || '').toLowerCase();
-                return nome.includes(q) || ragione.includes(q);
-            }).slice(0, 8);
-            if (!matches.length) { dropdown.style.display = 'none'; return; }
-            dropdown.innerHTML = matches.map(a => {
-                const label = a.nome || a.ragione_sociale || 'Azienda';
-                const sub = [a.partita_iva, a.telefono, a.email].filter(Boolean).join(' · ');
-                return `<div onclick="aziendaFill('${a.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f4f6" onmouseover="this.style.background='#ecfdf5'" onmouseout="this.style.background='#fff'">
-                    <div style="font-weight:600;color:#1f2937">${label}</div>
-                    ${sub ? `<div style="font-size:12px;color:#6b7280">${sub}</div>` : ''}
-                </div>`;
-            }).join('');
-            dropdown.style.display = 'block';
+        async function openAziendaModal() {
+            if (!allAziendeCache.length) await loadAziende();
+            document.getElementById('aziendaModalSearch').value = '';
+            const count = allAziendeCache.length;
+            document.getElementById('aziendaModalCount').textContent = count + (count === 1 ? ' azienda' : ' aziende');
+            renderAziendaModalList('');
+            document.getElementById('aziendaPickerModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('aziendaModalSearch').focus(), 100);
         }
 
-        function hideAziendaDropdown() {
-            const d = document.getElementById('aziendaDropdown');
-            if (d) d.style.display = 'none';
+        function closeAziendaModal() {
+            document.getElementById('aziendaPickerModal').style.display = 'none';
+        }
+
+        function renderAziendaModalList(q) {
+            const list = document.getElementById('aziendaModalList');
+            const filtered = q
+                ? allAziendeCache.filter(a => {
+                    const n = (a.nome || a.ragione_sociale || '').toLowerCase();
+                    const r = (a.ragione_sociale || '').toLowerCase();
+                    return n.includes(q.toLowerCase()) || r.includes(q.toLowerCase());
+                })
+                : allAziendeCache;
+            if (!filtered.length) {
+                list.innerHTML = '<div style="padding:24px;text-align:center;color:#9ca3af"><i class="fas fa-search" style="font-size:24px;display:block;margin-bottom:8px"></i>Nessuna azienda trovata</div>';
+                return;
+            }
+            list.innerHTML = filtered.map(a => {
+                const label = a.ragione_sociale || a.nome || 'Azienda';
+                const sub = [a.partita_iva, a.telefono, a.email].filter(Boolean).join(' · ');
+                return `<div onclick="aziendaFill('${a.id}');closeAziendaModal()" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid #f3f4f6" onmouseover="this.style.background='#f0fdfa'" onmouseout="this.style.background='#fff'">
+                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#14b8a6,#0f766e);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fas fa-building" style="color:white;font-size:13px"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:600;color:#1f2937;font-size:14px">${label}</div>
+                        ${sub ? `<div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>` : ''}
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:#d1d5db;font-size:12px"></i>
+                </div>`;
+            }).join('');
         }
 
         function aziendaFill(aziendaId) {
             const a = allAziendeCache.find(x => x.id === aziendaId);
             if (!a) return;
-            document.getElementById('nomeAziendaSearch').value = a.nome || a.ragione_sociale || '';
-            hideAziendaDropdown();
             document.getElementById('aziendaId').value = a.id;
-            document.getElementById('aziendaSelectedName').textContent = a.nome || a.ragione_sociale || 'Azienda';
+            document.getElementById('aziendaSelectedName').textContent = a.ragione_sociale || a.nome || 'Azienda';
             document.getElementById('aziendaSelectedSub').textContent = [a.partita_iva, a.telefono, a.email].filter(Boolean).join(' · ');
             document.getElementById('aziendaSelectedDisplay').style.display = 'block';
             document.getElementById('aziendaPickerSection').style.display = 'none';
@@ -1400,5 +1408,36 @@
             }, 3000);
         }
     </script>
+
+    <!-- Modal Seleziona Azienda -->
+    <div id="aziendaPickerModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:16px">
+        <div style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #e5e7eb">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#14b8a6,#0f766e);border-radius:10px;display:flex;align-items:center;justify-content:center">
+                        <i class="fas fa-building" style="color:white;font-size:14px"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700;color:#1f2937;font-size:16px">Seleziona Azienda</div>
+                        <div id="aziendaModalCount" style="font-size:12px;color:#6b7280"></div>
+                    </div>
+                </div>
+                <button onclick="closeAziendaModal()" style="width:32px;height:32px;border-radius:50%;border:none;background:#f3f4f6;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:16px">&times;</button>
+            </div>
+            <!-- Search -->
+            <div style="padding:12px 16px;border-bottom:1px solid #e5e7eb">
+                <div style="position:relative">
+                    <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px"></i>
+                    <input type="text" id="aziendaModalSearch" placeholder="Cerca per nome, P.IVA, email..."
+                           style="width:100%;padding:9px 12px 9px 34px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box"
+                           oninput="renderAziendaModalList(this.value)"
+                           onfocus="this.style.borderColor='#14b8a6'" onblur="this.style.borderColor='#d1d5db'">
+                </div>
+            </div>
+            <!-- List -->
+            <div id="aziendaModalList" style="flex:1;overflow-y:auto"></div>
+        </div>
+    </div>
 </body>
 </html>
