@@ -209,7 +209,6 @@
                             <option value="bozza">📝 Bozze</option>
                             <option value="inviato">📤 Inviati</option>
                             <option value="accettato">✅ Accettati</option>
-                            <option value="ricevuto">📦 Ricevuti</option>
                             <option value="rifiutato">❌ Rifiutati</option>
                             <option value="scaduto">⌛ Scaduti</option>
                         </select>
@@ -364,7 +363,6 @@
                                     <option value="bozza">📝  Bozza</option>
                                     <option value="inviato">📤  Inviato</option>
                                     <option value="accettato">✅  Accettato</option>
-                                    <option value="ricevuto">📦  Ricevuto</option>
                                     <option value="rifiutato">❌  Rifiutato</option>
                                     <option value="scaduto">⌛  Scaduto</option>
                                 </select>
@@ -660,7 +658,6 @@
                 'bozza': 'bg-yellow-100 text-yellow-800',
                 'inviato': 'bg-blue-100 text-blue-800',
                 'accettato': 'bg-green-100 text-green-800',
-                'ricevuto': 'bg-indigo-100 text-indigo-800',
                 'rifiutato': 'bg-red-100 text-red-800',
                 'scaduto': 'bg-gray-100 text-gray-800'
             };
@@ -1271,82 +1268,12 @@
                 
                 if (itemsError) throw itemsError;
 
-                // Se stato = ricevuto, carica componenti in magazzino
-                if (preventivoData.stato === 'ricevuto') {
-                    // Controlla se già caricato (per evitare doppio carico su update)
-                    const isAlreadyRicevuto = !isNew && (await window.supabase
-                        .from('preventivi').select('stato').eq('id', savedId).single()).data?.stato === 'ricevuto';
-                    if (!isAlreadyRicevuto) {
-                        await caricaMagazzinoPreventivo(savedId, preventivoData, currentUser.id);
-                    }
-                }
-
                 showToast(isNew ? 'Preventivo creato con successo!' : 'Preventivo aggiornato!', 'success');
                 closeModal();
                 await loadPreventivi();
             } catch (error) {
                 console.error('Errore:', error);
                 showToast('Errore nel salvataggio: ' + error.message, 'error');
-            }
-        }
-
-        // Carica componenti in magazzino da preventivo 'ricevuto'
-        async function caricaMagazzinoPreventivo(preventivoId, preventivoData, userId) {
-            try {
-                const { data: items, error: itemsError } = await window.supabase
-                    .from('preventivi_items')
-                    .select('prodotto_id, quantita, descrizione')
-                    .eq('preventivo_id', preventivoId);
-                if (itemsError) throw itemsError;
-
-                let caricati = 0;
-                for (const item of items) {
-                    if (!item.prodotto_id) continue;
-                    try {
-                        // Leggi giacenza attuale
-                        const { data: comp, error: compErr } = await window.supabase
-                            .from('components')
-                            .select('id, giacenza, nome, descrizione')
-                            .eq('id', item.prodotto_id)
-                            .single();
-                        if (compErr) continue;
-
-                        const qtaCarico = parseFloat(item.quantita) || 0;
-                        const giacenzaPrima = parseFloat(comp.giacenza) || 0;
-                        const giacenzaDopo = giacenzaPrima + qtaCarico;
-
-                        // Aggiorna giacenza
-                        await window.supabase
-                            .from('components')
-                            .update({ giacenza: giacenzaDopo, updated_at: new Date().toISOString() })
-                            .eq('id', item.prodotto_id);
-
-                        // Inserisci movimento magazzino
-                        await window.supabase
-                            .from('movimenti_magazzino')
-                            .insert({
-                                prodotto_id: item.prodotto_id,
-                                tipo_movimento: 'carico',
-                                quantita: qtaCarico,
-                                giacenza_prima: giacenzaPrima,
-                                giacenza_dopo: giacenzaDopo,
-                                causale: `Carico da preventivo ${preventivoData.numero || preventivoId} (stato: ricevuto)`,
-                                descrizione: comp.nome || comp.descrizione || item.descrizione || '',
-                                data_movimento: new Date().toISOString().split('T')[0],
-                                created_by: userId,
-                                note: `Cliente: ${preventivoData.cliente_nome || ''}`
-                            });
-                        caricati++;
-                    } catch (err) {
-                        console.warn('Errore carico prodotto:', err);
-                    }
-                }
-                if (caricati > 0) {
-                    showToast(`📦 ${caricati} componenti caricati in magazzino!`, 'success');
-                }
-            } catch (err) {
-                console.error('Errore carico magazzino:', err);
-                showToast('Avviso: errore durante il carico in magazzino: ' + err.message, 'error');
             }
         }
 
