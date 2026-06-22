@@ -817,11 +817,60 @@
                     if (error) throw error;
                     savedOrdineId = ordineId;
 
-                    // Elimina vecchie righe
-                    await window.supabase
+                    // Gestisci item in modo da preservare quantita_ricevuta e stato
+                    // Carica item esistenti dal DB
+                    const { data: existingItems } = await window.supabase
                         .from('ordini_fornitore_items')
-                        .delete()
+                        .select('id')
                         .eq('ordine_id', ordineId);
+
+                    const existingIds = (existingItems || []).map(i => i.id);
+                    const currentIds = currentItems.filter(i => i.id).map(i => i.id);
+
+                    // Elimina solo gli item rimossi dall'utente
+                    const toDelete = existingIds.filter(id => !currentIds.includes(id));
+                    if (toDelete.length > 0) {
+                        await window.supabase
+                            .from('ordini_fornitore_items')
+                            .delete()
+                            .in('id', toDelete);
+                    }
+
+                    // Aggiorna item esistenti (preserva quantita_ricevuta e stato)
+                    for (const item of currentItems.filter(i => i.id)) {
+                        await window.supabase
+                            .from('ordini_fornitore_items')
+                            .update({
+                                codice: item.codice,
+                                descrizione: item.descrizione,
+                                um: item.um,
+                                quantita_ordinata: item.quantita_ordinata,
+                                prezzo_acquisto: item.prezzo_acquisto,
+                                importo: item.importo
+                            })
+                            .eq('id', item.id);
+                    }
+
+                    // Inserisci solo i nuovi item (senza id)
+                    const newItems = currentItems
+                        .filter(i => !i.id)
+                        .map(item => ({
+                            ordine_id: savedOrdineId,
+                            prodotto_id: item.prodotto_id,
+                            codice: item.codice,
+                            descrizione: item.descrizione,
+                            um: item.um,
+                            quantita_ordinata: item.quantita_ordinata,
+                            quantita_ricevuta: 0,
+                            prezzo_acquisto: item.prezzo_acquisto,
+                            importo: item.importo,
+                            stato: 'da_ricevere'
+                        }));
+                    if (newItems.length > 0) {
+                        await window.supabase
+                            .from('ordini_fornitore_items')
+                            .insert(newItems);
+                    }
                 } else {
                     // Insert - genera numero
                     const { data: numeroData, error: numeroError } = await window.supabase
@@ -839,7 +888,8 @@
                     savedOrdineId = data[0].id;
                 }
 
-                // Inserisci righe
+                // Inserisci righe (solo per nuovo ordine)
+                if (!ordineId) {
                 const items = currentItems.map(item => ({
                     ordine_id: savedOrdineId,
                     prodotto_id: item.prodotto_id,
@@ -858,6 +908,7 @@
                     .insert(items);
 
                 if (itemsError) throw itemsError;
+                }
 
                 showSuccessModal('Ordine salvato con successo!');
                 closeModal();
@@ -962,7 +1013,14 @@
             }
         }
 
+        let _ricezioneInCorso = false;
+
         async function confermaRicezione() {
+            if (_ricezioneInCorso) return;
+            _ricezioneInCorso = true;
+            const btnConferma = document.querySelector('#ricezioneModal button[onclick="confermaRicezione()"]');
+            if (btnConferma) { btnConferma.disabled = true; btnConferma.textContent = 'Caricamento...'; }
+
             try {
                 const ordineId = document.getElementById('ricezioneOrdineId').value;
 
@@ -1069,6 +1127,10 @@
             } catch (error) {
                 console.error('Errore ricezione:', error);
                 showErrorModal('Errore nella ricezione della merce', error.message);
+            } finally {
+                _ricezioneInCorso = false;
+                const btnConferma = document.querySelector('#ricezioneModal button[onclick="confermaRicezione()"]');
+                if (btnConferma) { btnConferma.disabled = false; btnConferma.innerHTML = '<i class="fas fa-check mr-2"></i>Conferma Ricezione'; }
             }
         }
 
