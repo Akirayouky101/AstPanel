@@ -1917,9 +1917,21 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Per chi</label>
-                        <select id="bloccaUserId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent bg-white">
-                            <option value="">🚫 Tutti i dipendenti</option>
-                        </select>
+                        <!-- Toggle tutti / selezione -->
+                        <div class="flex gap-2 mb-2">
+                            <button type="button" id="bloccaTuttiBtn" onclick="bloccaToggleTutti(true)"
+                                class="flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-red-400 bg-red-50 text-red-700 transition-colors">
+                                🚫 Tutti
+                            </button>
+                            <button type="button" id="bloccaSelBtn" onclick="bloccaToggleTutti(false)"
+                                class="flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-gray-200 bg-white text-gray-600 transition-colors">
+                                👤 Seleziona persone
+                            </button>
+                        </div>
+                        <!-- Lista dipendenti (hidden di default) -->
+                        <div id="bloccaDipendentiList" class="hidden border border-gray-200 rounded-lg max-h-36 overflow-y-auto bg-white">
+                        </div>
+                        <input type="hidden" id="bloccaTutti" value="true">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
@@ -1957,38 +1969,67 @@
     // ===== GIORNI BLOCCATI =====
     let _bloccaColoreSelezionato = '#ef4444';
     let _giorniBlocchi = [];
+    let _bloccaSelectedUsers = []; // [] = tutti, altrimenti array di id
 
     function selectBloccaColor(color) {
         _bloccaColoreSelezionato = color;
         document.getElementById('bloccaColore').value = color;
         document.querySelectorAll('.blocca-color-btn').forEach(btn => {
-            btn.style.ringColor = '';
-            if (btn.dataset.color === color) {
-                btn.style.outline = '3px solid ' + color;
-                btn.style.outlineOffset = '2px';
-            } else {
-                btn.style.outline = 'none';
-            }
+            btn.style.outline = btn.dataset.color === color ? '3px solid ' + color : 'none';
+            btn.style.outlineOffset = '2px';
         });
     }
 
+    function bloccaToggleTutti(tutti) {
+        document.getElementById('bloccaTutti').value = tutti ? 'true' : 'false';
+        const list = document.getElementById('bloccaDipendentiList');
+        const tuttiBtn = document.getElementById('bloccaTuttiBtn');
+        const selBtn   = document.getElementById('bloccaSelBtn');
+        if (tutti) {
+            list.classList.add('hidden');
+            tuttiBtn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-red-400 bg-red-50 text-red-700 transition-colors';
+            selBtn.className   = 'flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-gray-200 bg-white text-gray-600 transition-colors';
+            _bloccaSelectedUsers = [];
+        } else {
+            list.classList.remove('hidden');
+            selBtn.className   = 'flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-red-400 bg-red-50 text-red-700 transition-colors';
+            tuttiBtn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-gray-200 bg-white text-gray-600 transition-colors';
+        }
+    }
+    window.bloccaToggleTutti = bloccaToggleTutti;
+
+    function renderBloccaDipendentiList() {
+        const container = document.getElementById('bloccaDipendentiList');
+        const sorted = [...(allUsers || [])].sort((a,b) => (a.nome+a.cognome).localeCompare(b.nome+b.cognome));
+        const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
+        container.innerHTML = sorted.map(u => {
+            const color = colors[u.id] || '#6b7280';
+            const checked = _bloccaSelectedUsers.includes(u.id);
+            return `<label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors">
+                <input type="checkbox" value="${u.id}" ${checked ? 'checked' : ''}
+                       onchange="bloccaToggleUser('${u.id}', this.checked)"
+                       class="w-4 h-4 rounded accent-red-500">
+                <span style="width:24px;height:24px;border-radius:50%;background:${color};display:inline-flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0;">${(u.nome||'?')[0].toUpperCase()}</span>
+                <span class="text-sm text-gray-800">${u.nome} ${u.cognome}</span>
+            </label>`;
+        }).join('');
+    }
+
+    function bloccaToggleUser(id, checked) {
+        if (checked) { if (!_bloccaSelectedUsers.includes(id)) _bloccaSelectedUsers.push(id); }
+        else { _bloccaSelectedUsers = _bloccaSelectedUsers.filter(x => x !== id); }
+    }
+    window.bloccaToggleUser = bloccaToggleUser;
+
     async function openBloccaModal() {
-        // Popola select dipendenti
-        const sel = document.getElementById('bloccaUserId');
-        sel.innerHTML = '<option value="">🚫 Tutti i dipendenti</option>';
-        (allUsers || []).sort((a,b)=>(a.nome+a.cognome).localeCompare(b.nome+b.cognome)).forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.id;
-            opt.textContent = u.nome + ' ' + u.cognome;
-            sel.appendChild(opt);
-        });
-        // Default dates
+        _bloccaSelectedUsers = [];
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('bloccaDal').value = today;
-        document.getElementById('bloccaAl').value = today;
+        document.getElementById('bloccaAl').value  = today;
         document.getElementById('bloccaMotivo').value = '';
+        bloccaToggleTutti(true);
+        renderBloccaDipendentiList();
         selectBloccaColor('#ef4444');
-        // Carica lista
         await caricaListaBlocchi();
         document.getElementById('bloccaGiorniModal').classList.remove('hidden');
     }
@@ -2003,7 +2044,7 @@
         try {
             const { data, error } = await window.supabaseClient
                 .from('giorni_bloccati')
-                .select('*, users:user_id(nome, cognome)')
+                .select('*')
                 .order('data_inizio', { ascending: true });
             if (error) throw error;
             _giorniBlocchi = data || [];
@@ -2019,13 +2060,22 @@
             container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Nessun blocco attivo</p>';
             return;
         }
+        const colors = JSON.parse(localStorage.getItem('calUserColors') || '{}');
         container.innerHTML = _giorniBlocchi.map(b => {
-            const chi = b.users ? b.users.nome + ' ' + b.users.cognome : 'Tutti';
+            let chi;
+            if (!b.user_ids || b.user_ids.length === 0) {
+                chi = 'Tutti';
+            } else {
+                chi = b.user_ids.map(id => {
+                    const u = (allUsers||[]).find(x => x.id === id);
+                    return u ? u.nome + ' ' + u.cognome : id;
+                }).join(', ');
+            }
             const dal = new Date(b.data_inizio + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
             const al  = new Date(b.data_fine  + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
             const range = b.data_inizio === b.data_fine ? dal : dal + ' → ' + al;
             return `<div class="flex items-center gap-3 py-2.5 border-b border-gray-100 last:border-0">
-                <span style="width:12px;height:12px;border-radius:50%;background:${b.colore || '#ef4444'};flex-shrink:0;"></span>
+                <span style="width:12px;height:12px;border-radius:50%;background:${b.colore||'#ef4444'};flex-shrink:0;"></span>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-gray-800 truncate">${b.motivo || 'Blocco'}</p>
                     <p class="text-xs text-gray-500">${range} · <span class="font-medium">${chi}</span></p>
@@ -2038,26 +2088,33 @@
     }
 
     async function salvaBloccaGiorno() {
-        const dal = document.getElementById('bloccaDal').value;
-        const al  = document.getElementById('bloccaAl').value;
-        const userId = document.getElementById('bloccaUserId').value || null;
+        const dal    = document.getElementById('bloccaDal').value;
+        const al     = document.getElementById('bloccaAl').value;
+        const tutti  = document.getElementById('bloccaTutti').value === 'true';
         const motivo = document.getElementById('bloccaMotivo').value.trim();
         const colore = document.getElementById('bloccaColore').value;
 
         if (!dal || !al) { alert('Seleziona le date'); return; }
         if (al < dal)    { alert('La data fine deve essere uguale o successiva alla data inizio'); return; }
+        if (!tutti && _bloccaSelectedUsers.length === 0) { alert('Seleziona almeno un dipendente'); return; }
+
+        const userIds = tutti ? null : _bloccaSelectedUsers;
 
         try {
             const { data: { user } } = await window.supabaseClient.auth.getUser();
             const { error } = await window.supabaseClient.from('giorni_bloccati').insert([{
                 data_inizio: dal, data_fine: al,
-                user_id: userId, motivo: motivo || null,
+                user_ids: userIds,
+                motivo: motivo || null,
                 colore, created_by: user?.id || null
             }]);
             if (error) throw error;
+            document.getElementById('bloccaMotivo').value = '';
+            _bloccaSelectedUsers = [];
+            bloccaToggleTutti(true);
+            renderBloccaDipendentiList();
             await caricaListaBlocchi();
             await aggiornaBlocksNelCalendario();
-            document.getElementById('bloccaMotivo').value = '';
         } catch(e) {
             alert('Errore: ' + e.message);
         }
@@ -2082,26 +2139,30 @@
         try {
             const { data, error } = await window.supabaseClient
                 .from('giorni_bloccati')
-                .select('*, users:user_id(id, nome, cognome)')
+                .select('*')
                 .order('data_inizio');
             if (error) throw error;
-            // Rimuovi eventi background esistenti
             calendar.getEvents().filter(e => e.extendedProps?.tipo === 'blocco').forEach(e => e.remove());
-            // Aggiungi nuovi
             (data || []).forEach(b => {
-                const chi = b.users ? b.users.nome + ' ' + b.users.cognome : 'Tutti';
-                // data_fine in FullCalendar è esclusiva, aggiungiamo 1 giorno
+                let chi;
+                if (!b.user_ids || b.user_ids.length === 0) {
+                    chi = 'Tutti';
+                } else {
+                    chi = b.user_ids.map(id => {
+                        const u = (allUsers||[]).find(x => x.id === id);
+                        return u ? u.nome + ' ' + u.cognome : '';
+                    }).filter(Boolean).join(', ');
+                }
                 const endDate = new Date(b.data_fine + 'T00:00:00');
                 endDate.setDate(endDate.getDate() + 1);
                 calendar.addEvent({
                     id: 'blocco-' + b.id,
-                    title: (b.motivo || 'Blocco') + ' · ' + chi,
+                    title: (b.motivo || 'Blocco') + (chi !== 'Tutti' ? ' · ' + chi : ''),
                     start: b.data_inizio,
                     end: endDate.toISOString().split('T')[0],
                     display: 'background',
                     backgroundColor: b.colore || '#ef4444',
-                    classNames: ['blocco-event'],
-                    extendedProps: { tipo: 'blocco', bloccoId: b.id, chi }
+                    extendedProps: { tipo: 'blocco', bloccoId: b.id, userIds: b.user_ids, chi }
                 });
             });
         } catch(e) {
@@ -2109,13 +2170,9 @@
         }
     }
 
-    async function aggiornaBlocksNelCalendario() {
-        await caricaBlocksNelCalendario();
-    }
+    async function aggiornaBlocksNelCalendario() { await caricaBlocksNelCalendario(); }
 
-    // Carica blocchi dopo che il calendario è inizializzato
     document.addEventListener('DOMContentLoaded', function() {
-        // Aspetta che il calendario sia pronto
         setTimeout(caricaBlocksNelCalendario, 1200);
     });
     </script>

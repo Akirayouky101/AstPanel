@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS giorni_bloccati (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     data_inizio DATE NOT NULL,
     data_fine DATE NOT NULL,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,  -- NULL = blocco per tutti
+    user_ids JSONB DEFAULT NULL,  -- NULL = blocco per tutti; altrimenti array di UUID ["id1","id2",...]
     motivo TEXT,
     colore VARCHAR(20) DEFAULT '#ef4444',
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
