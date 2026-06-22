@@ -349,10 +349,96 @@
                     <button onclick="closeConfirmDeleteModal()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
                         <i class="fas fa-times mr-2"></i>Annulla
                     </button>
-                    <button onclick="confermaEliminazione()" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                    <button onclick="confermaEliminazione(false)" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
                         <i class="fas fa-trash mr-2"></i>Elimina
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Elimina Ordine Ricevuto (con opzione storno) -->
+    <div id="confirmDeleteRicevutoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-exclamation-triangle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Elimina Ordine Ricevuto</h2>
+            </div>
+            <div class="p-6">
+                <p id="confirmDeleteRicevutoMessage" class="text-gray-700 text-center mb-2"></p>
+                <div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-6 text-sm text-amber-800">
+                    <i class="fas fa-warehouse mr-2"></i>
+                    Questo ordine ha merce già caricata in magazzino.<br>
+                    Vuoi stornare le quantità ricevute dalla giacenza?
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button onclick="confermaEliminazione(true)" class="w-full bg-red-700 text-white px-4 py-3 rounded-lg hover:bg-red-800 transition font-semibold text-sm">
+                        <i class="fas fa-trash mr-2"></i>Elimina e storna le quantità dal magazzino
+                    </button>
+                    <button onclick="confermaEliminazione(false)" class="w-full bg-red-500 text-white px-4 py-3 rounded-lg hover:bg-red-600 transition font-semibold text-sm">
+                        <i class="fas fa-trash-alt mr-2"></i>Elimina senza stornare il magazzino
+                    </button>
+                    <button onclick="closeConfirmDeleteRicevutoModal()" class="w-full bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 transition font-semibold text-sm">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Riepilogo Ordine -->
+    <div id="riepilogoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8">
+            <div class="bg-gradient-to-r from-orange-600 to-amber-600 text-white p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold" id="riepilogoTitolo">📋 Riepilogo Ordine</h3>
+                        <p class="text-orange-100 text-sm" id="riepilogoSottotitolo"></p>
+                    </div>
+                    <button onclick="closeRiepilogoModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                <!-- Info ordine -->
+                <div id="riepilogoInfo" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                <!-- Tabella prodotti -->
+                <div>
+                    <h4 class="font-bold text-gray-700 mb-3 flex items-center"><i class="fas fa-boxes mr-2 text-orange-500"></i>Articoli</h4>
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Codice</th>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Descrizione</th>
+                                    <th class="px-4 py-2 text-right text-gray-600 font-semibold">Ordinati</th>
+                                    <th class="px-4 py-2 text-right text-gray-600 font-semibold">Ricevuti</th>
+                                    <th class="px-4 py-2 text-right text-gray-600 font-semibold">Prezzo</th>
+                                    <th class="px-4 py-2 text-right text-gray-600 font-semibold">Importo</th>
+                                    <th class="px-4 py-2 text-center text-gray-600 font-semibold">Stato</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riepilogoItems" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- Note -->
+                <div id="riepilogoNoteBox" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
+                    <p id="riepilogoNote" class="text-gray-700 text-sm"></p>
+                </div>
+            </div>
+            <div class="px-6 pb-6 flex justify-end gap-3">
+                <button onclick="closeRiepilogoModal()" class="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">Chiudi</button>
+                <button id="riepilogoBtnRicevi" class="hidden px-6 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm">
+                    <i class="fas fa-truck-loading mr-2"></i>Ricevi Merce
+                </button>
+                <button id="riepilogoBtnModifica" class="px-6 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 text-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifica
+                </button>
             </div>
         </div>
     </div>
@@ -501,7 +587,7 @@
             }
 
             tbody.innerHTML = ordini.map(o => `
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-orange-50 cursor-pointer transition-colors" onclick="apriRiepilogo('${o.id}')">
                     <td class="px-6 py-4">
                         <div class="font-medium text-gray-900">${o.numero}</div>
                         ${o.preventivo_id ? '<div class="text-xs text-blue-600"><i class="fas fa-link mr-1"></i>Da preventivo</div>' : ''}
@@ -528,16 +614,16 @@
                     <td class="px-6 py-4">
                         ${getStatoBadge(o.stato)}
                     </td>
-                    <td class="px-6 py-4 text-sm space-x-2">
+                    <td class="px-6 py-4 text-sm space-x-2" onclick="event.stopPropagation()">
                         <button onclick="modificaOrdine('${o.id}')" class="text-orange-600 hover:text-orange-900" title="Modifica">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${(o.stato === 'ordinato' || o.stato === 'in_arrivo') ? 
+                        ${(o.stato === 'ordinato' || o.stato === 'in_arrivo' || o.stato === 'parzialmente_ricevuto') ? 
                             `<button onclick="riceviMerce('${o.id}')" class="text-green-600 hover:text-green-900" title="Ricevi merce">
                                 <i class="fas fa-truck-loading"></i>
                             </button>` : ''
                         }
-                        <button onclick="eliminaOrdine('${o.id}', '${o.numero}')" class="text-red-600 hover:text-red-900" title="Elimina">
+                        <button onclick="eliminaOrdine('${o.id}', '${o.numero}', '${o.stato}')" class="text-red-600 hover:text-red-900" title="Elimina">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1134,14 +1220,118 @@
             }
         }
 
-        async function eliminaOrdine(id, numero) {
-            mostraConfermaEliminazione(id, numero);
+        async function eliminaOrdine(id, numero, stato) {
+            ordineIdDaEliminare = id;
+            ordineNumeroDaEliminare = numero;
+            if (stato === 'ricevuto' || stato === 'parzialmente_ricevuto') {
+                document.getElementById('confirmDeleteRicevutoMessage').textContent =
+                    `Stai per eliminare l'ordine "${numero}".`;
+                document.getElementById('confirmDeleteRicevutoModal').classList.remove('hidden');
+            } else {
+                document.getElementById('confirmDeleteMessage').textContent =
+                    `Sei sicuro di voler eliminare l'ordine "${numero}"?`;
+                document.getElementById('confirmDeleteModal').classList.remove('hidden');
+            }
         }
 
 
         function closeModal() {
             document.getElementById('ordineModal').classList.add('hidden');
             currentItems = [];
+        }
+
+        function closeRiepilogoModal() {
+            document.getElementById('riepilogoModal').classList.add('hidden');
+        }
+
+        async function apriRiepilogo(ordineId) {
+            const ordine = ordini.find(o => o.id === ordineId);
+            if (!ordine) return;
+
+            // Titolo e sottotitolo
+            document.getElementById('riepilogoTitolo').textContent = `📋 Ordine ${ordine.numero}`;
+            document.getElementById('riepilogoSottotitolo').textContent =
+                `${ordine.fornitore?.ragione_sociale || ordine.fornitore_nome || ''} · ${new Date(ordine.data_ordine).toLocaleDateString('it-IT')}`;
+
+            // Info card
+            document.getElementById('riepilogoInfo').innerHTML = `
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Fornitore</p>
+                    <p class="font-medium text-gray-800">${ordine.fornitore?.ragione_sociale || ordine.fornitore_nome || '-'}</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Stato</p>
+                    <div>${getStatoBadge(ordine.stato)}</div>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Consegna Prevista</p>
+                    <p class="font-medium text-gray-800">${ordine.data_consegna_prevista ? new Date(ordine.data_consegna_prevista).toLocaleDateString('it-IT') : '-'}</p>
+                </div>
+                <div class="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                    <p class="text-xs text-orange-600 uppercase font-semibold mb-1">Totale</p>
+                    <p class="font-bold text-orange-700 text-lg">€ ${parseFloat(ordine.totale_ordine || 0).toFixed(2)}</p>
+                </div>
+                ${ordine.oggetto ? `<div class="bg-gray-50 rounded-xl p-4 border border-gray-100 col-span-2 md:col-span-4">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Oggetto</p>
+                    <p class="text-gray-800">${ordine.oggetto}</p>
+                </div>` : ''}
+            `;
+
+            // Note
+            if (ordine.note_interne) {
+                document.getElementById('riepilogoNote').textContent = ordine.note_interne;
+                document.getElementById('riepilogoNoteBox').classList.remove('hidden');
+            } else {
+                document.getElementById('riepilogoNoteBox').classList.add('hidden');
+            }
+
+            // Bottoni footer
+            const btnRicevi = document.getElementById('riepilogoBtnRicevi');
+            const btnModifica = document.getElementById('riepilogoBtnModifica');
+            if (ordine.stato === 'ordinato' || ordine.stato === 'in_arrivo' || ordine.stato === 'parzialmente_ricevuto') {
+                btnRicevi.classList.remove('hidden');
+                btnRicevi.onclick = () => { closeRiepilogoModal(); riceviMerce(ordineId); };
+            } else {
+                btnRicevi.classList.add('hidden');
+            }
+            btnModifica.onclick = () => { closeRiepilogoModal(); modificaOrdine(ordineId); };
+
+            // Carica items dal DB
+            document.getElementById('riepilogoItems').innerHTML =
+                '<tr><td colspan="7" class="px-4 py-4 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</td></tr>';
+            document.getElementById('riepilogoModal').classList.remove('hidden');
+
+            const { data: items, error } = await window.supabase
+                .from('ordini_fornitore_items')
+                .select('*')
+                .eq('ordine_id', ordineId)
+                .order('created_at', { ascending: true });
+
+            if (error || !items) {
+                document.getElementById('riepilogoItems').innerHTML =
+                    '<tr><td colspan="7" class="px-4 py-4 text-center text-red-500">Errore nel caricamento articoli</td></tr>';
+                return;
+            }
+
+            const itemBadges = {
+                'da_ricevere': '<span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">Da ricevere</span>',
+                'parzialmente_ricevuto': '<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">Parz. ricevuto</span>',
+                'ricevuto': '<span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">Ricevuto</span>'
+            };
+
+            document.getElementById('riepilogoItems').innerHTML = items.map(item => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-xs text-gray-600">${item.codice || '-'}</td>
+                    <td class="px-4 py-3 text-gray-800">${item.descrizione || '-'}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">${parseFloat(item.quantita_ordinata || 0).toFixed(2)} ${item.um || ''}</td>
+                    <td class="px-4 py-3 text-right font-medium ${parseFloat(item.quantita_ricevuta || 0) >= parseFloat(item.quantita_ordinata || 0) ? 'text-green-600' : 'text-amber-600'}">
+                        ${parseFloat(item.quantita_ricevuta || 0).toFixed(2)} ${item.um || ''}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600">€ ${parseFloat(item.prezzo_acquisto || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-800">€ ${parseFloat(item.importo || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-center">${itemBadges[item.stato] || item.stato}</td>
+                </tr>
+            `).join('');
         }
 
         function closeProdottoModal() {
@@ -1159,39 +1349,84 @@
         let ordineIdDaEliminare = null;
         let ordineNumeroDaEliminare = '';
 
-        function mostraConfermaEliminazione(id, numero) {
-            ordineIdDaEliminare = id;
-            ordineNumeroDaEliminare = numero;
-            document.getElementById('confirmDeleteMessage').textContent = 
-                `Sei sicuro di voler eliminare l'ordine "${numero}"?`;
-            document.getElementById('confirmDeleteModal').classList.remove('hidden');
-        }
-
         function closeConfirmDeleteModal() {
             document.getElementById('confirmDeleteModal').classList.add('hidden');
             ordineIdDaEliminare = null;
             ordineNumeroDaEliminare = '';
         }
 
-        async function confermaEliminazione() {
+        function closeConfirmDeleteRicevutoModal() {
+            document.getElementById('confirmDeleteRicevutoModal').classList.add('hidden');
+            ordineIdDaEliminare = null;
+            ordineNumeroDaEliminare = '';
+        }
+
+        async function confermaEliminazione(stornamagazzino = false) {
             if (!ordineIdDaEliminare) return;
+            const id = ordineIdDaEliminare;
+            const numero = ordineNumeroDaEliminare;
+            closeConfirmDeleteModal();
+            closeConfirmDeleteRicevutoModal();
 
             try {
-                const { error } = await window.supabase
-                    .from('ordini_fornitore')
-                    .delete()
-                    .eq('id', ordineIdDaEliminare);
+                // Storno magazzino se richiesto
+                if (stornamagazzino) {
+                    const { data: items } = await window.supabase
+                        .from('ordini_fornitore_items')
+                        .select('*')
+                        .eq('ordine_id', id);
 
+                    for (const item of (items || [])) {
+                        const qtaRicevuta = parseFloat(item.quantita_ricevuta || 0);
+                        if (qtaRicevuta <= 0 || !item.prodotto_id) continue;
+
+                        const { data: comp } = await window.supabase
+                            .from('components')
+                            .select('giacenza')
+                            .eq('id', item.prodotto_id)
+                            .single();
+
+                        const giacenzaPrima = parseFloat(comp?.giacenza || 0);
+                        const giacenzaDopo = Math.max(0, giacenzaPrima - qtaRicevuta);
+
+                        await window.supabase
+                            .from('components')
+                            .update({ giacenza: giacenzaDopo, updated_at: new Date().toISOString() })
+                            .eq('id', item.prodotto_id);
+
+                        await window.supabase
+                            .from('movimenti_magazzino')
+                            .insert({
+                                prodotto_id: item.prodotto_id,
+                                ordine_fornitore_id: id,
+                                codice: item.codice || '',
+                                descrizione: item.descrizione || '',
+                                tipo_movimento: 'scarico',
+                                quantita: qtaRicevuta,
+                                giacenza_prima: giacenzaPrima,
+                                giacenza_dopo: giacenzaDopo,
+                                causale: `Storno per eliminazione ordine ${numero}`,
+                                data_movimento: new Date().toISOString().split('T')[0],
+                                created_by: currentUser.id,
+                                note: `Ordine eliminato: ${numero}`
+                            });
+                    }
+                }
+
+                // Elimina items e ordine
+                await window.supabase.from('ordini_fornitore_items').delete().eq('ordine_id', id);
+                const { error } = await window.supabase.from('ordini_fornitore').delete().eq('id', id);
                 if (error) throw error;
 
-                closeConfirmDeleteModal();
-                showSuccessModal('Ordine eliminato con successo!');
+                showSuccessModal(stornamagazzino
+                    ? `Ordine "${numero}" eliminato e magazzino stornato.`
+                    : `Ordine "${numero}" eliminato.`);
                 await loadOrdini();
             } catch (error) {
                 console.error('Errore:', error);
-                closeConfirmDeleteModal();
                 showErrorModal('Errore nell\'eliminazione dell\'ordine', error.message);
             }
+        }
         }
 
         function showSuccessModal(message) {
