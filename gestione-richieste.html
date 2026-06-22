@@ -224,6 +224,40 @@
         </div>
     </div>
 
+    <!-- Modal Richieste Dipendente -->
+    <div id="dipendenteRichiesteModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 backdrop-blur-sm">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 rounded-t-2xl flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-lg font-bold" id="dipModalAvatar"></div>
+                            <div>
+                                <h3 class="text-xl font-bold" id="dipModalNome"></h3>
+                                <p class="text-blue-100 text-sm" id="dipModalSubtitle"></p>
+                            </div>
+                        </div>
+                        <button onclick="closeDipendenteRichiesteModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <!-- Barra di ricerca -->
+                    <div class="mt-4 relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 pointer-events-none"></i>
+                        <input type="text" id="dipModalSearch" placeholder="Cerca richiesta..."
+                               oninput="filterDipendenteRichieste()"
+                               class="w-full pl-9 pr-4 py-2.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50">
+                    </div>
+                </div>
+                <!-- Lista richieste -->
+                <div class="overflow-y-auto flex-1" id="dipModalList">
+                    <!-- Popolato via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentAction = null;
         let currentRequestId = null;
@@ -299,13 +333,15 @@
             
             const userName = user ? `${user.nome} ${user.cognome}` : 'Utente Sconosciuto';
             const userId = user ? user.id : 'unknown';
+            const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
             
             accordionDiv.innerHTML = `
-                <div class="accordion-header bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onclick="toggleAccordion('user-${userId}')">
+                <div class="bg-gray-50 hover:bg-blue-50 cursor-pointer transition-colors"
+                     onclick="openDipendenteRichieste('${userId}')">
                     <div class="p-4 flex items-center justify-between">
                         <div class="flex items-center space-x-4">
                             <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                                ${userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                ${initials}
                             </div>
                             <div>
                                 <h4 class="font-semibold text-gray-900 text-lg">${userName}</h4>
@@ -318,29 +354,118 @@
                                     ${pendingCount} ${pendingCount === 1 ? 'nuova' : 'nuove'}
                                 </span>
                             ` : ''}
-                            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 transition-transform accordion-icon-${userId}"></i>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
                         </div>
                     </div>
-                </div>
-                <div id="user-${userId}" class="accordion-content hidden">
-                    ${requests.map(request => createRequestElementHTML(request, user)).join('')}
                 </div>
             `;
             
             return accordionDiv;
         }
 
-        function toggleAccordion(id) {
-            const content = document.getElementById(id);
-            const icon = document.querySelector(`.accordion-icon-${id.replace('user-', '')}`);
-            
-            if (content.classList.contains('hidden')) {
-                content.classList.remove('hidden');
-                if (icon) icon.style.transform = 'rotate(180deg)';
-            } else {
-                content.classList.add('hidden');
-                if (icon) icon.style.transform = 'rotate(0deg)';
+        // ─── Modal richieste per dipendente ─────────────────────────────
+        let _dipCurrentUserId = null;
+        let _dipAllUsers = [];
+        let _dipAllRequests = [];
+
+        async function openDipendenteRichieste(userId) {
+            try {
+                [_dipAllUsers, _dipAllRequests] = await Promise.all([
+                    window.dataManager.getUtenti(),
+                    window.dataManager.getRichieste()
+                ]);
+                _dipCurrentUserId = userId;
+
+                const user = _dipAllUsers.find(u => u.id === userId);
+                const userName = user ? `${user.nome} ${user.cognome}` : 'Utente Sconosciuto';
+                const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
+                const userRequests = _dipAllRequests.filter(r => r.user_id === userId);
+                const pendingCount = userRequests.filter(r => {
+                    const s = r.status || r.stato;
+                    return s === 'pending' || s === 'pendente' || s === 'in_attesa';
+                }).length;
+
+                document.getElementById('dipModalAvatar').textContent = initials;
+                document.getElementById('dipModalNome').textContent = userName;
+                document.getElementById('dipModalSubtitle').textContent =
+                    `${userRequests.length} richieste totali${pendingCount > 0 ? ` · ${pendingCount} in attesa` : ''}`;
+                document.getElementById('dipModalSearch').value = '';
+
+                document.getElementById('dipendenteRichiesteModal').classList.remove('hidden');
+                filterDipendenteRichieste();
+                lucide.createIcons();
+            } catch (err) {
+                console.error('Errore apertura modal dipendente:', err);
             }
+        }
+
+        function closeDipendenteRichiesteModal() {
+            document.getElementById('dipendenteRichiesteModal').classList.add('hidden');
+            _dipCurrentUserId = null;
+        }
+
+        function filterDipendenteRichieste() {
+            const search = (document.getElementById('dipModalSearch')?.value || '').toLowerCase();
+            const user = _dipAllUsers.find(u => u.id === _dipCurrentUserId);
+            const userRequests = _dipAllRequests
+                .filter(r => r.user_id === _dipCurrentUserId)
+                .filter(r => {
+                    if (!search) return true;
+                    return (r.titolo || r.title || '').toLowerCase().includes(search) ||
+                           (r.tipo || r.type || '').toLowerCase().includes(search) ||
+                           (r.descrizione || r.description || '').toLowerCase().includes(search);
+                })
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const container = document.getElementById('dipModalList');
+            if (userRequests.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-gray-400"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-40"></i><p class="text-sm">Nessuna richiesta trovata</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = userRequests.map(r => {
+                const stato = r.status || r.stato;
+                const tipo = r.tipo || r.type || '';
+                const titolo = r.titolo || r.title || tipo.replace('_', ' ') || 'Richiesta';
+                const descrizione = r.descrizione || r.description || '';
+                const priorita = r.priorita || r.priority || 'bassa';
+                const isPending = stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+
+                const statusColors = {
+                    pending: 'bg-orange-100 text-orange-700',
+                    pendente: 'bg-orange-100 text-orange-700',
+                    in_attesa: 'bg-orange-100 text-orange-700',
+                    approvata: 'bg-green-100 text-green-700',
+                    approved: 'bg-green-100 text-green-700',
+                    rifiutata: 'bg-red-100 text-red-700',
+                    rejected: 'bg-red-100 text-red-700'
+                };
+                const statusText = {
+                    pending: 'In attesa', pendente: 'In attesa', in_attesa: 'In attesa',
+                    approvata: 'Approvata', approved: 'Approvata',
+                    rifiutata: 'Rifiutata', rejected: 'Rifiutata'
+                };
+
+                return `
+                <div onclick="viewRequest('${r.id}')"
+                     class="p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors group ${priorita === 'alta' ? 'border-l-4 border-l-red-400' : priorita === 'media' ? 'border-l-4 border-l-amber-400' : ''}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="font-semibold text-gray-900 capitalize">${titolo}</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full ${statusColors[stato] || 'bg-gray-100 text-gray-600'} font-medium">${statusText[stato] || stato}</span>
+                                ${isPending ? '<span class="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>' : ''}
+                            </div>
+                            ${descrizione ? `<p class="text-sm text-gray-500 truncate">${descrizione}</p>` : ''}
+                            <p class="text-xs text-gray-400 mt-1">📅 ${formatDate(r.created_at)}</p>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-blue-500 flex-shrink-0 mt-1 transition-colors"></i>
+                    </div>
+                </div>`;
+            }).join('');
+
+            lucide.createIcons();
         }
 
         function createRequestElementHTML(request, user) {
