@@ -348,9 +348,12 @@
                 </div>
 
                 <!-- Azioni Kit -->
-                <div class="flex space-x-3 mt-6 pt-6 border-t">
+                <div class="flex space-x-3 mt-6 pt-6 border-t flex-wrap gap-y-2">
                     <button onclick="viewComponentiMancanti(currentKitId)" id="btnViewMancanti" class="hidden flex-1 bg-orange-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-orange-700 transition animate-pulse">
                         <i class="fas fa-exclamation-triangle mr-2"></i>Vedi Componenti Mancanti
+                    </button>
+                    <button onclick="apriPickingKit()" id="btnPickingKit" class="flex-1 bg-gradient-to-r from-teal-500 to-emerald-600 text-white px-4 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-emerald-700 transition">
+                        <i class="fas fa-tasks mr-2"></i>Verifica Componenti
                     </button>
                     <button onclick="stampaQRKit()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
                         <i class="fas fa-print mr-2"></i>Stampa QR Kit + Consegna
@@ -2369,6 +2372,194 @@
         }
 
         // ========================================
+        // PICKING MODE — VERIFICA COMPONENTI KIT
+        // ========================================
+        let _pickingChecks = {};   // prodotto_id → { required, scanned, nome, barcode, codice }
+        let _pickingKitId  = null;
+
+        async function apriPickingKit() {
+            _pickingKitId = currentKitId;
+            if (!_pickingKitId) return;
+
+            // Carica componenti del kit
+            const { data, error } = await supabase
+                .from('v_kit_items_dettaglio')
+                .select('prodotto_id, prodotto_nome, prodotto_barcode, prodotto_codice, quantita')
+                .eq('kit_id', _pickingKitId)
+                .is('deleted_at', null);
+
+            if (error || !data || data.length === 0) {
+                alert('Nessun componente nel kit — aggiungili prima.');
+                return;
+            }
+
+            // Raggruppa per prodotto_id (somma quantità)
+            _pickingChecks = {};
+            data.forEach(r => {
+                const pid = r.prodotto_id;
+                if (!_pickingChecks[pid]) {
+                    _pickingChecks[pid] = {
+                        required: parseFloat(r.quantita || 1),
+                        scanned:  0,
+                        nome:     r.prodotto_nome    || '—',
+                        barcode:  r.prodotto_barcode || '',
+                        codice:   r.prodotto_codice  || ''
+                    };
+                } else {
+                    _pickingChecks[pid].required += parseFloat(r.quantita || 1);
+                }
+            });
+
+            // Imposta titolo e render
+            document.getElementById('pickingKitNome').textContent = document.getElementById('dettaglioNomeKit').textContent || 'Verifica Componenti';
+            renderPickingChecklist();
+            updatePickingProgress();
+
+            // Pulisci log e feedback
+            document.getElementById('pickingLog').innerHTML = '';
+            document.getElementById('pickingFeedback').innerHTML = '<p class="text-white/30 text-sm text-center mt-4">In attesa di scansione...</p>';
+            document.getElementById('pickingCompleteOverlay').classList.add('hidden');
+
+            // Apri modal e focus input
+            document.getElementById('pickingKitModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('pickingBarcodeInput').focus(), 200);
+        }
+
+        function renderPickingChecklist() {
+            const list = document.getElementById('pickingChecklist');
+            const items = Object.entries(_pickingChecks);
+            if (!items.length) { list.innerHTML = ''; return; }
+
+            list.innerHTML = items.map(([pid, item]) => {
+                const done = item.scanned >= item.required;
+                const partial = !done && item.scanned > 0;
+                const bg    = done ? 'rgba(16,185,129,0.15)' : partial ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.05)';
+                const border= done ? '2px solid rgba(16,185,129,0.5)' : partial ? '2px solid rgba(251,191,36,0.4)' : '2px solid rgba(255,255,255,0.08)';
+                const icon  = done ? '✅' : partial ? '⏳' : '⬜';
+                const nameStyle = done ? 'text-decoration:line-through;opacity:0.55' : '';
+                return `
+                <div id="pick-row-${pid}" class="rounded-xl px-4 py-3 flex items-center gap-3 transition-all" style="background:${bg};border:${border}">
+                    <span class="text-xl flex-shrink-0">${icon}</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-white font-semibold text-sm leading-tight truncate" style="${nameStyle}">${item.nome}</p>
+                        <p class="text-white/40 text-xs mt-0.5">${item.barcode ? item.barcode : item.codice}</p>
+                    </div>
+                    <div class="flex-shrink-0 text-right">
+                        <p class="font-bold text-sm ${done ? 'text-emerald-400' : partial ? 'text-amber-400' : 'text-white/50'}">${item.scanned} / ${item.required}</p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updatePickingProgress() {
+            const items = Object.values(_pickingChecks);
+            const done  = items.filter(i => i.scanned >= i.required).length;
+            const total = items.length;
+            const pct   = total ? Math.round(done / total * 100) : 0;
+            document.getElementById('pickingProgressBadge').textContent = `${done} / ${total}`;
+            document.getElementById('pickingProgressBar').style.width = pct + '%';
+
+            if (done === total && total > 0) {
+                setTimeout(() => {
+                    document.getElementById('pickingCompleteOverlay').classList.remove('hidden');
+                }, 600);
+            }
+        }
+
+        function handlePickingScan(val) {
+            val = val.trim();
+            if (!val) return;
+            const input = document.getElementById('pickingBarcodeInput');
+            if (input) input.value = '';
+
+            // Cerca tra le voci del kit per barcode o codice
+            const found = Object.entries(_pickingChecks).find(([pid, item]) =>
+                (item.barcode && item.barcode.toLowerCase() === val.toLowerCase()) ||
+                (item.codice  && item.codice.toLowerCase()  === val.toLowerCase())
+            );
+
+            const fb = document.getElementById('pickingFeedback');
+            const log = document.getElementById('pickingLog');
+
+            if (found) {
+                const [pid, item] = found;
+                const wasAlreadyDone = item.scanned >= item.required;
+                item.scanned = Math.min(item.scanned + 1, item.required);
+                const nowDone = item.scanned >= item.required;
+
+                // Feedback verde
+                fb.innerHTML = `
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-3xl">${nowDone ? '✅' : '⏳'}</span>
+                        <div>
+                            <p class="text-white font-bold">${item.nome}</p>
+                            <p class="text-emerald-400 text-sm">${item.scanned} / ${item.required} ${nowDone ? '— Completato!' : '— Parziale'}</p>
+                        </div>
+                    </div>`;
+                fb.style.borderColor = nowDone ? 'rgba(16,185,129,0.6)' : 'rgba(251,191,36,0.5)';
+                fb.style.background  = nowDone ? 'rgba(16,185,129,0.12)' : 'rgba(251,191,36,0.08)';
+
+                // Log
+                const logItem = document.createElement('div');
+                logItem.className = 'flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg';
+                logItem.style.background = 'rgba(16,185,129,0.1)';
+                logItem.innerHTML = `<span class="text-emerald-400">✔</span><span class="text-white/70 truncate">${item.nome}</span><span class="text-white/30 flex-shrink-0">${item.scanned}/${item.required}</span>`;
+                log.prepend(logItem);
+
+                // Flash row
+                const row = document.getElementById(`pick-row-${pid}`);
+                if (row) { row.style.transform = 'scale(1.02)'; setTimeout(() => row.style.transform = '', 250); }
+
+                renderPickingChecklist();
+                updatePickingProgress();
+            } else {
+                // Feedback rosso — non trovato nel kit
+                fb.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">❌</span>
+                        <div>
+                            <p class="text-red-400 font-bold">Non trovato nel kit</p>
+                            <p class="text-white/40 text-sm font-mono">${val}</p>
+                        </div>
+                    </div>`;
+                fb.style.borderColor = 'rgba(239,68,68,0.5)';
+                fb.style.background  = 'rgba(239,68,68,0.08)';
+
+                const logItem = document.createElement('div');
+                logItem.className = 'flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg';
+                logItem.style.background = 'rgba(239,68,68,0.1)';
+                logItem.innerHTML = `<span class="text-red-400">✗</span><span class="text-white/40 font-mono truncate">${val}</span>`;
+                log.prepend(logItem);
+            }
+        }
+
+        function resetPickingChecks() {
+            Object.values(_pickingChecks).forEach(i => i.scanned = 0);
+            document.getElementById('pickingLog').innerHTML = '';
+            document.getElementById('pickingFeedback').innerHTML = '<p class="text-white/30 text-sm text-center mt-4">In attesa di scansione...</p>';
+            document.getElementById('pickingFeedback').style.borderColor = 'rgba(255,255,255,0.08)';
+            document.getElementById('pickingFeedback').style.background  = 'rgba(255,255,255,0.05)';
+            document.getElementById('pickingCompleteOverlay').classList.add('hidden');
+            renderPickingChecklist();
+            updatePickingProgress();
+        }
+
+        async function segnaProntoDopoVerifica() {
+            if (!_pickingKitId) return;
+            await supabase.from('kits').update({ stato: 'pronto' }).eq('id', _pickingKitId);
+            closePickingKit();
+            closeDettaglioKit();
+            await loadKits();
+            showSuccessMessage('✅ Kit segnato come Pronto!');
+        }
+
+        function closePickingKit() {
+            document.getElementById('pickingKitModal').classList.add('hidden');
+            _pickingKitId = null;
+            _pickingChecks = {};
+        }
+
+        // ========================================
         // START
         // ========================================
         init();
@@ -2548,6 +2739,101 @@
                     </button>
                     <button onclick="confermaRimozione()" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
                         <i class="fas fa-trash mr-2"></i>Rimuovi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         MODAL PICKING KIT (Verifica Componenti)
+    ════════════════════════════════════════════ -->
+    <div id="pickingKitModal" class="hidden fixed inset-0 z-[90] flex flex-col" style="background:linear-gradient(135deg,#0f172a,#1e1b4b)">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="background:rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.12)">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center">
+                    <i class="fas fa-tasks text-white"></i>
+                </div>
+                <div>
+                    <h2 id="pickingKitNome" class="font-bold text-white text-lg leading-tight">Verifica Componenti</h2>
+                    <p class="text-teal-300 text-xs mt-0.5">Scansiona ogni componente per spuntarlo dalla lista</p>
+                </div>
+            </div>
+            <!-- Progress badge -->
+            <div class="flex items-center gap-4">
+                <div id="pickingProgressBadge" class="bg-white/10 text-white text-sm font-bold px-4 py-2 rounded-full">0 / 0</div>
+                <button onclick="closePickingKit()" class="text-white/60 hover:text-white w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 transition text-xl">&times;</button>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="h-1.5 bg-white/10 flex-shrink-0">
+            <div id="pickingProgressBar" class="h-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all duration-500 rounded-full" style="width:0%"></div>
+        </div>
+
+        <!-- Body: 2 columns -->
+        <div class="flex-1 flex overflow-hidden">
+
+            <!-- LEFT: Scanner -->
+            <div class="w-full md:w-2/5 flex flex-col border-r border-white/10 p-6 gap-5">
+                <div>
+                    <p class="text-white/50 text-xs font-bold uppercase tracking-wide mb-2">Scanner</p>
+                    <div class="relative">
+                        <i class="fas fa-barcode absolute left-4 top-1/2 -translate-y-1/2 text-teal-400 text-lg"></i>
+                        <input
+                            id="pickingBarcodeInput"
+                            type="text"
+                            placeholder="Clicca qui e scansiona..."
+                            autocomplete="off"
+                            class="w-full pl-12 pr-4 py-4 rounded-2xl text-white text-lg font-semibold placeholder-white/30 outline-none transition"
+                            style="background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);"
+                            oninput="clearTimeout(window._pkSt);window._pkSt=setTimeout(()=>handlePickingScan(document.getElementById('pickingBarcodeInput').value),250)"
+                            onkeydown="if(event.key==='Enter'){clearTimeout(window._pkSt);handlePickingScan(this.value)}"
+                        >
+                    </div>
+                    <p class="text-white/30 text-xs mt-2 text-center">oppure digita codice/barcode e premi Invio</p>
+                </div>
+
+                <!-- Feedback ultima scansione -->
+                <div id="pickingFeedback" class="rounded-2xl p-5 flex-shrink-0" style="background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.08);min-height:120px">
+                    <p class="text-white/30 text-sm text-center mt-4">In attesa di scansione...</p>
+                </div>
+
+                <!-- Log scansioni recenti -->
+                <div class="flex-1 overflow-hidden flex flex-col">
+                    <p class="text-white/50 text-xs font-bold uppercase tracking-wide mb-2">Ultime scansioni</p>
+                    <div id="pickingLog" class="flex-1 overflow-y-auto space-y-1.5" style="scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Checklist -->
+            <div class="flex-1 flex flex-col p-6 overflow-hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-white/50 text-xs font-bold uppercase tracking-wide">Componenti richiesti</p>
+                    <button onclick="resetPickingChecks()" class="text-white/30 hover:text-white/70 text-xs transition">
+                        <i class="fas fa-undo mr-1"></i>Reset
+                    </button>
+                </div>
+                <div id="pickingChecklist" class="flex-1 overflow-y-auto space-y-2 pr-1" style="scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent">
+                    <!-- filled by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- OVERLAY KIT COMPLETO -->
+        <div id="pickingCompleteOverlay" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center" style="background:rgba(10,20,40,0.92);backdrop-filter:blur(6px)">
+            <div class="text-center animate-bounce-in">
+                <div class="text-8xl mb-4">🎉</div>
+                <h2 class="text-4xl font-black text-white mb-2">Kit Completo!</h2>
+                <p class="text-emerald-400 text-lg mb-8">Tutti i componenti sono stati verificati</p>
+                <div class="flex gap-4 justify-center">
+                    <button onclick="segnaProntoDopoVerifica()" class="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-bold text-lg hover:opacity-90 transition shadow-xl">
+                        <i class="fas fa-check-circle mr-2"></i>Segna come Pronto
+                    </button>
+                    <button onclick="document.getElementById('pickingCompleteOverlay').classList.add('hidden')" class="px-8 py-4 bg-white/10 text-white rounded-2xl font-bold text-lg hover:bg-white/20 transition">
+                        Continua a verificare
                     </button>
                 </div>
             </div>
