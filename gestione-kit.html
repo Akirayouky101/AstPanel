@@ -1405,10 +1405,11 @@
 
             // Cerca prodotto
             const { data, error } = await supabase
-                .from('prodotti')
+                .from('components')
                 .select('*')
                 .or(`barcode.eq.${barcode},codice.eq.${barcode}`)
-                .single();
+                .eq('stato', 'attivo')
+                .maybeSingle();
 
             if (error || !data) {
                 alert(`Prodotto con barcode/codice "${barcode}" non trovato`);
@@ -1417,7 +1418,7 @@
 
             // Seleziona prodotto
             prodottoSelezionatoKit = data;
-            document.getElementById('searchProdottoKit').value = data.descrizione;
+            document.getElementById('searchProdottoKit').value = data.nome || data.descrizione;
             mostraProdottoTrovato(data);
         }
 
@@ -1433,11 +1434,12 @@
             }
 
             const { data, error } = await supabase
-                .from('prodotti')
+                .from('components')
                 .select('*')
-                .or(`descrizione.ilike.%${search}%,codice.ilike.%${search}%,barcode.ilike.%${search}%`)
+                .or(`nome.ilike.%${search}%,codice.ilike.%${search}%,barcode.ilike.%${search}%`)
+                .eq('stato', 'attivo')
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (data && !error) {
                 prodottoSelezionatoKit = data;
@@ -1452,9 +1454,9 @@
             document.getElementById('prodottoTrovatoInfo').innerHTML = `
                 <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-semibold text-gray-800">${prodotto.descrizione}</p>
+                        <p class="font-semibold text-gray-800">${prodotto.nome || prodotto.descrizione}</p>
                         <p class="text-sm text-gray-600">Codice: ${prodotto.codice || 'N/A'} | Barcode: ${prodotto.barcode || 'N/A'}</p>
-                        <p class="text-sm text-green-600 font-semibold">Giacenza: ${prodotto.giacenza} pz</p>
+                        <p class="text-sm text-green-600 font-semibold">Giacenza: ${prodotto.giacenza_fisica ?? prodotto.giacenza ?? 0} pz</p>
                     </div>
                     <i class="fas fa-check-circle text-green-500 text-2xl"></i>
                 </div>
@@ -1474,8 +1476,9 @@
                 return;
             }
 
-            if (quantita > prodottoSelezionatoKit.giacenza) {
-                alert(`Giacenza insufficiente! Disponibili: ${prodottoSelezionatoKit.giacenza} pz`);
+            const giacenzaKit = prodottoSelezionatoKit.giacenza_fisica ?? prodottoSelezionatoKit.giacenza ?? Infinity;
+            if (quantita > giacenzaKit) {
+                alert(`Giacenza insufficiente! Disponibili: ${giacenzaKit} pz`);
                 return;
             }
 
@@ -1510,7 +1513,7 @@
                     kit_id: currentKitId,
                     prodotto_id: prodottoSelezionatoKit.id,
                     quantita: quantita,
-                    prodotto_nome: prodottoSelezionatoKit.descrizione,
+                    prodotto_nome: prodottoSelezionatoKit.nome || prodottoSelezionatoKit.descrizione,
                     prodotto_codice: prodottoSelezionatoKit.codice,
                     prodotto_barcode: prodottoSelezionatoKit.barcode,
                     aggiunto_da: currentUserId
@@ -1616,9 +1619,10 @@
             // Attiva listener scanner
             document.addEventListener('keypress', handleScannerMulti);
             
-            // IMPORTANTE: Focus sulla modale per catturare eventi keyboard immediatamente
+            // IMPORTANTE: Focus sul campo barcode
             setTimeout(() => {
-                document.getElementById('aggiuntaComponentiModal').focus();
+                const inp = document.getElementById('inputBarcodeMulti');
+                if (inp) inp.focus(); else document.getElementById('aggiuntaComponentiModal').focus();
             }, 100);
         }
 
@@ -1647,11 +1651,12 @@
         }
 
         async function processBarcodeMulti(barcode) {
-            // Cerca prodotto
+            // Cerca prodotto per barcode, codice o nome
             const { data: prodotti } = await supabase
                 .from('components')
                 .select('*')
-                .or(`codice.eq.${barcode},nome.ilike.%${barcode}%`);
+                .or(`barcode.eq.${barcode},codice.eq.${barcode},nome.ilike.%${barcode}%`)
+                .eq('stato', 'attivo');
 
             if (!prodotti || prodotti.length === 0) {
                 // Non trovato
@@ -1668,7 +1673,7 @@
                 ? prodottiMultiMap.get(prodotto.id).quantita + 1 
                 : 1;
             
-            const giacenzaDisponibile = prodotto.quantita_disponibile || 0;
+            const giacenzaDisponibile = prodotto.giacenza_fisica ?? prodotto.quantita_disponibile ?? 0;
 
             // Aggiungi o incrementa quantità
             if (prodottiMultiMap.has(prodotto.id)) {
@@ -1704,8 +1709,8 @@
 
             // Mostra ultimo scansionato
             document.getElementById('ultimoScansioneInfo').classList.remove('hidden');
-            document.getElementById('ultimoScansioneNome').textContent = prodotto.nome;
-            document.getElementById('ultimoScansioneDettagli').textContent = `Codice: ${prodotto.codice} • Giacenza: ${prodotto.quantita_disponibile}`;
+            document.getElementById('ultimoScansioneNome').textContent = prodotto.nome || prodotto.descrizione;
+            document.getElementById('ultimoScansioneDettagli').textContent = `Codice: ${prodotto.codice || '—'} • Giacenza: ${prodotto.giacenza_fisica ?? prodotto.quantita_disponibile ?? 0}`;
 
             updateStatsMulti();
             renderProdottiMulti();
@@ -1730,7 +1735,7 @@
 
             container.innerHTML = Array.from(prodottiMultiMap.values()).map(item => {
                 const mancante = item.quantita_mancante || 0;
-                const giacenza = item.prodotto.quantita_disponibile || 0;
+                const giacenza = item.prodotto.giacenza_fisica ?? item.prodotto.quantita_disponibile ?? 0;
                 const warnings = [];
                 
                 if (mancante > 0) {
@@ -2632,13 +2637,25 @@
                         <i class="fas fa-barcode mr-2"></i>Scansiona Barcode
                     </h3>
                     
-                    <!-- Info Scanner -->
-                    <div class="bg-purple-50 p-4 rounded-lg mb-4">
-                        <p class="text-sm text-gray-700 mb-2">📱 Scansiona con lettore USB/Bluetooth</p>
-                        <div class="flex items-center space-x-2">
-                            <div id="scannerStatusMulti" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                            <span class="text-sm font-semibold text-green-700">Scanner Attivo</span>
+                    <!-- Input barcode visibile -->
+                    <div class="mb-4">
+                        <div class="relative">
+                            <i class="fas fa-barcode absolute left-3 top-1/2 -translate-y-1/2 text-purple-400"></i>
+                            <input
+                                id="inputBarcodeMulti"
+                                type="text"
+                                placeholder="Clicca qui e scansiona barcode..."
+                                autocomplete="off"
+                                class="w-full pl-10 pr-4 py-3 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm font-semibold"
+                                oninput="clearTimeout(window._bmSt);window._bmSt=setTimeout(()=>{const v=document.getElementById('inputBarcodeMulti').value.trim();if(v){processBarcodeMulti(v);document.getElementById('inputBarcodeMulti').value='';}},300)"
+                                onkeydown="if(event.key==='Enter'){clearTimeout(window._bmSt);const v=this.value.trim();if(v){processBarcodeMulti(v);this.value='';}}">
                         </div>
+                        <p class="text-xs text-gray-500 mt-1 text-center">Clicca sul campo, poi scansiona — oppure scrivi e premi Invio</p>
+                    </div>
+                    <!-- Stato scanner -->
+                    <div class="bg-purple-50 p-3 rounded-lg mb-4 flex items-center gap-2">
+                        <div id="scannerStatusMulti" class="w-3 h-3 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
+                        <span class="text-sm font-semibold text-green-700">Scanner attivo</span>
                     </div>
 
                     <!-- Stats -->
