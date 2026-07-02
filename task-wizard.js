@@ -861,13 +861,15 @@ class TaskWizard {
 
         // Ripristina _wizardMultiSelected e preview UI dai dati salvati
         if (this.wizardData.assigned_users?.length > 0) {
-            // Synca _wizardMultiSelected con i dati del wizard
-            window._wizardMultiSelected = this.wizardData.assigned_users.map(u => ({
-                id: u.user_id || u.id || u,
-                nome: u.nome || u.user_id || u,
-                cognome: u.cognome || '',
-                ruolo: u.ruolo_assegnazione || ''
-            }));
+            // Synca _wizardMultiSelected con i dati del wizard (filtra voci senza user_id valido)
+            window._wizardMultiSelected = this.wizardData.assigned_users
+                .filter(u => u && (u.user_id || u.id))
+                .map(u => ({
+                    id: u.user_id || u.id,
+                    nome: u.nome || u.user_id || u.id || '?',
+                    cognome: u.cognome || '',
+                    ruolo: u.ruolo_assegnazione || ''
+                }));
 
             // Ricostruisce la preview nel container
             const container = document.getElementById('wizard-multi-users-container');
@@ -880,7 +882,7 @@ class TaskWizard {
                         <div style="display:flex;flex-wrap:wrap;gap:8px;">
                             ${window._wizardMultiSelected.map(u => `
                                 <span style="display:flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;">
-                                    <span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${(u.nome||'?').charAt(0)}</span>
+                                    <span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${String(u.nome||'?').charAt(0)}</span>
                                     ${u.nome}
                                 </span>`).join('')}
                         </div>
@@ -959,6 +961,11 @@ class TaskWizard {
             
             console.log('👥 [WIZARD] Tipo assegnazione: multi (dipendenti)');
             
+            // Filtra eventuali assegnazioni senza user_id valido
+            if (this.wizardData.assigned_users) {
+                this.wizardData.assigned_users = this.wizardData.assigned_users.filter(u => u && (u.user_id || (typeof u === 'string' && u)));
+            }
+
             if (this.wizardData.assigned_users && this.wizardData.assigned_users.length > 0) {
                 // Per multi-user, assegna al primo utente (required dal constraint)
                 const firstUser = this.wizardData.assigned_users[0];
