@@ -327,26 +327,43 @@
                 <div class="flex items-center gap-3 flex-wrap">
                     <!-- Filter tipo -->
                     <select id="filterTipo" onchange="loadOrdini()"
-                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300">
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-orange-400">
                         <option value="">Tutti i tipi</option>
                         <option value="da_approvare">⏳ Da Approvare</option>
                         <option value="da_ratificare">✍️ Da Ratificare</option>
                     </select>
                     <!-- Filter stato -->
                     <select id="filterStato" onchange="loadOrdini()"
-                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300">
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-orange-400">
                         <option value="">Tutti gli stati</option>
                         <option value="bozza">📝 Bozza</option>
                         <option value="in_attesa">⏸ In Attesa</option>
                         <option value="approvato">✅ Approvato</option>
                         <option value="annullato">❌ Annullato</option>
                     </select>
+                    <!-- Filter mese -->
+                    <select id="filterMese" onchange="searchOrdini()"
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-orange-400">
+                        <option value="">Tutti i mesi</option>
+                        <option value="1">Gennaio</option>
+                        <option value="2">Febbraio</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Aprile</option>
+                        <option value="5">Maggio</option>
+                        <option value="6">Giugno</option>
+                        <option value="7">Luglio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Settembre</option>
+                        <option value="10">Ottobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Dicembre</option>
+                    </select>
                     <!-- Ricerca -->
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
-                        <input type="text" id="searchQuery" placeholder="Cerca numero, fornitore..."
+                        <input type="text" id="searchQuery" placeholder="Cerca numero, fornitore, prodotto..."
                                oninput="searchOrdini()"
-                               class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition w-64">
+                               class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition w-72">
                     </div>
                 </div>
             </div>
@@ -881,14 +898,14 @@
                 const tipo  = document.getElementById('filterTipo')?.value || '';
                 const stato = document.getElementById('filterStato')?.value || '';
 
-                let query = db.from('ordini_interni').select('*').order('created_at', { ascending: false });
+                let query = db.from('ordini_interni').select('*, items:ordini_interni_items(codice, descrizione)').order('created_at', { ascending: false });
                 if (tipo)  query = query.eq('tipo', tipo);
                 if (stato) query = query.eq('stato', stato);
 
                 const { data, error } = await query;
                 if (error) throw error;
                 ordini = data || [];
-                renderOrdini();
+                searchOrdini();
                 updateStats();
             } catch (err) {
                 console.error('loadOrdini:', err);
@@ -1025,12 +1042,30 @@
 
         // ── Cerca ──
         function searchOrdini() {
-            const q = document.getElementById('searchQuery').value.toLowerCase();
-            const filtered = ordini.filter(o =>
-                o.numero.toLowerCase().includes(q) ||
-                (o.fornitore_nome && o.fornitore_nome.toLowerCase().includes(q)) ||
-                (o.oggetto && o.oggetto.toLowerCase().includes(q))
-            );
+            const q = document.getElementById('searchQuery').value.toLowerCase().trim();
+            const mese = document.getElementById('filterMese')?.value || '';
+            let filtered = ordini;
+
+            if (q) {
+                filtered = filtered.filter(o =>
+                    o.numero.toLowerCase().includes(q) ||
+                    (o.fornitore_nome && o.fornitore_nome.toLowerCase().includes(q)) ||
+                    (o.oggetto && o.oggetto.toLowerCase().includes(q)) ||
+                    (o.items || []).some(item =>
+                        item.descrizione?.toLowerCase().includes(q) ||
+                        item.codice?.toLowerCase().includes(q)
+                    )
+                );
+            }
+
+            if (mese) {
+                filtered = filtered.filter(o => {
+                    const d = o.data_ordine || o.created_at;
+                    if (!d) return false;
+                    return new Date(d).getMonth() + 1 === parseInt(mese);
+                });
+            }
+
             const backup = ordini;
             ordini = filtered;
             renderOrdini();

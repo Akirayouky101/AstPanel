@@ -160,12 +160,13 @@
 
         <!-- Actions Bar -->
         <div class="bg-white rounded-lg shadow p-4 mb-6">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-3">
                 <button onclick="nuovaRichiesta()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-medium">
                     <i class="fas fa-plus mr-2"></i>Nuovo Ordine
                 </button>
-                <div class="flex items-center space-x-3">
-                    <select id="filterStato" onchange="loadRichieste()" class="px-4 py-2 border rounded-lg" title="Filtra per stato">
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="filterStato" onchange="applyFilters()"
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
                         <option value="">Tutti gli stati</option>
                         <option value="da_inviare">Da Inviare</option>
                         <option value="inviato">Inviato</option>
@@ -174,11 +175,32 @@
                         <option value="rifiutato">Rifiutato</option>
                         <option value="annullato">Annullato</option>
                     </select>
-                    <select id="filterFornitore" onchange="loadRichieste()" class="px-4 py-2 border rounded-lg" title="Filtra per fornitore">
+                    <select id="filterFornitore" onchange="applyFilters()"
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
                         <option value="">Tutti i fornitori</option>
                     </select>
-                    <input type="text" id="searchRichiesta" placeholder="Cerca richiesta..." 
-                        onkeyup="searchRichieste()" class="px-4 py-2 border rounded-lg w-64">
+                    <select id="filterMese" onchange="applyFilters()"
+                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
+                        <option value="">Tutti i mesi</option>
+                        <option value="1">Gennaio</option>
+                        <option value="2">Febbraio</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Aprile</option>
+                        <option value="5">Maggio</option>
+                        <option value="6">Giugno</option>
+                        <option value="7">Luglio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Settembre</option>
+                        <option value="10">Ottobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Dicembre</option>
+                    </select>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                        <input type="text" id="searchRichiesta" placeholder="Cerca numero, fornitore, prodotto..."
+                            oninput="applyFilters()"
+                            class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-400 focus:border-transparent outline-none transition w-72">
+                    </div>
                 </div>
             </div>
         </div>
@@ -814,7 +836,7 @@
 
                 let query = window.supabase
                     .from('richieste_preventivo_fornitori')
-                    .select('*, fornitore:fornitori(ragione_sociale)')
+                    .select('*, fornitore:fornitori(ragione_sociale), items:richieste_preventivo_items(codice, descrizione)')
                     .order('data_richiesta', { ascending: false });
 
                 if (filterStato) query = query.eq('stato', filterStato);
@@ -824,12 +846,43 @@
                 if (error) throw error;
 
                 richieste = data || [];
-                renderRichieste();
+                applyFilters();
                 updateStats();
             } catch (error) {
                 console.error('Errore:', error);
                 alert('Errore nel caricamento: ' + error.message);
             }
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchRichiesta').value.toLowerCase().trim();
+            const mese = document.getElementById('filterMese').value;
+            let filtered = richieste;
+
+            if (search) {
+                filtered = filtered.filter(o =>
+                    o.numero?.toLowerCase().includes(search) ||
+                    o.oggetto?.toLowerCase().includes(search) ||
+                    o.fornitore_nome?.toLowerCase().includes(search) ||
+                    o.fornitore?.ragione_sociale?.toLowerCase().includes(search) ||
+                    (o.items || []).some(item =>
+                        item.descrizione?.toLowerCase().includes(search) ||
+                        item.codice?.toLowerCase().includes(search)
+                    )
+                );
+            }
+
+            if (mese) {
+                filtered = filtered.filter(o => {
+                    if (!o.data_richiesta) return false;
+                    return new Date(o.data_richiesta).getMonth() + 1 === parseInt(mese);
+                });
+            }
+
+            const backup = richieste;
+            richieste = filtered;
+            renderRichieste();
+            richieste = backup;
         }
 
         function renderRichieste() {
@@ -953,20 +1006,6 @@
             document.getElementById('statInviate').textContent   = inviate;
             document.getElementById('statAccettati').textContent = accettate;
             document.getElementById('statRifiutate').textContent = rifiutate;
-        }
-
-        function searchRichieste() {
-            const search = document.getElementById('searchRichiesta').value.toLowerCase();
-            const filtered = richieste.filter(o => 
-                o.numero?.toLowerCase().includes(search) ||
-                o.oggetto?.toLowerCase().includes(search) ||
-                o.fornitore_nome?.toLowerCase().includes(search)
-            );
-            
-            const temp = richieste;
-            richieste = filtered;
-            renderRichieste();
-            richieste = temp;
         }
 
         function nuovaRichiesta() {
