@@ -1249,8 +1249,21 @@
             const btn = document.getElementById('completaLavorazioneBtn');
             btn.disabled = true;
             btn.textContent = 'Salvataggio...';
-            await updateTaskStatus(_completaTaskId, 'completato');
-            chiudiCompletaModal();
+            try {
+                await window.TasksAPI.update(_completaTaskId, {
+                    stato: 'completato',
+                    progresso: 100
+                });
+                chiudiCompletaModal();
+                await loadTasks();
+                await updateStats();
+                showNotification('Lavorazione completata!', 'success');
+            } catch (error) {
+                console.error('Errore completamento:', error);
+                showNotification('Errore durante il completamento', 'error');
+                btn.disabled = false;
+                btn.textContent = '✅ Sì, Completa';
+            }
         }
 
         async function updateTaskStatus(taskId, newStatus) {
