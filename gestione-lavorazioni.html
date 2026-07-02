@@ -706,6 +706,36 @@
         </div>
     </div>
 
+    <!-- ── Modal Note Lavorazione ── -->
+    <div id="noteLavorazioneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10200;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden">
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px 24px 16px">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📝</div>
+                    <div>
+                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Note Lavorazione</h3>
+                        <p style="color:#fef3c7;font-size:12px;margin-top:2px">Aggiungi o modifica le note</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:24px">
+                <textarea id="noteLavorazioneTextarea" rows="5" placeholder="Scrivi qui le note della lavorazione..."
+                    style="width:100%;border:1.5px solid #e5e7eb;border-radius:10px;padding:10px 12px;font-size:14px;color:#1f2937;resize:vertical;outline:none;font-family:inherit;box-sizing:border-box"
+                    onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e5e7eb'"></textarea>
+                <div style="display:flex;gap:10px;margin-top:16px">
+                    <button onclick="chiudiNoteModal()"
+                        style="flex:1;padding:11px;border:2px solid #e5e7eb;background:#fff;color:#374151;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        Annulla
+                    </button>
+                    <button id="salvaNoteLavorazioneBtn" onclick="salvaNoteModal()"
+                        style="flex:1;padding:11px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        💾 Salva Note
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Modal avviso disponibilità preventivo ── -->
     <div id="stockAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
@@ -1110,6 +1140,11 @@
                             onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
                             <i class="fas fa-check-circle"></i> Completa
                         </button>
+                        <button onclick="(function(e){e.stopPropagation();apriNoteModal('${task.id}')})(event)"
+                            style="display:flex;align-items:center;justify-content:center;gap:5px;background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                            onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'" title="Note">
+                            <i class="fas fa-sticky-note"></i>
+                        </button>
                         <button onclick="(function(e){e.stopPropagation();apriEliminaModal('${task.id}')})(event)"
                             style="display:flex;align-items:center;justify-content:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
                             onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
@@ -1121,11 +1156,18 @@
                         <div class="flex items-center gap-2 text-green-700" style="font-size:12px;font-weight:700">
                             <i class="fas fa-check-circle"></i> Completata
                         </div>
-                        <button onclick="(function(e){e.stopPropagation();apriEliminaModal('${task.id}')})(event)"
-                            style="display:flex;align-items:center;justify-content:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
-                            onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <div style="display:flex;gap:6px">
+                            <button onclick="(function(e){e.stopPropagation();apriNoteModal('${task.id}')})(event)"
+                                style="display:flex;align-items:center;justify-content:center;background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                                onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'" title="Note">
+                                <i class="fas fa-sticky-note"></i>
+                            </button>
+                            <button onclick="(function(e){e.stopPropagation();apriEliminaModal('${task.id}')})(event)"
+                                style="display:flex;align-items:center;justify-content:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                                onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 `}
             `;
@@ -1332,6 +1374,45 @@
                 showNotification('Errore durante l\'eliminazione', 'error');
                 btn.disabled = false;
                 btn.textContent = '🗑️ Sì, Elimina';
+            }
+        }
+
+        // ── Modale note lavorazione ──
+        let _noteTaskId = null;
+        function apriNoteModal(taskId) {
+            _noteTaskId = taskId;
+            const modal = document.getElementById('noteLavorazioneModal');
+            const textarea = document.getElementById('noteLavorazioneTextarea');
+            const btn = document.getElementById('salvaNoteLavorazioneBtn');
+            btn.disabled = false;
+            btn.textContent = '💾 Salva Note';
+            textarea.value = '';
+            modal.style.display = 'flex';
+            window.TasksAPI.getById(taskId).then(task => {
+                textarea.value = task.note_progresso || '';
+                textarea.focus();
+            }).catch(() => { textarea.focus(); });
+        }
+        function chiudiNoteModal() {
+            document.getElementById('noteLavorazioneModal').style.display = 'none';
+            _noteTaskId = null;
+        }
+        async function salvaNoteModal() {
+            if (!_noteTaskId) return;
+            const btn = document.getElementById('salvaNoteLavorazioneBtn');
+            const nota = document.getElementById('noteLavorazioneTextarea').value.trim();
+            btn.disabled = true;
+            btn.textContent = 'Salvataggio...';
+            try {
+                await window.TasksAPI.update(_noteTaskId, { note_progresso: nota || null });
+                chiudiNoteModal();
+                await loadTasks();
+                showNotification('Note salvate!', 'success');
+            } catch (err) {
+                console.error('Errore salvataggio note:', err);
+                showNotification('Errore nel salvataggio delle note', 'error');
+                btn.disabled = false;
+                btn.textContent = '💾 Salva Note';
             }
         }
 
