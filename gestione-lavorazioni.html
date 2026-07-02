@@ -2037,7 +2037,7 @@
                 } else {
                     const { data } = await (window.supabaseAdmin || window.supabaseClient)
                         .from('users').select('*')
-                        .in('ruolo', ['dipendente','tecnico','titolare','segreteria'])
+                        .in('ruolo', ['dipendente','tecnico','titolare','segreteria','esterno'])
                         .order('nome');
                     _wizardMultiAllUsers = data || [];
                     window._wizardDipendentiCache = _wizardMultiAllUsers;
@@ -2059,12 +2059,14 @@
                 container.innerHTML = '<p class="p-8 text-center text-gray-400 text-sm">Nessun dipendente trovato</p>';
                 return;
             }
-            const roleBadge = { tecnico: 'bg-blue-100 text-blue-700', dipendente: 'bg-gray-100 text-gray-700', titolare: 'bg-purple-100 text-purple-700', segreteria: 'bg-pink-100 text-pink-700' };
+            const roleBadge = { tecnico: 'bg-blue-100 text-blue-700', dipendente: 'bg-gray-100 text-gray-700', titolare: 'bg-purple-100 text-purple-700', segreteria: 'bg-pink-100 text-pink-700', esterno: 'bg-orange-100 text-orange-700' };
             container.innerHTML = '';
             users.forEach(u => {
                 const nome = `${u.nome || ''} ${u.cognome || ''}`.trim() || 'Utente';
                 const isChecked = _wizardMultiSelected.some(s => s.id === u.id);
                 const badge = roleBadge[u.ruolo] || 'bg-gray-100 text-gray-700';
+                const isEsterno = u.ruolo === 'esterno';
+                const avatarGradient = isEsterno ? 'background:linear-gradient(135deg,#f97316,#ea580c)' : 'background:linear-gradient(135deg,#8b5cf6,#6366f1)';
                 const row = document.createElement('label');
                 row.style.cssText = `display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background 0.1s;${isChecked ? 'background:#f5f3ff;' : ''}`;
                 row.onmouseover = () => { if (!row.querySelector('input').checked) row.style.background = '#f9fafb'; };
@@ -2072,10 +2074,10 @@
                 row.innerHTML = `
                     <input type="checkbox" value="${u.id}" ${isChecked ? 'checked' : ''}
                            style="width:18px;height:18px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
-                    <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px;flex-shrink:0;">${nome.charAt(0).toUpperCase()}</div>
+                    <div style="width:38px;height:38px;border-radius:50%;${avatarGradient};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px;flex-shrink:0;">${isEsterno ? '👷' : nome.charAt(0).toUpperCase()}</div>
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:600;font-size:14px;color:#111827;">${nome}</div>
-                        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;" class="${badge}">${u.ruolo || ''}</span>
+                        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;" class="${badge}">${isEsterno ? '👷 Esterno' : (u.ruolo || '')}</span>
                     </div>`;
                 row.querySelector('input').addEventListener('change', (e) => {
                     if (e.target.checked) {

@@ -158,6 +158,7 @@
                         <option value="Tecnico">🔧 Tecnico</option>
                         <option value="Segreteria">📋 Segreteria</option>
                         <option value="Dipendente">👤 Dipendente</option>
+                        <option value="esterno">👷 Esterno</option>
                     </select>
                     <i data-lucide="shield" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
                     <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"></i>
@@ -249,7 +250,7 @@
                     </div>
                     
                     <!-- Email - VERDE -->
-                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                    <div id="emailSection" class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
                         <label for="userEmail" class="block text-sm font-bold text-green-900 mb-2">
                             <i data-lucide="mail" class="w-4 h-4 inline mr-1"></i>
                             Email
@@ -265,12 +266,13 @@
                                 <i data-lucide="shield" class="w-4 h-4 inline mr-1"></i>
                                 Ruolo
                             </label>
-                            <select id="userRole" required class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm">
+                            <select id="userRole" required class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm" onchange="toggleEsternoEmailField(this.value)">
                                 <option value="">Seleziona ruolo</option>
                                 <option value="titolare">👑 Titolare (Admin)</option>
                                 <option value="tecnico">🔧 Tecnico (Admin)</option>
                                 <option value="segreteria">📋 Segreteria (Admin)</option>
                                 <option value="dipendente">👤 Dipendente</option>
+                                <option value="esterno">👷 Esterno (no accesso)</option>
                             </select>
                         </div>
                         
@@ -367,17 +369,25 @@
             const statusClass = getStatusClass(user.stato);
             const roleClass = getRoleClass(user.ruolo);
             const initials = ((user.nome||'?').charAt(0) + (user.cognome||'?').charAt(0)).toUpperCase();
+            const isEsterno = user.ruolo === 'esterno';
+            const avatarGradient = isEsterno
+                ? 'background:linear-gradient(135deg,#f97316,#ea580c)'
+                : 'background:linear-gradient(135deg,#3b82f6,#7c3aed)';
+            const headerGradient = isEsterno
+                ? 'background:linear-gradient(90deg,#f97316,#ea580c)'
+                : 'background:linear-gradient(90deg,#3b82f6,#7c3aed)';
             const avatarHTML = user.avatar
                 ? `<img src="${user.avatar}" alt="${user.nome}" class="w-16 h-16 rounded-full object-cover border-4 border-white shadow">`
-                : `<div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold border-4 border-white shadow">${initials}</div>`;
+                : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold border-4 border-white shadow" style="${avatarGradient}">${initials}</div>`;
             const lastAccess = user.updated_at ? new Date(user.updated_at).toLocaleDateString('it-IT', {day:'numeric',month:'short',year:'numeric'}) : '—';
             const telefono = user.telefono || '—';
             const roleName = (user.ruolo||'').charAt(0).toUpperCase() + (user.ruolo||'').slice(1);
             const statoName = (user.stato||'').charAt(0).toUpperCase() + (user.stato||'').slice(1);
+            const emailDisplay = isEsterno ? '<span class="text-xs text-orange-400 italic">Nessun accesso al sistema</span>' : `<p class="text-sm text-gray-500 truncate">${user.email}</p>`;
             return `
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
                 <!-- Header colorato -->
-                <div class="h-16 bg-gradient-to-r from-blue-500 to-purple-600 relative flex-shrink-0">
+                <div class="h-16 relative flex-shrink-0" style="${headerGradient}">
                     <div class="absolute -bottom-8 left-5">${avatarHTML}</div>
                     <div class="absolute top-3 right-3 flex gap-1.5">
                         <span class="${statusClass} px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-sm">${statoName}</span>
@@ -387,7 +397,7 @@
                 <div class="pt-10 px-5 pb-4 flex flex-col flex-1">
                     <div class="mb-3">
                         <h3 class="font-bold text-gray-900 text-base">${user.nome} ${user.cognome}</h3>
-                        <p class="text-sm text-gray-500 truncate">${user.email}</p>
+                        ${emailDisplay}
                     </div>
                     <div class="flex flex-wrap gap-2 mb-4">
                         <span class="${roleClass} px-2.5 py-0.5 rounded-full text-xs font-semibold">${roleName}</span>
@@ -440,7 +450,7 @@
                 return users.filter(user => {
                     const matchesSearch = (user.nome + ' ' + user.cognome).toLowerCase().includes(searchTerm) ||
                                         user.email.toLowerCase().includes(searchTerm);
-                    const matchesRole = !roleFilter || user.ruolo === roleFilter;
+                    const matchesRole = !roleFilter || user.ruolo.toLowerCase() === roleFilter.toLowerCase();
                     const matchesStatus = !statusFilter || user.stato === statusFilter;
 
                     return matchesSearch && matchesRole && matchesStatus;
@@ -457,6 +467,7 @@
                 Tecnico:    'bg-blue-50 border-blue-500 text-blue-700',
                 Segreteria: 'bg-amber-50 border-amber-500 text-amber-700',
                 Dipendente: 'bg-gray-100 border-gray-400 text-gray-700',
+                esterno:    'bg-orange-50 border-orange-400 text-orange-700',
             };
             const statusMap = {
                 attivo:   'bg-green-50 border-green-500 text-green-700',
@@ -482,6 +493,19 @@
             applyUserFilterStyles(); loadUsers();
         }
 
+        function toggleEsternoEmailField(ruolo) {
+            const emailSection = document.getElementById('emailSection');
+            const emailInput = document.getElementById('userEmail');
+            if (!emailSection || !emailInput) return;
+            if (ruolo === 'esterno') {
+                emailSection.style.display = 'none';
+                emailInput.removeAttribute('required');
+            } else {
+                emailSection.style.display = '';
+                emailInput.setAttribute('required', '');
+            }
+        }
+
         function setupFilters() {
             const searchInput = document.getElementById('searchUsers');
             const roleFilter = document.getElementById('roleFilter');
@@ -497,6 +521,7 @@
             currentEditingUserId = null;
             document.getElementById('modalTitle').textContent = 'Aggiungi Utente';
             document.getElementById('userForm').reset();
+            toggleEsternoEmailField('');
             document.getElementById('userModal').classList.remove('hidden');
             lucide.createIcons();
         }
@@ -774,6 +799,32 @@
                 }
 
                 // CREATE NUOVO UTENTE - USA LOGICA DI FIRST-SETUP
+
+                // CASO ESTERNO: nessun accesso, email auto-generata
+                if (ruoloNormalizzato === 'esterno') {
+                    const fakeEmail = `esterno_${Date.now()}_${Math.random().toString(36).substr(2,6)}@nologin.local`;
+                    const { data: newEsterno, error: esternoErr } = await window.supabaseAdmin
+                        .from('users')
+                        .insert({
+                            nome: nome,
+                            cognome: cognome,
+                            email: fakeEmail,
+                            ruolo: 'esterno',
+                            telefono: telefono,
+                            stato: stato || 'attivo',
+                            first_login: false
+                        })
+                        .select('*')
+                        .single();
+                    if (esternoErr) throw esternoErr;
+                    closeUserModal();
+                    await loadUsers();
+                    await updateStats();
+                    lucide.createIcons();
+                    showNotification('Esterno aggiunto con successo!', 'success');
+                    return;
+                }
+
                 const tempPassword = generateTemporaryPassword();
                 
                 // 1. INSERT nel DB
@@ -931,6 +982,9 @@
                 case 'admin': return 'bg-purple-100 text-purple-800';
                 case 'dipendente': return 'bg-green-100 text-green-800';
                 case 'tecnico': return 'bg-blue-100 text-blue-800';
+                case 'titolare': return 'bg-purple-100 text-purple-800';
+                case 'segreteria': return 'bg-amber-100 text-amber-800';
+                case 'esterno': return 'bg-orange-100 text-orange-800';
                 default: return 'bg-gray-100 text-gray-800';
             }
         }
