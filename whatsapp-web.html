@@ -230,50 +230,51 @@
         });
 
         function apriWA() {
-            const placeholder = document.getElementById('wa-placeholder');
-            const iframeWrap = document.getElementById('wa-iframe-wrap');
-            const iframe = document.getElementById('wa-iframe');
-            const blocked = document.getElementById('wa-blocked');
-            const btn = document.getElementById('apriBtn');
-
-            // Nascondi placeholder, mostra iframe
-            placeholder.style.display = 'none';
-            iframeWrap.style.display = 'block';
-
-            // Tenta di caricare nell'iframe
-            iframe.src = 'https://web.whatsapp.com';
-            btn.innerHTML = '<span>WhatsApp Web aperto</span>';
-            btn.style.background = '#128c7e';
-
-            // Se l'iframe viene bloccato da X-Frame-Options, mostra il messaggio
-            // Apri anche la finestra popup come fallback
+            if (waPopup && !waPopup.closed) {
+                waPopup.focus();
+                return;
+            }
             waPopup = window.open(
                 'https://web.whatsapp.com',
                 'WhatsAppWeb',
-                'width=' + Math.round(screen.width * 0.85) + ',height=' + Math.round(screen.height * 0.85) + ',left=' + Math.round(screen.width * 0.075) + ',top=' + Math.round(screen.height * 0.075)
+                'width=' + screen.availWidth + ',height=' + screen.availHeight + ',left=0,top=0'
             );
-
-            // Dopo 3 secondi controlla se l'iframe è bloccato
-            setTimeout(() => {
-                try {
-                    // Se l'iframe ha caricato correttamente, l'accesso a contentDocument non lancia eccezioni
-                    const doc = iframe.contentDocument || iframe.contentWindow.document;
-                    if (!doc || doc.URL === 'about:blank' || doc.body.innerHTML === '') {
-                        showBlocked();
-                    }
-                } catch(e) {
-                    // Cross-origin error = l'iframe sta caricando (buon segno) o è bloccato
-                    // In questo caso WhatsApp è probabilmente in caricamento nell'iframe
-                }
-            }, 3000);
+            if (waPopup) {
+                document.getElementById('wa-placeholder').innerHTML = `
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" class="wa-logo" style="width:70px;height:70px">
+                    <div style="text-align:center">
+                        <p style="color:#25d366;font-size:20px;font-weight:800;margin:0 0 8px">✅ WhatsApp Web è aperto</p>
+                        <p style="color:#8696a0;font-size:14px;margin:0 0 24px">La finestra è aperta sul tuo schermo.<br>Clicca il pulsante per portarla in primo piano.</p>
+                        <button onclick="waPopup && waPopup.focus()"
+                            style="background:#25d366;color:#fff;border:none;border-radius:12px;padding:13px 32px;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:10px;margin:0 auto">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="" style="width:20px;height:20px">
+                            Porta in primo piano
+                        </button>
+                    </div>
+                `;
+                document.getElementById('apriBtn').innerHTML = '<span>Porta in primo piano</span>';
+                document.getElementById('apriBtn').onclick = () => waPopup && waPopup.focus();
+            } else {
+                // Popup bloccato dal browser
+                document.getElementById('wa-placeholder').innerHTML = `
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" class="wa-logo" style="width:70px;height:70px">
+                    <div style="text-align:center">
+                        <p style="color:#f87171;font-size:18px;font-weight:800;margin:0 0 8px">Popup bloccato dal browser</p>
+                        <p style="color:#8696a0;font-size:13px;margin:0 0 20px">Il browser ha bloccato il popup.<br>Abilita i popup per questo sito nelle impostazioni del browser.</p>
+                        <a href="https://web.whatsapp.com" target="_blank"
+                            style="background:#25d366;color:#fff;border-radius:12px;padding:13px 32px;font-weight:700;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;text-decoration:none">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="" style="width:20px;height:20px">
+                            Apri in nuova scheda
+                        </a>
+                    </div>
+                `;
+            }
         }
 
-        function showBlocked() {
-            const iframe = document.getElementById('wa-iframe');
-            const blocked = document.getElementById('wa-blocked');
-            iframe.style.display = 'none';
-            blocked.style.display = 'flex';
-        }
+        // Auto-apri la finestra appena la pagina carica
+        window.addEventListener('load', () => {
+            apriWA();
+        });
     </script>
 </body>
 </html>
