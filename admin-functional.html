@@ -586,8 +586,60 @@ function handleDashScan(val){
     let ordId=_urlParam(val,'ordine')||_urlParam(_unmangle(val),'ordine');
     if(ordId){clear();setTimeout(()=>{window.location.href='/gestione-ordini-interni.html?ordine='+encodeURIComponent(ordId);},350);return;}
 
-    // Nessun match: flash rosso e svuota
-    const b=document.getElementById('dashScanBar');if(b){b.style.background='#fee2e2';setTimeout(()=>{b.style.background='';const i=document.getElementById('dashUniversalInput');if(i)i.value='';},1500);}
+    // 4. Prodotto/componente (barcode o codice)
+    searchProdottoDashboard(val,clear);}
+}
+
+async function searchProdottoDashboard(val, clearFn){
+    const db=window.supabaseClient;
+    if(!db)return;
+    // cerca per barcode esatto, poi per codice esatto (case-insensitive)
+    let prodotto=null;
+    try{
+        const {data:byBarcode}=await db.from('components').select('*, fornitori!components_fornitore_id_fkey(ragione_sociale)').eq('barcode',val).eq('stato','attivo').maybeSingle();
+        if(byBarcode) prodotto=byBarcode;
+        if(!prodotto){
+            const {data:byCodice}=await db.from('components').select('*, fornitori!components_fornitore_id_fkey(ragione_sociale)').ilike('codice',val).eq('stato','attivo').maybeSingle();
+            if(byCodice) prodotto=byCodice;
+        }
+    }catch(e){console.warn('Ricerca prodotto fallita:',e);}
+    if(prodotto){
+        if(clearFn)clearFn();
+        openDashProdottoModal(prodotto);
+    } else {
+        // Nessun match: flash rosso e svuota
+        const b=document.getElementById('dashScanBar');if(b){b.style.background='#fee2e2';setTimeout(()=>{b.style.background='';const i=document.getElementById('dashUniversalInput');if(i)i.value='';},1500);}
+    }
+}
+
+function openDashProdottoModal(p){
+    const giacenza=p.giacenza_fisica??p.giacenza??0;
+    const soglia=p.soglia_minima||0;
+    const statoGiac=giacenza<=0?'text-red-600':giacenza<=soglia?'text-amber-600':'text-emerald-600';
+    const priceStr=p.prezzo_acquisto!=null?'€ '+parseFloat(p.prezzo_acquisto).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+    document.getElementById('dashProdNome').textContent=p.descrizione||p.nome||'—';
+    document.getElementById('dashProdCodice').textContent=p.codice||'—';
+    document.getElementById('dashProdBarcode').textContent=p.barcode||'—';
+    document.getElementById('dashProdCategoria').textContent=p.categoria||'—';
+    document.getElementById('dashProdFornitore').textContent=p.fornitori?.ragione_sociale||'—';
+    document.getElementById('dashProdUM').textContent=p.unita_misura||p.um||'pz';
+    document.getElementById('dashProdGiacenza').textContent=giacenza;
+    document.getElementById('dashProdGiacenza').className='font-bold text-lg '+statoGiac;
+    document.getElementById('dashProdSoglia').textContent=soglia||'—';
+    document.getElementById('dashProdPrezzo').textContent=priceStr;
+    document.getElementById('dashProdNote').textContent=p.note||'';
+    document.getElementById('dashProdNoteWrap').style.display=p.note?'':'none';
+    window._dashProdId=p.id;
+    document.getElementById('dashProdottoModal').classList.remove('hidden');
+}
+
+function closeDashProdottoModal(){
+    document.getElementById('dashProdottoModal').classList.add('hidden');
+    window._dashProdId=null;
+}
+
+function goToMagazzinoProdotto(){
+    window.location.href='/magazzino-prodotti.html'+(window._dashProdId?'?search='+encodeURIComponent(document.getElementById('dashProdBarcode').textContent):'');
 }
 
 function handleScanDipInput(val){
@@ -2271,6 +2323,77 @@ async function duplicateTask(taskId){
                     Vai alle Note →
                 </a>
                 <button onclick="closeScanNoteModal()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-semibold text-sm transition-colors">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Modal Prodotto Dashboard (da scansione barcode) ── -->
+    <div id="dashProdottoModal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4" style="backdrop-filter:blur(4px)" onclick="if(event.target===this)closeDashProdottoModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <!-- Header -->
+            <div class="flex items-center gap-3 px-6 py-4 rounded-t-2xl" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p id="dashProdNome" class="font-bold text-white text-base leading-tight truncate">—</p>
+                    <p class="text-white/70 text-xs mt-0.5">Prodotto · magazzino</p>
+                </div>
+                <button onclick="closeDashProdottoModal()" class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-xl leading-none flex-shrink-0">&times;</button>
+            </div>
+            <!-- Body -->
+            <div class="px-6 py-5">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Codice</p>
+                        <p id="dashProdCodice" class="font-semibold text-gray-800 text-sm">—</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Barcode</p>
+                        <p id="dashProdBarcode" class="font-semibold text-gray-800 text-sm font-mono">—</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Categoria</p>
+                        <p id="dashProdCategoria" class="font-semibold text-gray-800 text-sm">—</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Fornitore</p>
+                        <p id="dashProdFornitore" class="font-semibold text-gray-800 text-sm truncate">—</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Unità Misura</p>
+                        <p id="dashProdUM" class="font-semibold text-gray-800 text-sm">—</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Prezzo Acquisto</p>
+                        <p id="dashProdPrezzo" class="font-semibold text-gray-800 text-sm">—</p>
+                    </div>
+                </div>
+                <!-- Giacenza grande -->
+                <div class="rounded-2xl p-4 mb-4 flex items-center justify-between" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1.5px solid #ddd6fe">
+                    <div>
+                        <p class="text-xs font-bold text-purple-400 uppercase tracking-wide mb-1">Giacenza attuale</p>
+                        <p id="dashProdGiacenza" class="font-bold text-lg text-emerald-600">0</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-bold text-purple-400 uppercase tracking-wide mb-1">Soglia minima</p>
+                        <p id="dashProdSoglia" class="font-semibold text-gray-600 text-sm">—</p>
+                    </div>
+                </div>
+                <!-- Note (hidden se vuote) -->
+                <div id="dashProdNoteWrap" style="display:none">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Note</p>
+                    <p id="dashProdNote" class="text-sm text-gray-600 bg-amber-50 rounded-xl p-3 border border-amber-100"></p>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div class="flex gap-3 px-6 pb-5">
+                <button onclick="goToMagazzinoProdotto()" class="flex-1 py-2.5 text-white rounded-xl font-semibold text-sm transition-opacity hover:opacity-90" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+                    Apri in Magazzino →
+                </button>
+                <button onclick="closeDashProdottoModal()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-semibold text-sm transition-colors">
                     Chiudi
                 </button>
             </div>
