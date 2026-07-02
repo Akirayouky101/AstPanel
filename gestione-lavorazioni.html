@@ -255,11 +255,25 @@
                 <!-- Da Fare Column -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <div class="bg-gray-100 px-4 py-3 border-b">
-                        <h3 class="font-medium text-gray-900 flex items-center">
+                        <h3 class="font-medium text-gray-900 flex items-center mb-2">
                             <i data-lucide="circle" class="w-4 h-4 mr-2 text-gray-500"></i>
                             Da Fare
                             <span class="ml-auto bg-gray-500 text-white text-xs px-2 py-1 rounded-full" id="todoCount">4</span>
                         </h3>
+                        <div class="flex gap-1 mt-1">
+                            <button id="tab-dafere-oggi" onclick="setDaFareFilter('oggi')"
+                                style="flex:1;padding:4px 0;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#374151;color:#fff;transition:all .15s">
+                                📅 Oggi
+                            </button>
+                            <button id="tab-dafere-scadute" onclick="setDaFareFilter('scadute')"
+                                style="flex:1;padding:4px 0;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#e5e7eb;color:#6b7280;transition:all .15s">
+                                ⏰ Scadute
+                            </button>
+                            <button id="tab-dafere-tutte" onclick="setDaFareFilter('tutte')"
+                                style="flex:1;padding:4px 0;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#e5e7eb;color:#6b7280;transition:all .15s">
+                                📋 Tutte
+                            </button>
+                        </div>
                     </div>
                     <div class="kanban-column p-4 space-y-4" id="todoColumn" ondrop="drop(event)" ondragover="allowDrop(event)" data-status="da_fare">
                         <!-- Tasks will be loaded here -->
@@ -901,6 +915,39 @@
         window.setPriorityBtn = setPriorityBtn;
         window.syncPriorityBtns = syncPriorityBtns;
 
+        // ── Filtro colonna Da Fare ──
+        let dafareFilter = 'oggi';
+        function setDaFareFilter(filter) {
+            dafareFilter = filter;
+            const tabs = { oggi: 'tab-dafere-oggi', scadute: 'tab-dafere-scadute', tutte: 'tab-dafere-tutte' };
+            Object.entries(tabs).forEach(([k, id]) => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                if (k === filter) {
+                    btn.style.background = k === 'scadute' ? '#dc2626' : k === 'oggi' ? '#374151' : '#3b82f6';
+                    btn.style.color = '#fff';
+                } else {
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#6b7280';
+                }
+            });
+            loadKanbanTasks();
+        }
+        function applyDaFareFilter(tasks) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+            return tasks.filter(t => {
+                if (t.stato !== 'da_fare') return true; // non-da_fare tasks: non filtrate
+                const scad = t.scadenza ? new Date(t.scadenza) : null;
+                if (!scad) return dafareFilter === 'tutte'; // senza data: solo in "Tutte"
+                scad.setHours(0, 0, 0, 0);
+                if (dafareFilter === 'oggi') return scad >= today && scad < tomorrow;
+                if (dafareFilter === 'scadute') return scad < today;
+                return true; // tutte
+            });
+        }
+
         async function loadTasks() {
             if (currentView === 'kanban') {
                 await loadKanbanTasks();
@@ -911,7 +958,7 @@
 
         async function loadKanbanTasks() {
             try {
-                const filteredTasks = await getFilteredTasks();
+                const filteredTasks = applyDaFareFilter(await getFilteredTasks());
                 
                 // Clear all columns
                 ['todoColumn', 'inProgressColumn', 'completedColumn'].forEach(columnId => {
