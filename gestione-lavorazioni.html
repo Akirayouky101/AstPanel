@@ -250,7 +250,7 @@
 
         <!-- Kanban Board -->
         <div id="kanbanView" class="fade-in">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Da Fare Column -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <div class="bg-gray-100 px-4 py-3 border-b">
@@ -633,6 +633,35 @@
         </div>
     </div>
 
+    <!-- ── Modal Conferma Eliminazione Lavorazione ── -->
+    <div id="eliminaLavorazioneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10200;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:20px;padding:0;max-width:420px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden">
+            <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:20px 24px 16px">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🗑️</div>
+                    <div>
+                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Elimina Lavorazione</h3>
+                        <p style="color:#fecaca;font-size:12px;margin-top:2px">Operazione irreversibile</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:24px">
+                <p style="font-size:15px;color:#1f2937;font-weight:600;margin:0 0 6px">Vuoi eliminare definitivamente questa lavorazione?</p>
+                <p style="font-size:13px;color:#6b7280;margin:0 0 24px">La lavorazione verrà rimossa dal sistema. Questa azione <strong>non può essere annullata</strong>.</p>
+                <div style="display:flex;gap:10px">
+                    <button onclick="chiudiEliminaModal()"
+                        style="flex:1;padding:11px;border:2px solid #e5e7eb;background:#fff;color:#374151;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        Annulla
+                    </button>
+                    <button id="eliminaLavorazioneBtn" onclick="eseguiEliminaLavorazione()"
+                        style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        🗑️ Sì, Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Modal Conferma Completamento Lavorazione ── -->
     <div id="completaLavorazioneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10200;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:20px;padding:0;max-width:420px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden">
@@ -884,7 +913,7 @@
                 const filteredTasks = await getFilteredTasks();
                 
                 // Clear all columns
-                ['todoColumn', 'inProgressColumn', 'reviewColumn', 'completedColumn'].forEach(columnId => {
+                ['todoColumn', 'inProgressColumn', 'completedColumn'].forEach(columnId => {
                     document.getElementById(columnId).innerHTML = '';
                 });
 
@@ -1027,16 +1056,28 @@
                     </div>
                 ` : ''}
                 ${task.stato !== 'completato' ? `
-                    <div class="mt-3 pt-3 border-t border-gray-100" data-no-open="1">
+                    <div class="mt-3 pt-3 border-t border-gray-100 flex gap-2" data-no-open="1">
                         <button onclick="(function(e){e.stopPropagation();apriCompletaModal('${task.id}')})(event)"
-                            style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                            style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
                             onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-                            <i class="fas fa-check-circle"></i> Segna come Completata
+                            <i class="fas fa-check-circle"></i> Completa
+                        </button>
+                        <button onclick="(function(e){e.stopPropagation();apriEliminaModal('${task.id}')})(event)"
+                            style="display:flex;align-items:center;justify-content:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                            onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 ` : `
-                    <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-green-700" style="font-size:12px;font-weight:700">
-                        <i class="fas fa-check-circle"></i> Completata
+                    <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2" data-no-open="1">
+                        <div class="flex items-center gap-2 text-green-700" style="font-size:12px;font-weight:700">
+                            <i class="fas fa-check-circle"></i> Completata
+                        </div>
+                        <button onclick="(function(e){e.stopPropagation();apriEliminaModal('${task.id}')})(event)"
+                            style="display:flex;align-items:center;justify-content:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                            onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 `}
             `;
@@ -1217,9 +1258,37 @@
             updateTaskStatus(parseInt(taskId), newStatus);
         }
 
+        // ── Modale conferma eliminazione ──
+        let _eliminaTaskId = null;
+        function apriEliminaModal(taskId) {
+            _eliminaTaskId = taskId;
+            document.getElementById('eliminaLavorazioneModal').style.display = 'flex';
+        }
+        function chiudiEliminaModal() {
+            _eliminaTaskId = null;
+            document.getElementById('eliminaLavorazioneModal').style.display = 'none';
+        }
+        async function eseguiEliminaLavorazione() {
+            if (!_eliminaTaskId) return;
+            const btn = document.getElementById('eliminaLavorazioneBtn');
+            btn.disabled = true;
+            btn.textContent = 'Eliminazione...';
+            try {
+                await window.TasksAPI.delete(_eliminaTaskId);
+                chiudiEliminaModal();
+                await loadTasks();
+                await updateStats();
+                showNotification('Lavorazione eliminata', 'success');
+            } catch (error) {
+                console.error('Errore eliminazione:', error);
+                showNotification('Errore durante l\'eliminazione', 'error');
+                btn.disabled = false;
+                btn.textContent = '🗑️ Sì, Elimina';
+            }
+        }
+
         // ── Modale conferma completamento ──
-        let _completaTaskId = null;
-        function apriCompletaModal(taskId) {
+        let _completaTaskId = null;        function apriCompletaModal(taskId) {
             _completaTaskId = taskId;
             const m = document.getElementById('completaLavorazioneModal');
             m.style.display = 'flex';
