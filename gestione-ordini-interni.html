@@ -722,6 +722,26 @@
         </div>
     </div>
 
+    <!-- ── Modal Selezione Approvatori (invia per approvazione) ── -->
+    <div id="approvatoreSelectModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div class="bg-gradient-to-r from-orange-600 to-red-600 text-white p-5 rounded-t-2xl flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-lg" id="approvatoreSelectTitle">Invia per Approvazione</h3>
+                    <p class="text-orange-100 text-xs mt-0.5">Seleziona uno o più approvatori</p>
+                </div>
+                <button onclick="document.getElementById('approvatoreSelectModal').classList.add('hidden'); window._approvatoreSelectResolve && window._approvatoreSelectResolve(null);" class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-5">
+                <div id="approvatoreSelectList" class="space-y-2 max-h-64 overflow-y-auto mb-4 pr-1"></div>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('approvatoreSelectModal').classList.add('hidden'); window._approvatoreSelectResolve && window._approvatoreSelectResolve(null);" class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50">Annulla</button>
+                    <button onclick="_approvatoreSelectConfirm()" class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold text-sm hover:opacity-90 shadow-md">Invia ✉️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Modal Riepilogo Ordine (preview + QR) ── -->
     <div id="previewOrdineModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 overflow-y-auto no-print backdrop-blur-sm" style="padding:16px 12px">
         <div class="bg-white rounded-2xl shadow-2xl w-full my-4" style="max-width:780px;overflow:hidden">
@@ -1489,6 +1509,51 @@
             window.print();
         }
 
+        // ── Selettore approvatori (promise-based) ──
+        function showApprovatoreSelector(approvatori, title = 'Invia per Approvazione') {
+            return new Promise(resolve => {
+                window._approvatoreSelectResolve = resolve;
+                document.getElementById('approvatoreSelectTitle').textContent = title;
+                const list = document.getElementById('approvatoreSelectList');
+                list.innerHTML = `
+                    <label class="flex items-center gap-3 p-3 rounded-xl border-2 border-orange-100 bg-orange-50 cursor-pointer hover:bg-orange-100 transition-colors">
+                        <input type="checkbox" id="appr_tutti" class="w-4 h-4 accent-orange-600" onchange="
+                            document.querySelectorAll('#approvatoreSelectList .appr-check').forEach(c=>c.checked=this.checked)
+                        ">
+                        <span class="font-bold text-orange-800 text-sm">Tutti gli approvatori</span>
+                        <span class="ml-auto text-xs text-orange-500">${approvatori.length} persone</span>
+                    </label>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    ${approvatori.map(a => `
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" class="appr-check w-4 h-4 accent-orange-600" data-id="${a.id}" onchange="
+                                const all = document.querySelectorAll('#approvatoreSelectList .appr-check');
+                                const tutti = document.getElementById('appr_tutti');
+                                tutti.checked = [...all].every(c=>c.checked);
+                                tutti.indeterminate = !tutti.checked && [...all].some(c=>c.checked);
+                            ">
+                            <div>
+                                <div class="font-semibold text-gray-800 text-sm">${a.nome}</div>
+                                <div class="text-xs text-gray-400">${a.email}</div>
+                            </div>
+                        </label>
+                    `).join('')}
+                `;
+                document.getElementById('approvatoreSelectModal').classList.remove('hidden');
+                window._approvatoreSelectConfirmData = approvatori;
+            });
+        }
+
+        function _approvatoreSelectConfirm() {
+            const modal = document.getElementById('approvatoreSelectModal');
+            const checks = document.querySelectorAll('#approvatoreSelectList .appr-check');
+            const allAppr = window._approvatoreSelectConfirmData || [];
+            const selectedIds = new Set([...checks].filter(c => c.checked).map(c => c.dataset.id));
+            const selected = allAppr.filter(a => selectedIds.has(a.id));
+            modal.classList.add('hidden');
+            if (window._approvatoreSelectResolve) window._approvatoreSelectResolve(selected.length ? selected : null);
+        }
+
         // ── Salva ordine ──
         async function salvaOrdine(inviaPerApprovazione = false) {
             try {
@@ -1588,38 +1653,49 @@
                         // Leggi tutti gli approvatori attivi
                         const { data: approvatori } = await db
                             .from('approvatori')
-                            .select('nome, email, token')
+                            .select('*')
                             .eq('attivo', true);
 
-                        const ordineNumero = isNew ? numero : (ordini.find(o => o.id === id)?.numero || id);
-
-                        if (approvatori && approvatori.length > 0) {
-                            // Invia email personalizzata a ciascun approvatore con il suo link
-                            await Promise.all(approvatori.map(a => {
-                                const approvalUrl = `https://ast-panel.vercel.app/Admin/approva-ordine.html?s=${a.token}`;
-                                return fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                                    },
-                                    body: JSON.stringify({
-                                        tipo: 'approvazione',
-                                        to: a.email,
-                                        numero: ordineNumero,
-                                        oggetto: payload.oggetto,
-                                        fornitore: payload.fornitore_nome,
-                                        totale: totale.toFixed(2),
-                                        approvalUrl
-                                    })
-                                });
-                            }));
-                        } else {
+                        if (!approvatori || approvatori.length === 0) {
                             showToast('⚠️ Nessun approvatore configurato – vai in Impostazioni', 'warning');
+                        } else {
+                            const ordineNumero = isNew ? numero : (ordini.find(o => o.id === id)?.numero || id);
+
+                            // Mostra modal selezione approvatori
+                            const selezionati = await showApprovatoreSelector(approvatori, 'Invia per Approvazione');
+
+                            if (selezionati && selezionati.length > 0) {
+                                await Promise.all(selezionati.map(a => {
+                                    const approvalUrl = `https://ast-panel.vercel.app/Admin/approva-ordine.html?s=${a.token}`;
+                                    return fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                                        },
+                                        body: JSON.stringify({
+                                            tipo: 'approvazione',
+                                            to: a.email,
+                                            numero: ordineNumero,
+                                            oggetto: payload.oggetto,
+                                            fornitore: payload.fornitore_nome,
+                                            totale: totale.toFixed(2),
+                                            approvalUrl
+                                        })
+                                    });
+                                }));
+                                showToast(`✅ Email di approvazione inviata a ${selezionati.length} approvatore/i`, 'success');
+                            } else {
+                                // Nessuno selezionato → rimane in bozza
+                                await db.from('ordini_interni').update({ stato: 'bozza' }).eq('id', savedId);
+                                showToast('Nessun approvatore selezionato – ordine salvato come bozza', 'warning');
+                                closeModal();
+                                await loadOrdini();
+                                return;
+                            }
                         }
                     } catch (emailErr) {
                         console.warn('Email approvazione non inviata:', emailErr);
-                        // Non blocca il flusso principale
                     }
                 }
 
