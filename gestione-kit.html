@@ -2471,17 +2471,33 @@
             }
         }
 
-        function handlePickingScan(val) {
+        async function handlePickingScan(val) {
             val = val.trim();
             if (!val) return;
             const input = document.getElementById('pickingBarcodeInput');
             if (input) input.value = '';
 
-            // Cerca tra le voci del kit per barcode o codice
-            const found = Object.entries(_pickingChecks).find(([pid, item]) =>
+            // 1. Cerca in cache locale per barcode o codice
+            let found = Object.entries(_pickingChecks).find(([pid, item]) =>
                 (item.barcode && item.barcode.toLowerCase() === val.toLowerCase()) ||
                 (item.codice  && item.codice.toLowerCase()  === val.toLowerCase())
             );
+
+            // 2. Fallback DB: barcode/codice potrebbe essere null in kit_items
+            //    → cerca il prodotto_id in components e poi matcha nel kit
+            if (!found) {
+                const { data: comp } = await supabase
+                    .from('components')
+                    .select('id, barcode, codice')
+                    .or(`barcode.eq.${val},codice.eq.${val}`)
+                    .maybeSingle();
+                if (comp && _pickingChecks[comp.id]) {
+                    // Aggiorna la cache così le prossime scansioni sono immediate
+                    if (!_pickingChecks[comp.id].barcode) _pickingChecks[comp.id].barcode = comp.barcode || val;
+                    if (!_pickingChecks[comp.id].codice)  _pickingChecks[comp.id].codice  = comp.codice  || '';
+                    found = [comp.id, _pickingChecks[comp.id]];
+                }
+            }
 
             const fb = document.getElementById('pickingFeedback');
             const log = document.getElementById('pickingLog');
