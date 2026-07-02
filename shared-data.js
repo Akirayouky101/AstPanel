@@ -782,13 +782,24 @@ window.syncData = {
         const events = [];
 
         function buildEventTimes(task) {
-            const date = task.scadenza;
+            const startDate = task.data_inizio || task.scadenza;
+            const endDate = task.scadenza || startDate;
+
             if (task.ora_inizio) {
-                const start = `${date}T${task.ora_inizio}`;
-                const end = task.ora_fine ? `${date}T${task.ora_fine}` : null;
+                const start = `${startDate}T${task.ora_inizio}`;
+                const end = task.ora_fine ? `${endDate}T${task.ora_fine}` : null;
                 return { start, end, allDay: false };
             }
-            return { start: date, end: date, allDay: true };
+
+            // Multi-day all-day event: FullCalendar end is exclusive, so add 1 day
+            if (endDate && endDate !== startDate) {
+                const exclusiveEnd = new Date(endDate + 'T00:00:00');
+                exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+                const endStr = exclusiveEnd.toISOString().split('T')[0];
+                return { start: startDate, end: endStr, allDay: true };
+            }
+
+            return { start: startDate, end: startDate, allDay: true };
         }
         
         window.sharedData.tasks.forEach(task => {
@@ -828,7 +839,7 @@ window.syncData = {
                                 client: task.cliente
                             }
                         };
-                        if (times.end && !times.allDay) evt.end = times.end;
+                        if (times.end) evt.end = times.end;
                         events.push(evt);
                     });
                 }
@@ -860,7 +871,7 @@ window.syncData = {
                             client: task.cliente
                         }
                     };
-                    if (times.end && !times.allDay) evt.end = times.end;
+                    if (times.end) evt.end = times.end;
                     events.push(evt);
                 });
             } else if (task.assigned_user_id || task.assegnatario) {
@@ -890,7 +901,7 @@ window.syncData = {
                         client: task.cliente
                     }
                 };
-                if (times.end && !times.allDay) evt.end = times.end;
+                if (times.end) evt.end = times.end;
                 events.push(evt);
             }
         });

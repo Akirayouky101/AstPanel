@@ -16,6 +16,7 @@
     <script src="availability-checker.js"></script>
     <script src="task-wizard.js"></script>
     <script src="multi-user-assignment.js"></script>
+    <script src="linked-tasks.js"></script>
     <script src="product-scanner.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -37,6 +38,13 @@
         @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
         .animate-scale-in { animation: scaleIn 0.3s ease-out; }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        /* Priority pill buttons */
+        .priority-pill { cursor:pointer; transition: all 0.15s; user-select:none; }
+        .priority-pill[data-active="true"][data-priority="bassa"] { border-color:#4ade80!important; background:#f0fdf4!important; color:#16a34a!important; box-shadow:0 0 0 3px #bbf7d0; }
+        .priority-pill[data-active="true"][data-priority="media"] { border-color:#facc15!important; background:#fefce8!important; color:#a16207!important; box-shadow:0 0 0 3px #fef08a; }
+        .priority-pill[data-active="true"][data-priority="alta"]  { border-color:#f87171!important; background:#fef2f2!important; color:#dc2626!important; box-shadow:0 0 0 3px #fecaca; }
+        .priority-pill[data-active="false"] { border-color:#e5e7eb!important; background:white!important; color:#9ca3af!important; box-shadow:none; }
+        .priority-pill[data-active="false"]:hover { border-color:#d1d5db!important; color:#374151!important; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -66,6 +74,10 @@
                 <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
                 Gestione Lavorazioni
             </a>
+            <a href="riepilogo-cantieri.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                <i data-lucide="layout-grid" class="w-5 h-5 mr-3"></i>
+                Riepilogo Cantieri
+            </a>
             <a href="archivio-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-slate-50 hover:text-slate-700 transition-colors">
                 <i data-lucide="archive" class="w-5 h-5 mr-3"></i>
                 Lavorazioni Archiviate
@@ -79,8 +91,16 @@
                 Gestione Richieste
             </a>
             <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                Comunicazioni
+                <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>Comunicazioni
+            </a>
+            <a href="note.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+                <i data-lucide="sticky-note" class="w-5 h-5 mr-3"></i>Note
+            </a>
+            <a href="richiesta-ordine-interna.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>Preventivi Interni
+            </a>
+            <a href="qr-builder.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                <i data-lucide="qr-code" class="w-5 h-5 mr-3"></i>QR Builder
             </a>
         </nav>
     </div>
@@ -115,7 +135,7 @@
                         <i data-lucide="bar-chart-3" class="w-5 h-5 mr-2"></i>
                         Dashboard
                     </button>
-                    <button onclick="mostraMenuCreazione()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                    <button onclick="apriWizard()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                         <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
                         Nuova Lavorazione
                     </button>
@@ -404,7 +424,18 @@
                                 <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
                                 Priorità
                             </label>
-                            <select id="taskPriority" required class="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:ring-2 focus:ring-pink-500 bg-white">
+                            <div class="flex gap-1.5">
+                                <button type="button" data-priority-group="taskPriority" data-priority="bassa" data-active="false" onclick="setPriorityBtn('taskPriority','bassa')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>Bassa
+                                </button>
+                                <button type="button" data-priority-group="taskPriority" data-priority="media" data-active="true" onclick="setPriorityBtn('taskPriority','media')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#eab308;flex-shrink:0;"></span>Media
+                                </button>
+                                <button type="button" data-priority-group="taskPriority" data-priority="alta" data-active="false" onclick="setPriorityBtn('taskPriority','alta')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>Alta
+                                </button>
+                            </div>
+                            <select id="taskPriority" required class="hidden">
                                 <option value="bassa">Bassa</option>
                                 <option value="media" selected>Media</option>
                                 <option value="alta">Alta</option>
@@ -739,6 +770,29 @@
             setupFilters();
             await loadTeamsDropdown();
             await loadUsersDropdown();
+            // Auto-apri wizard se richiesto da URL
+            const _urlP = new URLSearchParams(window.location.search);
+            if (_urlP.get('wizard') === '1') {
+                const _embDate = _urlP.get('date');
+                setTimeout(() => {
+                    apriWizard();
+                    // Pre-fill data se passata da calendario
+                    if (_embDate && window.taskWizard) {
+                        setTimeout(() => {
+                            if (window._wizardAddGiornata) window._wizardAddGiornata(_embDate);
+                        }, 200);
+                    }
+                }, 600);
+            }
+            // Modalità embedded (da iframe nel calendario)
+            if (_urlP.get('embedded') === '1') {
+                // Nascondi navbar e sidebar in modalità embedded
+                document.querySelector('nav')?.remove();
+                document.querySelector('.sidebar')?.remove();
+                document.querySelector('#sidebar')?.remove();
+                document.querySelector('aside')?.remove();
+                document.body.style.background = 'transparent';
+            }
             
             // Inizializza Component Multi Scanner (sistema doppia colonna come magazzino)
             componentScanner = new ComponentMultiScanner({
@@ -788,6 +842,20 @@
                 await loadTasksList();
             }
         }
+
+        // ===== PRIORITY PILL BUTTONS =====
+        function setPriorityBtn(selectId, value) {
+            document.getElementById(selectId).value = value;
+            syncPriorityBtns(selectId);
+        }
+        function syncPriorityBtns(selectId) {
+            const val = document.getElementById(selectId)?.value || 'media';
+            document.querySelectorAll(`[data-priority-group="${selectId}"]`).forEach(btn => {
+                btn.dataset.active = btn.dataset.priority === val ? 'true' : 'false';
+            });
+        }
+        window.setPriorityBtn = setPriorityBtn;
+        window.syncPriorityBtns = syncPriorityBtns;
 
         async function loadTasks() {
             if (currentView === 'kanban') {
@@ -906,7 +974,7 @@
                     `}
                     <span class="${overdueClass}">
                         <i class="fas fa-calendar text-gray-500 mr-1"></i>
-                        ${formatDate(task.scadenza)}
+                        ${formatDate(task.scadenza, task.data_inizio)}
                     </span>
                 </div>
                 ${task.progresso !== undefined ? `
@@ -944,6 +1012,19 @@
                         ${task.preventivi_collegati.map(p => `<span style="display:inline-flex;align-items:center;gap:4px;background:#ede9fe;color:#6d28d9;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700"><i class="fas fa-file-invoice" style="font-size:9px"></i>${p.numero||'PRV'}</span>`).join('')}
                     </div>
                 ` : ''}
+                ${task.stato !== 'completato' ? `
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        <button onclick="event.stopPropagation();updateTaskStatus(${task.id},'completato')"
+                            style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.15s"
+                            onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+                            <i class="fas fa-check-circle"></i> Segna come Completata
+                        </button>
+                    </div>
+                ` : `
+                    <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-green-700" style="font-size:12px;font-weight:700">
+                        <i class="fas fa-check-circle"></i> Completata
+                    </div>
+                `}
             `;
 
             return card;
@@ -1004,7 +1085,7 @@
                     <span class="${priorityClass} px-2 py-1 rounded-full text-xs font-medium">${(task.priorita || 'media').charAt(0).toUpperCase() + (task.priorita || 'media').slice(1)}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
-                    ${formatDate(task.scadenza)}
+                    ${formatDate(task.scadenza, task.data_inizio)}
                     ${isOverdue ? '<i class="fas fa-exclamation-circle inline ml-1"></i>' : ''}
                 </td>
             `;
@@ -1831,19 +1912,18 @@
         // Hook reset per task-wizard.js
         window._wizardGiornateReset = function() {
             _wizardGiornate = [];
-            _renderGiornateChips();
+            window._wizardGiornate = [];
+            // Pulisci campi data wizard
+            const diEl = document.getElementById('wizard-data-inizio');
+            const scEl = document.getElementById('wizard-scadenza');
+            if (diEl) diEl.value = '';
+            if (scEl) scEl.value = '';
+            const lbl = document.getElementById('datePickerLabel');
+            if (lbl) { lbl.innerHTML = 'Scegli data...'; lbl.classList.add('text-gray-400'); }
+            if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
         };
         // Quando task-wizard.js resetta, aggiorna anche la var locale
-        Object.defineProperty(window, '_wizardMultiSelected', {
-            get() { return this.__wizardMultiSelected || []; },
-            set(v) {
-                this.__wizardMultiSelected = v;
-                // Propaga nella chiusura locale (sovrascriviamo il binding)
-                _wizardMultiSelected.length = 0;
-                if (v && v.length) v.forEach(x => _wizardMultiSelected.push(x));
-            },
-            configurable: true
-        });
+        // (wizard-helpers.js usa globals, quindi window._wizardMultiSelected è sufficiente)
 
         function setDeadlinePicker(isoValue) {
             document.getElementById('taskDeadline').value = isoValue || '';
@@ -1871,34 +1951,146 @@
         const _dpMonthNames = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
         function openDatePicker(mode) {
-            _dpMode = mode === 'giornata' ? 'giornata' : 'single';
+            _dpMode = 'single'; // sempre singola data (il range usa openRangePicker)
             _dpTargetInput = 'wizard-scadenza';
             _dpTargetLabel = 'datePickerLabel';
             _dpTargetColor = 'orange';
             _openDatePickerCore();
         }
 
+        // _renderGiornateChips mantenuto come stub per retrocompatibilità
         function _renderGiornateChips() {
-            const container = document.getElementById('wizard-giornate-chips');
-            if (!container) return;
-            if (!_wizardGiornate.length) { container.innerHTML = ''; return; }
-            const sorted = [..._wizardGiornate].sort();
-            container.innerHTML = sorted.map(iso => {
-                const d = new Date(iso + 'T12:00:00');
-                const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
-                return `<span style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fb923c;border-radius:20px;padding:3px 10px;font-size:12px;color:#c2410c;font-weight:600">
-                    <i data-lucide="calendar" style="width:12px;height:12px"></i>${label}
-                    <button type="button" onclick="_removeGiornata('${iso}')" style="background:none;border:none;color:#ea580c;cursor:pointer;padding:0;margin-left:2px;font-size:13px;line-height:1">×</button>
-                </span>`;
-            }).join('');
-            // Aggiorna wizard-scadenza con la prima data
-            document.getElementById('wizard-scadenza').value = sorted[0] || '';
+            if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
+        }
+        function _removeGiornata(iso) { /* non usato - gestito da _clearWizardRange */ }
+
+        // ===== WIZARD RANGE DATE PICKER =====
+        let _wpStartDate = null, _wpEndDate = null, _wpHoverDate = null;
+        let _wpRangeStep = 'start';
+        let _wpCalYear = new Date().getFullYear(), _wpCalMonth = new Date().getMonth();
+        const _WP_MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+        function openRangePicker() {
+            const existingStart = document.getElementById('wizard-data-inizio')?.value || '';
+            const existingEnd = document.getElementById('wizard-scadenza')?.value || '';
+            if (existingStart && existingEnd && existingStart !== existingEnd) {
+                _wpStartDate = existingStart; _wpEndDate = existingEnd;
+                const d = new Date(existingStart + 'T00:00:00');
+                _wpCalYear = d.getFullYear(); _wpCalMonth = d.getMonth();
+            } else {
+                _wpStartDate = null; _wpEndDate = null;
+                _wpCalYear = new Date().getFullYear(); _wpCalMonth = new Date().getMonth();
+            }
+            _wpHoverDate = null; _wpRangeStep = 'start';
+            document.getElementById('wizard-range-picker-modal').classList.remove('hidden');
+            _wpRenderMiniCal();
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        function _removeGiornata(iso) {
-            _wizardGiornate = _wizardGiornate.filter(d => d !== iso);
-            _renderGiornateChips();
+        function closeRangePicker() {
+            document.getElementById('wizard-range-picker-modal').classList.add('hidden');
+        }
+
+        function _wpRenderMiniCal() {
+            const grid = document.getElementById('wpCalGrid');
+            const title = document.getElementById('wpCalTitle');
+            if (!grid) return;
+            title.textContent = _WP_MESI[_wpCalMonth] + ' ' + _wpCalYear;
+            const firstDay = new Date(_wpCalYear, _wpCalMonth, 1);
+            let offset = firstDay.getDay() - 1; if (offset < 0) offset = 6;
+            const daysInMonth = new Date(_wpCalYear, _wpCalMonth + 1, 0).getDate();
+            const today = new Date().toISOString().split('T')[0];
+            let html = '';
+            for (let i = 0; i < offset; i++) html += '<div></div>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const iso = `${_wpCalYear}-${String(_wpCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const dow = new Date(_wpCalYear, _wpCalMonth, d).getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isToday = iso === today;
+                const isStart = iso === _wpStartDate, isEnd = iso === _wpEndDate;
+                const inRange = _wpStartDate && _wpEndDate && iso > _wpStartDate && iso < _wpEndDate;
+                const inHover = _wpStartDate && !_wpEndDate && _wpHoverDate && iso > _wpStartDate && iso <= _wpHoverDate;
+                let cellBg = 'transparent';
+                if ((inRange || inHover) && !isStart && !isEnd) cellBg = '#ffedd5';
+                if (isStart && (_wpEndDate || _wpHoverDate)) cellBg = 'linear-gradient(to right,transparent 50%,#ffedd5 50%)';
+                if (isEnd && _wpStartDate) cellBg = 'linear-gradient(to left,transparent 50%,#ffedd5 50%)';
+                let numBg = 'transparent', numColor = isWeekend ? '#f97316' : '#374151';
+                let numBorder = 'none', numWeight = '500';
+                if (isStart || isEnd) { numBg = '#f97316'; numColor = 'white'; numWeight = '700'; }
+                else if (inRange || inHover) numColor = '#c2410c';
+                else if (isToday) { numBorder = '2px solid #f97316'; numColor = '#f97316'; numWeight = '700'; }
+                html += `<div style="text-align:center;cursor:pointer;user-select:none;background:${cellBg}" onmouseover="_wpHover('${iso}')" onmouseout="_wpHoverOut()" onclick="_wpClickDay('${iso}')"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;font-size:12px;font-weight:${numWeight};background:${numBg};color:${numColor};border:${numBorder};box-sizing:border-box">${d}</span></div>`;
+            }
+            grid.innerHTML = html;
+            const dalEl = document.getElementById('wpRangeDalText'), alEl = document.getElementById('wpRangeAlText');
+            const dalDisp = document.getElementById('wpRangeDalDisplay'), alDisp = document.getElementById('wpRangeAlDisplay');
+            if (dalEl) dalEl.textContent = _wpStartDate ? _wpFmtDate(_wpStartDate) : '—';
+            if (alEl) alEl.textContent = _wpEndDate ? _wpFmtDate(_wpEndDate) : '—';
+            if (dalDisp && alDisp) {
+                if (_wpRangeStep === 'start') { dalDisp.style.borderColor='#f97316';dalDisp.style.background='#fff7ed';alDisp.style.borderColor='#e5e7eb';alDisp.style.background='#f9fafb'; }
+                else { alDisp.style.borderColor='#f97316';alDisp.style.background='#fff7ed';dalDisp.style.borderColor='#e5e7eb';dalDisp.style.background='#f9fafb'; }
+            }
+            const confirmBtn = document.getElementById('wpConfirmBtn');
+            if (confirmBtn) confirmBtn.disabled = !_wpStartDate;
+        }
+
+        function _wpFmtDate(iso) { const [y,m,d] = iso.split('-'); return `${d} ${_WP_MESI[parseInt(m)-1].slice(0,3)} ${y}`; }
+        function _wpClickDay(iso) {
+            if (_wpRangeStep === 'start') { _wpStartDate = iso; _wpEndDate = null; _wpRangeStep = 'end'; }
+            else { if (iso < _wpStartDate) { _wpStartDate = iso; _wpRangeStep = 'end'; } else { _wpEndDate = iso; _wpRangeStep = 'start'; } }
+            _wpRenderMiniCal();
+        }
+        function _wpHover(iso) { _wpHoverDate = iso; _wpRenderMiniCal(); }
+        function _wpHoverOut() { _wpHoverDate = null; _wpRenderMiniCal(); }
+        function _wpCalPrev() { _wpCalMonth--; if (_wpCalMonth < 0) { _wpCalMonth = 11; _wpCalYear--; } _wpRenderMiniCal(); }
+        function _wpCalNext() { _wpCalMonth++; if (_wpCalMonth > 11) { _wpCalMonth = 0; _wpCalYear++; } _wpRenderMiniCal(); }
+        function _wpShortcut(days, startOff) {
+            const s = new Date(); s.setDate(s.getDate() + startOff);
+            const e = new Date(s); e.setDate(e.getDate() + days);
+            _wpStartDate = s.toISOString().split('T')[0]; _wpEndDate = e.toISOString().split('T')[0];
+            _wpCalYear = s.getFullYear(); _wpCalMonth = s.getMonth(); _wpRangeStep = 'start';
+            _wpRenderMiniCal();
+        }
+        function _wpReset() { _wpStartDate = null; _wpEndDate = null; _wpRangeStep = 'start'; _wpRenderMiniCal(); }
+
+        function confirmRangePicker() {
+            if (!_wpStartDate) return;
+            const end = _wpEndDate || _wpStartDate;
+            document.getElementById('wizard-data-inizio').value = _wpStartDate;
+            document.getElementById('wizard-scadenza').value = end;
+            _updateWizardDateDisplay();
+            closeRangePicker();
+        }
+
+        function _clearWizardRange() {
+            document.getElementById('wizard-data-inizio').value = '';
+            document.getElementById('wizard-scadenza').value = '';
+            const lbl = document.getElementById('datePickerLabel');
+            if (lbl) { lbl.innerHTML = 'Scegli data...'; lbl.classList.add('text-gray-400'); }
+            _updateWizardDateDisplay();
+        }
+
+        function _updateWizardDateDisplay() {
+            const start = document.getElementById('wizard-data-inizio')?.value || '';
+            const end = document.getElementById('wizard-scadenza')?.value || '';
+            const displayEl = document.getElementById('wizard-date-display');
+            const singleBtn = document.getElementById('wizard-single-date-btn');
+            const rangeBtn = document.getElementById('wizard-range-btn');
+            if (start && end && start !== end) {
+                if (singleBtn) singleBtn.classList.add('hidden');
+                const s = new Date(start + 'T12:00:00'), e = new Date(end + 'T12:00:00');
+                const days = Math.round((e - s) / 86400000) + 1;
+                const fStr = s.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+                const lStr = e.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+                if (displayEl) displayEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:linear-gradient(to right,#f97316,#f59e0b);color:white;border-radius:12px;margin-bottom:8px;font-weight:600;font-size:14px"><i data-lucide="calendar-range" style="width:16px;height:16px;flex-shrink:0"></i><span style="flex:1">${fStr} → ${lStr}</span><span style="font-size:11px;background:rgba(255,255,255,0.25);padding:2px 7px;border-radius:999px;font-weight:700">${days}gg</span><button type="button" onclick="_clearWizardRange()" style="background:none;border:none;color:rgba(255,255,255,0.75);cursor:pointer;font-size:18px;line-height:1;padding:0;margin-left:2px" title="Rimuovi intervallo">&times;</button></div>`;
+                if (rangeBtn) rangeBtn.innerHTML = '<i data-lucide="calendar-range" class="w-4 h-4 inline mr-1"></i>Modifica intervallo';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                if (singleBtn) singleBtn.classList.remove('hidden');
+                if (displayEl) displayEl.innerHTML = '';
+                if (rangeBtn) rangeBtn.innerHTML = '<i data-lucide="calendar-range" class="w-4 h-4 inline mr-1"></i>Scegli intervallo Date';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
         }
 
         // ===== CUSTOM DROPDOWN HELPERS (edit modal) =====
@@ -2044,7 +2236,7 @@
             const daysInMonth = new Date(_dpYear, _dpMonth + 1, 0).getDate();
             let html = '';
             // Celle vuote prima
-            for (let i = 0; i < startDow; i++) html += '<div></div>';
+            for (let i = 0; i < startDow; i++) html += '<div style="width:36px;height:36px"></div>';
             for (let d = 1; d <= daysInMonth; d++) {
                 const date = new Date(_dpYear, _dpMonth, d);
                 const isToday = date.getTime() === today.getTime();
@@ -2054,17 +2246,17 @@
                 const iso = `${_dpYear}-${mm}-${dd}`;
                 const isInGiornate = _wizardGiornate.includes(iso);
                 const isPast = date < today;
-                const dow = date.getDay(); // 0=dom, 6=sab
+                const dow = date.getDay();
                 const isWeekend = dow === 0 || dow === 6;
-                let cls = 'w-full aspect-square flex items-center justify-center text-sm rounded-xl font-medium transition-all cursor-pointer select-none ';
-                if (isInGiornate) cls += 'bg-orange-500 text-white shadow-lg scale-105 ';
-                else if (isSel) cls += 'bg-purple-600 text-white shadow-lg scale-105 ';
+                let cls = 'flex items-center justify-center text-sm rounded-xl font-medium transition-all cursor-pointer select-none ';
+                if (isInGiornate) cls += 'bg-orange-500 text-white shadow-lg ';
+                else if (isSel) cls += 'bg-purple-600 text-white shadow-lg ';
                 else if (isToday) cls += 'ring-2 ring-purple-400 text-purple-700 font-bold ';
                 else if (isPast) cls += 'text-gray-300 cursor-not-allowed ';
                 else if (isWeekend) cls += 'text-red-400 hover:bg-red-50 ';
                 else cls += 'text-gray-700 hover:bg-purple-50 hover:text-purple-700 ';
                 const clickable = !isPast || isSel || isInGiornate;
-                html += `<div class="${cls}" ${clickable ? `onclick="dpSelectDay(${d})"` : ''}>${d}</div>`;
+                html += `<div class="${cls}" style="width:36px;height:36px" ${clickable ? `onclick="dpSelectDay(${d})"` : ''}>${d}</div>`;
             }
             grid.innerHTML = html;
         }
@@ -2100,6 +2292,12 @@
             const textColor = _dpTargetColor === 'orange' ? 'text-orange-800' : 'text-gray-800';
             lbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 ${iconColor}"></i><span class="${textColor} font-semibold">${label}</span>`;
             lbl.classList.remove('text-gray-400', 'text-orange-400', 'text-purple-400');
+            // Se è il campo scadenza del wizard: imposta anche data_inizio e aggiorna display
+            if (_dpTargetInput === 'wizard-scadenza') {
+                const diEl = document.getElementById('wizard-data-inizio');
+                if (diEl) diEl.value = iso; // data singola: inizio = fine
+                if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
+            }
             lucide.createIcons();
             dpRender();
             setTimeout(closeDatePicker, 200);
@@ -2928,6 +3126,10 @@
                 
                 // Prepara HTML assegnazioni
                 let assegnazioniHTML = '';
+                // Totale ore da tutti gli assegnatari multi-utente
+                const oreTotaliTeam = multiAssignments && multiAssignments.length > 0
+                    ? multiAssignments.reduce((sum, a) => sum + (parseFloat(a.ore_assegnate) || 0), 0)
+                    : 0;
                 
                 if (multiAssignments && multiAssignments.length > 0) {
                     assegnazioniHTML = `
@@ -2935,6 +3137,7 @@
                             <h4 class="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                                 <i data-lucide="users" class="w-5 h-5"></i>
                                 Assegnazione Multi-Utente (${multiAssignments.length} membri)
+                                ${oreTotaliTeam > 0 ? `<span class="ml-auto text-sm font-bold text-blue-700 bg-blue-100 border border-blue-300 px-3 py-1 rounded-full">⏱ Totale: ${oreTotaliTeam}h</span>` : ''}
                             </h4>
                             <div class="space-y-2">
                                 ${multiAssignments.filter(a => a.users).map(a => {
@@ -2951,7 +3154,7 @@
                                                     <div class="text-xs font-medium text-blue-700">${user.ruolo || ''} • ${a.ruolo_assegnazione || 'membro'}</div>
                                                 </div>
                                             </div>
-                                            <div class="text-sm text-gray-600">
+                                            <div class="text-sm font-semibold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg">
                                                 ${a.ore_assegnate || 0}h
                                             </div>
                                         </div>
@@ -3105,8 +3308,14 @@
                                         <div class="text-blue-600 mb-1">
                                             <i data-lucide="clock" class="w-6 h-6 mx-auto"></i>
                                         </div>
+                                        ${oreTotaliTeam > 0 ? `
+                                        <div class="text-2xl font-bold text-blue-900">${oreTotaliTeam}h</div>
+                                        <div class="text-xs text-blue-600 font-medium mt-1">Ore Totali Team</div>
+                                        ${task.ore_stimate ? `<div class="text-xs text-blue-400 mt-0.5">(stimate: ${task.ore_stimate}h)</div>` : ''}
+                                        ` : `
                                         <div class="text-2xl font-bold text-blue-900">${task.ore_stimate || 0}h</div>
                                         <div class="text-xs text-blue-600 font-medium mt-1">Ore Stimate</div>
+                                        `}
                                     </div>
                                     
                                     <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4 text-center">
@@ -3148,6 +3357,9 @@
                             
                             <!-- Componenti Utilizzati -->
                             ${componentiHTML}
+                            
+                            <!-- Timeline Interventi Collegati (caricata async dopo) -->
+                            <div id="linked-timeline-container-${taskId}" style="margin-top:8px"></div>
                         </div>
                         
                         <!-- Footer Actions -->
@@ -3183,6 +3395,14 @@
                 
                 document.body.appendChild(modal);
                 lucide.createIcons();
+
+                // Carica timeline interventi collegati (async, non blocca il render)
+                if (window.LinkedTasks) {
+                    window.LinkedTasks.buildTimelineForTask(task).then(html => {
+                        const tlContainer = document.getElementById(`linked-timeline-container-${taskId}`);
+                        if (tlContainer && html) tlContainer.innerHTML = html;
+                    });
+                }
                 
                 // Event listener standby toggle
                 const standbyBtn = document.getElementById('standby-toggle-btn');
@@ -3256,7 +3476,7 @@
         // ===================================
         
         async function openWizardForEdit(taskId) {
-            console.log('✏️ [EDIT] Opening edit modal for task:', taskId);
+            console.log('✏️ [EDIT] Opening edit modal for task (wizard mode):', taskId);
             
             try {
                 const tasks = await window.dataManager.getLavorazioni();
@@ -3268,13 +3488,14 @@
                 
                 console.log('✅ [EDIT] Task loaded:', task);
                 
-                // Carica assegnazioni multiple
+                // Carica assegnazioni multiple con nomi utenti
                 const { data: multiAssignments } = await supabaseClient
                     .from('task_assignments')
                     .select(`
                         user_id,
                         ruolo_assegnazione,
-                        ore_assegnate
+                        ore_assegnate,
+                        users:user_id (nome, cognome)
                     `)
                     .eq('task_id', taskId);
                 
@@ -3284,795 +3505,106 @@
                     .select(`
                         id,
                         quantita,
-                        note,
                         components:component_id (id, nome, codice)
                     `)
                     .eq('task_id', taskId);
                 
                 console.log('📦 [EDIT] Components:', taskComponents);
                 
-                // Carica TUTTI i prodotti dal magazzino
-                const { data: magazzinoProducts } = await supabaseClient
-                    .from('components')
-                    .select('id, nome, codice, categoria, quantita_disponibile, unita_misura')
-                    .order('nome');
-                
-                console.log('🏪 [EDIT] Magazzino products:', magazzinoProducts);
-                
-                // Salva in variabile globale per la modal nuovo prodotto
-                window.currentEditTaskMagazzinoProducts = magazzinoProducts || [];
-                
-                // Carica clienti
-                const { data: clienti } = await supabaseClient
-                    .from('clients')
-                    .select('id, ragione_sociale')
-                    .order('ragione_sociale');
-                
-                // Carica utenti
-                const { data: utenti } = await supabaseClient
-                    .from('users')
-                    .select('id, nome, cognome, ruolo')
-                    .order('nome');
-                
-                console.log('👥 [EDIT] Utenti caricati:', utenti);
-                
-                // Determina tipo assegnazione
-                let tipoAssegnazione = 'single';
-                let selectedUsers = [];
-                
+                // Prepara dati assigned_users con nomi
+                let assignedUsers = [];
                 if (multiAssignments && multiAssignments.length > 0) {
-                    tipoAssegnazione = 'multi';
-                    selectedUsers = multiAssignments;
-                } else if (task.assigned_team_id) {
-                    tipoAssegnazione = 'team';
+                    assignedUsers = multiAssignments.map(a => ({
+                        user_id: a.user_id,
+                        nome: a.users?.nome || '',
+                        cognome: a.users?.cognome || '',
+                        ruolo_assegnazione: a.ruolo_assegnazione || 'membro',
+                        ore_assegnate: a.ore_assegnate || 0
+                    }));
                 } else if (task.assigned_user_id) {
-                    tipoAssegnazione = 'multi';
-                    selectedUsers = [{ user_id: task.assigned_user_id, ruolo_assegnazione: 'membro', ore_assegnate: 0 }];
+                    assignedUsers = [{
+                        user_id: task.assigned_user_id,
+                        nome: task.assigned_user?.nome || '',
+                        cognome: task.assigned_user?.cognome || '',
+                        ruolo_assegnazione: 'membro',
+                        ore_assegnate: 0
+                    }];
                 }
                 
-                // Crea modale
-                const modal = document.createElement('div');
-                modal.id = 'edit-task-modal';
-                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
-                modal.innerHTML = `
-                    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <!-- Header -->
-                        <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-t-2xl">
-                            <div class="flex items-center justify-between">
-                                <h2 class="text-2xl font-bold text-white">✏️ Modifica Lavorazione</h2>
-                                <button onclick="document.getElementById('edit-task-modal').remove()" 
-                                        class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg">
-                                    <i data-lucide="x" class="w-6 h-6"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Form -->
-                        <form id="edit-task-form" class="p-6 space-y-6">
-                            <!-- Dati Base -->
-                            <div class="space-y-4">
-                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
-                                    Informazioni Base
-                                </h3>
-                                
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Titolo *</label>
-                                        <input type="text" id="edit-titolo" value="${task.titolo || task.title || ''}" required
-                                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-purple-500 outline-none transition-all text-gray-800 font-medium placeholder-gray-400">
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
-                                        <div class="flex gap-2">
-                                            <select id="edit-cliente" required disabled
-                                                    class="flex-1 appearance-none px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:ring-0 focus:border-purple-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500">
-                                                <option value="">Seleziona cliente...</option>
-                                                ${clienti?.map(c => `
-                                                    <option value="${c.id}" ${c.id === task.client_id ? 'selected' : ''}>
-                                                        ${c.ragione_sociale}
-                                                    </option>
-                                                `).join('')}
-                                            </select>
-                                            <button type="button" id="toggle-cliente-lock" 
-                                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-xl transition-all"
-                                                    title="Sblocca per modificare cliente">
-                                                <i data-lucide="lock" class="w-4 h-4 text-gray-500"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Priorità *</label>
-                                        ${_buildPrioritaDropdown(task.priorita)}
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Scadenza *</label>
-                                        <input type="hidden" id="edit-scadenza" value="${task.scadenza || task.deadline || ''}">
-                                        <button type="button" id="editScadenzaBtn" onclick="openEditScadenzaPicker()"
-                                                class="group w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-200 rounded-xl hover:border-orange-400 hover:from-orange-100 hover:to-amber-100 transition-all">
-                                            <i data-lucide="calendar" class="w-5 h-5 text-orange-500 flex-shrink-0"></i>
-                                            <span id="editScadenzaLabel" class="text-orange-400 text-sm group-hover:text-orange-700">
-                                                ${(task.scadenza || task.deadline) ? (() => { try { return new Date((task.scadenza || task.deadline) + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }); } catch(e) { return 'Scegli data'; } })() : 'Scegli data...'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
-                                        ${_buildStatoDropdown(task.stato)}
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">🕐 Ora Inizio</label>
-                                        <input type="time" id="edit-ora-inizio" value="${task.ora_inizio || ''}"
-                                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-blue-500 outline-none transition-all">
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">🕐 Ora Fine</label>
-                                        <input type="time" id="edit-ora-fine" value="${task.ora_fine || ''}"
-                                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-blue-500 outline-none transition-all">
-                                    </div>
-
-                                    <div class="col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-                                        <textarea id="edit-descrizione" rows="3"
-                                                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-purple-500 outline-none transition-all resize-none text-gray-700 placeholder-gray-400">${task.descrizione || task.description || ''}</textarea>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Assegnazioni -->
-                            <div class="bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-4 space-y-3">
-                                <h3 class="font-bold text-sm text-purple-900 flex items-center gap-2">
-                                    <i data-lucide="users" class="w-4 h-4"></i>
-                                    Dipendenti
-                                </h3>
-
-                                <!-- Dipendenti: picker button + preview chips -->
-                                <div id="edit-multi-container">
-                                    <button type="button" onclick="editOpenMultiPicker()"
-                                            class="w-full flex items-center gap-3 px-4 py-3 border-2 border-purple-300 rounded-xl bg-white hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
-                                        <i data-lucide="users" class="w-5 h-5 text-purple-500 flex-shrink-0"></i>
-                                        <span id="edit-multi-picker-label" class="text-gray-400 text-sm flex-1">
-                                            ${selectedUsers.length > 0 ? `<span class="text-gray-800 font-semibold">${selectedUsers.length} dipendenti selezionati</span>` : 'Seleziona dipendenti...'}
-                                        </span>
-                                        <i data-lucide="chevron-down" class="w-4 h-4 text-purple-300 flex-shrink-0"></i>
-                                    </button>
-                                    <div id="edit-multi-chips" class="mt-2 flex flex-wrap gap-1.5">
-                                        ${selectedUsers.map(a => {
-                                            const u = utenti?.find(x => x.id === a.user_id);
-                                            if (!u) return '';
-                                            return `<span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-200" data-user-id="${u.id}">
-                                                ${u.nome} ${u.cognome}
-                                                <button type="button" onclick="editRemoveMultiUser('${u.id}')" class="text-purple-400 hover:text-red-500 ml-1">×</button>
-                                            </span>`;
-                                        }).join('')}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Dettagli Tecnici -->
-                            <div class="space-y-4">
-                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="wrench" class="w-5 h-5 text-green-600"></i>
-                                    Dettagli Tecnici
-                                </h3>
-                                
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Ore Stimate</label>
-                                        <div class="relative">
-                                            <input type="number" id="edit-ore" value="${task.ore_stimate || 0}" min="0" step="0.5"
-                                                   class="w-full px-4 py-3 pr-10 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-purple-500 outline-none transition-all">
-                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium pointer-events-none">h</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Costo Stimato</label>
-                                        <div class="relative">
-                                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold pointer-events-none">€</span>
-                                            <input type="number" id="edit-costo" value="${task.costo_stimato || 0}" min="0" step="0.01"
-                                                   class="w-full pl-7 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-purple-500 outline-none transition-all">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Progresso -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Progresso: <span id="edit-progresso-label" style="font-weight:700;color:#7c3aed">${task.progresso || 0}%</span></label>
-                                    <input type="range" id="edit-progresso" min="0" max="100" step="5" value="${task.progresso || 0}"
-                                           oninput="document.getElementById('edit-progresso-label').textContent = this.value + '%'"
-                                           style="width:100%;accent-color:#7c3aed;cursor:pointer">
-                                    <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:2px">
-                                        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Note Progresso</label>
-                                    <textarea id="edit-note-progresso" rows="2"
-                                              style="width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:12px;outline:none;resize:none;font-size:14px;color:#374151"
-                                              placeholder="Aggiornamento sullo stato avanzamento...">${task.note_progresso || ''}</textarea>
-                                </div>
-                            </div>
-                            <div class="space-y-4">
-                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="file-text" class="w-5 h-5 text-violet-600"></i>
-                                    Preventivi collegati
-                                </h3>
-                                <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #ddd6fe;border-radius:12px;padding:16px">
-                                    <!-- Chips preventivi selezionati -->
-                                    <div id="edit-prev-chips" class="flex flex-wrap gap-2 mb-3 min-h-[28px]"></div>
-                                    <!-- Search picker -->
-                                    <div id="edit-preventivoPickerWrap">
-                                        <div style="position:relative">
-                                            <div style="position:relative;display:flex;align-items:center">
-                                                <i class="fas fa-search" style="position:absolute;left:11px;color:#8b5cf6;font-size:13px;pointer-events:none;z-index:1"></i>
-                                                <input type="text" id="edit-preventivo-search" autocomplete="off"
-                                                       placeholder="Clicca per vedere tutti, oppure cerca per numero…"
-                                                       oninput="if(window._editPrevSearchFn)window._editPrevSearchFn(this.value)"
-                                                       onfocus="if(window._editPrevSearchFn)window._editPrevSearchFn(this.value)"
-                                                       style="width:100%;padding:10px 34px 10px 34px;border:2px solid #c4b5fd;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box;cursor:pointer">
-                                                <i class="fas fa-chevron-down" id="edit-prev-chevron" style="position:absolute;right:10px;color:#8b5cf6;font-size:11px;pointer-events:none;transition:transform .2s"></i>
-                                                <button type="button" id="edit-prev-search-clear"
-                                                        style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;z-index:2">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                            <div id="edit-preventivoDropdown"
-                                                 style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:2px solid #c4b5fd;border-radius:12px;box-shadow:0 8px 24px rgba(109,40,217,.15);z-index:200;max-height:240px;overflow-y:auto">
-                                            </div>
-                                        </div>
-                                        <button type="button" id="edit-import-btn"
-                                                style="margin-top:10px;width:100%;padding:10px 0;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-                                            <i class="fas fa-file-import"></i> Importa componenti
-                                        </button>
-                                    </div>
-                                    <div id="edit-preventivoImportatoInfo" style="display:none;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:10px 14px">
-                                        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-                                            <i class="fas fa-check-circle" style="color:#22c55e"></i>
-                                            <span id="edit-preventivoImportatoLabel" style="color:#5b21b6;font-weight:600"></span>
-                                        </div>
-                                        <button type="button" id="edit-clear-preventivo"
-                                                style="font-size:12px;color:#ef4444;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;font-weight:600">
-                                            <i class="fas fa-times"></i> Rimuovi
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-4">
-                                <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                                    <i data-lucide="package" class="w-5 h-5 text-orange-600"></i>
-                                    Componenti/Materiali
-                                </h3>
-                                
-                                <div id="edit-componenti-list" class="space-y-2">
-                                    ${taskComponents && taskComponents.length > 0 ? taskComponents.map(tc => `
-                                        <div class="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3" data-component-db-id="${tc.id}" data-component-id="${tc.components?.id}">
-                                            <div class="flex-1 grid grid-cols-3 gap-2">
-                                                <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
-                                                    <strong>${tc.components?.nome || ''}</strong>
-                                                    ${tc.components?.codice ? `<span class="text-gray-500 text-xs ml-2">${tc.components.codice}</span>` : ''}
-                                                </div>
-                                                <input type="number" value="${tc.quantita || 1}" min="1"
-                                                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                                                       placeholder="Q.tà">
-                                            </div>
-                                            <button type="button" onclick="this.closest('[data-component-db-id]').remove()"
-                                                    class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                                                <i data-lucide="x" class="w-4 h-4"></i>
-                                            </button>
-                                        </div>
-                                    `).join('') : '<p id="no-components-msg" class="text-gray-500 text-sm italic">Nessun componente assegnato</p>'}
-                                </div>
-                                
-                                <div class="flex gap-2">
-                                    <button type="button" id="edit-add-componente-btn"
-                                            class="flex-1 px-4 py-2 border-2 border-dashed border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 flex items-center justify-center gap-2">
-                                        <i data-lucide="plus" class="w-4 h-4"></i>
-                                        Aggiungi da Magazzino
-                                    </button>
-                                    <button type="button" id="edit-new-product-btn"
-                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-                                        <i data-lucide="package-plus" class="w-4 h-4"></i>
-                                        Nuovo Prodotto
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                        
-                        <!-- Footer -->
-                        <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl border-t flex justify-between">
-                            <div class="flex gap-3">
-                                <button onclick="document.getElementById('edit-task-modal').remove()"
-                                        class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-white">
-                                    Annulla
-                                </button>
-                                <button id="delete-task-btn" type="button" data-task-id="${taskId}"
-                                        class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-800 shadow-lg flex items-center gap-2">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                    Elimina Lavorazione
-                                </button>
-                            </div>
-                            <button id="save-edit-btn" type="button"
-                                    class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 shadow-lg">
-                                💾 Salva Modifiche
-                            </button>
-                        </div>
-                    </div>
-                `;
+                // Prepara componenti
+                const componenti = (taskComponents || []).map(tc => ({
+                    prodotto_id: tc.components?.id,
+                    quantita: tc.quantita,
+                    nome: tc.components?.nome,
+                    codice: tc.components?.codice
+                })).filter(c => c.prodotto_id);
                 
-                document.body.appendChild(modal);
-                lucide.createIcons();
-
-                // ── Carica preventivi per il cliente ──────────────────
-                let _editPrevList = [];
-                let _editPrevSelectedId = null;
-
-                (async () => {
-                    try {
-                        let q = window.supabaseClient
-                            .from('preventivi')
-                            .select('id, numero, oggetto, cliente_nome, stato')
-                            .in('stato', ['accettato', 'inviato', 'bozza'])
-                            .order('created_at', { ascending: false });
-                        if (task.client_id) q = q.eq('cliente_id', task.client_id);
-                        const { data: prevs } = await q;
-                        _editPrevList = (prevs || []).map(p => ({
-                            id: p.id,
-                            numero: p.numero || '',
-                            oggetto: p.oggetto || '',
-                            cliente: p.cliente_nome || '',
-                            stato: p.stato,
-                            label: `${p.numero} · ${p.oggetto}${p.cliente_nome ? ' (' + p.cliente_nome + ')' : ''}`
-                        }));
-                        // Se il dropdown è già aperto, aggiorna subito
-                        const editDrop = document.getElementById('edit-preventivoDropdown');
-                        const editInp = document.getElementById('edit-preventivo-search');
-                        if (editDrop && editDrop.style.display === 'block' && editInp) {
-                            _editPrevSearch(editInp.value);
-                        }
-                        // Carica preventivi già collegati da task_preventivi
-                        window._editPrevSelezionati = [];
-                        const { data: prevCollegati } = await window.supabaseClient
-                            .from('task_preventivi')
-                            .select('preventivo_id, preventivi(id, numero, oggetto, cliente_nome)')
-                            .eq('task_id', taskId);
-                        if (prevCollegati && prevCollegati.length > 0) {
-                            window._editPrevSelezionati = prevCollegati.map(r => ({
-                                id: r.preventivo_id,
-                                label: `${r.preventivi?.numero || ''} · ${r.preventivi?.oggetto || ''}${r.preventivi?.cliente_nome ? ' (' + r.preventivi.cliente_nome + ')' : ''}`
-                            }));
-                            _editPrevSelectedId = window._editPrevSelezionati[0].id;
-                            if (typeof _renderEditPrevChips === 'function') _renderEditPrevChips();
-                        } else if (task.preventivo_id) {
-                            // fallback al singolo
-                            const found = _editPrevList.find(p => p.id === task.preventivo_id);
-                            if (found) {
-                                window._editPrevSelezionati = [found];
-                                _editPrevSelectedId = found.id;
-                                if (typeof _renderEditPrevChips === 'function') _renderEditPrevChips();
-                            }
-                        }
-                    } catch(e) { console.warn('Preventivi non caricati:', e); }
-                })();
-
-                function _editPrevSearch(val) {
-                    const drop = document.getElementById('edit-preventivoDropdown');
-                    const clearBtn = document.getElementById('edit-prev-search-clear');
-                    const chevron = document.getElementById('edit-prev-chevron');
-                    if (!drop) return;
-                    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
-                    if (chevron) { chevron.style.display = val ? 'none' : 'block'; chevron.style.transform = 'rotate(180deg)'; }
-                    const q = val.trim().toLowerCase();
-                    if (_editPrevList.length === 0 && !q) {
-                        drop.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Caricamento preventivi…</div>';
-                        drop.style.display = 'block';
-                        // Triggerare il caricamento se non ancora avvenuto
-                        if (!window._editPrevLoading) {
-                            window._editPrevLoading = true;
-                            let pq = window.supabaseClient.from('preventivi').select('id,numero,oggetto,cliente_nome,stato').in('stato',['accettato','inviato','bozza']).order('created_at',{ascending:false});
-                            const clientId = document.getElementById('taskClient')?.value || '';
-                            if (clientId) pq = pq.eq('cliente_id', clientId);
-                            pq.then(({data}) => {
-                                window._editPrevLoading = false;
-                                _editPrevList = (data||[]).map(p => ({id:p.id,numero:p.numero||'',oggetto:p.oggetto||'',cliente:p.cliente_nome||'',stato:p.stato,label:(p.numero||'')+'\u00b7 '+(p.oggetto||'')+(p.cliente_nome?' ('+p.cliente_nome+')':'')}));
-                                const d2 = document.getElementById('edit-preventivoDropdown');
-                                const i2 = document.getElementById('edit-preventivo-search');
-                                if (d2 && d2.style.display==='block' && i2) { _editPrevSearch(i2.value); }
-                            }).catch(()=>{ window._editPrevLoading=false; });
-                        }
-                        return;
-                    }
-                    const filtered = q
-                        ? _editPrevList.filter(p =>
-                            p.numero.toLowerCase().includes(q) ||
-                            p.oggetto.toLowerCase().includes(q) ||
-                            p.cliente.toLowerCase().includes(q))
-                        : _editPrevList;
-                    if (filtered.length === 0) {
-                        drop.innerHTML = `<div style="padding:14px 16px;font-size:13px;color:#9ca3af;text-align:center">${q ? 'Nessun preventivo trovato per "'+val+'"' : 'Nessun preventivo disponibile'}</div>`;
-                    } else {
-                        drop.innerHTML = filtered.map(p => `
-                            <div data-prev-id="${p.id}" data-prev-label="${p.label.replace(/"/g,'&quot;')}"
-                                 style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f0ff;gap:8px"
-                                 onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background=''">
-                                <div style="flex:1;min-width:0">
-                                    <div style="font-size:13px;font-weight:700;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.numero} · ${p.oggetto}</div>
-                                    ${p.cliente ? `<div style="font-size:11px;color:#6b7280;margin-top:1px">${p.cliente}</div>` : ''}
-                                </div>
-                                ${_statoTag(p.stato)}
-                            </div>`).join('');
-                    }
-                    drop.style.display = 'block';
+                // Apri il wizard (reset + render)
+                await window.taskWizard.iniziaWizard();
+                
+                // Ora sovrascrivi wizardData con i dati del task esistente
+                Object.assign(window.taskWizard.wizardData, {
+                    id: taskId,
+                    titolo: task.titolo || task.title || '',
+                    cliente_id: task.client_id || '',
+                    descrizione: task.descrizione || task.description || '',
+                    priorita: task.priorita || task.priority || 'media',
+                    scadenza: task.scadenza || task.deadline || '',
+                    ora_inizio: task.ora_inizio || '',
+                    ora_fine: task.ora_fine || '',
+                    categoria: task.categoria || '',
+                    ore_stimate: task.ore_stimate || 0,
+                    stato: task.stato || 'da_fare',
+                    assigned_users: assignedUsers,
+                    componenti: componenti
+                });
+                
+                // Pre-imposta date: data_inizio e scadenza
+                const taskStart = task.data_inizio || task.scadenza || task.deadline || '';
+                const taskEnd = task.scadenza || task.deadline || '';
+                Object.assign(window.taskWizard.wizardData, {
+                    data_inizio: taskStart,
+                    scadenza: taskEnd
+                });
+                
+                // Ri-popola il form dello step 1 con i dati caricati
+                window.taskWizard.populateStep1Form();
+                // _updateWizardDateDisplay viene già chiamato dentro populateStep1Form
+                
+                // Mostra e popola sezione Progresso (solo in modifica)
+                const wizProgSection = document.getElementById('wizard-progress-section');
+                if (wizProgSection) {
+                    wizProgSection.classList.remove('hidden');
+                    const progresso = task.progresso || 0;
+                    const progInput = document.getElementById('wizard-task-progress');
+                    const progPct = document.getElementById('wizard-progress-percentage');
+                    const progBar = document.getElementById('wizard-progress-bar-preview');
+                    const progNotes = document.getElementById('wizard-progress-notes');
+                    if (progInput) progInput.value = progresso;
+                    if (progPct) progPct.textContent = progresso + '%';
+                    if (progBar) progBar.style.width = progresso + '%';
+                    if (progNotes) progNotes.value = task.note_progresso || '';
                 }
+                
+                // Ri-popola step 2 (dipendenti)
+                window.taskWizard.populateStep2Form();
 
-                // Array preventivi selezionati nell'edit modal
-                if (!window._editPrevSelezionati) window._editPrevSelezionati = [];
-
-                function _renderEditPrevChips() {
-                    const container = document.getElementById('edit-prev-chips');
-                    if (!container) return;
-                    container.innerHTML = window._editPrevSelezionati.map(p => `
-                        <span data-prev-id="${p.id}" style="display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600">
-                            <i class="fas fa-file-invoice" style="font-size:10px"></i>
-                            ${p.label.split('·').slice(0,2).join('·').trim()}
-                            <button type="button" onclick="window._removeEditPrev('${p.id}')" style="background:none;border:none;color:#e9d5ff;cursor:pointer;padding:0;margin-left:2px;font-size:12px">✕</button>
-                        </span>`).join('');
+                // Carica interventi collegati (linked-tasks.js)
+                if (window.LinkedTasks) {
+                    window.LinkedTasks.loadForEdit(task).then(() => {
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    });
                 }
-
-                window._removeEditPrev = function(id) {
-                    window._editPrevSelezionati = window._editPrevSelezionati.filter(p => p.id !== id);
-                    window._editPrevSelectedId = window._editPrevSelezionati.length ? window._editPrevSelezionati[window._editPrevSelezionati.length-1].id : null;
-                    _renderEditPrevChips();
-                };
-
-                function _editPrevPick(id, label) {
-                    if (!window._editPrevSelezionati.find(p => p.id === id)) {
-                        window._editPrevSelezionati.push({ id, label });
-                    }
-                    _editPrevSelectedId = id;
-                    _renderEditPrevChips();
-                    const inp = document.getElementById('edit-preventivo-search');
-                    if (inp) { inp.value = ''; inp.focus(); }
-                    document.getElementById('edit-prev-search-clear').style.display = 'none';
-                    const chevron = document.getElementById('edit-prev-chevron');
-                    if (chevron) { chevron.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; }
-                    document.getElementById('edit-preventivoDropdown').style.display = 'none';
-                }
-
-                function _editPrevClear() {
-                    _editPrevSelectedId = null;
-                    const inp = document.getElementById('edit-preventivo-search');
-                    if (inp) { inp.value = ''; inp.focus(); }
-                    document.getElementById('edit-prev-search-clear').style.display = 'none';
-                    const chevron = document.getElementById('edit-prev-chevron');
-                    if (chevron) { chevron.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; }
-                    _editPrevSearch('');
-                }
-
-                // Event delegation sul dropdown — nessun onclick inline
-                document.getElementById('edit-preventivoDropdown')?.addEventListener('click', function(e) {
-                    const row = e.target.closest('[data-prev-id]');
-                    if (!row) return;
-                    _editPrevPick(row.dataset.prevId, row.dataset.prevLabel);
-                });
-
-                // Collega eventi input/focus al campo ricerca
-                const _editPrevInp = document.getElementById('edit-preventivo-search');
-                // Esponi globalmente per oninput/onfocus inline
-                window._editPrevSearchFn = _editPrevSearch;
-                if (_editPrevInp) {
-                    _editPrevInp.addEventListener('input', function() { _editPrevSearch(this.value); });
-                    _editPrevInp.addEventListener('focus', function() { _editPrevSearch(this.value); });
-                }
-                // Collega pulsante clear
-                document.getElementById('edit-prev-search-clear')?.addEventListener('click', _editPrevClear);
-
-                // Chiudi dropdown edit cliccando fuori
-                const _editPrevClickOutside = (e) => {
-                    const wrap = document.getElementById('edit-preventivoPickerWrap');
-                    const drop = document.getElementById('edit-preventivoDropdown');
-                    if (drop && wrap && !wrap.contains(e.target)) drop.style.display = 'none';
-                };
-                document.addEventListener('click', _editPrevClickOutside);
-
-                // Pulizia al chiude del modal
-                modal.querySelector('button[onclick*="edit-task-modal"]')?.addEventListener('click', () => {
-                    document.removeEventListener('click', _editPrevClickOutside);
-                });
-
-                // ── Importa componenti dal preventivo ─────────────────
-                document.getElementById('edit-import-btn')?.addEventListener('click', async () => {
-                    const prevId = _editPrevSelectedId;
-                    if (!prevId) { _lavorToast('Cerca e seleziona un preventivo prima di importare', 'warning'); return; }
-                    const label = document.getElementById('edit-preventivo-search')?.value || '';
-
-                    const btn = document.getElementById('edit-import-btn');
-                    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
-
-                    try {
-                        const { data: items, error } = await window.supabaseClient
-                            .from('preventivi_items')
-                            .select('prodotto_id, descrizione, codice, quantita, um')
-                            .eq('preventivo_id', prevId)
-                            .not('prodotto_id', 'is', null);
-                        if (error) throw error;
-                        if (!items || items.length === 0) {
-                            _lavorToast('Nessun componente magazzino trovato in questo preventivo', 'info');
-                            btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti';
-                            return;
-                        }
-
-                        const allComp = await window.dataManager.getComponenti();
-                        const mancanti = [];
-                        items.forEach(item => {
-                            const comp = allComp.find(c => c.id === item.prodotto_id);
-                            const disp = comp ? (parseFloat(comp.quantita_disponibile) || 0) : 0;
-                            if (!comp || disp < item.quantita) {
-                                mancanti.push({ nome: comp?.nome || item.descrizione, codice: comp?.codice || item.codice || '—', richiesta: item.quantita, disponibile: disp, um: item.um || comp?.unita_misura || 'pz' });
-                            }
-                        });
-
-                        if (mancanti.length > 0) {
-                            const prosegui = await _stockAlert(mancanti, prevId);
-                            if (!prosegui) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti'; return; }
-                        }
-
-                        // Popola la lista componenti del form edit
-                        const container = document.getElementById('edit-componenti-list');
-                        container.innerHTML = '';
-                        items.forEach(item => {
-                            const comp = allComp.find(c => c.id === item.prodotto_id);
-                            if (!comp) return;
-                            const div = document.createElement('div');
-                            div.className = 'flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3';
-                            div.dataset.componentId = comp.id;
-                            div.innerHTML = `
-                                <div class="flex-1 grid grid-cols-3 gap-2">
-                                    <div class="col-span-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
-                                        <strong>${comp.nome}</strong>
-                                        ${comp.codice ? `<span class="text-gray-500 text-xs ml-2">${comp.codice}</span>` : ''}
-                                    </div>
-                                    <input type="number" value="${item.quantita}" min="1"
-                                           class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500" placeholder="Q.tà">
-                                </div>
-                                <button type="button" onclick="this.closest('[data-component-id]').remove()"
-                                        class="text-red-600 hover:bg-red-100 p-2 rounded-lg">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
-                                </button>`;
-                            container.appendChild(div);
-                        });
-                        lucide.createIcons();
-
-                        // Mostra badge importato
-                        document.getElementById('edit-preventivoPickerWrap').style.display = 'none';
-                        const info = document.getElementById('edit-preventivoImportatoInfo');
-                        info.style.display = 'flex';
-                        document.getElementById('edit-preventivoImportatoLabel').textContent = label;
-                        _lavorToast(`${items.length} componenti importati dal preventivo`, 'success');
-                    } catch(e) {
-                        _lavorToast('Errore importazione: ' + e.message, 'error');
-                    } finally {
-                        btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-import"></i> Importa componenti';
-                    }
-                });
-
-                // ── Rimuovi preventivo ────────────────────────────────
-                document.getElementById('edit-clear-preventivo')?.addEventListener('click', () => {
-                    _editPrevSelectedId = null;
-                    const inp = document.getElementById('edit-preventivo-search');
-                    if (inp) { inp.value = ''; }
-                    document.getElementById('edit-prev-search-clear').style.display = 'none';
-                    document.getElementById('edit-preventivoPickerWrap').style.display = '';
-                    document.getElementById('edit-preventivoImportatoInfo').style.display = 'none';
-                    document.getElementById('edit-preventivoImportatoLabel').textContent = '';
-                });
                 
-                // Tipo assegnazione è sempre 'multi' (dipendenti)
-                _editCurrentAssignType = 'multi';
+                // Aggiorna titolo modal per indicare modalità modifica
+                const wizardTitle = document.querySelector('#task-wizard-modal h2, #task-wizard-modal .modal-title');
+                if (wizardTitle) wizardTitle.textContent = 'Modifica Lavorazione';
                 
-                // Toggle lucchetto cliente
-                document.getElementById('toggle-cliente-lock')?.addEventListener('click', function() {
-                    const clienteSelect = document.getElementById('edit-cliente');
-                    const isLocked = clienteSelect.disabled;
-                    
-                    clienteSelect.disabled = !isLocked;
-                    
-                    const icon = this.querySelector('i');
-                    if (isLocked) {
-                        // Sblocca
-                        icon.setAttribute('data-lucide', 'unlock');
-                        this.classList.remove('bg-gray-200', 'hover:bg-gray-300');
-                        this.classList.add('bg-green-100', 'hover:bg-green-200');
-                        icon.classList.remove('text-gray-600');
-                        icon.classList.add('text-green-600');
-                        this.title = 'Blocca cliente';
-                    } else {
-                        // Blocca
-                        icon.setAttribute('data-lucide', 'lock');
-                        this.classList.remove('bg-green-100', 'hover:bg-green-200');
-                        this.classList.add('bg-gray-200', 'hover:bg-gray-300');
-                        icon.classList.remove('text-green-600');
-                        icon.classList.add('text-gray-600');
-                        this.title = 'Sblocca per modificare cliente';
-                    }
-                    
-                    lucide.createIcons();
-                });
-                
-                // Aggiungi componente da magazzino – apre modal di ricerca
-                document.getElementById('edit-add-componente-btn')?.addEventListener('click', function() {
-                    openEditComponentPicker(magazzinoProducts || []);
-                });
-                
-                // Nuovo prodotto (apre modal magazzino)
-                document.getElementById('edit-new-product-btn')?.addEventListener('click', function() {
-                    openWarehouseProductModal();
-                });
-                
-                // Elimina lavorazione
-                document.getElementById('delete-task-btn')?.addEventListener('click', function() {
-                    const taskIdToDelete = this.dataset.taskId;
-                    showDeleteConfirmModal(taskIdToDelete);
-                });
-                
-                // Salva modifiche
-                document.getElementById('save-edit-btn')?.addEventListener('click', async () => {
-                    try {
-                        const btn = document.getElementById('save-edit-btn');
-                        btn.disabled = true;
-                        btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Salvataggio...';
-                        lucide.createIcons();
-                        
-                        // Dipendenti selezionati dai chip
-                        const selectedUserIds = Array.from(document.querySelectorAll('#edit-multi-chips [data-user-id]'))
-                            .map(el => el.dataset.userId)
-                            .filter(id => isValidUUID(id));
-                        const assignedUserId = selectedUserIds.length > 0 ? selectedUserIds[0] : (isValidUUID(task.assigned_user_id) ? task.assigned_user_id : null);
-                        const assignedTeamId = null;
-                        
-                        if (!assignedUserId) {
-                            _lavorToast('Devi assegnare almeno un dipendente prima di salvare.', 'error');
-                            btn.disabled = false;
-                            btn.innerHTML = '💾 Salva Modifiche';
-                            return;
-                        }
-                        
-                        const taskData = {
-                            titolo: document.getElementById('edit-titolo').value,
-                            descrizione: document.getElementById('edit-descrizione').value,
-                            client_id: document.getElementById('edit-cliente').value,
-                            priorita: document.getElementById('edit-priorita').value,
-                            scadenza: document.getElementById('edit-scadenza').value,
-                            ora_inizio: document.getElementById('edit-ora-inizio').value || null,
-                            ora_fine: document.getElementById('edit-ora-fine').value || null,
-                            stato: document.getElementById('edit-stato').value,
-                            ore_stimate: parseFloat(document.getElementById('edit-ore').value) || 0,
-                            costo_stimato: parseFloat(document.getElementById('edit-costo').value) || 0,
-                            progresso: parseInt(document.getElementById('edit-progresso').value) || 0,
-                            note_progresso: document.getElementById('edit-note-progresso').value || null,
-                            assigned_user_id: assignedUserId,
-                            assigned_team_id: assignedTeamId,
-                            preventivo_id: _editPrevSelectedId || null
-                        };
-                        
-                        // Update task
-                        // Prima leggi lo stato attuale per capire se stiamo completando
-                        const { data: prevTaskData } = await supabaseClient
-                            .from('tasks').select('stato').eq('id', taskId).single();
-                        const wasCompleting = prevTaskData?.stato !== 'completato' && taskData.stato === 'completato';
-
-                        const { error: updateError } = await supabaseClient
-                            .from('tasks')
-                            .update(taskData)
-                            .eq('id', taskId);
-                        
-                        if (updateError) throw updateError;
-
-                        // Scala i componenti dal magazzino se la task viene completata ora
-                        if (wasCompleting && window.TasksAPI?.deductComponentsOnCompletion) {
-                            try {
-                                await window.TasksAPI.deductComponentsOnCompletion(taskId);
-                                console.log('✅ Componenti scalati dal magazzino');
-                            } catch(e) {
-                                console.error('Errore scalaggio componenti:', e);
-                                _lavorToast('Lavorazione salvata ma errore nello scalare i componenti: ' + e.message, 'warning');
-                            }
-                        }
-                        
-                        // Gestisci assegnazioni dipendenti
-                        {
-                            // Elimina vecchie
-                            await supabaseClient
-                                .from('task_assignments')
-                                .delete()
-                                .eq('task_id', taskId);
-                            
-                            // Inserisci nuove dai chip #edit-multi-chips
-                            if (selectedUserIds.length > 0) {
-                                const orePerUtente = parseFloat(document.getElementById('edit-ore').value) || 0;
-                                const assignments = selectedUserIds.map(userId => ({
-                                    task_id: taskId,
-                                    user_id: userId,
-                                    ruolo_assegnazione: 'membro',
-                                    ore_assegnate: orePerUtente
-                                }));
-                                
-                                const { error: assignError } = await supabaseClient
-                                    .from('task_assignments')
-                                    .insert(assignments);
-                                
-                                if (assignError) throw assignError;
-                            }
-                        }
-                        
-                        // Gestisci componenti
-                        // Prima elimina tutti i vecchi componenti
-                        await supabaseClient
-                            .from('task_components')
-                            .delete()
-                            .eq('task_id', taskId);
-                        
-                        // Poi salva i nuovi componenti dal magazzino
-                        const componentDivs = document.querySelectorAll('#edit-componenti-list [data-component-id]');
-                        
-                        for (const compDiv of componentDivs) {
-                            const componentId = compDiv.dataset.componentId;
-                            if (!componentId) continue;
-                            
-                            const quantitaInput = compDiv.querySelector('input[type="number"]');
-                            const quantita = parseInt(quantitaInput?.value) || 1;
-                            
-                            // Inserisci task_component
-                            await supabaseClient
-                                .from('task_components')
-                                .insert({
-                                    task_id: taskId,
-                                    component_id: componentId,
-                                    quantita: quantita
-                                });
-                        }
-                        
-                        // Salva preventivi collegati (multi) nel modal edit
-                        const editPrevChips = Array.from(document.querySelectorAll('#edit-prev-chips [data-prev-id]'));
-                        if (editPrevChips.length > 0 || _editPrevSelectedId) {
-                            await supabaseClient.from('task_preventivi').delete().eq('task_id', taskId);
-                            const ids = editPrevChips.length > 0
-                                ? editPrevChips.map(el => el.dataset.prevId)
-                                : [_editPrevSelectedId];
-                            const rows = ids.map(pid => ({ task_id: taskId, preventivo_id: pid }));
-                            await supabaseClient.from('task_preventivi').insert(rows);
-                        }
-
-                        showNotification('✅ Lavorazione aggiornata con successo!', 'success');
-                        document.getElementById('edit-task-modal').remove();
-                        
-                        // Ricarica lista
-                        if (typeof loadTasks === 'function') {
-                            loadTasks();
-                        }
-                        
-                    } catch (error) {
-                        console.error('❌ [EDIT] Save error:', error);
-                        showNotification('❌ Errore durante il salvataggio: ' + error.message, 'error');
-                        const btn = document.getElementById('save-edit-btn');
-                        btn.disabled = false;
-                        btn.innerHTML = '💾 Salva Modifiche';
-                    }
-                });
-                
-                console.log('✅ [EDIT] Modal displayed');
+                console.log('✅ [EDIT] Wizard aperto in modalità modifica per task:', taskId);
                 
             } catch (error) {
                 console.error('❌ [EDIT] Error:', error);
-                showNotification('Errore apertura modifica: ' + (e?.message || e), 'error');
+                showNotification('Errore apertura modifica: ' + (error?.message || error), 'error');
             }
         }
 
@@ -4278,6 +3810,7 @@
                 
                 document.getElementById('taskTitle').value = task.title || task.titolo || '';
                 document.getElementById('taskPriority').value = task.priority || task.priorita || '';
+                syncPriorityBtns('taskPriority');
                 setDeadlinePicker(task.deadline || task.scadenza || '');
                 document.getElementById('taskDescription').value = task.description || task.descrizione || '';
                 document.getElementById('taskOraInizio').value = task.ora_inizio || '';
@@ -4645,9 +4178,14 @@
             }
         }
 
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('it-IT');
+        function formatDate(dateString, dataInizio) {
+            if (!dateString) return '—';
+            if (dataInizio && dataInizio !== dateString) {
+                const s = new Date(dataInizio + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const e = new Date(dateString + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                return s + ' → ' + e;
+            }
+            return new Date(dateString + 'T12:00:00').toLocaleDateString('it-IT');
         }
 
         function showNotification(message, type = 'info') {
@@ -5359,29 +4897,45 @@
                                 <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
                                 Priorità
                             </label>
-                            <select id="wizard-priorita"
-                                    class="w-full px-3 py-2 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-400 bg-white">
-                                <option value="bassa">🟢 Bassa</option>
-                                <option value="media" selected>🟡 Media</option>
-                                <option value="alta">🔴 Alta</option>
+                            <div class="flex gap-1.5">
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="bassa" data-active="false" onclick="setPriorityBtn('wizard-priorita','bassa')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>Bassa
+                                </button>
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="media" data-active="true" onclick="setPriorityBtn('wizard-priorita','media')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#eab308;flex-shrink:0;"></span>Media
+                                </button>
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="alta" data-active="false" onclick="setPriorityBtn('wizard-priorita','alta')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>Alta
+                                </button>
+                            </div>
+                            <select id="wizard-priorita" class="hidden">
+                                <option value="bassa">Bassa</option>
+                                <option value="media" selected>Media</option>
+                                <option value="alta">Alta</option>
                             </select>
                         </div>
-                        <!-- Giornate - ARANCIO -->
+                        <!-- Data / Intervallo - ARANCIO -->
                         <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
                             <label class="block text-sm font-bold text-orange-900 mb-2">
                                 <i data-lucide="calendar-days" class="w-4 h-4 inline mr-1"></i>
-                                Giornate *
+                                Data *
                             </label>
                             <input type="hidden" id="wizard-scadenza">
-                            <!-- chip delle giornate selezionate -->
-                            <div id="wizard-giornate-chips" class="flex flex-wrap gap-2 mb-2 min-h-[28px]"></div>
-                            <!-- bottone aggiungi giornata -->
-                            <button type="button" onclick="openDatePicker('giornata')"
-                                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-orange-600 font-semibold text-sm">
-                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                                Aggiungi giornata
+                            <input type="hidden" id="wizard-data-inizio">
+                            <!-- Display dinamico: data singola O intervallo (mutuamente esclusivi) -->
+                            <div id="wizard-date-display" class="mb-2"></div>
+                            <!-- Pulsante data singola (nascosto se c'è intervallo attivo) -->
+                            <button type="button" id="wizard-single-date-btn" onclick="openDatePicker('single')"
+                                    class="w-full flex items-center gap-3 px-4 py-3 bg-white border-2 border-orange-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-all text-sm group">
+                                <i data-lucide="calendar" class="w-5 h-5 text-orange-400 group-hover:text-orange-600 flex-shrink-0"></i>
+                                <span id="datePickerLabel" class="text-gray-400 flex-1 text-left">Scegli data...</span>
                             </button>
-                            <p class="text-xs text-orange-600 mt-1">Aggiungi una o più date. La prima diventa la data di scadenza.</p>
+                            <!-- Pulsante intervallo -->
+                            <button type="button" id="wizard-range-btn" onclick="openRangePicker()"
+                                    class="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-orange-600 font-semibold text-sm">
+                                <i data-lucide="calendar-range" class="w-4 h-4"></i>
+                                Scegli intervallo Date
+                            </button>
                         </div>
                     </div>
 
@@ -5425,6 +4979,51 @@
                         <textarea id="wizard-descrizione" rows="3"
                                   class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                   placeholder="Descrizione dettagliata della lavorazione..."></textarea>
+                    </div>
+
+                    <!-- Progresso - CELESTE (solo in modalità modifica) -->
+                    <div id="wizard-progress-section" class="hidden bg-gradient-to-br from-cyan-50 to-sky-100 border-2 border-cyan-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-bold text-cyan-900">
+                                <i data-lucide="activity" class="w-4 h-4 inline mr-1"></i>
+                                Progresso Lavorazione
+                            </label>
+                            <span id="wizard-progress-percentage" class="text-2xl font-bold text-cyan-600">0%</span>
+                        </div>
+                        <input type="range" id="wizard-task-progress" min="0" max="100" step="5" value="0"
+                               oninput="document.getElementById('wizard-progress-percentage').textContent = this.value + '%'; document.getElementById('wizard-progress-bar-preview').style.width = this.value + '%';"
+                               class="w-full h-3 rounded-full accent-cyan-500 cursor-pointer mb-3">
+                        <div class="w-full bg-cyan-200 rounded-full h-3 mb-4">
+                            <div id="wizard-progress-bar-preview" class="bg-gradient-to-r from-cyan-500 to-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <div class="bg-white border-2 border-cyan-200 p-3 rounded-lg">
+                            <label class="block text-sm font-bold text-cyan-900 mb-2">
+                                <i data-lucide="sticky-note" class="w-4 h-4 inline mr-1"></i>
+                                Note sul Progresso
+                            </label>
+                            <textarea id="wizard-progress-notes" rows="2"
+                                      class="w-full px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 bg-white text-sm"
+                                      placeholder="Aggiornamento stato lavori..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- INTERVENTI COLLEGATI -->
+                    <div class="bg-gradient-to-br from-violet-50 to-purple-100 border-2 border-violet-200 rounded-xl p-4">
+                        <input type="hidden" id="wizard-parent-task-id">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-violet-900 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                Interventi Collegati
+                            </label>
+                            <button type="button" onclick="window.LinkedTasks.openPicker()"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-colors"
+                                    style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"
+                                    onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                Collega
+                            </button>
+                        </div>
+                        <div id="wizard-linked-tasks-display"></div>
                     </div>
                 </div>
 
@@ -5682,10 +5281,9 @@
         }
 
         function apriWizard() {
-            // Chiudi menu
-            document.getElementById('creation-menu-modal').classList.add('hidden');
-            // Apri wizard
             window.taskWizard.iniziaWizard();
+            // Reset interventi collegati per nuova lavorazione
+            if (window.LinkedTasks) window.LinkedTasks.reset();
         }
 
         function apriFormClassico() {
@@ -6397,7 +5995,7 @@
     <!-- ===== MODALE PICKER CLIENTI ===== -->
     <!-- DATE PICKER MODAL -->
     <div id="datePickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden" style="width:min(340px,calc(100vw - 32px));max-height:90vh;overflow-y:auto">
             <!-- Header mese/anno -->
             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5">
                 <div class="flex items-center justify-between mb-1">
@@ -6413,7 +6011,7 @@
             </div>
             <!-- Griglia giorni -->
             <div class="p-4">
-                <div class="grid grid-cols-7 mb-2">
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:0.5rem">
                     <div class="text-center text-xs font-bold text-gray-400 py-1">L</div>
                     <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
                     <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
@@ -6422,10 +6020,10 @@
                     <div class="text-center text-xs font-bold text-red-400 py-1">S</div>
                     <div class="text-center text-xs font-bold text-red-400 py-1">D</div>
                 </div>
-                <div id="dpGrid" class="grid grid-cols-7 gap-y-1"></div>
+                <div id="dpGrid" style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px"></div>
             </div>
             <!-- Footer -->
-            <div class="px-4 pb-4 flex gap-2">
+            <div style="padding:12px 16px 24px;display:flex;gap:8px">
                 <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
                 <button id="dpConfermaBtn" onclick="closeDatePicker()" style="display:none" class="flex-1 py-2 text-sm font-bold text-white bg-orange-500 border border-orange-400 rounded-xl hover:bg-orange-600 transition-colors">Conferma</button>
                 <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
@@ -6657,6 +6255,62 @@
                 <div class="p-8 text-center text-gray-400">
                     <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
                     <p class="text-sm">Caricamento clienti...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIZARD RANGE DATE PICKER MODAL -->
+    <div id="wizard-range-picker-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div class="bg-gradient-to-r from-orange-500 to-amber-500 p-4 rounded-t-2xl flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="calendar-range" class="w-5 h-5 text-white"></i>
+                    <h2 class="text-base font-bold text-white">Seleziona Intervallo Date</h2>
+                </div>
+                <button onclick="closeRangePicker()" class="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4">
+                <!-- Date selezionate display -->
+                <div class="flex gap-2 mb-3">
+                    <div id="wpRangeDalDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-orange-400 bg-orange-50 cursor-pointer transition-all" onclick="_wpRangeStep='start';_wpRenderMiniCal();">
+                        <div class="text-xs text-orange-600 font-semibold uppercase tracking-wide mb-0.5">Dal</div>
+                        <div id="wpRangeDalText" class="text-sm font-bold text-gray-800">—</div>
+                    </div>
+                    <div class="flex items-center text-gray-400 text-lg font-bold">→</div>
+                    <div id="wpRangeAlDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-gray-200 bg-gray-50 cursor-pointer transition-all" onclick="_wpRangeStep='end';_wpRenderMiniCal();">
+                        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Al</div>
+                        <div id="wpRangeAlText" class="text-sm font-bold text-gray-800">—</div>
+                    </div>
+                </div>
+                <!-- Mini calendar -->
+                <div class="rounded-xl border border-gray-100 overflow-hidden shadow-sm mb-3">
+                    <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                        <button type="button" onclick="_wpCalPrev()" class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-lg">‹</button>
+                        <span id="wpCalTitle" class="text-sm font-semibold text-gray-700"></span>
+                        <button type="button" onclick="_wpCalNext()" class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-lg">›</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f9fafb;border-bottom:1px solid #f3f4f6;">
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Lun</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Mar</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Mer</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Gio</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Ven</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#f97316;padding:6px 0">Sab</div>
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#f97316;padding:6px 0">Dom</div>
+                    </div>
+                    <div id="wpCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);padding:8px;gap:2px 0;background:white;"></div>
+                </div>
+                <!-- Shortcuts -->
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                    <button type="button" onclick="_wpShortcut(0,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium">Oggi</button>
+                    <button type="button" onclick="_wpShortcut(4,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium">Sett. lavorativa</button>
+                    <button type="button" onclick="_wpReset()" class="px-2.5 py-1 text-xs bg-orange-50 hover:bg-orange-100 rounded-full text-orange-600 font-medium">Reset</button>
+                </div>
+                <!-- Actions -->
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeRangePicker()" class="flex-1 py-2.5 border-2 border-gray-300 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 text-sm">Annulla</button>
+                    <button type="button" id="wpConfirmBtn" onclick="confirmRangePicker()" disabled class="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 text-sm disabled:opacity-40 disabled:cursor-not-allowed">Conferma</button>
                 </div>
             </div>
         </div>

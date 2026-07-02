@@ -16,3 +16,4 @@ CHECK (tipo_cliente IN (
     'amministratore_condominio',
     'scuola'
 ));
+

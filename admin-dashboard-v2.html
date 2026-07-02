@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - AST Panel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
+    <script src="/data-migration.js"></script>
+    <style>
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes bounceIn{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+        .gradient-bg{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+        .category-content{max-height:0;overflow:hidden;transition:max-height .3s ease}
+        .category-content.active{max-height:600px}
+        #sidebar.collapsed{width:70px!important}
+        #sidebar.collapsed .sidebar-text{display:none}
+        #sidebar.collapsed .category-section{display:none}
+        .emp-card{transition:all .2s;cursor:pointer;border:2px solid transparent}
+        .emp-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.15);border-color:#e0e7ff}
+        .thin-scroll::-webkit-scrollbar{width:5px}
+        .thin-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+        .avatar{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;color:white;flex-shrink:0;user-select:none}
+        .modal-overlay{animation:fadeIn .18s ease}
+        .modal-card{animation:slideUp .22s ease}
+        .task-card-row{transition:background .15s;cursor:pointer}
+        .task-card-row:hover{background:#f8faff}
+        .pill{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:.75rem;font-weight:600}
+        .pill-da_fare{background:#eff6ff;color:#2563eb}
+        .pill-in_corso{background:#f0fdf4;color:#16a34a}
+        .pill-revisione{background:#fefce8;color:#ca8a04}
+        .pill-completato{background:#f0fdf4;color:#15803d}
+        .prio-alta{background:#fee2e2;color:#dc2626}
+        .prio-media{background:#fef3c7;color:#d97706}
+        .prio-bassa{background:#dcfce7;color:#16a34a}
+        .prio-normale{background:#f1f5f9;color:#64748b}
+        .tab-btn{border-bottom:2px solid transparent;padding:.5rem .75rem;font-size:.8rem;font-weight:600;transition:all .15s;white-space:nowrap}
+        .tab-active{border-bottom-color:#6366f1;color:#6366f1!important}
+        .animate-bounce-in{animation:bounceIn .35s ease-out}
+        .hover-scale{transition:transform .2s}
+        .hover-scale:hover{transform:scale(1.02)}
+        .skel{background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:12px}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .kpi-card{background:white;border-radius:1rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- SIDEBAR -->
+<div class="fixed inset-y-0 left-0 bg-white shadow-lg transform transition-all duration-300 ease-in-out z-50 overflow-y-auto" id="sidebar" style="width:260px">
+    <div class="flex items-center justify-between h-16 gradient-bg px-4">
+        <h1 class="text-white text-xl font-bold sidebar-text">AST Panel</h1>
+        <button onclick="toggleSidebar()" class="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+            <i data-lucide="panel-left" class="w-5 h-5"></i>
+        </button>
+    </div>
+    <nav class="mt-4 pb-20">
+        <a href="/admin-functional.html" class="flex items-center px-4 py-3 mx-2 rounded-lg bg-blue-50 text-blue-600 font-medium mb-1">
+            <i data-lucide="home" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+            <span class="sidebar-text">Dashboard</span>
+        </a>
+        <!-- ANAGRAFICA -->
+        <div class="category-section">
+            <button onclick="toggleCat('anagrafica')" class="flex items-center justify-between w-full px-4 py-2.5 mt-4 text-gray-500 hover:text-gray-700 transition-colors">
+                <div class="flex items-center"><i data-lucide="users" class="w-4 h-4 mr-2"></i><span class="text-xs font-bold uppercase tracking-wider sidebar-text">Anagrafica</span></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-anagrafica"></i>
+            </button>
+            <div id="cat-anagrafica" class="category-content">
+                <a href="/gestione-utenti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="user-cog" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Utenti</span></a>
+                <a href="/gestione-clienti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="building-2" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Clienti</span></a>
+                <a href="/Admin/gestione-fornitori.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="building" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Fornitori</span></a>
+            </div>
+        </div>
+        <!-- OPERATIVO -->
+        <div class="category-section">
+            <button onclick="toggleCat('operativo')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                <div class="flex items-center"><i data-lucide="briefcase" class="w-4 h-4 mr-2"></i><span class="text-xs font-bold uppercase tracking-wider sidebar-text">Operativo</span></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-operativo"></i>
+            </button>
+            <div id="cat-operativo" class="category-content">
+                <a href="/gestione-lavorazioni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Lavorazioni</span></a>
+                <a href="/calendario-admin.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="calendar" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Calendario</span></a>
+                <a href="/gestione-orari.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="clock" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm flex-1">Orari</span><span id="pendingTimbratureBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span></a>
+                <a href="/gestione-mezzi.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="truck" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Mezzi</span></a>
+                <a href="/gestione-richieste.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="mail" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm flex-1">Richieste</span><span id="requestsBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span></a>
+                <a href="/comunicazioni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="message-circle" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Comunicazioni</span></a>
+                <a href="/note.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors"><i data-lucide="sticky-note" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Note</span></a>
+                <a href="/qr-builder.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="qr-code" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">QR Builder</span></a>
+            </div>
+        </div>
+        <!-- COMMERCIALE -->
+        <div class="category-section">
+            <button onclick="toggleCat('commerciale')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                <div class="flex items-center"><i data-lucide="euro" class="w-4 h-4 mr-2"></i><span class="text-xs font-bold uppercase tracking-wider sidebar-text">Commerciale</span></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-commerciale"></i>
+            </button>
+            <div id="cat-commerciale" class="category-content">
+                <a href="/gestione-preventivi.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="file-text" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Preventivi</span></a>
+                <a href="/richiesta-ordine-interna.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"><i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Preventivi Interni</span></a>
+                <a href="/gestione-aziende.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="building-2" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Aziende</span></a>
+                <a href="/gestione-progetti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors"><i data-lucide="layout" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Progetti</span></a>
+                <a href="/Admin/gestione-condomini.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="building" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Condomini</span></a>
+            </div>
+        </div>
+        <!-- MAGAZZINO -->
+        <div class="category-section">
+            <button onclick="toggleCat('magazzino')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                <div class="flex items-center"><i data-lucide="package" class="w-4 h-4 mr-2"></i><span class="text-xs font-bold uppercase tracking-wider sidebar-text">Magazzino</span></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-magazzino"></i>
+            </button>
+            <div id="cat-magazzino" class="category-content">
+                <a href="/magazzino-prodotti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="scan-barcode" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Prodotti</span></a>
+                <a href="/gestione-impegni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"><i data-lucide="lock" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Impegni Magazzino</span></a>
+                <a href="/gestione-kit.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="box" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Kit</span></a>
+                <a href="/Admin/gestione-ordini-fornitori.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="shopping-cart" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Ordini Fornitori</span></a>
+                <a href="/Admin/gestione-magazzino.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors"><i data-lucide="clipboard-check" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Movimenti Operatori</span></a>
+                <a href="/magazzino-operatore.html" target="_blank" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 transition-colors"><i data-lucide="warehouse" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Kiosk Magazzino</span></a>
+            </div>
+        </div>
+        <!-- SISTEMA -->
+        <div class="category-section">
+            <button onclick="toggleCat('sistema')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                <div class="flex items-center"><i data-lucide="settings" class="w-4 h-4 mr-2"></i><span class="text-xs font-bold uppercase tracking-wider sidebar-text">Sistema</span></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-sistema"></i>
+            </button>
+            <div id="cat-sistema" class="category-content">
+                <a href="/analytics-dashboard.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"><i data-lucide="bar-chart-3" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Analytics</span></a>
+                <a href="/storico-audit.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"><i data-lucide="history" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Storico Audit</span></a>
+                <a href="/pannello-utente.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors"><i data-lucide="user" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">Pannello Utente</span></a>
+                <a href="/superuser.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"><i data-lucide="shield-alert" class="w-4 h-4 mr-3 flex-shrink-0"></i><span class="sidebar-text text-sm">SuperUser</span></a>
+            </div>
+        </div>
+        <div class="mt-6 pt-4 border-t mx-2">
+            <a href="#" onclick="doLogout()" class="flex items-center px-4 py-3 mx-2 rounded-lg text-red-700 hover:bg-red-50 transition-colors font-medium">
+                <i data-lucide="log-out" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+                <span class="sidebar-text">Logout</span>
+            </a>
+        </div>
+    </nav>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="transition-all duration-300" id="mainContent" style="margin-left:260px;min-height:100vh">
+    <!-- TOPBAR -->
+    <div class="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <div>
+            <p class="text-lg font-bold text-gray-800">Buongiorno 👋</p>
+            <p class="text-xs text-gray-400" id="todayLabel">—</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openAllTasksModal()" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+                <i data-lucide="list" class="w-4 h-4"></i> Tutte le lavorazioni
+            </button>
+            <a href="/gestione-lavorazioni.html?wizard=1" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+                <i data-lucide="plus" class="w-4 h-4"></i> Nuova lavorazione
+            </a>
+            <div class="avatar w-9 h-9 text-sm cursor-pointer" id="topAvatar" style="background:linear-gradient(135deg,#667eea,#764ba2)">?</div>
+        </div>
+    </div>
+
+    <div class="p-6 space-y-6">
+        <!-- KPI CARDS -->
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="kpi-card"><div class="flex items-center gap-3 mb-2"><div class="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center"><i data-lucide="users" class="w-5 h-5 text-indigo-500"></i></div><span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Dipendenti</span></div><p class="text-3xl font-bold text-gray-900" id="kpi1">—</p><p class="text-xs text-gray-400 mt-1" id="kpi1sub">—</p></div>
+            <div class="kpi-card"><div class="flex items-center gap-3 mb-2"><div class="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center"><i data-lucide="clipboard-list" class="w-5 h-5 text-emerald-500"></i></div><span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">In corso</span></div><p class="text-3xl font-bold text-gray-900" id="kpi2">—</p><p class="text-xs text-gray-400 mt-1">attive</p></div>
+            <div class="kpi-card"><div class="flex items-center gap-3 mb-2"><div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><i data-lucide="clock" class="w-5 h-5 text-amber-500"></i></div><span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">In scadenza</span></div><p class="text-3xl font-bold text-gray-900" id="kpi3">—</p><p class="text-xs text-gray-400 mt-1">entro 7 giorni</p></div>
+            <div class="kpi-card"><div class="flex items-center gap-3 mb-2"><div class="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center"><i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i></div><span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Completate</span></div><p class="text-3xl font-bold text-gray-900" id="kpi4">—</p><p class="text-xs text-gray-400 mt-1">totali</p></div>
+            <div class="kpi-card cursor-pointer hover:shadow-md transition-shadow border-2 border-dashed border-slate-200 hover:border-slate-400" onclick="openStandbyModal()"><div class="flex items-center gap-3 mb-2"><div class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center"><i data-lucide="lock" class="w-5 h-5 text-slate-500"></i></div><span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Standby</span></div><p class="text-3xl font-bold text-slate-700" id="kpiStandby">—</p><p class="text-xs text-slate-400 mt-1">nascoste ai dipendenti</p></div>
+        </div>
+
+        <!-- EMPLOYEE GRID -->
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-gray-800">Dipendenti</h2>
+                <a href="/gestione-utenti.html" class="text-xs text-indigo-600 font-semibold hover:underline">Gestisci utenti →</a>
+            </div>
+            <div id="empGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div class="skel h-48 col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5"></div>
+            </div>
+        </div>
+
+        <!-- QUICK ACTIONS -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/gestione-lavorazioni.html" class="flex items-center gap-3 p-4 rounded-2xl text-white hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i data-lucide="clipboard-list" class="w-6 h-6 flex-shrink-0"></i><div><p class="font-bold text-sm">Lavorazioni</p><p class="text-xs text-blue-200">Gestisci tutti i task</p></div></a>
+            <a href="/calendario-admin.html" class="flex items-center gap-3 p-4 rounded-2xl text-white hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i data-lucide="calendar" class="w-6 h-6 flex-shrink-0"></i><div><p class="font-bold text-sm">Calendario</p><p class="text-xs text-purple-200">Vista settimanale</p></div></a>
+            <a href="/gestione-richieste.html" class="flex items-center gap-3 p-4 rounded-2xl text-white hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i data-lucide="mail" class="w-6 h-6 flex-shrink-0"></i><div><p class="font-bold text-sm">Richieste</p><p class="text-xs text-amber-200">Approva/rifiuta</p></div></a>
+            <a href="/comunicazioni.html" class="flex items-center gap-3 p-4 rounded-2xl text-white hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#10b981,#059669)"><i data-lucide="message-circle" class="w-6 h-6 flex-shrink-0"></i><div><p class="font-bold text-sm">Comunicazioni</p><p class="text-xs text-emerald-200">Invia annunci</p></div></a>
+        </div>
+
+        <!-- PENDING REQUESTS + ACTIVITIES -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Richieste pendenti -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-800">Richieste da approvare</h3>
+                    <span id="reqBadge" class="hidden bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="pendingRequestsList" class="divide-y divide-gray-50 max-h-64 overflow-y-auto thin-scroll">
+                    <div class="p-4 text-center text-gray-400 text-sm">Caricamento...</div>
+                </div>
+                <div class="px-5 py-3 bg-gray-50">
+                    <a href="/gestione-richieste.html" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Vai a tutte le richieste →</a>
+                </div>
+            </div>
+            <!-- Attività recenti -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-800">Attività recenti</h3>
+                    <button onclick="clearRecentActivities()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">Nascondi</button>
+                </div>
+                <div id="recentActivitiesList" class="divide-y divide-gray-50 max-h-64 overflow-y-auto thin-scroll">
+                    <div class="p-4 text-center text-gray-400 text-sm">Caricamento...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SYSTEM STATUS -->
+        <div class="bg-white rounded-2xl shadow-sm p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Stato sistema</h3>
+            <div id="systemStatus" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="flex items-center gap-3"><div class="w-3 h-3 bg-gray-300 rounded-full animate-pulse"></div><div><p class="text-sm font-medium text-gray-700">Database</p><p class="text-xs text-gray-400">Verifica...</p></div></div>
+                <div class="flex items-center gap-3"><div class="w-3 h-3 bg-gray-300 rounded-full animate-pulse"></div><div><p class="text-sm font-medium text-gray-700">Backup</p><p class="text-xs text-gray-400">Verifica...</p></div></div>
+                <div class="flex items-center gap-3"><div class="w-3 h-3 bg-blue-400 rounded-full"></div><div><p class="text-sm font-medium text-gray-700">Versione</p><p class="text-xs text-gray-400">v2.6.0</p></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL 1: LISTA TASK (employee o all)
+════════════════════════════════════════════════ -->
+<div id="taskModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" style="background:rgba(0,0,0,.55);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeTaskModal()">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col modal-card" style="max-height:90vh">
+        <!-- Header -->
+        <div id="modalHeader" class="flex items-center gap-4 p-6 rounded-t-3xl flex-shrink-0">
+            <div class="avatar w-14 h-14 text-xl ring-4 ring-white/30 shadow-lg" id="modalAvatar">?</div>
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-white text-lg leading-tight" id="modalTitle">—</p>
+                <p class="text-white/70 text-sm" id="modalSub">—</p>
+            </div>
+            <button onclick="closeTaskModal()" class="text-white/80 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors flex-shrink-0">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <!-- Filters -->
+        <div class="px-5 py-3 border-b border-gray-100 flex-shrink-0 space-y-2">
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input id="modalSearch" type="text" placeholder="Cerca lavorazione, cliente..." class="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-indigo-400" oninput="filterModalTasks()">
+                    <button id="modalSearchClear" onclick="clearModalSearch()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
+                </div>
+                <select id="modalPrioFilter" onchange="filterModalTasks()" class="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 focus:outline-none focus:border-indigo-400">
+                    <option value="">Tutte le priorità</option>
+                    <option value="alta">Alta</option>
+                    <option value="media">Media</option>
+                    <option value="bassa">Bassa</option>
+                </select>
+            </div>
+            <div class="flex gap-1 overflow-x-auto" id="modalTabs">
+                <button class="tab-btn tab-active text-gray-700" data-tab="" onclick="setModalTab(this,'')">Tutte</button>
+                <button class="tab-btn text-gray-500" data-tab="da_fare" onclick="setModalTab(this,'da_fare')">Da fare</button>
+                <button class="tab-btn text-gray-500" data-tab="in_corso" onclick="setModalTab(this,'in_corso')">In corso</button>
+                <button class="tab-btn text-gray-500" data-tab="revisione" onclick="setModalTab(this,'revisione')">Revisione</button>
+                <button class="tab-btn text-gray-500" data-tab="completato" onclick="setModalTab(this,'completato')">Completate</button>
+            </div>
+        </div>
+        <!-- Task list -->
+        <div id="modalBody" class="flex-1 overflow-y-auto thin-scroll px-4 py-3 space-y-2">
+            <div class="text-center text-gray-400 py-8">Caricamento...</div>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between flex-shrink-0 rounded-b-3xl bg-gray-50">
+            <span id="modalCount" class="text-sm text-gray-400">— lavorazioni</span>
+            <a href="/gestione-lavorazioni.html" class="flex items-center gap-2 text-sm text-indigo-600 font-semibold hover:text-indigo-800">Apri gestione completa <i data-lucide="arrow-right" class="w-4 h-4"></i></a>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL 2: DETTAGLIO LAVORAZIONE
+════════════════════════════════════════════════ -->
+<div id="taskDetailModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-overlay" style="background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeTaskDetail()">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col modal-card" style="max-height:90vh">
+        <div id="detailHeader" class="p-5 rounded-t-3xl flex-shrink-0">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span id="detailStatePill" class="pill pill-da_fare">Da fare</span>
+                        <span id="detailPrioPill" class="pill prio-normale hidden">—</span>
+                    </div>
+                    <h2 class="font-bold text-gray-900 text-lg leading-tight" id="detailTitle">—</h2>
+                    <p class="text-sm text-gray-500 mt-0.5" id="detailClient">—</p>
+                </div>
+                <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 flex-shrink-0"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto thin-scroll px-5 pb-5 space-y-4">
+            <!-- Date + ore -->
+            <div class="flex gap-3 flex-wrap">
+                <div class="flex items-center gap-1.5 text-sm text-gray-600"><i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i><span id="detailDate">—</span></div>
+                <div id="detailOreWrap" class="hidden flex items-center gap-1.5 text-sm text-gray-600"><i data-lucide="clock" class="w-4 h-4 text-gray-400"></i><span id="detailOre">—</span></div>
+            </div>
+            <!-- Descrizione -->
+            <div id="detailDescWrap" class="hidden">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Descrizione</p>
+                <p class="text-sm text-gray-700" id="detailDesc">—</p>
+            </div>
+            <!-- Assegnatari -->
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Assegnati</p>
+                <div id="detailAssignees" class="flex flex-wrap gap-2">—</div>
+            </div>
+            <!-- Cambio stato -->
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Cambia stato</p>
+                <div class="flex gap-2 flex-wrap" id="detailStateButtons"></div>
+            </div>
+            <!-- Standby toggle -->
+            <div class="pt-2 border-t border-gray-100">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Visibilità dipendenti</p>
+                <button id="detailStandbyBtn" onclick="" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all">—</button>
+            </div>
+            <!-- Note -->
+            <div id="detailNoteWrap" class="hidden">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Note</p>
+                <p class="text-sm text-gray-600 italic" id="detailNote">—</p>
+            </div>
+        </div>
+        <div class="px-5 py-4 border-t border-gray-100 rounded-b-3xl bg-gray-50 flex items-center justify-between">
+            <span class="text-xs text-gray-400" id="detailCreated">—</span>
+            <a id="detailEditLink" href="#" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+                <i data-lucide="edit-2" class="w-4 h-4"></i> Modifica completa
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════
+function toggleSidebar(){
+    const s=document.getElementById('sidebar'),m=document.getElementById('mainContent');
+    s.classList.toggle('collapsed');
+    m.style.marginLeft=s.classList.contains('collapsed')?'70px':'260px';
+}
+function toggleCat(id){
+    const el=document.getElementById('cat-'+id),ic=document.getElementById('icon-'+id);
+    el.classList.toggle('active');
+    if(ic)ic.style.transform=el.classList.contains('active')?'rotate(180deg)':'';
+}
+function doLogout(){
+    if(!confirm('Sei sicuro di voler uscire?'))return;
+    sessionStorage.removeItem('ast_current_user');
+    window.location.href='/Admin/index.html';
+}
+
+// ══════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════
+const GRADS=['linear-gradient(135deg,#667eea,#764ba2)','linear-gradient(135deg,#f093fb,#f5576c)','linear-gradient(135deg,#4facfe,#00f2fe)','linear-gradient(135deg,#43e97b,#38f9d7)','linear-gradient(135deg,#fa709a,#fee140)','linear-gradient(135deg,#a18cd1,#fbc2eb)','linear-gradient(135deg,#fd7f6f,#b388ff)','linear-gradient(135deg,#96fbc4,#f9f586)','linear-gradient(135deg,#ffecd2,#fcb69f)','linear-gradient(135deg,#a1c4fd,#c2e9fb)'];
+function hash(s){let h=0;for(let c of s){h=(Math.imul(31,h)+c.charCodeAt(0))|0;}return Math.abs(h);}
+function avatarGrad(id){return GRADS[hash(id||'x')%GRADS.length];}
+function initials(n,c){return((n||'').charAt(0)+(c||'').charAt(0)).toUpperCase()||'?';}
+function fmtDate(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function fmtRange(s,e){if(!s&&!e)return'—';if(!s)return fmtDate(e);if(!e||s===e)return fmtDate(s);return fmtDate(s)+' → '+fmtDate(e);}
+function isOverdue(sc){return sc&&new Date(sc+'T00:00:00')<new Date();}
+function isSoon(sc){if(!sc)return false;const d=new Date(sc+'T00:00:00'),n=new Date();return d>=n&&(d-n)<=7*86400000;}
+function getTimeAgo(date){
+    const now=new Date(),seconds=Math.floor((now-date)/1000);
+    if(seconds<60)return'Pochi secondi fa';
+    const minutes=Math.floor(seconds/60);if(minutes<60)return minutes+' '+(minutes===1?'minuto':'minuti')+' fa';
+    const hours=Math.floor(minutes/60);if(hours<24)return hours+' '+(hours===1?'ora':'ore')+' fa';
+    const days=Math.floor(hours/24);if(days<7)return days+' '+(days===1?'giorno':'giorni')+' fa';
+    const weeks=Math.floor(days/7);if(weeks<4)return weeks+' '+(weeks===1?'settimana':'settimane')+' fa';
+    const months=Math.floor(days/30);return months+' '+(months===1?'mese':'mesi')+' fa';
+}
+function taskUids(t){return[...new Set([...(t.task_assignments?.map(a=>a.user_id)||[]),(t.assigned_user_id?[t.assigned_user_id]:[])])].flat();}
+const STATO={da_fare:'Da fare',in_corso:'In corso',revisione:'Revisione',completato:'Completato'};
+const PILL={da_fare:'pill-da_fare',in_corso:'pill-in_corso',revisione:'pill-revisione',completato:'pill-completato'};
+
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let allTasks=[],allUsers=[],modalPool=[],modalTabActive='';
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+document.addEventListener('DOMContentLoaded',async()=>{
+    if(!window.AuthHelper?.requireAdmin?.())return;
+    lucide.createIcons();
+    // Open default sidebar categories
+    ['anagrafica','operativo'].forEach(cat=>{
+        const el=document.getElementById('cat-'+cat),ic=document.getElementById('icon-'+cat);
+        if(el&&ic){el.classList.add('active');ic.style.transform='rotate(180deg)';}
+    });
+    const now=new Date();
+    document.getElementById('todayLabel').textContent=now.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    try{const u=await window.AuthHelper.loadCurrentUser?.();if(u){const av=document.getElementById('topAvatar');av.textContent=initials(u.nome,u.cognome);av.style.background=avatarGrad(u.id);}}catch(e){}
+    try{[allUsers,allTasks]=await Promise.all([window.dataManager.getUtenti(),window.dataManager.getLavorazioni()]);allUsers=allUsers.filter(u=>u.stato!=='inattivo');}catch(e){console.error(e);}
+    buildKPIs();buildEmpGrid();
+    await Promise.all([loadPendingRequests(),loadRecentActivities(),loadSystemStatus()]);
+    lucide.createIcons();
+    avviaRealtimeRichieste();
+});
+
+// ══════════════════════════════════════
+//  KPI
+// ══════════════════════════════════════
+function buildKPIs(){
+    document.getElementById('kpi1').textContent=allUsers.length;
+    document.getElementById('kpi1sub').textContent=allUsers.filter(u=>u.stato==='attivo').length+' attivi';
+    document.getElementById('kpi2').textContent=allTasks.filter(t=>['in_corso','da_fare','revisione'].includes(t.stato)).length;
+    document.getElementById('kpi3').textContent=allTasks.filter(t=>isSoon(t.scadenza)&&t.stato!=='completato').length;
+    document.getElementById('kpi4').textContent=allTasks.filter(t=>t.stato==='completato').length;
+    document.getElementById('kpiStandby').textContent=allTasks.filter(t=>t.visibile===false).length;
+}
+
+// ══════════════════════════════════════
+//  EMPLOYEE GRID
+// ══════════════════════════════════════
+function buildEmpGrid(){
+    const counts={},active={};
+    allTasks.forEach(t=>{taskUids(t).forEach(uid=>{counts[uid]=(counts[uid]||0)+1;if(t.stato!=='completato')active[uid]=(active[uid]||0)+1;});});
+    const sorted=[...allUsers].sort((a,b)=>(active[b.id]||0)-(active[a.id]||0));
+    const grid=document.getElementById('empGrid');
+    if(!sorted.length){grid.innerHTML='<p class="text-gray-400 text-sm col-span-full">Nessun dipendente</p>';return;}
+    grid.innerHTML=sorted.map(u=>{
+        const total=counts[u.id]||0,act=active[u.id]||0;
+        const grad=avatarGrad(u.id),ini=initials(u.nome,u.cognome);
+        const done=allTasks.filter(t=>taskUids(t).includes(u.id)&&t.stato==='completato').length;
+        const pct=total?Math.round(done/total*100):0;
+        const barColor=grad.includes('#')?grad.split(',')[1].trim().replace(')',''):'#6366f1';
+        return '<div class="emp-card bg-white rounded-2xl p-5 shadow-sm flex flex-col items-center text-center gap-3" onclick="openEmpModal(\''+u.id+'\')">'+
+            '<div class="avatar w-16 h-16 text-2xl ring-4 ring-white shadow-lg" style="background:'+grad+'">'+ini+'</div>'+
+            '<div><p class="font-bold text-gray-800 text-sm leading-tight">'+u.nome+' '+u.cognome+'</p><p class="text-xs text-gray-400 mt-0.5">'+(u.ruolo||'Tecnico')+'</p></div>'+
+            '<div class="w-full flex justify-between text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2"><span><span class="font-bold text-emerald-600">'+act+'</span> attive</span><span><span class="font-bold text-gray-700">'+total+'</span> tot.</span></div>'+
+            '<div class="w-full"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>Completate</span><span>'+pct+'%</span></div><div class="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:'+pct+'%;background:'+barColor+'"></div></div></div>'+
+        '</div>';
+    }).join('');
+    lucide.createIcons();
+}
+
+// ══════════════════════════════════════
+//  TASK LIST MODAL (employee or all)
+// ══════════════════════════════════════
+function openEmpModal(uid){
+    const u=allUsers.find(x=>x.id===uid);if(!u)return;
+    const grad=avatarGrad(uid),ini=initials(u.nome,u.cognome);
+    const tasks=allTasks.filter(t=>taskUids(t).includes(uid));
+    document.getElementById('modalHeader').style.background=grad;
+    document.getElementById('modalAvatar').textContent=ini;
+    document.getElementById('modalAvatar').style.background='rgba(255,255,255,0.2)';
+    document.getElementById('modalTitle').textContent=u.nome+' '+u.cognome;
+    document.getElementById('modalSub').textContent=(u.ruolo||'Tecnico')+' • '+tasks.length+' lavorazioni';
+    modalPool=tasks;showModal();
+}
+function openAllTasksModal(){
+    document.getElementById('modalHeader').style.background='linear-gradient(135deg,#667eea,#764ba2)';
+    const av=document.getElementById('modalAvatar');
+    av.innerHTML='<i data-lucide="list" class="w-6 h-6 text-white/80"></i>';
+    av.style.background='rgba(255,255,255,0.2)';
+    document.getElementById('modalTitle').textContent='Tutte le lavorazioni';
+    document.getElementById('modalSub').textContent=allTasks.length+' task totali';
+    modalPool=allTasks;showModal();
+}
+function showModal(){
+    modalTabActive='';
+    document.getElementById('modalSearch').value='';
+    document.getElementById('modalPrioFilter').value='';
+    document.getElementById('modalSearchClear').classList.add('hidden');
+    document.querySelectorAll('.tab-btn').forEach(b=>{const a=b.dataset.tab==='';b.classList.toggle('tab-active',a);b.classList.toggle('text-gray-700',a);b.classList.toggle('text-gray-500',!a);});
+    document.getElementById('taskModal').classList.remove('hidden');
+    document.body.style.overflow='hidden';
+    filterModalTasks();lucide.createIcons();
+}
+function closeTaskModal(){document.getElementById('taskModal').classList.add('hidden');document.body.style.overflow='';}
+function setModalTab(btn,tab){modalTabActive=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const a=b.dataset.tab===tab;b.classList.toggle('tab-active',a);b.classList.toggle('text-gray-700',a);b.classList.toggle('text-gray-500',!a);});filterModalTasks();}
+function clearModalSearch(){document.getElementById('modalSearch').value='';document.getElementById('modalSearchClear').classList.add('hidden');filterModalTasks();}
+function filterModalTasks(){
+    const q=(document.getElementById('modalSearch').value||'').toLowerCase().trim();
+    const p=document.getElementById('modalPrioFilter').value;
+    document.getElementById('modalSearchClear').classList.toggle('hidden',!q);
+    let list=[...modalPool];
+    if(modalTabActive)list=list.filter(t=>t.stato===modalTabActive);
+    if(q)list=list.filter(t=>(t.titolo||'').toLowerCase().includes(q)||(t.client_name||'').toLowerCase().includes(q)||(t.descrizione||'').toLowerCase().includes(q));
+    if(p)list=list.filter(t=>t.priorita===p);
+    list.sort((a,b)=>{const ord={in_corso:0,revisione:1,da_fare:2,completato:3};if((ord[a.stato]||2)!==(ord[b.stato]||2))return(ord[a.stato]||2)-(ord[b.stato]||2);return(a.scadenza||'9999')<(b.scadenza||'9999')?-1:1;});
+    // Update tab counts
+    const tabs=document.querySelectorAll('.tab-btn');
+    tabs.forEach(b=>{
+        const tab=b.dataset.tab;
+        let cnt=tab?modalPool.filter(t=>t.stato===tab).length:modalPool.length;
+        b.textContent=(tab?STATO[tab]||tab:'Tutte')+' '+cnt;
+    });
+    document.getElementById('modalCount').textContent=list.length+' lavorazioni';
+    renderTaskList(list);
+}
+function renderTaskList(list){
+    const body=document.getElementById('modalBody');
+    if(!list.length){body.innerHTML='<div class="text-center text-gray-400 py-12"><i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-40"></i><p class="text-sm">Nessuna lavorazione</p></div>';lucide.createIcons();return;}
+    body.innerHTML=list.map(t=>{
+        const stato=t.stato||'da_fare';
+        const overdue=isOverdue(t.scadenza)&&stato!=='completato';
+        const soon=!overdue&&isSoon(t.scadenza)&&stato!=='completato';
+        const dateStr=fmtRange(t.data_inizio,t.scadenza);
+        // Assignee avatars
+        const assignees=[...(t.task_assignments||[]).map(a=>a.users?{nome:a.users.nome,cognome:a.users.cognome,id:a.user_id}:null).filter(Boolean)];
+        if(!assignees.length&&t.assigned_user)assignees.push({nome:t.assigned_user.nome,cognome:t.assigned_user.cognome,id:t.assigned_user_id});
+        const avatarsHtml=assignees.slice(0,4).map((a,i)=>'<div class="avatar w-7 h-7 text-xs ring-2 ring-white" style="background:'+avatarGrad(a.id||i)+';margin-left:'+(i?'-6px':'0')+'">'+initials(a.nome,a.cognome)+'</div>').join('');
+        return '<div class="task-card-row p-3.5 rounded-xl border border-gray-100" onclick="openTaskDetail(\''+t.id+'\')">'+
+            '<div class="flex items-start gap-3">'+
+            '<div class="flex-1 min-w-0">'+
+            '<div class="flex items-center gap-2 flex-wrap mb-0.5">'+
+            '<span class="font-semibold text-gray-800 text-sm">'+escHtml(t.titolo||'—')+'</span>'+
+            '<span class="pill '+PILL[stato]+'">'+STATO[stato]+'</span>'+
+            (t.visibile===false?'<span class="pill" style="background:#f1f5f9;color:#475569;border:1px solid #94a3b8">🔒 Standby</span>':'')+
+            (overdue?'<span class="flex items-center gap-1 text-xs text-red-600 font-semibold"><i data-lucide="alert-circle" class="w-3 h-3"></i>Scaduta</span>':'')+
+            (soon?'<span class="flex items-center gap-1 text-xs text-amber-600 font-semibold"><i data-lucide="clock" class="w-3 h-3"></i>In scadenza</span>':'')+
+            '</div>'+
+            (t.descrizione?'<p class="text-xs text-gray-500 truncate mb-1">'+escHtml(t.descrizione)+'</p>':'')+
+            '<div class="flex items-center gap-3 text-xs text-gray-400 flex-wrap">'+
+            (t.client_name&&t.client_name!=='N/A'?'<span class="flex items-center gap-1"><i data-lucide="building-2" class="w-3 h-3"></i>'+escHtml(t.client_name)+'</span>':'')+
+            (t.scadenza?'<span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3"></i>'+dateStr+'</span>':'')+
+            '</div>'+
+            '</div>'+
+            '<div class="flex items-center gap-2 flex-shrink-0">'+
+            '<div class="flex">'+avatarsHtml+'</div>'+
+            '<i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>'+
+            '</div>'+
+            '</div>'+
+            (stato==='completato'?'<div class="mt-2"><div class="flex justify-between text-xs text-gray-400 mb-0.5"><span>Progresso</span><span>100%</span></div><div class="h-1 bg-gray-100 rounded-full"><div class="h-full bg-emerald-400 rounded-full" style="width:100%"></div></div></div>':'')+
+        '</div>';
+    }).join('');
+    lucide.createIcons();
+}
+
+// ══════════════════════════════════════
+//  TASK DETAIL MODAL
+// ══════════════════════════════════════
+function openTaskDetail(taskId){
+    const t=allTasks.find(x=>x.id===taskId);if(!t)return;
+    document.getElementById('detailTitle').textContent=t.titolo||'—';
+    document.getElementById('detailClient').textContent=(t.client_name&&t.client_name!=='N/A'?t.client_name:'')+(t.client?.citta?' — '+t.client.citta:'');
+    // State pill
+    const stato=t.stato||'da_fare';
+    const sp=document.getElementById('detailStatePill');
+    sp.textContent=STATO[stato]||stato;sp.className='pill '+PILL[stato];
+    // Priority
+    const pp=document.getElementById('detailPrioPill');
+    if(t.priorita&&t.priorita!=='normale'){pp.textContent=t.priorita.charAt(0).toUpperCase()+t.priorita.slice(1);pp.className='pill prio-'+(t.priorita||'normale');pp.classList.remove('hidden');}else{pp.classList.add('hidden');}
+    // Date
+    document.getElementById('detailDate').textContent=fmtRange(t.data_inizio,t.scadenza);
+    // Ore
+    if(t.ora_inizio){document.getElementById('detailOreWrap').classList.remove('hidden');document.getElementById('detailOre').textContent=t.ora_inizio+(t.ora_fine?' - '+t.ora_fine:'');}else{document.getElementById('detailOreWrap').classList.add('hidden');}
+    // Descrizione
+    if(t.descrizione){document.getElementById('detailDescWrap').classList.remove('hidden');document.getElementById('detailDesc').textContent=t.descrizione;}else{document.getElementById('detailDescWrap').classList.add('hidden');}
+    // Note
+    if(t.note){document.getElementById('detailNoteWrap').classList.remove('hidden');document.getElementById('detailNote').textContent=t.note;}else{document.getElementById('detailNoteWrap').classList.add('hidden');}
+    // Assignees
+    const assignees=[...(t.task_assignments||[]).map(a=>a.users?{nome:a.users.nome,cognome:a.users.cognome,id:a.user_id}:null).filter(Boolean)];
+    if(!assignees.length&&t.assigned_user)assignees.push({nome:t.assigned_user.nome,cognome:t.assigned_user.cognome,id:t.assigned_user_id});
+    const aEl=document.getElementById('detailAssignees');
+    if(assignees.length){
+        aEl.innerHTML=assignees.map(a=>'<div class="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-1.5"><div class="avatar w-7 h-7 text-xs" style="background:'+avatarGrad(a.id||'x')+'">'+initials(a.nome,a.cognome)+'</div><span class="text-sm font-medium text-gray-700">'+escHtml(a.nome+' '+a.cognome)+'</span></div>').join('');
+    }else{aEl.innerHTML='<span class="text-sm text-gray-400">Nessun assegnatario</span>';}
+    // State buttons
+    const states=['da_fare','in_corso','revisione','completato'];
+    document.getElementById('detailStateButtons').innerHTML=states.map(s=>'<button onclick="changeTaskState(\''+taskId+'\',\''+s+'\')" class="px-3 py-1.5 rounded-xl text-xs font-semibold border-2 transition-all '+(s===stato?'border-indigo-500 bg-indigo-50 text-indigo-700':'border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600')+'">'+STATO[s]+'</button>').join('');    // Standby toggle
+    const standbyBtn=document.getElementById('detailStandbyBtn');
+    const isStandby=t.visibile===false;
+    standbyBtn.onclick=()=>toggleStandby(taskId);
+    if(isStandby){standbyBtn.className='flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all border-emerald-400 bg-emerald-50 text-emerald-700';standbyBtn.innerHTML='<i data-lucide="eye" class="w-4 h-4"></i> Attiva (rimuovi standby)';}else{standbyBtn.className='flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all border-slate-300 text-slate-600 hover:border-slate-500 hover:text-slate-800';standbyBtn.innerHTML='<i data-lucide="lock" class="w-4 h-4"></i> Metti in Standby';}    // Created
+    document.getElementById('detailCreated').textContent=t.created_at?'Creata '+getTimeAgo(new Date(t.created_at)):'';
+    // Edit link
+    document.getElementById('detailEditLink').href='/gestione-lavorazioni.html?id='+taskId;
+    document.getElementById('taskDetailModal').classList.remove('hidden');
+    lucide.createIcons();
+}
+function closeTaskDetail(){document.getElementById('taskDetailModal').classList.add('hidden');}
+function openStandbyModal(){
+    document.getElementById('modalHeader').style.background='linear-gradient(135deg,#475569,#334155)';
+    const av=document.getElementById('modalAvatar');
+    av.innerHTML='<i data-lucide="lock" class="w-6 h-6 text-white/80"></i>';
+    av.style.background='rgba(255,255,255,0.2)';
+    const standby=allTasks.filter(t=>t.visibile===false);
+    document.getElementById('modalTitle').textContent='Lavorazioni in Standby';
+    document.getElementById('modalSub').textContent=standby.length+' nascoste ai dipendenti';
+    modalPool=standby;showModal();
+}
+async function toggleStandby(taskId){
+    const t=allTasks.find(x=>x.id===taskId);if(!t)return;
+    const newVal=t.visibile!==false;
+    try{
+        await window.TasksAPI.update(taskId,{visibile:newVal});
+        t.visibile=newVal;
+        openTaskDetail(taskId);
+        filterModalTasks();
+        buildKPIs();buildEmpGrid();
+        showNotification(newVal?'✅ Lavorazione attivata':'🔒 Messa in standby','success');
+    }catch(e){showNotification('Errore aggiornamento visibilità','error');}
+}
+async function changeTaskState(taskId,newState){
+    try{
+        await window.TasksAPI.update(taskId,{stato:newState});
+        const t=allTasks.find(x=>x.id===taskId);if(t)t.stato=newState;
+        // Refresh detail buttons
+        openTaskDetail(taskId);
+        // Refresh list
+        filterModalTasks();
+        buildKPIs();buildEmpGrid();
+        showNotification('Stato aggiornato: '+STATO[newState],'success');
+    }catch(e){showNotification('Errore aggiornamento stato','error');}
+}
+
+// ══════════════════════════════════════
+//  PENDING REQUESTS
+// ══════════════════════════════════════
+async function loadPendingRequests(){
+    try{
+        const container=document.getElementById('pendingRequestsList');
+        const requests=await window.dataManager.getRichieste();
+        const pending=requests.filter(r=>{const s=r.status||r.stato;return s==='pending'||s==='pendente'||s==='in_attesa';});
+        const count=pending.length;
+        document.getElementById('kpi3'); // already set above
+        const badge=document.getElementById('reqBadge');
+        if(count>0){badge.textContent=count;badge.classList.remove('hidden');}else{badge.classList.add('hidden');}
+        const rb=document.getElementById('requestsBadge');
+        if(rb){if(count>0){rb.textContent=count;rb.classList.remove('hidden');}else rb.classList.add('hidden');}
+        if(!pending.length){container.innerHTML='<p class="text-gray-400 text-sm text-center py-6">Nessuna richiesta pendente</p>';return;}
+        container.innerHTML=pending.slice(0,6).map(req=>'<div class="flex items-center justify-between px-5 py-3 hover:bg-gray-50">'+
+            '<div class="flex-1 min-w-0"><p class="font-medium text-gray-800 text-sm truncate">'+(req.titolo||req.title||req.tipo||'Richiesta')+'</p><p class="text-xs text-gray-400">'+(req.tipo||req.type||'')+'</p></div>'+
+            '<div class="flex gap-2 ml-2"><button onclick="approveRequest(\''+req.id+'\')" class="p-1.5 text-green-600 hover:bg-green-50 rounded-lg" title="Approva"><i data-lucide="check" class="w-4 h-4"></i></button><button onclick="rejectRequest(\''+req.id+'\')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Rifiuta"><i data-lucide="x" class="w-4 h-4"></i></button></div>'+
+        '</div>').join('');
+        lucide.createIcons();
+    }catch(e){console.error(e);document.getElementById('pendingRequestsList').innerHTML='<p class="text-red-400 text-sm text-center py-4">Errore caricamento</p>';}
+}
+async function approveRequest(id){
+    try{await window.RequestsAPI.update(id,{status:'approved',stato:'approvata'});showNotification('Richiesta approvata','success');await loadPendingRequests();lucide.createIcons();}
+    catch(e){showNotification('Errore approvazione','error');}
+}
+async function rejectRequest(id){
+    try{await window.RequestsAPI.update(id,{status:'rejected',stato:'rifiutata'});showNotification('Richiesta rifiutata','error');await loadPendingRequests();lucide.createIcons();}
+    catch(e){showNotification('Errore rifiuto','error');}
+}
+
+// ══════════════════════════════════════
+//  RECENT ACTIVITIES
+// ══════════════════════════════════════
+async function loadRecentActivities(){
+    const container=document.getElementById('recentActivitiesList');
+    try{
+        const [tasks,users,requests,communications]=await Promise.all([
+            window.dataManager.getLavorazioni(),window.dataManager.getUtenti(),
+            window.dataManager.getRichieste(),window.dataManager.getComunicazioni()
+        ]);
+        const activities=[];
+        tasks.filter(t=>t.stato==='completato'&&t.data_completamento).forEach(task=>{activities.push({timestamp:new Date(task.data_completamento),icon:'check',color:'green',title:'Lavorazione "'+task.titolo+'" completata',sub:task.assigned_to_name||''});});
+        const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+        users.filter(u=>u.created_at&&new Date(u.created_at)>thirtyDaysAgo).forEach(u=>{activities.push({timestamp:new Date(u.created_at),icon:'user-plus',color:'blue',title:'Nuovo dipendente: '+u.nome+' '+u.cognome,sub:'Admin'});});
+        requests.filter(r=>r.status==='pending'&&r.created_at).forEach(r=>{activities.push({timestamp:new Date(r.created_at),icon:'clock',color:'orange',title:'Richiesta '+(r.tipo||r.type||'')+" in attesa",sub:r.user_name||''});});
+        communications.filter(c=>c.created_at).forEach(c=>{activities.push({timestamp:new Date(c.created_at),icon:'message-square',color:'purple',title:'Comunicazione: '+c.titolo,sub:'Admin'});});
+        activities.sort((a,b)=>b.timestamp-a.timestamp);
+        const recent=activities.slice(0,8);
+        if(!recent.length){container.innerHTML='<p class="text-gray-400 text-sm text-center py-6">Nessuna attività recente</p>';return;}
+        container.innerHTML=recent.map(a=>'<div class="flex items-center gap-3 px-5 py-3">'+
+            '<div class="w-8 h-8 bg-'+a.color+'-100 rounded-full flex items-center justify-center flex-shrink-0"><i data-lucide="'+a.icon+'" class="w-4 h-4 text-'+a.color+'-600"></i></div>'+
+            '<div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">'+escHtml(a.title)+'</p><p class="text-xs text-gray-400">'+getTimeAgo(a.timestamp)+'</p></div>'+
+        '</div>').join('');
+        lucide.createIcons();
+    }catch(e){container.innerHTML='<p class="text-red-400 text-sm text-center py-4">Errore caricamento</p>';}
+}
+function clearRecentActivities(){
+    if(!confirm('Nascondere le attività dalla lista? I dati rimangono nel database.'))return;
+    document.getElementById('recentActivitiesList').innerHTML='<p class="text-gray-400 text-sm text-center py-6">Attività nascoste. <button onclick="loadRecentActivities()" class="text-indigo-600 underline">Ricarica</button></p>';
+}
+
+// ══════════════════════════════════════
+//  SYSTEM STATUS
+// ══════════════════════════════════════
+async function loadSystemStatus(){
+    const container=document.getElementById('systemStatus');
+    try{
+        let dbColor='red',dbText='Non raggiungibile';
+        try{const{error}=await supabase.from('users').select('id').limit(1);if(!error){dbColor='green';dbText='Operativo';}}catch(e){}
+        let backColor='yellow',backText='Nessun dato';
+        try{
+            const [tasks,users]=await Promise.all([window.dataManager.getLavorazioni(),window.dataManager.getUtenti()]);
+            const dates=[...tasks,...users].map(x=>x.updated_at||x.created_at).filter(Boolean).map(d=>new Date(d));
+            if(dates.length){const last=new Date(Math.max(...dates));const hrs=(new Date()-last)/3600000;backColor=hrs<24?'green':hrs<72?'yellow':'red';backText='Ultimo: '+getTimeAgo(last);}
+        }catch(e){}
+        container.innerHTML='<div class="flex items-center gap-3"><div class="w-3 h-3 bg-'+dbColor+'-400 rounded-full"></div><div><p class="text-sm font-medium text-gray-700">Database</p><p class="text-xs text-gray-400">'+dbText+'</p></div></div>'+
+            '<div class="flex items-center gap-3"><div class="w-3 h-3 bg-'+backColor+'-400 rounded-full"></div><div><p class="text-sm font-medium text-gray-700">Attività DB</p><p class="text-xs text-gray-400">'+backText+'</p></div></div>'+
+            '<div class="flex items-center gap-3"><div class="w-3 h-3 bg-blue-400 rounded-full"></div><div><p class="text-sm font-medium text-gray-700">Versione</p><p class="text-xs text-gray-400">v2.6.0</p></div></div>';
+    }catch(e){}
+}
+
+// ══════════════════════════════════════
+//  REALTIME NUOVE RICHIESTE
+// ══════════════════════════════════════
+let _realtimeQueue=[],_realtimeShowing=false;
+function avviaRealtimeRichieste(){
+    if(!window.supabase)return;
+    window.supabase.channel('admin-nuove-richieste-v2')
+        .on('postgres_changes',{event:'INSERT',schema:'public',table:'requests'},async(payload)=>{
+            const req=payload.new;
+            let userName='Dipendente';
+            try{const{data:u}=await window.supabase.from('users').select('nome,cognome').eq('id',req.user_id).single();if(u)userName=u.nome+' '+u.cognome;}catch(_){}
+            const item={req,userName};
+            if(_realtimeShowing)_realtimeQueue.push(item);else mostraNuovaRichiestaModal(item);
+        }).subscribe();
+}
+function mostraNuovaRichiestaModal({req,userName}){
+    _realtimeShowing=true;
+    const tipo=req.tipo||req.type||'';
+    const titolo=req.titolo||req.title||tipo||'Nuova Richiesta';
+    const descrizione=req.descrizione||req.description||'';
+    const priorita=req.priorita||req.priority||'';
+    const ini=userName.split(' ').map(n=>n[0]||'').join('').toUpperCase();
+    const prioBadge=priorita==='alta'||priorita==='urgente'?'<span class="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-semibold ml-1">🔴 '+priorita+'</span>':priorita==='media'?'<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-semibold ml-1">🟡 '+priorita+'</span>':'';
+    const modal=document.createElement('div');
+    modal.id='nuovaRichiestaModal';
+    modal.className='fixed inset-0 bg-black bg-opacity-60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm';
+    modal.innerHTML='<div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-bounce-in overflow-hidden">'+
+        '<div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 flex items-center gap-2 text-sm font-bold"><span class="w-2.5 h-2.5 rounded-full bg-white animate-ping inline-block"></span>Nuova richiesta in arrivo!</div>'+
+        '<div class="p-6 space-y-4">'+
+        '<div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">'+ini+'</div><div><p class="font-bold text-gray-900">'+escHtml(userName)+'</p><p class="text-sm text-gray-500 capitalize">'+escHtml(tipo.replace(/_/g,' '))+'</p></div></div>'+
+        '<div class="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-1"><p class="font-semibold text-gray-900">'+escHtml(titolo)+' '+prioBadge+'</p>'+(descrizione?'<p class="text-sm text-gray-600">'+escHtml(descrizione)+'</p>':'')+(req.data_inizio&&req.data_fine?'<p class="text-xs text-gray-500 mt-1">🗓️ '+new Date(req.data_inizio).toLocaleDateString('it-IT')+' → '+new Date(req.data_fine).toLocaleDateString('it-IT')+'</p>':'')+'</div>'+
+        '<div class="flex gap-2"><button onclick="realtimeApprova(\''+req.id+'\')" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">✅ Approva</button><button onclick="realtimeRifiuta(\''+req.id+'\')" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">❌ Rifiuta</button><button onclick="realtimeGestisciDopo()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">📋 Dopo</button></div>'+
+        '</div></div>';
+    document.body.appendChild(modal);
+    lucide.createIcons();
+}
+function chiudiNuovaRichiestaModal(){document.getElementById('nuovaRichiestaModal')?.remove();_realtimeShowing=false;if(_realtimeQueue.length>0)mostraNuovaRichiestaModal(_realtimeQueue.shift());}
+async function realtimeApprova(id){try{await window.RequestsAPI.update(id,{status:'approved',stato:'approvata'});showNotification('✅ Richiesta approvata','success');await loadPendingRequests();}catch(e){showNotification('Errore approvazione','error');}chiudiNuovaRichiestaModal();}
+async function realtimeRifiuta(id){try{await window.RequestsAPI.update(id,{status:'rejected',stato:'rifiutata'});showNotification('Richiesta rifiutata','error');await loadPendingRequests();}catch(e){showNotification('Errore rifiuto','error');}chiudiNuovaRichiestaModal();}
+function realtimeGestisciDopo(){chiudiNuovaRichiestaModal();showNotification('📋 Richiesta spostata in coda','info');}
+
+// ══════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════
+function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showNotification(msg,type='info'){
+    const bgColor=type==='success'?'bg-green-500':type==='error'?'bg-red-500':'bg-indigo-500';
+    const n=document.createElement('div');
+    n.className='fixed top-4 right-4 '+bgColor+' text-white px-5 py-3 rounded-xl shadow-lg z-[100] text-sm font-medium';
+    n.style.animation='slideUp .2s ease';
+    n.textContent=msg;
+    document.body.appendChild(n);
+    setTimeout(()=>n.remove(),3000);
+}
+</script>
+</body>
+</html>

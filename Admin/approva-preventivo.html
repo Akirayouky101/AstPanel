@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approvazione Preventivi – ZG Impianti</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{min-height:100vh;background:linear-gradient(135deg,#f0fdfa 0%,#ccfbf1 100%);font-family:"Helvetica Neue",Arial,sans-serif;color:#111827}
+        .page-header{background:linear-gradient(135deg,#0d9488,#0891b2);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(13,148,136,.35)}
+        .page-header h1{color:#fff;font-size:20px;font-weight:800}
+        .page-header p{color:rgba(255,255,255,.75);font-size:13px;margin-top:3px}
+        .badge-count{background:rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:700;padding:6px 16px;border-radius:999px}
+        .state{display:none}.state.active{display:block}
+        .spinner-wrap{text-align:center;padding:80px 20px}
+        .spinner{width:52px;height:52px;border:4px solid #99f6e4;border-top-color:#0d9488;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .empty-state{text-align:center;padding:80px 20px;max-width:420px;margin:0 auto}
+        .cards{max-width:860px;margin:32px auto;padding:0 20px 60px;display:flex;flex-direction:column;gap:24px}
+        .card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);border:1.5px solid #e5e7eb;transition:box-shadow .2s}
+        .card:hover{box-shadow:0 8px 32px rgba(0,0,0,.12)}
+        .card-head{background:linear-gradient(135deg,#0d9488,#0891b2);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .card-numero{font-size:20px;font-weight:900;color:#fff}
+        .card-date{font-size:12px;color:rgba(255,255,255,.7)}
+        .card-body{padding:22px 24px}
+        .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:20px;padding-bottom:18px;border-bottom:1.5px solid #f3f4f6}
+        .info-cell label{display:block;font-size:10px;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+        .info-cell span{font-size:13px;font-weight:600;color:#374151}
+        .section-title{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+        .items-table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #99f6e4;margin-bottom:18px}
+        .items-table thead tr{background:#f0fdfa}
+        .items-table th{padding:9px 12px;font-size:11px;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:1.5px solid #99f6e4}
+        .items-table td{padding:10px 12px;font-size:13px;color:#374151;border-bottom:1px solid #f0fdfa}
+        .items-table tbody tr:last-child td{border-bottom:none}
+        .items-table tbody tr:hover{background:#f0fdfa}
+        .dest-header td{background:#e0f2fe;font-weight:700;font-size:12px;color:#0369a1;padding:8px 12px!important}
+        .card-foot{padding:16px 24px 20px;border-top:1.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .foot-note{font-size:12px;color:#9ca3af;font-style:italic}
+        .btn-action{padding:12px 28px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:transform .1s,box-shadow .1s}
+        .btn-action:active{transform:scale(.97)}
+        .btn-reject{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;box-shadow:0 3px 12px rgba(220,38,38,.25)}
+        .btn-reject:hover{box-shadow:0 5px 18px rgba(220,38,38,.35)}
+        .btn-approve{background:linear-gradient(135deg,#059669,#047857);color:#fff;box-shadow:0 3px 12px rgba(5,150,105,.25)}
+        .btn-approve:hover{box-shadow:0 5px 18px rgba(5,150,105,.35)}
+        .result-overlay{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700}
+        .note-box{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 10px 10px 0;font-size:13px;color:#374151;margin-bottom:14px}
+        .note-label{font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+        @media(max-width:600px){.page-header{padding:18px 20px;flex-direction:column;align-items:flex-start;gap:10px}.cards{padding:16px 12px 40px}.card-body{padding:16px}.card-foot{padding:14px 16px;flex-direction:column}.info-grid{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+<div class="page-header">
+    <div><h1>📋 Approvazione Richieste Preventivo</h1><p id="headerSub">ZG Impianti – Pannello Responsabile</p></div>
+    <div id="headerBadge" class="badge-count" style="display:none"></div>
+</div>
+
+<div id="stateLoading" class="state active">
+    <div class="spinner-wrap"><div class="spinner"></div><p style="color:#6b7280;font-size:14px">Caricamento richieste...</p></div>
+</div>
+<div id="stateError" class="state">
+    <div class="empty-state">
+        <div style="font-size:64px;margin-bottom:16px">❌</div>
+        <p style="font-size:20px;font-weight:800;color:#dc2626;margin-bottom:8px">Accesso non riuscito</p>
+        <p id="errorMsg" style="font-size:14px;color:#6b7280;line-height:1.6"></p>
+    </div>
+</div>
+<div id="stateEmpty" class="state">
+    <div class="empty-state">
+        <div style="font-size:64px;margin-bottom:16px">✅</div>
+        <p style="font-size:22px;font-weight:800;color:#059669;margin-bottom:8px">Nessuna richiesta in attesa!</p>
+        <p style="font-size:14px;color:#6b7280;line-height:1.6">Tutte le richieste sono state gestite.</p>
+    </div>
+</div>
+<div id="stateCards" class="state">
+    <div class="cards" id="cardsList"></div>
+</div>
+
+<script>
+const db = window.supabaseClient;
+const session = new URLSearchParams(window.location.search).get('s');
+let pendingCount = 0;
+
+const fmtD = d => {
+    if (!d) return '—';
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+};
+
+function setState(n) {
+    document.querySelectorAll('.state').forEach(e => e.classList.remove('active'));
+    document.getElementById('state' + n)?.classList.add('active');
+}
+
+function updateBadge() {
+    const b = document.getElementById('headerBadge');
+    if (pendingCount > 0) { b.textContent = pendingCount + ' in attesa'; b.style.display = ''; }
+    else b.style.display = 'none';
+}
+
+function buildCard(p) {
+    const items = p.items || [];
+    const destList = Array.isArray(p.destinazioni) ? p.destinazioni : [];
+
+    let righeHtml = '';
+    if (destList.length > 0) {
+        destList.forEach(dest => {
+            const destItems = items.filter(i => i.destinazione_id === dest.id);
+            righeHtml += `<tr class="dest-header"><td colspan="4">
+                <i class="fas fa-map-marker-alt" style="margin-right:6px;color:#0284c7"></i>
+                ${dest.nome}${dest.indirizzo ? ' — ' + dest.indirizzo : ''}
+            </td></tr>`;
+            if (destItems.length === 0) {
+                righeHtml += `<tr><td colspan="4" style="color:#9ca3af;font-style:italic;padding:8px 12px;font-size:12px">Nessun articolo</td></tr>`;
+            } else {
+                destItems.forEach((r, idx) => {
+                    righeHtml += `<tr style="border-bottom:1px solid #f0fdfa">
+                        <td style="padding:10px 12px;font-size:12px;color:#0f766e;font-family:monospace">${r.codice || '—'}</td>
+                        <td style="padding:10px 12px;font-size:13px;color:#111827;font-weight:600">${r.descrizione || '—'}${r.note ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px">' + r.note + '</div>' : ''}</td>
+                        <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.quantita ?? 0}</td>
+                        <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.um || 'pz'}</td>
+                    </tr>`;
+                });
+            }
+        });
+        // Unassigned
+        const unassigned = items.filter(i => !i.destinazione_id || !destList.find(d => d.id === i.destinazione_id));
+        if (unassigned.length > 0) {
+            righeHtml += `<tr class="dest-header"><td colspan="4" style="background:#f3f4f6;color:#6b7280">
+                <i class="fas fa-question-circle" style="margin-right:6px"></i>Non assegnati
+            </td></tr>`;
+            unassigned.forEach(r => {
+                righeHtml += `<tr style="border-bottom:1px solid #f0fdfa">
+                    <td style="padding:10px 12px;font-size:12px;color:#0f766e;font-family:monospace">${r.codice || '—'}</td>
+                    <td style="padding:10px 12px;font-size:13px;color:#111827;font-weight:600">${r.descrizione || '—'}${r.note ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px">' + r.note + '</div>' : ''}</td>
+                    <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.quantita ?? 0}</td>
+                    <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.um || 'pz'}</td>
+                </tr>`;
+            });
+        }
+    } else {
+        righeHtml = items.map(r => `
+            <tr style="border-bottom:1px solid #f0fdfa">
+                <td style="padding:10px 12px;font-size:12px;color:#0f766e;font-family:monospace">${r.codice || '—'}</td>
+                <td style="padding:10px 12px;font-size:13px;color:#111827;font-weight:600">${r.descrizione || '—'}${r.note ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px">' + r.note + '</div>' : ''}</td>
+                <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.quantita ?? 0}</td>
+                <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.um || 'pz'}</td>
+            </tr>`).join('');
+    }
+
+    const emptyRow = `<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:20px;font-size:13px">Nessun articolo</td></tr>`;
+
+    return `
+    <div class="card" id="card-${p.id}">
+        <div class="card-head">
+            <div>
+                <span class="card-numero">${p.numero}</span>
+                ${p.approvazione_stato === 'modifica_in_attesa' ? '<span style="margin-left:10px;background:rgba(255,255,255,0.25);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.5px">✏️ RICHIESTA MODIFICA</span>' : ''}
+                ${p.approvazione_stato === 'visione_in_attesa' ? '<span style="margin-left:10px;background:rgba(255,255,255,0.25);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.5px">👁️ PRESA VISIONE</span>' : ''}
+            </div>
+            <span class="card-date"><i class="fas fa-calendar-alt" style="margin-right:4px"></i>${fmtD(p.data_richiesta)}</span>
+        </div>
+        <div class="card-body">
+            <div class="info-grid">
+                <div class="info-cell"><label>Fornitore</label><span>${p.fornitore_nome || '—'}</span></div>
+                <div class="info-cell"><label>Risposta Entro</label><span>${fmtD(p.data_risposta_entro)}</span></div>
+                <div class="info-cell" style="grid-column:1/-1"><label>Oggetto</label><span style="font-size:15px">${p.oggetto || '—'}</span></div>
+            </div>
+            <div class="section-title">Articoli Richiesti (${items.length})</div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width:90px">Codice</th>
+                        <th>Descrizione</th>
+                        <th style="width:60px;text-align:center">Q.tà</th>
+                        <th style="width:50px;text-align:center">UM</th>
+                    </tr>
+                </thead>
+                <tbody>${righeHtml || emptyRow}</tbody>
+            </table>
+            ${p.note_interne ? `<div class="note-box"><div class="note-label">Note Interne</div>${p.note_interne}</div>` : ''}
+        </div>
+        <div class="card-foot" id="foot-${p.id}">
+            ${p.approvazione_stato === 'visione_in_attesa' ? `
+            <span class="foot-note">
+                <i class="fas fa-eye" style="margin-right:4px"></i>
+                Conferma di aver preso visione del preventivo
+            </span>
+            <div style="display:flex;gap:10px">
+                <button class="btn-action btn-approve" onclick="agisci('${p.id}','prendi_visione')">
+                    <i class="fas fa-eye"></i> Prendo visione
+                </button>
+            </div>` : `
+            <span class="foot-note">
+                <i class="fas fa-info-circle" style="margin-right:4px"></i>
+                Puoi rifiutare la richiesta ma andr\u00e0 avanti lo stesso se necessario
+            </span>
+            <div style="display:flex;gap:10px">
+                <button class="btn-action btn-reject" onclick="agisci('${p.id}','rifiuta')">
+                    <i class="fas fa-times-circle"></i> Rifiuta
+                </button>
+                <button class="btn-action btn-approve" onclick="agisci('${p.id}','approva')">
+                    <i class="fas fa-check-circle"></i> Approva
+                </button>
+            </div>`}
+        </div>
+    </div>`;
+}
+
+async function load() {
+    if (!session) {
+        setState('Error');
+        document.getElementById('errorMsg').textContent = 'Link non valido: parametro di sessione mancante.';
+        return;
+    }
+    const { data, error } = await db.rpc('get_preventivi_approvazione', { p_token: session });
+    if (error || !data?.ok) {
+        setState('Error');
+        document.getElementById('errorMsg').textContent = data?.err || error?.message || 'Errore caricamento.';
+        return;
+    }
+    const preventivi = data.preventivi || [];
+    pendingCount = preventivi.length;
+    if (data.approvatore_nome) {
+        document.getElementById('headerSub').textContent = 'Ciao, ' + data.approvatore_nome + '! — ZG Impianti';
+    }
+    if (preventivi.length === 0) { setState('Empty'); return; }
+    document.getElementById('cardsList').innerHTML = preventivi.map(buildCard).join('');
+    updateBadge();
+    setState('Cards');
+}
+
+async function agisci(preventivoId, azione) {
+    const foot = document.getElementById('foot-' + preventivoId);
+    const loadingText = azione === 'prendi_visione' ? 'Registrazione presa visione...' : (azione === 'approva' ? 'Approvazione...' : 'Rifiuto...');
+    foot.innerHTML = `<div class="result-overlay"><div class="spinner" style="width:22px;height:22px;margin:0;border-width:3px"></div><span style="color:#6b7280;font-size:13px">${loadingText}</span></div>`;
+
+    const { data, error } = await db.rpc('approva_preventivo_diretto', {
+        p_token: session,
+        p_preventivo_id: preventivoId,
+        p_azione: azione
+    });
+
+    if (error || !data?.ok) {
+        foot.innerHTML = `<div class="result-overlay"><i class="fas fa-exclamation-triangle" style="color:#dc2626"></i><span style="color:#dc2626;font-size:13px">${data?.err || error?.message || 'Errore'}</span></div>`;
+        return;
+    }
+
+    let icon, color, label, sub;
+    if (data.azione === 'prendi_visione') {
+        icon = 'eye'; color = '#0891b2'; label = '👁️ Presa visione registrata!'; sub = '';
+    } else if (data.azione === 'approva') {
+        icon = 'check'; color = '#059669'; label = '✅ Approvata!'; sub = '';
+    } else {
+        icon = 'times'; color = '#dc2626'; label = '❌ Rifiutata'; sub = '<span style="font-size:12px;color:#9ca3af;margin-left:8px">(la richiesta può procedere comunque)</span>';
+    }
+    foot.innerHTML = `<div class="result-overlay">
+        <i class="fas fa-${icon}-circle fa-lg" style="color:${color}"></i>
+        <span style="color:${color};font-size:15px;font-weight:700">${label}</span>
+        ${sub}
+    </div>`;
+
+    const card = document.getElementById('card-' + preventivoId);
+    setTimeout(() => {
+        card.style.transition = 'opacity .5s, transform .5s';
+        card.style.opacity = '0.35';
+        card.style.transform = 'scale(.98)';
+        card.style.pointerEvents = 'none';
+    }, 800);
+
+    pendingCount--;
+    updateBadge();
+    if (pendingCount === 0) {
+        setTimeout(() => { document.getElementById('cardsList').innerHTML = ''; setState('Empty'); }, 1800);
+    }
+}
+
+load();
+
+// Aggiorna automaticamente: polling ogni 20s + al ritorno sul tab
+let _polling;
+function avviaPolling() {
+    clearInterval(_polling);
+    _polling = setInterval(() => {
+        const stato = document.querySelector('.state.active')?.id;
+        if (stato === 'stateCards' || stato === 'stateEmpty') load();
+    }, 20000);
+}
+avviaPolling();
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) load();
+});
+</script>
+</body>
+</html>

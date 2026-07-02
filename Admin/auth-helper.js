@@ -108,20 +108,6 @@ window.AuthHelper = {
             // Carica dati utente
             await this.loadCurrentUser();
 
-            // ✨ VERIFICA PIN se richiesto
-            if (this.currentUser && window.pinVerification && window.pinVerification.requiresPin(this.currentUser)) {
-                console.log('🔐 PIN richiesto per questo utente');
-                try {
-                    await window.pinVerification.requestPin(this.currentUser);
-                    console.log('✅ PIN verificato con successo');
-                } catch (pinError) {
-                    console.error('❌ Verifica PIN fallita:', pinError);
-                    // Logout se PIN non verificato
-                    await this.logout();
-                    throw new Error('Verifica PIN fallita');
-                }
-            }
-
             // Controlla se è primo login
             if (this.currentUser && this.currentUser.first_login) {
                 return { user: this.currentUser, requirePasswordChange: true };

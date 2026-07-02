@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riepilogo Cantieri — AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .card-hover { transition: all 0.22s ease; cursor: pointer; }
+        .card-hover:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.13); }
+        .progress-bar { transition: width 0.6s ease; }
+        .stato-da_fare    { background:#f3f4f6; color:#6b7280; }
+        .stato-in_corso   { background:#dbeafe; color:#1d4ed8; }
+        .stato-revisione  { background:#fef3c7; color:#b45309; }
+        .stato-completato { background:#d1fae5; color:#065f46; }
+        .stato-annullato  { background:#fee2e2; color:#991b1b; }
+        .priority-alta   { border-top: 4px solid #ef4444; }
+        .priority-media  { border-top: 4px solid #f59e0b; }
+        .priority-bassa  { border-top: 4px solid #10b981; }
+        /* Scrollbar modale */
+        .modal-scroll::-webkit-scrollbar { width: 6px; }
+        .modal-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .modal-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        /* Skeleton */
+        .skeleton { background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        /* Timeline figli */
+        .child-item { position: relative; padding-left: 28px; }
+        .child-item::before { content:''; position:absolute; left:10px; top:0; bottom:0; width:2px; background:#e2e8f0; }
+        .child-item:last-child::before { bottom:50%; }
+        .child-dot { position:absolute; left:4px; top:14px; width:14px; height:14px; border-radius:50%; border:3px solid white; box-shadow:0 0 0 2px #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- ── SIDEBAR ───────────────────────────────────────────── -->
+<div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50" id="sidebar">
+    <div class="flex items-center justify-center h-16 gradient-bg">
+        <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+    </div>
+    <nav class="mt-8 overflow-y-auto" style="max-height:calc(100vh - 64px)">
+        <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="home" class="w-5 h-5 mr-3"></i>Dashboard
+        </a>
+        <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="users" class="w-5 h-5 mr-3"></i>Gestione Utenti
+        </a>
+        <a href="gestione-clienti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="building-2" class="w-5 h-5 mr-3"></i>Gestione Clienti
+        </a>
+        <a href="gestione-squadre.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="users-2" class="w-5 h-5 mr-3"></i>Gestione Squadre
+        </a>
+        <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>Gestione Lavorazioni
+        </a>
+        <a href="riepilogo-cantieri.html" class="flex items-center px-6 py-3 bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600 font-semibold">
+            <i data-lucide="layout-grid" class="w-5 h-5 mr-3"></i>Riepilogo Cantieri
+        </a>
+        <a href="archivio-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <i data-lucide="archive" class="w-5 h-5 mr-3"></i>Lavorazioni Archiviate
+        </a>
+        <a href="magazzino-prodotti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="package" class="w-5 h-5 mr-3"></i>Magazzino Prodotti
+        </a>
+        <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>Gestione Richieste
+        </a>
+        <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>Comunicazioni
+        </a>
+    </nav>
+</div>
+
+<!-- ── MAIN ──────────────────────────────────────────────── -->
+<div class="ml-64 p-8">
+
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                <span class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                    <i data-lucide="layout-grid" class="w-6 h-6 text-indigo-600"></i>
+                </span>
+                Riepilogo Cantieri
+            </h2>
+            <p class="text-gray-500 mt-1">Panoramica di tutte le lavorazioni madre — ore, persone, materiali e avanzamento</p>
+        </div>
+        <!-- Ricerca + filtri -->
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                <input id="searchInput" type="text" placeholder="Cerca cantiere o cliente..."
+                       oninput="filterCards()"
+                       class="pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm w-60">
+            </div>
+            <select id="filterStato" onchange="filterCards()"
+                    class="px-3 py-2.5 border border-gray-200 rounded-xl bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <option value="">Tutti gli stati</option>
+                <option value="da_fare">Da fare</option>
+                <option value="in_corso">In corso</option>
+                <option value="revisione">Revisione</option>
+                <option value="completato">Completato</option>
+                <option value="annullato">Annullato</option>
+            </select>
+            <select id="filterPriorita" onchange="filterCards()"
+                    class="px-3 py-2.5 border border-gray-200 rounded-xl bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <option value="">Tutte le priorità</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="bassa">Bassa</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" id="kpiStrip">
+        <div class="skeleton h-20"></div>
+        <div class="skeleton h-20"></div>
+        <div class="skeleton h-20"></div>
+        <div class="skeleton h-20"></div>
+    </div>
+
+    <!-- Grid cantieri -->
+    <div id="cantieriGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <!-- Skeletons -->
+        <div class="skeleton h-52"></div>
+        <div class="skeleton h-52"></div>
+        <div class="skeleton h-52"></div>
+        <div class="skeleton h-52"></div>
+        <div class="skeleton h-52"></div>
+        <div class="skeleton h-52"></div>
+    </div>
+    <p id="emptyMsg" class="hidden text-center text-gray-400 py-20 text-lg">Nessun cantiere trovato</p>
+</div>
+
+<!-- ── MODAL DETTAGLIO ───────────────────────────────────── -->
+<div id="detailModal" class="hidden fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-8"
+     style="background:rgba(0,0,0,0.55);backdrop-filter:blur(4px)"
+     onclick="if(event.target===this)closeModal()">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col modal-scroll"
+         style="max-height:90vh;overflow-y:auto">
+
+        <!-- Modal header (gradient, inserito dinamicamente) -->
+        <div id="modalHeader"></div>
+        <!-- Modal body -->
+        <div id="modalBody" class="p-6 space-y-6"></div>
+        <!-- Modal footer -->
+        <div class="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-between items-center gap-3 rounded-b-2xl">
+            <button onclick="closeModal()"
+                    class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all">
+                ✖ Chiudi
+            </button>
+            <a id="openInGestione" href="#" target="_blank"
+               class="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg flex items-center gap-2">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+                Apri in Gestione Lavorazioni
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── SCRIPT ────────────────────────────────────────────── -->
+<script>
+// ── Costanti e stato
+let allCantieri = [];   // array di oggetti { task, client, assignments, children, components }
+let filteredIds = [];
+
+const STATO_LABELS = {
+    da_fare:'Da fare', in_corso:'In corso', revisione:'Revisione',
+    completato:'Completato', annullato:'Annullato'
+};
+const STATO_ICONS = {
+    da_fare:'circle', in_corso:'play-circle', revisione:'alert-circle',
+    completato:'check-circle-2', annullato:'x-circle'
+};
+const PRIO_COLORS = { alta:'#ef4444', media:'#f59e0b', bassa:'#10b981' };
+const PRIO_BG    = { alta:'#fef2f2', media:'#fffbeb', bassa:'#f0fdf4' };
+
+// ── INIT
+document.addEventListener('DOMContentLoaded', async () => {
+    await AuthHelper.init();
+    lucide.createIcons();
+    await loadCantieri();
+});
+
+// ── CARICAMENTO DATI
+async function loadCantieri() {
+    try {
+        // 1. Tutte le lavorazioni madre (parent_task_id IS NULL, non archiviate)
+        const { data: tasks, error } = await supabaseClient
+            .from('tasks')
+            .select(`
+                id, titolo, descrizione, stato, priorita, progresso,
+                ore_stimate, costo_stimato, scadenza, data_inizio, data_completamento,
+                note_progresso, client_id, assigned_user_id, assigned_team_id,
+                visibile, created_at,
+                clients:client_id (id, ragione_sociale, citta, tipo_cliente),
+                users:assigned_user_id (nome, cognome, ruolo)
+            `)
+            .is('parent_task_id', null)
+            .not('visibile', 'eq', false)    // escludi archiviati/standby
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // 2. Per ogni task: assignments + children + components (in batch)
+        const taskIds = tasks.map(t => t.id);
+
+        const [
+            { data: allAssignments },
+            { data: allComponents },
+            { data: allChildren }
+        ] = await Promise.all([
+            supabaseClient
+                .from('task_assignments')
+                .select('task_id, user_id, ruolo_assegnazione, ore_assegnate, users:user_id(nome,cognome,ruolo,email)')
+                .in('task_id', taskIds),
+            supabaseClient
+                .from('task_components')
+                .select('task_id, quantita, note, components:component_id(nome,codice,categoria,unita_misura,prezzo_unitario)')
+                .in('task_id', taskIds),
+            supabaseClient
+                .from('tasks')
+                .select(`
+                    id, titolo, stato, progresso, ore_stimate, data_inizio, scadenza,
+                    parent_task_id,
+                    task_assignments(user_id, ore_assegnate, ruolo_assegnazione, users:user_id(nome,cognome)),
+                    task_components(quantita, components:component_id(nome,categoria,unita_misura,prezzo_unitario))
+                `)
+                .in('parent_task_id', taskIds)
+                .order('created_at', { ascending: true })
+        ]);
+
+        // Raggruppa per task_id
+        const assignMap  = groupBy(allAssignments  || [], 'task_id');
+        const compMap    = groupBy(allComponents   || [], 'task_id');
+        const childrenMap = groupBy(allChildren    || [], 'parent_task_id');
+
+        allCantieri = tasks.map(task => {
+            const assignments = assignMap[task.id]  || [];
+            const components  = compMap[task.id]    || [];
+            const children    = childrenMap[task.id] || [];
+
+            // Raccoglie anche le assegnazioni dei figli per il totale ore
+            const childAssignments = children.flatMap(c => c.task_assignments || []);
+            const childComponents  = children.flatMap(c => c.task_components  || []);
+
+            // Totale ore: parent assignments + child assignments + ore_stimate fallback
+            const oreParent = assignments.reduce((s,a) => s + (parseFloat(a.ore_assegnate)||0), 0);
+            const oreChild  = childAssignments.reduce((s,a) => s + (parseFloat(a.ore_assegnate)||0), 0);
+            const oreTotali = (oreParent + oreChild) || parseFloat(task.ore_stimate) || 0;
+
+            // Persone uniche (parent + figli)
+            const peopleSet = new Set();
+            [...assignments, ...childAssignments].forEach(a => { if(a.user_id) peopleSet.add(a.user_id); });
+            if (task.assigned_user_id) peopleSet.add(task.assigned_user_id);
+
+            // Progresso medio (parent + children pesato sul conteggio)
+            const allTasks = [task, ...children];
+            const progressoMedio = Math.round(allTasks.reduce((s,t) => s+(t.progresso||0),0) / allTasks.length);
+
+            // Costo materiali
+            const costoMat = [...components, ...childComponents].reduce((s,c) => {
+                return s + ((parseFloat(c.components?.prezzo_unitario)||0) * (c.quantita||1));
+            }, 0);
+
+            return {
+                task, assignments, components, children,
+                childAssignments, childComponents,
+                oreTotali, oreTotaliParent: oreParent, oreTotaliChild: oreChild,
+                personeCount: peopleSet.size,
+                progressoMedio, costoMat,
+                interventiCount: children.length
+            };
+        });
+
+        renderKPI();
+        renderGrid(allCantieri);
+        lucide.createIcons();
+
+    } catch(e) {
+        console.error('❌ Errore loadCantieri:', e);
+        document.getElementById('cantieriGrid').innerHTML =
+            `<div class="col-span-3 text-center py-16 text-red-500">
+                <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto mb-3"></i>
+                <p class="font-semibold">Errore nel caricamento: ${e.message}</p>
+             </div>`;
+        lucide.createIcons();
+    }
+}
+
+// ── KPI
+function renderKPI() {
+    const totali     = allCantieri.length;
+    const inCorso    = allCantieri.filter(c => c.task.stato === 'in_corso').length;
+    const totOre     = allCantieri.reduce((s,c) => s + c.oreTotali, 0);
+    const totPersone = new Set(allCantieri.flatMap(c => {
+        const ids = [...c.assignments, ...c.childAssignments].map(a=>a.user_id).filter(Boolean);
+        if (c.task.assigned_user_id) ids.push(c.task.assigned_user_id);
+        return ids;
+    })).size;
+
+    document.getElementById('kpiStrip').innerHTML = `
+        ${kpiCard('layout-grid','Cantieri Totali', totali,'indigo')}
+        ${kpiCard('play-circle','In Corso', inCorso,'blue')}
+        ${kpiCard('clock','Ore Totali', totOre+'h','amber')}
+        ${kpiCard('hard-hat','Persone Coinvolte', totPersone,'green')}
+    `;
+    lucide.createIcons();
+}
+
+function kpiCard(icon, label, value, color) {
+    const map = {
+        indigo:'from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700',
+        blue:'from-blue-50 to-blue-100 border-blue-200 text-blue-700',
+        amber:'from-amber-50 to-amber-100 border-amber-200 text-amber-700',
+        green:'from-green-50 to-green-100 border-green-200 text-green-700'
+    };
+    return `
+        <div class="bg-gradient-to-br ${map[color]} border rounded-2xl p-4 flex items-center gap-4 fade-in">
+            <div class="w-12 h-12 rounded-xl bg-white bg-opacity-60 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="${icon}" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-bold">${value}</div>
+                <div class="text-xs font-medium opacity-75">${label}</div>
+            </div>
+        </div>`;
+}
+
+// ── RENDER GRID
+function renderGrid(cantieri) {
+    const grid = document.getElementById('cantieriGrid');
+    const empty = document.getElementById('emptyMsg');
+    if (!cantieri.length) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    grid.innerHTML = cantieri.map(c => buildCard(c)).join('');
+    lucide.createIcons();
+}
+
+function buildCard(c) {
+    const { task, oreTotali, personeCount, progressoMedio, interventiCount } = c;
+    const stato = task.stato || 'da_fare';
+    const prio  = task.priorita || 'media';
+    const cliente = task.clients?.ragione_sociale || 'Nessun cliente';
+    const citta   = task.clients?.citta ? ` — ${task.clients.citta}` : '';
+
+    const progColor = progressoMedio >= 80 ? '#10b981' : progressoMedio >= 40 ? '#f59e0b' : '#6366f1';
+
+    return `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover priority-${prio} fade-in"
+         onclick="openDetail('${task.id}')">
+
+        <!-- Top row: stato + priorità -->
+        <div class="flex items-start justify-between mb-3">
+            <span class="stato-${stato} text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <i data-lucide="${STATO_ICONS[stato]}" class="w-3.5 h-3.5"></i>
+                ${STATO_LABELS[stato]}
+            </span>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style="background:${PRIO_BG[prio]};color:${PRIO_COLORS[prio]}">
+                ${prio.charAt(0).toUpperCase()+prio.slice(1)}
+            </span>
+        </div>
+
+        <!-- Titolo -->
+        <h3 class="font-bold text-gray-800 text-base leading-snug mb-1 line-clamp-2">${task.titolo}</h3>
+        <p class="text-xs text-gray-400 mb-4 truncate">
+            <i data-lucide="building-2" class="w-3 h-3 inline mr-1"></i>${cliente}${citta}
+        </p>
+
+        <!-- Progresso -->
+        <div class="mb-4">
+            <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Avanzamento medio</span>
+                <span class="font-bold" style="color:${progColor}">${progressoMedio}%</span>
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full progress-bar" style="width:${progressoMedio}%;background:${progColor}"></div>
+            </div>
+        </div>
+
+        <!-- Stats pillole -->
+        <div class="flex flex-wrap gap-2">
+            <span class="flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-medium">
+                <i data-lucide="clock" class="w-3 h-3"></i>${oreTotali}h
+            </span>
+            <span class="flex items-center gap-1 text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                <i data-lucide="users" class="w-3 h-3"></i>${personeCount} ${personeCount===1?'persona':'persone'}
+            </span>
+            ${interventiCount > 0 ? `
+            <span class="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 px-2.5 py-1 rounded-full font-medium">
+                <i data-lucide="link" class="w-3 h-3"></i>${interventiCount} interventi
+            </span>` : ''}
+            ${task.scadenza ? `
+            <span class="flex items-center gap-1 text-xs ${isScaduta(task.scadenza) ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'} px-2.5 py-1 rounded-full font-medium">
+                <i data-lucide="calendar" class="w-3 h-3"></i>${fmtDate(task.scadenza)}
+            </span>` : ''}
+        </div>
+    </div>`;
+}
+
+// ── FILTRO
+function filterCards() {
+    const q    = document.getElementById('searchInput').value.toLowerCase();
+    const stato = document.getElementById('filterStato').value;
+    const prio  = document.getElementById('filterPriorita').value;
+
+    const filtered = allCantieri.filter(c => {
+        const t = c.task;
+        const matchQ = !q ||
+            (t.titolo||'').toLowerCase().includes(q) ||
+            (t.clients?.ragione_sociale||'').toLowerCase().includes(q) ||
+            (t.clients?.citta||'').toLowerCase().includes(q);
+        const matchS = !stato  || t.stato    === stato;
+        const matchP = !prio   || t.priorita === prio;
+        return matchQ && matchS && matchP;
+    });
+    renderGrid(filtered);
+}
+
+// ── MODAL DETTAGLIO
+async function openDetail(taskId) {
+    const c = allCantieri.find(x => x.task.id === taskId);
+    if (!c) return;
+
+    const { task, assignments, components, children,
+            childAssignments, childComponents,
+            oreTotali, oreTotaliParent, oreTotaliChild,
+            personeCount, progressoMedio, costoMat } = c;
+
+    const stato = task.stato || 'da_fare';
+    const prio  = task.priorita || 'media';
+    const progColor = progressoMedio >= 80 ? '#10b981' : progressoMedio >= 40 ? '#f59e0b' : '#6366f1';
+
+    // ── Header modale
+    const gradients = {
+        da_fare:'from-gray-500 to-gray-600',
+        in_corso:'from-blue-600 to-indigo-600',
+        revisione:'from-amber-500 to-orange-500',
+        completato:'from-emerald-500 to-green-600',
+        annullato:'from-red-500 to-rose-600'
+    };
+    document.getElementById('modalHeader').innerHTML = `
+        <div class="bg-gradient-to-r ${gradients[stato]} p-6 rounded-t-2xl">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-white bg-opacity-20 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                            ${STATO_LABELS[stato]}
+                        </span>
+                        <span class="bg-white bg-opacity-20 text-white text-xs font-semibold px-2.5 py-1 rounded-full"
+                              style="background:${PRIO_BG[prio]};color:${PRIO_COLORS[prio]}">
+                            Priorità ${prio}
+                        </span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white break-words">${task.titolo}</h2>
+                    ${task.clients ? `
+                    <p class="text-white text-opacity-80 text-sm mt-1 flex items-center gap-1.5 opacity-90">
+                        <i data-lucide="building-2" class="w-4 h-4"></i>
+                        ${task.clients.ragione_sociale}${task.clients.citta ? ' — '+task.clients.citta : ''}
+                    </p>` : ''}
+                </div>
+                <button onclick="closeModal()"
+                        class="flex-shrink-0 w-9 h-9 rounded-xl bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-white transition-all border border-white border-opacity-30">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <!-- Progress bar header -->
+            <div class="mt-4">
+                <div class="flex justify-between text-xs text-white text-opacity-80 mb-1">
+                    <span>Avanzamento complessivo</span>
+                    <span class="font-bold text-white">${progressoMedio}%</span>
+                </div>
+                <div class="h-2.5 bg-white bg-opacity-20 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full bg-white" style="width:${progressoMedio}%"></div>
+                </div>
+            </div>
+        </div>`;
+
+    // ── Raccoglie tutte le persone (parent + figli deduplicato)
+    const peopleMap = {};
+    [...assignments, ...childAssignments].forEach(a => {
+        if (!a.users && !a.user_id) return;
+        const uid = a.user_id;
+        if (!peopleMap[uid]) {
+            peopleMap[uid] = { ...a.users, uid, oreTotal: 0, ruoli: new Set() };
+        }
+        peopleMap[uid].oreTotal += parseFloat(a.ore_assegnate) || 0;
+        if (a.ruolo_assegnazione) peopleMap[uid].ruoli.add(a.ruolo_assegnazione);
+    });
+    if (task.users && task.assigned_user_id && !peopleMap[task.assigned_user_id]) {
+        peopleMap[task.assigned_user_id] = {
+            ...task.users, uid: task.assigned_user_id,
+            oreTotal: parseFloat(task.ore_stimate) || 0, ruoli: new Set(['assegnato'])
+        };
+    }
+    const persone = Object.values(peopleMap);
+
+    // Colori avatar
+    const avatarColors = ['#6366f1','#8b5cf6','#ec4899','#0ea5e9','#10b981','#f59e0b','#ef4444','#14b8a6'];
+    function avatarColor(i) { return avatarColors[i % avatarColors.length]; }
+
+    // ── Team HTML
+    const teamHTML = persone.length ? `
+        <div>
+            <h3 class="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2 uppercase tracking-wide">
+                <i data-lucide="users" class="w-4 h-4 text-purple-600"></i>
+                Team (${persone.length} ${persone.length===1?'persona':'persone'})
+                <span class="ml-auto font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full text-xs normal-case">
+                    ⏱ ${oreTotali}h totali
+                </span>
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                ${persone.map((p, i) => `
+                    <div class="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl p-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                                 style="background:${avatarColor(i)}">
+                                ${(p.nome||'?')[0]}${(p.cognome||'?')[0]}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-800 text-sm">${p.nome||''} ${p.cognome||''}</div>
+                                <div class="text-xs text-gray-400">${p.ruolo||''} ${p.ruoli.size ? '· '+[...p.ruoli].join(', ') : ''}</div>
+                            </div>
+                        </div>
+                        <div class="text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg flex-shrink-0">
+                            ${p.oreTotal > 0 ? p.oreTotal+'h' : '—'}
+                        </div>
+                    </div>`).join('')}
+            </div>
+            ${oreTotaliParent > 0 && oreTotaliChild > 0 ? `
+            <div class="mt-2 text-xs text-gray-400 flex gap-3">
+                <span>Padre: <strong>${oreTotaliParent}h</strong></span>
+                <span>Interventi figli: <strong>${oreTotaliChild}h</strong></span>
+            </div>` : ''}
+        </div>` : `<p class="text-gray-400 text-sm italic">Nessuna persona assegnata</p>`;
+
+    // ── Materiali HTML
+    const allMat = [
+        ...components.map(c => ({...c, origine:'padre'})),
+        ...childComponents.map(c => ({...c, origine:'figlio'}))
+    ];
+    const matHTML = allMat.length ? `
+        <div>
+            <h3 class="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2 uppercase tracking-wide">
+                <i data-lucide="package" class="w-4 h-4 text-orange-500"></i>
+                Materiali (${allMat.length} voci)
+                ${costoMat > 0 ? `<span class="ml-auto font-bold text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full text-xs normal-case">€${costoMat.toFixed(2)}</span>` : ''}
+            </h3>
+            <div class="overflow-x-auto rounded-xl border border-gray-100">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Materiale</th>
+                            <th class="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Cat.</th>
+                            <th class="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Qtà</th>
+                            <th class="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Costo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allMat.map(m => {
+                            const comp = m.components || {};
+                            const costo = (parseFloat(comp.prezzo_unitario)||0) * (m.quantita||1);
+                            return `<tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                                <td class="px-3 py-2">
+                                    <span class="font-medium text-gray-800">${comp.nome||'—'}</span>
+                                    ${m.origine==='figlio'?'<span class="ml-1 text-xs text-orange-400 bg-orange-50 px-1.5 rounded">figlio</span>':''}
+                                </td>
+                                <td class="px-3 py-2 text-gray-400 text-xs">${comp.categoria||'—'}</td>
+                                <td class="px-3 py-2 text-center font-medium">${m.quantita||1} ${comp.unita_misura||'pz'}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-gray-700">${costo>0?'€'+costo.toFixed(2):'—'}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>` : '';
+
+    // ── Interventi figli HTML
+    const figlioStato = {
+        da_fare:    {dot:'#94a3b8', bg:'#f8fafc'},
+        in_corso:   {dot:'#3b82f6', bg:'#eff6ff'},
+        revisione:  {dot:'#f59e0b', bg:'#fffbeb'},
+        completato: {dot:'#10b981', bg:'#f0fdf4'},
+        annullato:  {dot:'#ef4444', bg:'#fef2f2'}
+    };
+    const interventiHTML = children.length ? `
+        <div>
+            <h3 class="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2 uppercase tracking-wide">
+                <i data-lucide="git-branch" class="w-4 h-4 text-blue-500"></i>
+                Interventi Collegati (${children.length})
+            </h3>
+            <div class="space-y-2">
+                ${children.map(ch => {
+                    const s = figlioStato[ch.stato] || figlioStato.da_fare;
+                    const chOre = (ch.task_assignments||[]).reduce((sum,a)=>sum+(parseFloat(a.ore_assegnate)||0),0)
+                                  || parseFloat(ch.ore_stimate) || 0;
+                    const chPeople = (ch.task_assignments||[]).map(a=>a.users).filter(Boolean);
+                    return `
+                        <div class="child-item">
+                            <div class="child-dot" style="background:${s.dot}"></div>
+                            <div class="rounded-xl border border-gray-100 p-3 ml-1" style="background:${s.bg}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-semibold text-gray-800 text-sm truncate">${ch.titolo}</div>
+                                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                            <span class="text-xs text-gray-400">${STATO_LABELS[ch.stato]||ch.stato}</span>
+                                            ${ch.data_inizio ? `<span class="text-xs text-gray-400">Dal ${fmtDate(ch.data_inizio)}</span>` : ''}
+                                            ${ch.scadenza ? `<span class="text-xs text-gray-400">→ ${fmtDate(ch.scadenza)}</span>` : ''}
+                                        </div>
+                                        ${chPeople.length ? `
+                                        <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                                            ${chPeople.map(u=>`<span class="text-xs bg-white border border-gray-200 px-1.5 py-0.5 rounded-md text-gray-600">${u.nome} ${u.cognome}</span>`).join('')}
+                                        </div>` : ''}
+                                    </div>
+                                    <div class="flex-shrink-0 flex flex-col items-end gap-1">
+                                        ${chOre > 0 ? `<span class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-lg">${chOre}h</span>` : ''}
+                                        ${ch.progresso > 0 ? `<span class="text-xs font-semibold" style="color:${figlioStato[ch.stato]?.dot||'#94a3b8'}">${ch.progresso}%</span>` : ''}
+                                    </div>
+                                </div>
+                                ${ch.progresso > 0 ? `
+                                <div class="mt-2 h-1.5 bg-white bg-opacity-60 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full progress-bar" style="width:${ch.progresso}%;background:${s.dot}"></div>
+                                </div>` : ''}
+                            </div>
+                        </div>`;
+                }).join('')}
+            </div>
+        </div>` : '';
+
+    // ── Stats grid
+    const statsHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            ${statCard('clock','Ore Totali',oreTotali+'h','blue')}
+            ${statCard('users','Persone',personeCount,'purple')}
+            ${statCard('link','Interventi',children.length,'orange')}
+            ${statCard('trending-up','Progresso',progressoMedio+'%','green')}
+        </div>
+        ${task.costo_stimato || costoMat > 0 ? `
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            ${task.costo_stimato ? statCard('euro','Costo Stimato','€'+task.costo_stimato,'emerald') : ''}
+            ${costoMat > 0 ? statCard('package','Costo Materiali','€'+costoMat.toFixed(2),'teal') : ''}
+        </div>` : ''}`;
+
+    function statCard(icon, label, val, color) {
+        const map = {
+            blue:'bg-blue-50 border-blue-200 text-blue-800',
+            purple:'bg-purple-50 border-purple-200 text-purple-800',
+            orange:'bg-orange-50 border-orange-200 text-orange-800',
+            green:'bg-green-50 border-green-200 text-green-800',
+            emerald:'bg-emerald-50 border-emerald-200 text-emerald-800',
+            teal:'bg-teal-50 border-teal-200 text-teal-800'
+        };
+        return `
+            <div class="border rounded-xl p-3 text-center ${map[color]}">
+                <i data-lucide="${icon}" class="w-5 h-5 mx-auto mb-1 opacity-70"></i>
+                <div class="text-xl font-bold">${val}</div>
+                <div class="text-xs font-medium opacity-70">${label}</div>
+            </div>`;
+    }
+
+    // ── Date e note
+    const datesHTML = (task.data_inizio || task.scadenza || task.data_completamento) ? `
+        <div class="flex flex-wrap gap-3 text-sm">
+            ${task.data_inizio ? `<span class="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-gray-600"><i data-lucide="calendar-plus" class="w-4 h-4 text-green-500"></i>Inizio: <strong>${fmtDate(task.data_inizio)}</strong></span>` : ''}
+            ${task.scadenza ? `<span class="flex items-center gap-1.5 ${isScaduta(task.scadenza)?'bg-red-50 border-red-200 text-red-600':'bg-gray-50 border-gray-200 text-gray-600'} border px-3 py-1.5 rounded-lg"><i data-lucide="calendar-x" class="w-4 h-4"></i>Scadenza: <strong>${fmtDate(task.scadenza)}</strong></span>` : ''}
+            ${task.data_completamento ? `<span class="flex items-center gap-1.5 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg text-green-700"><i data-lucide="check-circle-2" class="w-4 h-4"></i>Completato: <strong>${fmtDate(task.data_completamento)}</strong></span>` : ''}
+        </div>` : '';
+
+    const descHTML = task.descrizione ? `
+        <div class="bg-gray-50 border border-gray-100 rounded-xl p-4">
+            <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Descrizione</h4>
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${task.descrizione}</p>
+        </div>` : '';
+
+    const noteHTML = task.note_progresso ? `
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <h4 class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <i data-lucide="clipboard-pen" class="w-3.5 h-3.5"></i>Note Progresso
+            </h4>
+            <p class="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap">${task.note_progresso}</p>
+        </div>` : '';
+
+    // ── Componi body
+    document.getElementById('modalBody').innerHTML = [
+        statsHTML,
+        datesHTML,
+        descHTML,
+        teamHTML,
+        interventiHTML,
+        matHTML,
+        noteHTML
+    ].filter(Boolean).join('');
+
+    // Link footer
+    document.getElementById('openInGestione').href = `gestione-lavorazioni.html`;
+
+    // Mostra modale
+    document.getElementById('detailModal').classList.remove('hidden');
+    lucide.createIcons();
+}
+
+function closeModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+// ── Utilities
+function groupBy(arr, key) {
+    return (arr || []).reduce((acc, item) => {
+        const k = item[key];
+        if (k) { if (!acc[k]) acc[k] = []; acc[k].push(item); }
+        return acc;
+    }, {});
+}
+
+function fmtDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return dt.toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function isScaduta(d) {
+    return d && new Date(d) < new Date() ? true : false;
+}
+</script>
+</body>
+</html>

@@ -90,6 +90,18 @@
                 Comunicazioni
                 <span id="deletionsBadge" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full hidden">0</span>
             </a>
+            <a href="note.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+                <i data-lucide="sticky-note" class="w-5 h-5 mr-3"></i>
+                Note
+            </a>
+            <a href="richiesta-ordine-interna.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>
+                Preventivi Interni
+            </a>
+            <a href="qr-builder.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                <i data-lucide="qr-code" class="w-5 h-5 mr-3"></i>
+                QR Builder
+            </a>
         </nav>
     </div>
 
@@ -601,6 +613,16 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
+            // ── Leggi filtro URL PRIMA di tutto ──
+            const _urlFilter = new URLSearchParams(window.location.search).get('filter');
+            if (_urlFilter === 'note') {
+                history.replaceState({}, '', window.location.pathname);
+                const statusEl = document.getElementById('statusFilter');
+                if (statusEl) statusEl.value = 'bozza';
+                const h2 = document.querySelector('h2');
+                if (h2) h2.textContent = 'Le mie Note 🗒️';
+            }
+
             // Check if user is logged in and is admin
             const currentUser = window.AuthHelper.getCurrentUser();
             
@@ -634,6 +656,9 @@
                 const commElement = createCommunicationElement(comm);
                 communicationsList.appendChild(commElement);
             });
+
+            lucide.createIcons();
+            window.dispatchEvent(new Event('communicationsLoaded'));
         }
 
         function createCommunicationElement(comm) {
@@ -742,6 +767,9 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
+                        <button onclick="showCommQr('${comm.id}', \`${(comm.titolo||'Comunicazione').replace(/`/g,"'")}\`)" class="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="QR Code">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                        </button>
                         <button onclick="viewCommunication('${comm.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Visualizza">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
@@ -759,6 +787,15 @@
                     </div>
                 </div>
             `;
+
+            // Click sulla card (fuori dai bottoni) → apre QR modale della nota
+            commDiv.style.cursor = 'pointer';
+            commDiv.addEventListener('click', function(e) {
+                if (!e.target.closest('button')) {
+                    const safeTitle = (comm.titolo || 'Nota').replace(/`/g, "'");
+                    showCommQr(comm.id, safeTitle);
+                }
+            });
 
             return commDiv;
         }
@@ -2305,6 +2342,64 @@
             
             lucide.createIcons();
         }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Modal QR Nota -->
+    <div id="commQrModal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="qr-code" class="w-5 h-5 text-purple-600"></i>
+                    <span id="commQrTitle">—</span>
+                </h3>
+                <button onclick="closeCommQr()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-4">Scansiona per aprire questa comunicazione</p>
+            <div id="commQrCanvas" class="flex justify-center mb-4"></div>
+            <button onclick="printCommQr()" class="w-full py-2.5 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 flex items-center justify-center gap-2">
+                <i data-lucide="printer" class="w-4 h-4"></i> Stampa
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let _commQrInstance = null;
+        function showCommQr(id, title) {
+            const url = `https://ast-panel.vercel.app/comunicazioni.html?nota=${encodeURIComponent(id)}`;
+            document.getElementById('commQrTitle').textContent = title;
+            const c = document.getElementById('commQrCanvas');
+            c.innerHTML = '';
+            _commQrInstance = new QRCode(c, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+            document.getElementById('commQrModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+        function closeCommQr() {
+            document.getElementById('commQrModal').classList.add('hidden');
+            document.getElementById('commQrCanvas').innerHTML = '';
+        }
+        function printCommQr() {
+            const title = document.getElementById('commQrTitle').textContent;
+            const img = document.querySelector('#commQrCanvas img');
+            if (!img) return;
+            const w = window.open('','_blank');
+            w.document.write(`<!DOCTYPE html><html><head><title>QR</title>
+            <style>body{font-family:Arial;text-align:center;padding:30px;}img{width:210px;height:210px;}h2{margin-top:12px;}</style>
+            </head><body><img src="${img.src}"><h2>${title}</h2>
+            <script>window.onload=()=>window.print();<\/script></body></html>`);
+            w.document.close();
+        }
+        // Handle ?nota= param on load
+        (function() {
+            const notaId = new URLSearchParams(window.location.search).get('nota');
+            if (notaId) {
+                history.replaceState({}, '', window.location.pathname);
+                window.addEventListener('communicationsLoaded', () => {
+                    setTimeout(() => { if (typeof viewCommunication === 'function') viewCommunication(notaId); }, 300);
+                });
+            }
+        })();
     </script>
 </body>
 </html>

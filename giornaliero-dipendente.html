@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giornata Dipendente - ZG Impianti</title>
+  <link rel="manifest" href="/manifest-dipendente.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="La Mia Giornata">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-client.js"></script>
+  <script src="/push-manager.js"></script>
+  <script src="/linked-tasks.js"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    
+    /* ===== TIMELINE ===== */
+    .event-block {
+      position: absolute;
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: opacity 0.12s, transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      z-index: 5;
+    }
+    .event-block:hover {
+      opacity: 0.92;
+      transform: translateX(2px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.14);
+      z-index: 20;
+    }
+    .event-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-time  { font-size: 10px; opacity: 0.75; margin-top: 1px; }
+    .event-note  { font-size: 10px; opacity: 0.65; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* Riga oraria cliccabile */
+    .hour-row {
+      position: absolute;
+      left: 0; right: 0;
+      cursor: pointer;
+      transition: background 0.1s;
+      z-index: 1;
+    }
+    .hour-row:hover { background: rgba(99,102,241,0.04); }
+    .hour-row:hover .add-hint { opacity: 1; }
+    .add-hint {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: #a5b4fc;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      user-select: none;
+    }
+
+    /* Linea ora corrente */
+    .now-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: #ef4444;
+      z-index: 15;
+    }
+    .now-dot {
+      position: absolute;
+      left: -5px; top: -5px;
+      width: 10px; height: 10px;
+      background: #ef4444;
+      border-radius: 50%;
+    }
+
+    /* ===== PRINT ===== */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      .event-block { box-shadow: none; border: 1px solid #ccc; }
+      #timelineWrapper { box-shadow: none; border: 1px solid #ddd; }
+    }
+
+    /* Scrollbar custom */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Tipo btn active */
+    .tipo-btn.active {
+      border-color: #6366f1 !important;
+      background: #eef2ff !important;
+      box-shadow: 0 0 0 2px #c7d2fe;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-gray-900">
+
+<!-- ===================== HEADER ===================== -->
+<header class="sticky top-0 bg-white border-b border-gray-200 shadow-sm z-50 no-print">
+  <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-3 flex-wrap">
+    <!-- Logo + titolo -->
+    <div class="flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-8 h-8 bg-gradient-to-br from-emerald-600 to-green-700 rounded-lg flex items-center justify-center shadow-sm">
+        <span class="text-white font-black text-xs">ZG</span>
+      </div>
+      <div>
+        <div class="font-bold text-gray-800 text-sm leading-none">Giornata Dipendente</div>
+        <div class="text-xs text-gray-400 leading-none mt-0.5">Vista giornaliera</div>
+      </div>
+    </div>
+
+    <!-- Date picker -->
+    <div class="flex items-center gap-1 no-print">
+      <button onclick="prevDay()" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors" title="Giorno precedente">
+        <i data-lucide="chevron-left" class="w-4 h-4 text-gray-500"></i>
+      </button>
+      <div class="relative">
+        <button id="datePickerBtn" onclick="toggleDatePicker()" class="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-blue-100 transition-colors">
+          <i data-lucide="calendar" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+          <span id="datePickerDisplay" class="text-sm font-semibold text-blue-800 min-w-[110px] text-center">—</span>
+        </button>
+        <input type="date" id="datePicker" class="sr-only" onchange="onDateChange()">
+        <!-- Custom calendar popover -->
+        <div id="datePickerPopover" class="hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 p-3 select-none" style="min-width:288px">
+          <!-- Month nav -->
+          <div class="flex items-center justify-between mb-2 px-1">
+            <button onclick="dpPrev(); event.stopPropagation();" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xl transition-colors">‹</button>
+            <span id="dpMonthTitle" class="text-sm font-bold text-gray-800"></span>
+            <button onclick="dpNext(); event.stopPropagation();" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xl transition-colors">›</button>
+          </div>
+          <!-- Weekday headers -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;">
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0">Lu</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0">Ma</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0">Me</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0">Gi</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0">Ve</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#f87171;padding:4px 0">Sa</div>
+            <div style="text-align:center;font-size:11px;font-weight:600;color:#f87171;padding:4px 0">Do</div>
+          </div>
+          <!-- Days grid -->
+          <div id="dpGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px 0;"></div>
+          <!-- Quick shortcuts -->
+          <div class="flex gap-2 mt-3 pt-2.5 border-t border-gray-100">
+            <button onclick="dpSelect(new Date().toISOString().split('T')[0]); event.stopPropagation();" class="flex-1 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors">Oggi</button>
+            <button onclick="dpSelectOffset(-1); event.stopPropagation();" class="flex-1 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg transition-colors">Ieri</button>
+            <button onclick="dpSelectOffset(1); event.stopPropagation();" class="flex-1 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg transition-colors">Domani</button>
+          </div>
+        </div>
+      </div>
+      <button onclick="nextDay()" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors" title="Giorno successivo">
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-500"></i>
+      </button>
+    </div>
+
+    <!-- Dipendente picker -->
+    <div class="flex items-center gap-1.5 bg-violet-50 border border-violet-200 rounded-lg px-3 py-1.5 flex-1 min-w-[180px] max-w-xs">
+      <i data-lucide="user-circle" class="w-4 h-4 text-violet-500 flex-shrink-0"></i>
+      <select id="dipendentePicker" onchange="loadGiornata()" class="bg-transparent text-sm font-semibold text-violet-800 outline-none cursor-pointer flex-1 min-w-0">
+        <option value="">-- Dipendente --</option>
+      </select>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2 ml-auto no-print">
+      <button onclick="openAddBlockModal(null)" class="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm" style="background-color:#4f46e5;color:#fff;">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Blocco</span>
+      </button>
+      <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm" style="background-color:#4b5563;color:#fff;">
+        <i data-lucide="printer" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Stampa</span>
+      </button>
+      <a href="/calendario-admin.html" class="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-lg transition-colors">
+        <i data-lucide="calendar-days" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Calendario</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== DAY INFO BAR ===================== -->
+<div class="max-w-7xl mx-auto px-4 pt-4 pb-2">
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3 flex-wrap">
+    <div id="dayInfoTitle" class="text-sm text-gray-700 flex-1">
+      <span class="text-gray-500">Seleziona un dipendente per visualizzare la giornata</span>
+    </div>
+    <div id="dayStats" class="flex items-center gap-2 flex-wrap"></div>
+  </div>
+</div>
+
+<!-- ===================== ALL-DAY TASKS ===================== -->
+<div id="allDaySection" class="max-w-7xl mx-auto px-4 pb-2 hidden">
+  <div class="bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100">
+      <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-amber-600"></i>
+      <span class="text-xs font-bold text-amber-700 uppercase tracking-wide">Lavorazioni senza orario</span>
+    </div>
+    <div id="allDayContent" class="px-4 py-2.5 flex flex-wrap gap-2"></div>
+  </div>
+</div>
+
+<!-- ===================== TIMELINE ===================== -->
+<div class="max-w-7xl mx-auto px-4 pb-10">
+
+  <!-- Loading -->
+  <div id="loadingSpinner" class="flex items-center justify-center py-20 hidden">
+    <div class="w-8 h-8 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+    <span class="ml-3 text-gray-500 text-sm">Caricamento...</span>
+  </div>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="hidden flex-col items-center justify-center py-24 text-center">
+    <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="calendar-x" class="w-9 h-9 text-gray-500"></i>
+    </div>
+    <div class="text-lg font-semibold text-gray-700">Nessuna attività programmata</div>
+    <div class="text-sm text-gray-500 mt-1">Clicca su una fascia oraria o "Blocco" per aggiungere</div>
+    <button onclick="openAddBlockModal(8)" class="mt-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors mx-auto" style="background-color:#4f46e5;color:#fff;">
+      <i data-lucide="plus" class="w-4 h-4"></i> Aggiungi Blocco
+    </button>
+  </div>
+
+  <!-- Timeline wrapper -->
+  <div id="timelineWrapper" class="hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-y-auto" style="max-height: 80vh;">
+      <div class="flex" style="min-width: 420px;">
+        <!-- Time labels -->
+        <div id="timeLabels" class="flex-shrink-0 border-r border-gray-200 bg-gray-50/70 select-none" style="width: 56px;"></div>
+        <!-- Events area -->
+        <div id="eventsArea" class="flex-1 relative"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADD/EDIT BLOCK MODAL ===================== -->
+<div id="addBlockModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] hidden p-4 no-print">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in">
+    <!-- Modal header -->
+    <div class="bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-4" style="background-color:#4f46e5;">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 id="modalTitle" class="text-white font-bold text-base">Aggiungi Blocco</h3>
+          <div id="modalDateInfo" class="text-indigo-200 text-xs mt-0.5"></div>
+        </div>
+        <button onclick="closeAddBlockModal()" class="text-white/60 hover:text-white transition-colors -mt-0.5">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal body -->
+    <div class="p-5 space-y-4">
+      <!-- Tipo presets -->
+      <div>
+        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Tipo attività</label>
+        <div class="grid grid-cols-4 gap-1.5">
+          <button type="button" onclick="setTipoPreset('magazzino')" data-tipo="magazzino" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all">
+            <i data-lucide="warehouse" class="w-4 h-4 text-blue-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Magazzino</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('cantiere')" data-tipo="cantiere" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all">
+            <i data-lucide="hard-hat" class="w-4 h-4 text-red-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Cantiere</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('riunione')" data-tipo="riunione" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-all">
+            <i data-lucide="users" class="w-4 h-4 text-violet-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Riunione</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('trasferta')" data-tipo="trasferta" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all">
+            <i data-lucide="truck" class="w-4 h-4 text-orange-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Trasferta</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('ufficio')" data-tipo="ufficio" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all">
+            <i data-lucide="building-2" class="w-4 h-4 text-indigo-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Ufficio</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('formazione')" data-tipo="formazione" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all">
+            <i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Formazione</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('pausa')" data-tipo="pausa" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all">
+            <i data-lucide="coffee" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Pausa</span>
+          </button>
+          <button type="button" onclick="setTipoPreset('altro')" data-tipo="altro" class="tipo-btn flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-all">
+            <i data-lucide="tag" class="w-4 h-4 text-amber-500"></i>
+            <span class="text-xs font-semibold text-gray-800 leading-none mt-0.5">Altro</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Titolo -->
+      <div>
+        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Titolo *</label>
+        <input type="text" id="blockTitolo" placeholder="es. Preparazione ordini, Sopralluogo..." 
+               class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none transition-colors">
+      </div>
+
+      <!-- Orari -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Ora inizio *</label>
+          <input type="time" id="blockOraInizio" 
+                 class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Ora fine *</label>
+          <input type="time" id="blockOraFine"
+                 class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none transition-colors">
+        </div>
+      </div>
+
+      <!-- Note -->
+      <div>
+        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Note <span class="font-normal text-gray-500">(opzionali)</span></label>
+        <textarea id="blockNote" rows="2" placeholder="Dettagli aggiuntivi..."
+                  class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none transition-colors resize-none"></textarea>
+      </div>
+
+      <input type="hidden" id="blockEditId">
+    </div>
+
+    <!-- Modal footer -->
+    <div class="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-2">
+      <button id="deleteBlockBtn" onclick="" class="hidden px-3 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-semibold text-sm transition-colors flex items-center gap-1.5">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+      <button onclick="closeAddBlockModal()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold text-sm transition-colors">
+        Annulla
+      </button>
+      <button onclick="saveBlock()" id="saveBlockBtn" class="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2" style="background-color:#4f46e5;color:#fff;">
+        <i data-lucide="save" class="w-4 h-4"></i> Salva
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SCRIPTS ===================== -->
+<script>
+// =====================================================
+// GIORNATA DIPENDENTE
+// =====================================================
+
+const db = window.supabaseAdmin;
+
+// Costanti timeline
+const HOUR_PX    = 80;   // px per ora
+const START_HOUR = 6;    // 06:00
+const END_HOUR   = 22;   // 22:00
+const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+// Colori per tipo blocco
+const TIPO_CFG = {
+  magazzino:  { label: 'Magazzino',  bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
+  cantiere:   { label: 'Cantiere',   bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
+  riunione:   { label: 'Riunione',   bg: '#ede9fe', border: '#8b5cf6', text: '#6d28d9' },
+  trasferta:  { label: 'Trasferta',  bg: '#ffedd5', border: '#f97316', text: '#c2410c' },
+  ufficio:    { label: 'Ufficio',    bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
+  formazione: { label: 'Formazione', bg: '#d1fae5', border: '#10b981', text: '#065f46' },
+  pausa:      { label: 'Pausa',      bg: '#f3f4f6', border: '#9ca3af', text: '#4b5563' },
+  altro:      { label: 'Altro',      bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+};
+
+// Colori per priorità task
+const PRIO_CFG = {
+  bassa:  { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
+  media:  { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+  alta:   { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
+};
+
+// Stato
+let currentDate = new Date().toISOString().split('T')[0];
+let currentDipId = null;
+let dipendenti   = [];
+let allTasks     = [];
+let allBlocchi   = [];
+let selectedTipo = 'altro';
+
+// ===================== CUSTOM DATE PICKER =====================
+const DP_MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+let _dpYear = new Date().getFullYear();
+let _dpMonth = new Date().getMonth();
+let _dpOpen = false;
+
+function dpUpdateDisplay() {
+  const d = new Date(currentDate + 'T12:00:00');
+  const day = String(d.getDate()).padStart(2,'0');
+  const month = String(d.getMonth()+1).padStart(2,'0');
+  const year = d.getFullYear();
+  const el = document.getElementById('datePickerDisplay');
+  if (el) el.textContent = `${day} / ${month} / ${year}`;
+}
+
+function toggleDatePicker() {
+  _dpOpen = !_dpOpen;
+  const pop = document.getElementById('datePickerPopover');
+  if (_dpOpen) {
+    const d = new Date(currentDate + 'T12:00:00');
+    _dpYear = d.getFullYear();
+    _dpMonth = d.getMonth();
+    dpRender();
+    pop.classList.remove('hidden');
+    setTimeout(() => document.addEventListener('click', _dpOutsideClick), 0);
+  } else {
+    pop.classList.add('hidden');
+  }
+}
+
+function _dpOutsideClick(e) {
+  const pop = document.getElementById('datePickerPopover');
+  const btn = document.getElementById('datePickerBtn');
+  if (pop && !pop.contains(e.target) && btn && !btn.contains(e.target)) {
+    pop.classList.add('hidden');
+    _dpOpen = false;
+    document.removeEventListener('click', _dpOutsideClick);
+  }
+}
+
+function dpRender() {
+  const title = document.getElementById('dpMonthTitle');
+  if (title) title.textContent = DP_MESI[_dpMonth] + ' ' + _dpYear;
+  const grid = document.getElementById('dpGrid');
+  if (!grid) return;
+  const today = new Date().toISOString().split('T')[0];
+  const firstDay = new Date(_dpYear, _dpMonth, 1);
+  let offset = firstDay.getDay() - 1;
+  if (offset < 0) offset = 6;
+  const daysInMonth = new Date(_dpYear, _dpMonth + 1, 0).getDate();
+  let html = '';
+  for (let i = 0; i < offset; i++) html += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${_dpYear}-${String(_dpMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(_dpYear, _dpMonth, d).getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isToday   = iso === today;
+    const isSel     = iso === currentDate;
+    let style, textColor;
+    if (isSel) {
+      style = 'background:#3b82f6;color:#fff;font-weight:700;';
+    } else if (isToday) {
+      style = 'background:#dbeafe;color:#1d4ed8;font-weight:600;';
+    } else if (isWeekend) {
+      style = 'color:#f87171;';
+    } else {
+      style = 'color:#374151;';
+    }
+    html += `<div onclick="dpSelect('${iso}'); event.stopPropagation();" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:pointer;margin:auto;transition:background 0.1s;${style}" onmouseover="if(!this.style.background.includes('3b82f6'))this.style.background='#f3f4f6'" onmouseout="if(!this.classList.contains('dp-sel'))this.style.background=''">${d}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function dpPrev() {
+  _dpMonth--;
+  if (_dpMonth < 0) { _dpMonth = 11; _dpYear--; }
+  dpRender();
+}
+function dpNext() {
+  _dpMonth++;
+  if (_dpMonth > 11) { _dpMonth = 0; _dpYear++; }
+  dpRender();
+}
+function dpSelect(iso) {
+  currentDate = iso;
+  document.getElementById('datePicker').value = iso;
+  dpUpdateDisplay();
+  const pop = document.getElementById('datePickerPopover');
+  if (pop) pop.classList.add('hidden');
+  _dpOpen = false;
+  document.removeEventListener('click', _dpOutsideClick);
+  loadGiornata();
+}
+function dpSelectOffset(delta) {
+  const d = new Date(currentDate + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  dpSelect(d.toISOString().split('T')[0]);
+}
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', async () => {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('date')) currentDate = p.get('date');
+
+  // Leggi dipendente da URL; se assente, prova localStorage (PWA home screen)
+  const dipFromUrl = p.get('dipendente');
+  if (dipFromUrl) {
+    currentDipId = dipFromUrl;
+    localStorage.setItem('zg_dipendente_id', dipFromUrl); // salva per la prossima apertura
+  } else {
+    const saved = localStorage.getItem('zg_dipendente_id');
+    if (saved) currentDipId = saved;
+  }
+
+  document.getElementById('datePicker').value = currentDate;
+  dpUpdateDisplay();
+  await loadDipendenti();
+  if (currentDipId) await loadGiornata();
+  lucide.createIcons();
+
+  // ── PWA: Service Worker + Push + Badge + Realtime ──
+  if (currentDipId) window.ZGPwa?.init(currentDipId);
+});
+
+// ===================== NAVIGAZIONE =====================
+function prevDay() {
+  const d = new Date(currentDate + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  currentDate = d.toISOString().split('T')[0];
+  document.getElementById('datePicker').value = currentDate;
+  dpUpdateDisplay();
+  loadGiornata();
+}
+function nextDay() {
+  const d = new Date(currentDate + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  currentDate = d.toISOString().split('T')[0];
+  document.getElementById('datePicker').value = currentDate;
+  dpUpdateDisplay();
+  loadGiornata();
+}
+function onDateChange() {
+  currentDate = document.getElementById('datePicker').value;
+  dpUpdateDisplay();
+  loadGiornata();
+}
+
+// ===================== LOAD DIPENDENTI =====================
+async function loadDipendenti() {
+  const { data, error } = await db.from('users')
+    .select('id, nome, cognome, ruolo, email')
+    .order('cognome');
+  if (error || !data) return;
+
+  dipendenti = data;
+  const sel = document.getElementById('dipendentePicker');
+  sel.innerHTML = '<option value="">-- Seleziona Dipendente --</option>';
+  data.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = `${(u.nome || '')} ${(u.cognome || '')}`.trim() || u.email || u.id.substring(0,8);
+    if (u.id === currentDipId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  lucide.createIcons();
+}
+
+// ===================== LOAD GIORNATA =====================
+async function loadGiornata() {
+  const dipId = document.getElementById('dipendentePicker').value;
+  const date  = document.getElementById('datePicker').value;
+  if (!dipId || !date) {
+    document.getElementById('timelineWrapper').classList.add('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+    document.getElementById('allDaySection').classList.add('hidden');
+    return;
+  }
+
+  currentDipId = dipId;
+  currentDate  = date;
+
+  // Aggiorna URL senza reload
+  const url = new URL(window.location.href);
+  url.searchParams.set('date', date);
+  url.searchParams.set('dipendente', dipId);
+  window.history.replaceState({}, '', url);
+
+  // Loading state
+  document.getElementById('loadingSpinner').classList.remove('hidden');
+  document.getElementById('timelineWrapper').classList.add('hidden');
+  document.getElementById('emptyState').classList.add('hidden');
+
+  // Carica task e blocchi in parallelo
+  const SEL_TASK = 'id,titolo,stato,priorita,data_inizio,scadenza,ora_inizio,ora_fine,descrizione';
+  // Filtro: escludi lavorazioni in standby (visibile = false)
+  const noStandby = (q) => q.or('visibile.is.null,visibile.eq.true');
+  const [r1, r2, r3, rBlocchi, rTA] = await Promise.all([
+    // Tasks con range data che include la data selezionata
+    noStandby(db.from('tasks').select(SEL_TASK)
+      .eq('assigned_user_id', dipId)
+      .lte('data_inizio', date)
+      .gte('scadenza', date)),
+    // Tasks con solo scadenza = data (senza data_inizio)
+    noStandby(db.from('tasks').select(SEL_TASK)
+      .eq('assigned_user_id', dipId)
+      .is('data_inizio', null)
+      .eq('scadenza', date)),
+    // Tasks con solo data_inizio = data (senza scadenza)
+    noStandby(db.from('tasks').select(SEL_TASK)
+      .eq('assigned_user_id', dipId)
+      .eq('data_inizio', date)
+      .is('scadenza', null)),
+    // Blocchi manuali
+    db.from('giornata_blocchi').select('*')
+      .eq('dipendente_id', dipId)
+      .eq('data', date)
+      .order('ora_inizio'),
+    // Task assegnati via task_assignments (multi-utente)
+    db.from('task_assignments').select('task_id').eq('user_id', dipId),
+  ]);
+
+  // Deduplicazione task da assigned_user_id
+  const taskMap = {};
+  [...(r1.data||[]), ...(r2.data||[]), ...(r3.data||[])].forEach(t => { taskMap[t.id] = t; });
+
+  // Carica anche task multi-user da task_assignments non ancora presenti
+  const taIds = (rTA.data || []).map(x => x.task_id).filter(id => !taskMap[id]);
+  if (taIds.length > 0) {
+    const [mt1, mt2, mt3] = await Promise.all([
+      noStandby(db.from('tasks').select(SEL_TASK).in('id', taIds).lte('data_inizio', date).gte('scadenza', date)),
+      noStandby(db.from('tasks').select(SEL_TASK).in('id', taIds).is('data_inizio', null).eq('scadenza', date)),
+      noStandby(db.from('tasks').select(SEL_TASK).in('id', taIds).eq('data_inizio', date).is('scadenza', null)),
+    ]);
+    [...(mt1.data||[]), ...(mt2.data||[]), ...(mt3.data||[])].forEach(t => { taskMap[t.id] = t; });
+  }
+
+  allTasks   = Object.values(taskMap);
+  allBlocchi = rBlocchi.data || [];
+
+  document.getElementById('loadingSpinner').classList.add('hidden');
+
+  renderAll();
+  updateDayInfo();
+}
+
+// ===================== HELPERS TEMPO =====================
+function timeToMin(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+function minToTime(m) {
+  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+function formatDateIT(ds) {
+  if (!ds) return '';
+  return new Date(ds + 'T12:00:00').toLocaleDateString('it-IT', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
+// ===================== DAY INFO =====================
+function updateDayInfo() {
+  const dip = dipendenti.find(d => d.id === currentDipId);
+  const nome = dip ? `${(dip.nome||'')} ${(dip.cognome||'')}`.trim() || dip.email : '?';
+  const d = new Date(currentDate + 'T12:00:00');
+  const giorno = d.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  
+  document.getElementById('dayInfoTitle').innerHTML =
+    `<span class="font-bold text-gray-800">${nome}</span>
+     <span class="text-gray-400 mx-2">·</span>
+     <span class="capitalize font-semibold text-blue-700">${giorno}</span>`;
+
+  const bTime = allBlocchi.reduce((s,b) => {
+    const st = timeToMin(b.ora_inizio), en = timeToMin(b.ora_fine);
+    return s + (en > st ? en - st : 0);
+  }, 0);
+  const tTime = allTasks.filter(t=>t.ora_inizio&&t.ora_fine).reduce((s,t) => {
+    const st = timeToMin(t.ora_inizio), en = timeToMin(t.ora_fine);
+    return s + (en > st ? en - st : 0);
+  }, 0);
+  const totMin = bTime + tTime;
+
+  let statsHtml = '';
+  if (allTasks.length > 0)
+    statsHtml += `<span class="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-semibold"><i data-lucide="briefcase" class="w-3 h-3"></i> ${allTasks.length} lavorazioni</span>`;
+  if (allBlocchi.length > 0)
+    statsHtml += `<span class="flex items-center gap-1 text-xs bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full font-semibold"><i data-lucide="layout-list" class="w-3 h-3"></i> ${allBlocchi.length} blocchi</span>`;
+  if (totMin > 0)
+    statsHtml += `<span class="text-xs text-gray-400">${Math.floor(totMin/60)}h${totMin%60>0?' '+totMin%60+'m':''} pianificate</span>`;
+
+  document.getElementById('dayStats').innerHTML = statsHtml;
+  lucide.createIcons();
+}
+
+// ===================== RENDER ALL =====================
+function renderAll() {
+  renderTimeLabels();
+  renderEventsArea();
+
+  const hasContent = allTasks.length > 0 || allBlocchi.length > 0;
+  document.getElementById('timelineWrapper').classList.toggle('hidden', !hasContent);
+  
+  const emptyEl = document.getElementById('emptyState');
+  if (!hasContent) {
+    emptyEl.classList.remove('hidden');
+    emptyEl.style.display = 'flex';
+  } else {
+    emptyEl.classList.add('hidden');
+    emptyEl.style.display = '';
+  }
+
+  renderAllDayTasks();
+  lucide.createIcons();
+}
+
+// ===================== TIME LABELS =====================
+function renderTimeLabels() {
+  const col = document.getElementById('timeLabels');
+  col.innerHTML = '';
+  col.style.height = (TOTAL_HOURS * HOUR_PX + HOUR_PX) + 'px';
+
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `height:${HOUR_PX}px;display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 8px 0 0;font-size:11px;font-weight:700;color:#374151;font-family:monospace;`;
+    lbl.textContent = `${String(h).padStart(2,'0')}:00`;
+    col.appendChild(lbl);
+  }
+}
+
+// ===================== EVENTS AREA =====================
+function renderEventsArea() {
+  const area = document.getElementById('eventsArea');
+  area.innerHTML = '';
+  area.style.height = (TOTAL_HOURS * HOUR_PX + HOUR_PX) + 'px';
+  area.style.position = 'relative';
+
+  // Righe orarie (linee + zone cliccabili)
+  for (let h = START_HOUR; h < END_HOUR; h++) {
+    const row = document.createElement('div');
+    row.className = 'hour-row';
+    row.style.cssText = `top:${(h - START_HOUR) * HOUR_PX}px;height:${HOUR_PX}px;`;
+    row.dataset.hour = h;
+
+    // Linea divisoria
+    const line = document.createElement('div');
+    line.style.cssText = 'position:absolute;left:0;right:0;top:0;border-top:1px solid #f1f5f9;';
+    if (h % 2 === 0) line.style.borderTopColor = '#e2e8f0';
+    row.appendChild(line);
+
+    // Linea mezza ora (tratteggiata)
+    const halfLine = document.createElement('div');
+    halfLine.style.cssText = `position:absolute;left:0;right:0;top:${HOUR_PX/2}px;border-top:1px dashed #f1f5f9;`;
+    row.appendChild(halfLine);
+
+    // Hint "clicca per aggiungere"
+    const hint = document.createElement('div');
+    hint.className = 'add-hint';
+    hint.textContent = `+ ${String(h).padStart(2,'0')}:00`;
+    row.appendChild(hint);
+
+    // Click handler (apre modale se non su un evento)
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.event-block')) return;
+      openAddBlockModal(h);
+    });
+
+    area.appendChild(row);
+  }
+
+  // Ultima linea (fine timeline)
+  const lastLine = document.createElement('div');
+  lastLine.style.cssText = `position:absolute;left:0;right:0;top:${TOTAL_HOURS * HOUR_PX}px;border-top:2px solid #e2e8f0;`;
+  area.appendChild(lastLine);
+
+  // Linea "ora corrente" (se oggi)
+  const today = new Date().toISOString().split('T')[0];
+  if (currentDate === today) {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowPx = (nowMin - START_HOUR * 60) * (HOUR_PX / 60);
+    if (nowPx >= 0 && nowPx <= TOTAL_HOURS * HOUR_PX) {
+      const nowEl = document.createElement('div');
+      nowEl.className = 'now-line';
+      nowEl.style.top = nowPx + 'px';
+      const dot = document.createElement('div');
+      dot.className = 'now-dot';
+      nowEl.appendChild(dot);
+      area.appendChild(nowEl);
+    }
+  }
+
+  // Renderizza tutti gli eventi (task + blocchi)
+  renderEventBlocks(area);
+}
+
+// ===================== EVENT BLOCKS =====================
+function renderEventBlocks(area) {
+  const events = [];
+
+  // Task con orari
+  allTasks.filter(t => t.ora_inizio && t.ora_fine).forEach(t => {
+    const sm = timeToMin(t.ora_inizio), em = timeToMin(t.ora_fine);
+    if (sm === null || em === null || em <= sm) return;
+    const c = PRIO_CFG[t.priorita] || PRIO_CFG.media;
+    events.push({
+      type: 'task', id: t.id,
+      title: t.titolo,
+      startMin: sm, endMin: em,
+      bg: c.bg, border: c.border, textColor: c.text,
+      stato: t.stato, priorita: t.priorita,
+      desc: t.descrizione,
+    });
+  });
+
+  // Blocchi manuali
+  allBlocchi.forEach(b => {
+    const sm = timeToMin(b.ora_inizio), em = timeToMin(b.ora_fine);
+    if (sm === null || em === null || em <= sm) return;
+    const c = TIPO_CFG[b.tipo] || TIPO_CFG.altro;
+    events.push({
+      type: 'blocco', id: b.id,
+      title: b.titolo, tipo: b.tipo, tipoLabel: c.label,
+      startMin: sm, endMin: em,
+      bg: c.bg, border: c.border, textColor: c.text,
+      note: b.note,
+    });
+  });
+
+  if (events.length === 0) return;
+
+  // Layout per overlap
+  events.sort((a,b) => a.startMin - b.startMin);
+  const cols = [];
+  events.forEach(ev => {
+    ev._col = -1;
+    for (let i = 0; i < cols.length; i++) {
+      if (cols[i].endMin <= ev.startMin) {
+        ev._col = i; cols[i] = ev; break;
+      }
+    }
+    if (ev._col === -1) { ev._col = cols.length; cols.push(ev); }
+  });
+  events.forEach(ev => {
+    let maxCol = ev._col;
+    events.forEach(o => {
+      if (o.startMin < ev.endMin && o.endMin > ev.startMin) maxCol = Math.max(maxCol, o._col);
+    });
+    ev._totalCols = maxCol + 1;
+  });
+
+  // Render
+  const MARGIN = 2; // % margin da bordi
+  events.forEach(ev => {
+    const sc = Math.max(ev.startMin, START_HOUR * 60);
+    const ec = Math.min(ev.endMin,   END_HOUR   * 60);
+    if (sc >= ec) return;
+
+    const topPx = (sc - START_HOUR * 60) * (HOUR_PX / 60);
+    const hPx   = Math.max(24, (ec - sc) * (HOUR_PX / 60));
+    const avail = 100 - 2 * MARGIN;
+    const colW  = avail / ev._totalCols;
+    const left  = MARGIN + ev._col * colW;
+    const width = colW - 0.5;
+
+    const blk = document.createElement('div');
+    blk.className = 'event-block';
+    blk.style.top        = topPx + 'px';
+    blk.style.height     = hPx + 'px';
+    blk.style.left       = left + '%';
+    blk.style.width      = width + '%';
+    blk.style.background = ev.bg;
+    blk.style.borderLeft = `3px solid ${ev.border}`;
+    blk.style.color      = ev.textColor;
+
+    const sSt = minToTime(ev.startMin);
+    const eSt = minToTime(ev.endMin);
+    const shortTitle = ev.title.length > 35 ? ev.title.substring(0,33) + '…' : ev.title;
+
+    if (ev.type === 'blocco') {
+      blk.innerHTML = `
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:2px;">
+          <div style="min-width:0;flex:1;">
+            <div class="event-title">${shortTitle}</div>
+            <div class="event-time">${sSt}–${eSt} · ${ev.tipoLabel}</div>
+            ${ev.note ? `<div class="event-note">${ev.note}</div>` : ''}
+          </div>
+          <button onclick="event.stopPropagation();editBlocco('${ev.id}')" 
+                  style="flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(0,0,0,0.06);border:none;cursor:pointer;font-size:11px;color:${ev.textColor};"
+                  title="Modifica">✎</button>
+        </div>`;
+    } else {
+      const ico = ev.stato === 'completato' ? '✅' : ev.stato === 'in_corso' ? '🔄' : ev.stato === 'annullato' ? '❌' : '📋';
+      blk.innerHTML = `
+        <div class="event-title">${ico} ${shortTitle}</div>
+        <div class="event-time">${sSt}–${eSt}${ev.priorita ? ` · ${ev.priorita}` : ''}</div>`;
+      blk.title = ev.title + (ev.desc ? '\n'+ev.desc : '');
+    }
+
+    blk.addEventListener('click', e => {
+      e.stopPropagation();
+      if (ev.type === 'task') openTaskDetailModal(ev.id);
+    });
+    area.appendChild(blk);
+  });
+}
+
+// ===================== ALL-DAY TASKS =====================
+function renderAllDayTasks() {
+  const sec   = document.getElementById('allDaySection');
+  const cont  = document.getElementById('allDayContent');
+  const noTime = allTasks.filter(t => !t.ora_inizio);
+  if (noTime.length === 0) { sec.classList.add('hidden'); return; }
+
+  sec.classList.remove('hidden');
+  cont.innerHTML = noTime.map(t => {
+    const c   = PRIO_CFG[t.priorita] || PRIO_CFG.media;
+    const ico = t.stato==='completato'?'✅':t.stato==='in_corso'?'🔄':t.stato==='annullato'?'❌':'📋';
+    return `<span style="background:${c.bg};color:${c.text};border:1.5px solid ${c.border};cursor:pointer;"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  onclick="openTaskDetailModal('${t.id}')">
+      ${ico} ${t.titolo}
+    </span>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+// ===================== MODAL ADD/EDIT =====================
+function openAddBlockModal(presetHour) {
+  const dipId = document.getElementById('dipendentePicker').value;
+  if (!dipId) { alert('Seleziona prima un dipendente'); return; }
+
+  // Reset form
+  document.getElementById('blockEditId').value = '';
+  document.getElementById('blockTitolo').value = '';
+  document.getElementById('blockNote').value   = '';
+  document.getElementById('deleteBlockBtn').classList.add('hidden');
+  document.getElementById('modalTitle').textContent = 'Aggiungi Blocco';
+
+  const h = (presetHour !== null && presetHour !== undefined) ? presetHour : 8;
+  document.getElementById('blockOraInizio').value = `${String(h).padStart(2,'0')}:00`;
+  document.getElementById('blockOraFine').value   = `${String(Math.min(h+1,END_HOUR)).padStart(2,'0')}:00`;
+
+  setTipoPreset('altro');
+
+  const dip = dipendenti.find(d => d.id === dipId);
+  const nome = dip ? `${(dip.nome||'')} ${(dip.cognome||'')}`.trim() : '';
+  document.getElementById('modalDateInfo').textContent = `${nome} · ${formatDateIT(currentDate)}`;
+
+  document.getElementById('addBlockModal').classList.remove('hidden');
+  lucide.createIcons();
+  setTimeout(() => document.getElementById('blockTitolo').focus(), 80);
+}
+
+function closeAddBlockModal() {
+  document.getElementById('addBlockModal').classList.add('hidden');
+}
+
+function setTipoPreset(tipo) {
+  selectedTipo = tipo;
+  document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
+  const active = document.querySelector(`.tipo-btn[data-tipo="${tipo}"]`);
+  if (active) active.classList.add('active');
+
+  // Pre-compila titolo se vuoto o era un label preset
+  const titoloEl = document.getElementById('blockTitolo');
+  const isPreset = Object.values(TIPO_CFG).some(c => c.label === titoloEl.value);
+  if (!titoloEl.value || isPreset) titoloEl.value = TIPO_CFG[tipo]?.label || '';
+}
+
+async function saveBlock() {
+  const dipId    = document.getElementById('dipendentePicker').value;
+  const titolo   = document.getElementById('blockTitolo').value.trim();
+  const oraIn    = document.getElementById('blockOraInizio').value;
+  const oraFin   = document.getElementById('blockOraFine').value;
+  const note     = document.getElementById('blockNote').value.trim();
+  const editId   = document.getElementById('blockEditId').value;
+
+  if (!titolo || !oraIn || !oraFin) { alert('Compilare titolo, ora inizio e ora fine'); return; }
+  if (oraFin <= oraIn) { alert("L'ora di fine deve essere dopo l'ora di inizio"); return; }
+
+  const btn = document.getElementById('saveBlockBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-1"></div> Salvo…';
+
+  const payload = {
+    dipendente_id: dipId,
+    data: currentDate,
+    ora_inizio: oraIn,
+    ora_fine:   oraFin,
+    titolo,
+    tipo: selectedTipo,
+    note: note || null,
+  };
+
+  const { error } = editId
+    ? await db.from('giornata_blocchi').update(payload).eq('id', editId)
+    : await db.from('giornata_blocchi').insert(payload);
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 inline mr-1"></i> Salva';
+  lucide.createIcons();
+
+  if (error) { alert('Errore: ' + error.message); return; }
+  closeAddBlockModal();
+  await loadGiornata();
+}
+
+async function editBlocco(id) {
+  const b = allBlocchi.find(b => b.id === id);
+  if (!b) return;
+
+  document.getElementById('blockEditId').value       = id;
+  document.getElementById('blockTitolo').value       = b.titolo;
+  document.getElementById('blockOraInizio').value    = (b.ora_inizio||'').substring(0,5);
+  document.getElementById('blockOraFine').value      = (b.ora_fine||'').substring(0,5);
+  document.getElementById('blockNote').value         = b.note || '';
+  document.getElementById('modalTitle').textContent  = 'Modifica Blocco';
+
+  // Mostra tasto elimina
+  const delBtn = document.getElementById('deleteBlockBtn');
+  delBtn.classList.remove('hidden');
+  delBtn.onclick = () => deleteBlocco(id);
+
+  setTipoPreset(b.tipo || 'altro');
+
+  const dip = dipendenti.find(d => d.id === currentDipId);
+  const nome = dip ? `${(dip.nome||'')} ${(dip.cognome||'')}`.trim() : '';
+  document.getElementById('modalDateInfo').textContent = `${nome} · ${formatDateIT(currentDate)}`;
+
+  document.getElementById('addBlockModal').classList.remove('hidden');
+  lucide.createIcons();
+  setTimeout(() => document.getElementById('blockTitolo').focus(), 80);
+}
+
+async function deleteBlocco(id) {
+  if (!confirm('Eliminare questo blocco?')) return;
+  const { error } = await db.from('giornata_blocchi').delete().eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return; }
+  closeAddBlockModal();
+  await loadGiornata();
+}
+
+// Chiudi modale su backdrop click
+document.getElementById('addBlockModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddBlockModal();
+});
+document.getElementById('taskDetailModal').addEventListener('click', function(e) {
+  if (e.target === this) closeTaskDetailModal();
+});
+
+// ===================== TASK DETAIL MODAL =====================
+async function openTaskDetailModal(taskId) {
+  const modal = document.getElementById('taskDetailModal');
+  const body  = document.getElementById('taskDetailBody');
+  modal.style.display = 'flex';
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">⏳ Caricamento...</div>';
+
+  try {
+    const { data: t, error } = await db.from('tasks')
+      .select('*, client:client_id(ragione_sociale, nome, cognome, indirizzo, telefono, email)')
+      .eq('id', taskId)
+      .single();
+    if (error) throw error;
+
+    const STATO_LABEL = { da_fare:'📋 Da Fare', in_corso:'🔄 In Corso', revisione:'🔍 In Revisione', completato:'✅ Completato', annullato:'❌ Annullato' };
+    const STATO_COLOR = { da_fare:'#dbeafe:#1d4ed8', in_corso:'#fef9c3:#92400e', revisione:'#ede9fe:#6d28d9', completato:'#dcfce7:#15803d', annullato:'#fee2e2:#991b1b' };
+    const PRIO_LABEL  = { bassa:'🟢 Bassa', media:'🟡 Media', alta:'🔴 Alta' };
+
+    const sc = STATO_COLOR[t.stato] || '#f3f4f6:#374151';
+    const [sbg, stxt] = sc.split(':');
+
+    const cliente = t.client
+      ? (t.client.ragione_sociale || `${t.client.nome||''} ${t.client.cognome||''}`.trim())
+      : null;
+
+    const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}) : null;
+    const dataInizio = fmtDate(t.data_inizio);
+    const scadenza   = fmtDate(t.scadenza);
+    const progresso  = t.progresso ?? 0;
+
+    body.innerHTML = `
+      <!-- Titolo + stato -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:20px;font-weight:800;color:#111827;line-height:1.3;margin-bottom:10px;">${t.titolo}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <span style="background:${sbg};color:${stxt};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">${STATO_LABEL[t.stato]||t.stato}</span>
+          ${t.priorita ? `<span style="background:#f3f4f6;color:#374151;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">${PRIO_LABEL[t.priorita]||t.priorita}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Griglia info -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        ${(t.ora_inizio && t.ora_fine) ? `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">⏰ Orario</div>
+          <div style="font-size:15px;font-weight:700;color:#1e293b;">${t.ora_inizio.slice(0,5)} – ${t.ora_fine.slice(0,5)}</div>
+        </div>` : ''}
+        ${(dataInizio||scadenza) ? `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">📅 Periodo</div>
+          <div style="font-size:13px;font-weight:600;color:#1e293b;">${dataInizio||''}${(dataInizio&&scadenza)?' → ':''}${scadenza||''}</div>
+        </div>` : ''}
+        ${cliente ? `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;grid-column:${(t.ora_inizio&&t.ora_fine)||(dataInizio||scadenza)?'auto':'1/-1'};">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">🏢 Cliente</div>
+          <div style="font-size:13px;font-weight:700;color:#1e293b;">${cliente}</div>
+          ${t.client?.indirizzo ? `<div style="font-size:11px;color:#64748b;margin-top:3px;">📍 ${t.client.indirizzo}</div>` : ''}
+          ${t.client?.telefono  ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📞 ${t.client.telefono}</div>` : ''}
+        </div>` : ''}
+      </div>
+
+      <!-- Progresso -->
+      ${progresso > 0 ? `
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:700;color:#374151;">Avanzamento</span>
+          <span style="font-size:12px;font-weight:800;color:#4f46e5;">${progresso}%</span>
+        </div>
+        <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden;">
+          <div style="background:linear-gradient(to right,#4f46e5,#7c3aed);height:100%;width:${progresso}%;border-radius:99px;transition:width .4s;"></div>
+        </div>
+      </div>` : ''}
+
+      <!-- Descrizione -->
+      ${t.descrizione ? `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Descrizione</div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:13px;color:#374151;line-height:1.6;">${t.descrizione.replace(/\n/g,'<br>')}</div>
+      </div>` : ''}
+
+      <!-- Note progresso -->
+      ${t.note_progresso ? `
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Note di avanzamento</div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;font-size:13px;color:#92400e;line-height:1.6;">💬 ${t.note_progresso.replace(/\n/g,'<br>')}</div>
+      </div>` : ''}
+
+      <!-- Placeholder timeline (caricata async) -->
+      <div id="dip-linked-timeline"></div>
+    `;
+
+    // Carica timeline interventi collegati (solo lettura)
+    if (window.LinkedTasks) {
+      window.LinkedTasks.buildTimelineForTask(t).then(html => {
+        const tlEl = document.getElementById('dip-linked-timeline');
+        if (tlEl && html) tlEl.innerHTML = `<div style="margin-top:20px">${html}</div>`;
+      });
+    }
+
+    // Titolo modal header
+    document.getElementById('taskDetailTitle').textContent = t.titolo;
+  } catch(err) {
+    body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">❌ Errore nel caricamento: ${err.message}</div>`;
+  }
+}
+function closeTaskDetailModal() {
+  document.getElementById('taskDetailModal').style.display = 'none';
+}
+</script>
+
+<!-- ════ MODAL DETTAGLIO LAVORAZIONE ════ -->
+<div id="taskDetailModal" style="display:none;position:fixed;inset:0;z-index:10200;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;width:100%;max-width:540px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <!-- Header -->
+    <div style="background:linear-gradient(to right,#4f46e5,#7c3aed);color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <span style="font-size:20px;flex-shrink:0;">📋</span>
+        <span id="taskDetailTitle" style="font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Lavorazione</span>
+      </div>
+      <button onclick="closeTaskDetailModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;flex-shrink:0;">×</button>
+    </div>
+    <!-- Body -->
+    <div id="taskDetailBody" style="overflow-y:auto;padding:20px;flex:1;"></div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richiesta Ordine Interna - ZG Impianti</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+/* ===== PRINT STYLES ===== */
+@media print {
+    .no-print { display: none !important; }
+    #editView { display: none !important; }
+    #printView { display: block !important; }
+    #printDoc { box-shadow: none !important; margin: 0 !important; width: 100% !important; min-height: unset !important; padding: 12mm !important; }
+    body { background: white !important; }
+    .print-wrapper { background: white !important; padding: 0 !important; }
+}
+
+/* ===== DOCUMENT STYLES ===== */
+#printDoc {
+    font-family: Arial, sans-serif;
+    color: #111;
+    line-height: 1.4;
+}
+
+#printDoc .doc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 4px solid #007a3d;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+}
+
+#printDoc .zg-logo { color: #007a3d; font-size: 44px; font-weight: 900; line-height: 1; }
+#printDoc .zg-sub  { font-size: 11px; font-weight: bold; letter-spacing: 3px; color: #333; text-transform: uppercase; }
+
+#printDoc .doc-title {
+    flex: 1;
+    text-align: center;
+    padding: 0 16px;
+    color: #007a3d;
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#printDoc .doc-icon {
+    width: 58px; height: 58px;
+    border: 3px solid #007a3d;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+}
+
+#printDoc .doc-intro {
+    text-align: center;
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 18px;
+}
+
+#printDoc .section-bar {
+    background: #007a3d;
+    color: white;
+    padding: 6px 12px;
+    font-weight: bold;
+    font-size: 13px;
+    margin-top: 16px;
+    margin-bottom: 10px;
+}
+
+#printDoc .prev-grid {
+    display: grid;
+    gap: 14px;
+    margin-top: 10px;
+}
+
+#printDoc .prev-box {
+    border: 3px solid #007a3d;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+#printDoc .prev-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+#printDoc .checkbox-sq {
+    width: 36px; height: 36px;
+    border: 3px solid;
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+#printDoc .prev-num {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+#printDoc .prev-supplier {
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+#printDoc .prev-desc {
+    font-size: 12px;
+    color: #555;
+    margin-top: 2px;
+}
+
+#printDoc .prev-price {
+    border: 1px solid #999;
+    padding: 10px 14px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    margin-top: 12px;
+    text-transform: uppercase;
+}
+
+#printDoc .prev-price .amount {
+    font-size: 26px;
+    font-weight: 900;
+    display: block;
+    margin-top: 2px;
+}
+
+#printDoc .prev-price .iva {
+    font-size: 12px;
+    font-weight: normal;
+    color: #666;
+}
+
+#printDoc .motiv-lines {
+    min-height: 80px;
+    line-height: 32px;
+    font-size: 13px;
+    color: #111;
+    padding: 4px 0;
+    white-space: pre-wrap;
+}
+
+#printDoc .motiv-empty {
+    border-bottom: 1px solid #ccc;
+    height: 32px;
+    margin-bottom: 0;
+}
+
+#printDoc .auth-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    border: 1px solid #aaa;
+    padding: 16px;
+    margin-top: 10px;
+}
+
+#printDoc .auth-field {
+    font-size: 13px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+#printDoc .auth-line {
+    flex: 1;
+    border-bottom: 1px solid #333;
+    min-height: 18px;
+    padding-bottom: 1px;
+}
+
+#printDoc .cb-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 10px 0 14px;
+}
+
+#printDoc .cb-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+#printDoc .cb-box {
+    width: 32px; height: 32px;
+    border: 3px solid;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+}
+
+#printDoc .footer-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid #007a3d;
+    background: #f3fff7;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 12px;
+}
+
+#printDoc .allegati-grid {
+    display: grid;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+#printDoc .alleg-box {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+#printDoc .alleg-header {
+    color: white;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+#printDoc .alleg-body {
+    min-height: 280px;
+    max-height: 380px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    background: #f8f8f8;
+}
+
+#printDoc .alleg-body img,
+#printDoc .alleg-body canvas {
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+#printDoc .doc-footer {
+    margin-top: 24px;
+    text-align: center;
+    color: #007a3d;
+    font-size: 13px;
+    font-style: italic;
+    border-top: 2px solid #007a3d;
+    padding-top: 8px;
+}
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- ============================= FORM VIEW ============================= -->
+<div id="editView">
+    <!-- Top bar -->
+    <div class="bg-gradient-to-r from-green-700 to-emerald-600 text-white px-5 py-3.5 flex items-center justify-between shadow-lg sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <img src="logo_zg.jpg" alt="ZG Impianti" class="h-9 w-auto rounded-lg bg-white p-0.5">
+            <div>
+                <div class="font-bold text-base leading-none">Richiesta Ordine Interna</div>
+                <div class="text-green-200 text-xs mt-0.5">Generatore documento comparazione preventivi</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="/admin-functional.html" class="px-4 py-2 bg-green-800 text-white font-bold rounded-xl hover:bg-green-900 transition shadow flex items-center gap-2 text-sm">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                Dashboard
+            </a>
+            <button onclick="generateDoc()" class="px-5 py-2 bg-white text-green-700 font-bold rounded-xl hover:bg-green-50 transition shadow flex items-center gap-2 text-sm">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                Genera documento
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto px-4 py-6 space-y-5">
+
+        <!-- Intestazione -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <h2 class="font-bold text-gray-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide text-green-700">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Intestazione documento
+            </h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-bold text-gray-600 block mb-1">TITOLO DOCUMENTO *</label>
+                    <input id="docTitle" type="text" placeholder="es. PREVENTIVI ORDINE PALI TEGHILLO - BERGOGLIO"
+                        class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:ring-2 focus:ring-green-400 focus:border-green-400 focus:outline-none tracking-wide">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-600 block mb-1">TESTO INTRODUTTIVO</label>
+                    <textarea id="docIntro" rows="2" placeholder="Preventivi da controllare e selezionare il più appropriato e passare la comunicazione per effettuare l'ordine."
+                        class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none resize-none"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preventivi -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-sm uppercase tracking-wide text-green-700 flex items-center gap-2">
+                    <i data-lucide="layers" class="w-4 h-4"></i> Preventivi fornitori
+                </h2>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">Numero preventivi:</span>
+                    <select id="numPreventivi" onchange="renderPrevForm(+this.value)"
+                        class="border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none">
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+            </div>
+            <div id="prevContainer" class="grid grid-cols-1 gap-4 sm:grid-cols-2"></div>
+        </div>
+
+        <!-- Motivazione -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <h2 class="font-bold text-sm uppercase tracking-wide text-green-700 mb-3 flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4"></i>
+                Motivazione della scelta <span class="text-gray-400 font-normal text-xs normal-case tracking-normal ml-1">(facoltativa)</span>
+            </h2>
+            <textarea id="docMotivazione" rows="3" placeholder="Motivazione per la scelta del preventivo selezionato..."
+                class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none resize-none"></textarea>
+        </div>
+
+        <!-- Autorizzazione -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <h2 class="font-bold text-sm uppercase tracking-wide text-green-700 mb-4 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4"></i> Dati e autorizzazione
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-600 block mb-1">DATA</label>
+                    <input id="authData" type="date" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-600 block mb-1">NOME E COGNOME</label>
+                    <input id="authNome" type="text" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-600 block mb-1">RUOLO / UFFICIO</label>
+                    <input id="authRuolo" type="text" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex items-center gap-5">
+                <span class="text-sm font-bold text-gray-700">Autorizzazione ordine:</span>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="approval" value="si" class="accent-green-600 w-4 h-4">
+                    <span class="font-bold text-green-700">SI</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="approval" value="no" class="accent-red-600 w-4 h-4">
+                    <span class="font-bold text-red-600">NO</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="approval" value="" class="accent-gray-400 w-4 h-4" checked>
+                    <span class="text-gray-400 text-sm">Non compilato</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="flex justify-between items-center pb-6">
+            <button onclick="saveForm()" class="px-7 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold rounded-xl hover:opacity-90 transition shadow-lg flex items-center gap-2">
+                <i data-lucide="save" class="w-5 h-5"></i>
+                Salva
+            </button>
+            <button onclick="generateDoc()" class="px-7 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition shadow-lg flex items-center gap-2">
+                <i data-lucide="file-check" class="w-5 h-5"></i>
+                Genera documento
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============================= PRINT VIEW ============================= -->
+<div id="printView" class="hidden">
+    <!-- Toolbar -->
+    <div class="no-print bg-gray-800 text-white px-5 py-3 flex items-center justify-between sticky top-0 z-50 shadow-lg">
+        <button onclick="backToEdit()" class="flex items-center gap-2 text-gray-300 hover:text-white transition text-sm">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna al form
+        </button>
+        <span class="text-gray-400 text-sm">Anteprima documento</span>
+        <button onclick="window.print()" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg flex items-center gap-2 text-sm transition">
+            <i data-lucide="printer" class="w-4 h-4"></i> Stampa / Salva PDF
+        </button>
+    </div>
+    <!-- A4 wrapper -->
+    <div class="print-wrapper bg-gray-300 min-h-screen py-8 flex justify-center">
+        <div id="printDoc" class="bg-white shadow-2xl" style="width:210mm;min-height:297mm;padding:14mm 14mm 12mm;">
+            <!-- populated by JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const PREV_COLORS = ['#007a3d','#004a99','#8b4513','#7c3aed'];
+let fileData = {}; // idx → {type:'image'|'pdf', dataURL or canvasDataURL}
+
+function renderPrevForm(n) {
+    const c = document.getElementById('prevContainer');
+    c.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+        const col = PREV_COLORS[i % PREV_COLORS.length];
+        const borderCls = i%2===0 ? 'border-green-500' : 'border-blue-500';
+        const lblCls = i%2===0 ? 'text-green-700' : 'text-blue-700';
+        const d = document.createElement('div');
+        d.className = `border-2 ${borderCls} rounded-xl p-4 space-y-3`;
+        d.innerHTML = `
+            <div class="font-bold text-sm ${lblCls}">PREVENTIVO ${i+1}</div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 block mb-1">Fornitore *</label>
+                <input id="p_sup_${i}" type="text" placeholder="es. SACCHI GIUSEPPE S.p.A."
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-green-300 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 block mb-1">Descrizione</label>
+                <input id="p_des_${i}" type="text" placeholder="es. Pali Teghillo - Componenti e Trasporto"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 block mb-1">Totale netto (€)</label>
+                <input id="p_pri_${i}" type="text" placeholder="es. 508,08"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-lg focus:ring-2 focus:ring-green-300 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 block mb-1">Allegato PDF / immagine</label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 transition text-sm text-gray-400 hover:text-green-600">
+                    <i data-lucide="upload-cloud" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="fl_${i}">Carica PDF / JPEG / PNG</span>
+                    <input type="file" id="pf_${i}" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="handleFile(${i},this)">
+                </label>
+                <div id="fp_${i}" class="hidden mt-2 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center" style="height:72px;">
+                    <canvas id="fc_${i}"></canvas>
+                </div>
+                <button id="fclear_${i}" onclick="clearFile(${i})" class="hidden mt-1 text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+                    <i data-lucide="x" class="w-3 h-3"></i> Rimuovi allegato
+                </button>
+            </div>
+        `;
+        c.appendChild(d);
+    }
+    lucide.createIcons();
+}
+
+async function handleFile(idx, input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById(`fl_${idx}`).textContent = file.name.length > 28 ? file.name.slice(0,25)+'...' : file.name;
+    document.getElementById(`fclear_${idx}`).classList.remove('hidden');
+
+    const canvas = document.getElementById(`fc_${idx}`);
+    const previewDiv = document.getElementById(`fp_${idx}`);
+    previewDiv.classList.remove('hidden');
+
+    if (file.type === 'application/pdf') {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({scale: 1.2});
+        canvas.width = vp.width; canvas.height = vp.height;
+        canvas.style.maxWidth = '100%'; canvas.style.maxHeight = '68px';
+        await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+
+        // Render at higher res for document
+        const vpHi = page.getViewport({scale: 2.5});
+        const hiCanvas = document.createElement('canvas');
+        hiCanvas.width = vpHi.width; hiCanvas.height = vpHi.height;
+        await page.render({canvasContext: hiCanvas.getContext('2d'), viewport: vpHi}).promise;
+        fileData[idx] = {type:'pdf', dataURL: hiCanvas.toDataURL('image/png')};
+    } else {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min(200/img.width, 68/img.height);
+                canvas.width = img.width*scale; canvas.height = img.height*scale;
+                canvas.style.maxWidth='100%'; canvas.style.maxHeight='68px';
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                fileData[idx] = {type:'image', dataURL: e.target.result};
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    lucide.createIcons();
+}
+
+function clearFile(idx) {
+    document.getElementById(`pf_${idx}`).value = '';
+    document.getElementById(`fl_${idx}`).textContent = 'Carica PDF / JPEG / PNG';
+    document.getElementById(`fp_${idx}`).classList.add('hidden');
+    document.getElementById(`fclear_${idx}`).classList.add('hidden');
+    delete fileData[idx];
+}
+
+async function generateDoc() {
+    const n = +document.getElementById('numPreventivi').value;
+    const title    = document.getElementById('docTitle').value.trim() || 'RICHIESTA ORDINE INTERNA';
+    const intro    = document.getElementById('docIntro').value.trim() || 'Preventivi da controllare e selezionare il più appropriato e passare la comunicazione per effettuare l\'ordine.';
+    const motiv    = document.getElementById('docMotivazione').value.trim();
+    const authD    = document.getElementById('authData').value;
+    const authN    = document.getElementById('authNome').value.trim();
+    const authR    = document.getElementById('authRuolo').value.trim();
+    const approval = document.querySelector('input[name="approval"]:checked')?.value || '';
+
+    const prevs = [];
+    for (let i = 0; i < n; i++) {
+        prevs.push({
+            sup: document.getElementById(`p_sup_${i}`)?.value.trim() || '',
+            des: document.getElementById(`p_des_${i}`)?.value.trim() || '',
+            pri: document.getElementById(`p_pri_${i}`)?.value.trim() || '',
+        });
+    }
+
+    const dateStr = authD ? new Date(authD+'T12:00:00').toLocaleDateString('it-IT') : '';
+    const cols = n <= 2 ? '1fr 1fr' : n === 3 ? '1fr 1fr 1fr' : '1fr 1fr';
+
+    // Build preventivo boxes
+    let prevBoxes = '';
+    for (let i = 0; i < n; i++) {
+        const col = PREV_COLORS[i % PREV_COLORS.length];
+        prevBoxes += `
+            <div class="prev-box" style="border-color:${col};">
+                <div class="prev-header">
+                    <div class="checkbox-sq" style="border-color:${col};"></div>
+                    <div style="flex:1;">
+                        <div class="prev-num" style="color:${col};">PREVENTIVO ${i+1}</div>
+                        <div class="prev-supplier">${prevs[i].sup || '—'}</div>
+                        <div class="prev-desc">${prevs[i].des || ''}</div>
+                        <div class="prev-price">
+                            Totale Netto
+                            <span class="amount">€ ${prevs[i].pri || '—'}</span>
+                            <span class="iva">+ IVA</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // SI / NO checkboxes
+    const siTick = approval === 'si' ? '✓' : '';
+    const noTick = approval === 'no' ? '✓' : '';
+
+    // Allegati section
+    let allegati = '';
+    const hasFiles = Object.keys(fileData).length > 0;
+    if (hasFiles) {
+        const algCols = n <= 2 ? '1fr 1fr' : '1fr 1fr';
+        let algItems = '';
+        for (let i = 0; i < n; i++) {
+            const col = PREV_COLORS[i % PREV_COLORS.length];
+            const sup = prevs[i].sup || `Preventivo ${i+1}`;
+            let imgHTML = `<div style="height:280px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;background:#f8f8f8;">Nessun allegato caricato</div>`;
+            if (fileData[i]) {
+                imgHTML = `<img src="${fileData[i].dataURL}" style="max-width:100%;display:block;object-fit:contain;" alt="Preventivo ${i+1}">`;
+            }
+            algItems += `
+                <div class="alleg-box">
+                    <div class="alleg-header" style="background:${col};">ALLEGATO ${i+1} — PREVENTIVO ${sup.toUpperCase()}</div>
+                    <div class="alleg-body">${imgHTML}</div>
+                </div>`;
+        }
+        allegati = `
+            <div class="section-bar" style="margin-top:24px;page-break-before:always;">ALLEGATI: PREVENTIVI</div>
+            <div class="allegati-grid" style="grid-template-columns:${algCols};">${algItems}</div>`;
+    }
+
+    // Motivazione block
+    let motivHTML = '';
+    if (motiv) {
+        motivHTML = `<div class="motiv-lines">${motiv.replace(/\n/g,'<br>')}</div>`;
+    } else {
+        motivHTML = `<div class="motiv-empty"></div><div class="motiv-empty"></div><div class="motiv-empty" style="margin-top:0;"></div>`;
+    }
+
+    document.getElementById('printDoc').innerHTML = `
+        <!-- HEADER -->
+        <div class="doc-header">
+            <div style="flex-shrink:0;">
+                <img src="logo_zg.jpg" alt="ZG Impianti" style="max-height:70px;max-width:180px;object-fit:contain;display:block;">
+            </div>
+            <div class="doc-title">${title}</div>
+            <div class="doc-icon">📋</div>
+        </div>
+
+        <!-- INTRO -->
+        <div class="doc-intro">${intro}</div>
+
+        <!-- 1. SCELTA PREVENTIVO -->
+        <div class="section-bar">1. SCELTA PREVENTIVO</div>
+        <div class="prev-grid" style="grid-template-columns:${cols};">
+            ${prevBoxes}
+        </div>
+
+        <!-- 2. MOTIVAZIONE -->
+        <div class="section-bar">2. MOTIVAZIONE DELLA SCELTA <span style="font-weight:normal;font-size:11px;">(facoltativa)</span></div>
+        ${motivHTML}
+
+        <!-- 3. DATI E AUTORIZZAZIONE -->
+        <div class="section-bar">3. DATI E AUTORIZZAZIONE</div>
+        <div class="auth-grid">
+            <div>
+                <div class="auth-field">Data:<div class="auth-line">&nbsp;${dateStr}</div></div>
+                <div class="auth-field">Nome e Cognome:<div class="auth-line">&nbsp;${authN}</div></div>
+                <div class="auth-field">Ruolo / Ufficio:<div class="auth-line">&nbsp;${authR}</div></div>
+            </div>
+            <div>
+                <div style="font-size:13px;margin-bottom:8px;">Autorizzazione all'ordine:</div>
+                <div class="cb-row">
+                    <div class="cb-item">
+                        <div class="cb-box" style="border-color:#007a3d;color:#007a3d;">${siTick}</div>
+                        <span style="color:#007a3d;">SI</span>
+                    </div>
+                    <div class="cb-item">
+                        <div class="cb-box" style="border-color:red;color:red;">${noTick}</div>
+                        <span style="color:red;">NO</span>
+                    </div>
+                </div>
+                <div class="auth-field" style="margin-top:8px;">Firma:<div class="auth-line" style="min-width:180px;"></div></div>
+            </div>
+        </div>
+
+        <!-- FOOTER NOTE -->
+        <div class="footer-note">
+            <span style="font-size:22px;flex-shrink:0;">⚠️</span>
+            <div>
+                <strong>IMPORTANTE:</strong><br>
+                Restituire il presente modulo compilato e firmato all'ufficio acquisti.
+                La scelta effettuata costituirà autorizzazione all'ordine del materiale selezionato.
+            </div>
+        </div>
+
+        <!-- ALLEGATI -->
+        ${allegati}
+
+        <!-- DOC FOOTER -->
+        <div class="doc-footer">Grazie per la collaborazione.</div>
+    `;
+
+    document.getElementById('editView').classList.add('hidden');
+    document.getElementById('printView').classList.remove('hidden');
+    lucide.createIcons();
+}
+
+function backToEdit() {
+    document.getElementById('printView').classList.add('hidden');
+    document.getElementById('editView').classList.remove('hidden');
+    lucide.createIcons();
+}
+
+function saveForm() {
+    const n = +document.getElementById('numPreventivi').value;
+    const data = {
+        docTitle:       document.getElementById('docTitle').value,
+        docIntro:       document.getElementById('docIntro').value,
+        docMotivazione: document.getElementById('docMotivazione').value,
+        authData:       document.getElementById('authData').value,
+        authNome:       document.getElementById('authNome').value,
+        authRuolo:      document.getElementById('authRuolo').value,
+        approval:       document.querySelector('input[name="approval"]:checked')?.value || '',
+        numPreventivi:  n,
+        prevs: Array.from({length: n}, (_,i) => ({
+            sup: document.getElementById(`p_sup_${i}`)?.value || '',
+            des: document.getElementById(`p_des_${i}`)?.value || '',
+            pri: document.getElementById(`p_pri_${i}`)?.value || '',
+        }))
+    };
+    localStorage.setItem('confronto_preventivi', JSON.stringify(data));
+    // Feedback visivo
+    const btn = event.currentTarget;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i> Salvato!';
+    btn.style.background = 'linear-gradient(to right,#16a34a,#15803d)';
+    lucide.createIcons();
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; lucide.createIcons(); }, 2000);
+}
+
+function restoreForm() {
+    const raw = localStorage.getItem('confronto_preventivi');
+    if (!raw) return;
+    try {
+        const data = JSON.parse(raw);
+        if (data.numPreventivi) {
+            document.getElementById('numPreventivi').value = data.numPreventivi;
+            renderPrevForm(data.numPreventivi);
+        }
+        if (data.docTitle)       document.getElementById('docTitle').value       = data.docTitle;
+        if (data.docIntro)       document.getElementById('docIntro').value       = data.docIntro;
+        if (data.docMotivazione) document.getElementById('docMotivazione').value = data.docMotivazione;
+        if (data.authData)       document.getElementById('authData').value       = data.authData;
+        if (data.authNome)       document.getElementById('authNome').value       = data.authNome;
+        if (data.authRuolo)      document.getElementById('authRuolo').value      = data.authRuolo;
+        if (data.approval) {
+            const radio = document.querySelector(`input[name="approval"][value="${data.approval}"]`);
+            if (radio) radio.checked = true;
+        }
+        if (data.prevs) {
+            data.prevs.forEach((p, i) => {
+                const sup = document.getElementById(`p_sup_${i}`); if (sup) sup.value = p.sup;
+                const des = document.getElementById(`p_des_${i}`); if (des) des.value = p.des;
+                const pri = document.getElementById(`p_pri_${i}`); if (pri) pri.value = p.pri;
+            });
+        }
+    } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('authData').value = new Date().toISOString().slice(0,10);
+    renderPrevForm(2);
+    restoreForm();
+    lucide.createIcons();
+});
+</script>
+</body>
+</html>

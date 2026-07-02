@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - AST Panel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <!-- Tailwind CDN - For production, consider installing via npm -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
+    <script src="/data-migration.js"></script>
+    <!-- FullCalendar JS only - CSS inline below -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        /* FullCalendar basic styles */
+        .fc { max-width: 100%; margin: 0 auto; }
+        .fc-toolbar-title { font-size: 1.5rem; font-weight: bold; }
+        .fc-button { background-color: #3b82f6; border: none; padding: 0.5rem 1rem; }
+        .fc-button:hover { background-color: #2563eb; }
+        .fc-day { cursor: pointer; }
+        .fc-day:hover { background-color: #f3f4f6; }
+        
+        /* Animation styles */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceIn { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-bounce-in { animation: bounceIn 0.35s ease-out; }
+        .hover-scale { transition: transform 0.2s; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-gradient { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .success-gradient { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .warning-gradient { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .info-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        
+        /* Sidebar Collapsabile */
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .category-content.active {
+            max-height: 500px;
+        }
+        #sidebar.collapsed {
+            width: 70px !important;
+        }
+        #sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+        #sidebar.collapsed .category-section button {
+            justify-content: center;
+        }
+        #sidebar.collapsed .category-section {
+            display: none;
+        }
+        .main-content-shifted {
+            margin-left: 70px !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar Collapsabile -->
+    <div class="fixed inset-y-0 left-0 bg-white shadow-lg transform transition-all duration-300 ease-in-out z-50 overflow-y-auto" id="sidebar" style="width: 260px;">
+        <div class="flex items-center justify-between h-16 gradient-bg px-4">
+            <h1 class="text-white text-xl font-bold" id="sidebarTitle">Admin Panel</h1>
+            <button onclick="toggleSidebar()" class="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                <i data-lucide="panel-left" class="w-5 h-5" id="toggleIcon"></i>
+            </button>
+        </div>
+        <nav class="mt-4 pb-20">
+            <!-- Dashboard -->
+            <a href="/admin-functional.html" class="flex items-center px-4 py-3 mx-2 rounded-lg bg-blue-50 text-blue-600 font-medium mb-1">
+                <i data-lucide="home" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+                <span class="sidebar-text">Dashboard</span>
+            </a>
+
+            <!-- ANAGRAFICA -->
+            <div class="category-section">
+                <button onclick="toggleCategory('anagrafica')" class="flex items-center justify-between w-full px-4 py-2.5 mt-4 text-gray-500 hover:text-gray-700 transition-colors">
+                    <div class="flex items-center">
+                        <i data-lucide="users" class="w-4 h-4 mr-2"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider sidebar-text">Anagrafica</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-anagrafica"></i>
+                </button>
+                <div id="category-anagrafica" class="category-content">
+                    <a href="/gestione-utenti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="user-cog" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Utenti</span>
+                    </a>
+                    <a href="/gestione-clienti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="building-2" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Clienti</span>
+                    </a>
+                    <a href="/Admin/gestione-fornitori.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="building" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Fornitori</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- OPERATIVO -->
+            <div class="category-section">
+                <button onclick="toggleCategory('operativo')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                    <div class="flex items-center">
+                        <i data-lucide="briefcase" class="w-4 h-4 mr-2"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider sidebar-text">Operativo</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-operativo"></i>
+                </button>
+                <div id="category-operativo" class="category-content">
+                    <a href="/gestione-lavorazioni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Lavorazioni</span>
+                    </a>
+                    <a href="/calendario-admin.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="calendar" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Calendario</span>
+                    </a>
+                    <a href="/gestione-orari.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="clock" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm flex-1">Orari</span>
+                        <span id="pendingTimbratureBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                    </a>
+                    <a href="/gestione-mezzi.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="truck" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Mezzi</span>
+                    </a>
+                    <a href="/gestione-richieste.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="mail" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm flex-1">Richieste</span>
+                        <span id="requestsBadge" class="hidden bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                    </a>
+                    <a href="/comunicazioni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="message-circle" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Comunicazioni</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- COMMERCIALE -->
+            <div class="category-section">
+                <button onclick="toggleCategory('commerciale')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                    <div class="flex items-center">
+                        <i data-lucide="euro" class="w-4 h-4 mr-2"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider sidebar-text">Commerciale</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-commerciale"></i>
+                </button>
+                <div id="category-commerciale" class="category-content">
+                    <a href="/gestione-preventivi.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="file-text" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Preventivi</span>
+                    </a>
+                    <a href="/gestione-aziende.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                        <i data-lucide="building-2" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Aziende</span>
+                    </a>
+                    <a href="/gestione-progetti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                        <i data-lucide="layout" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Progetti</span>
+                    </a>
+                    <a href="/Admin/gestione-condomini.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                        <i data-lucide="building" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Condomini</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- MAGAZZINO -->
+            <div class="category-section">
+                <button onclick="toggleCategory('magazzino')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                    <div class="flex items-center">
+                        <i data-lucide="package" class="w-4 h-4 mr-2"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider sidebar-text">Magazzino</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-magazzino"></i>
+                </button>
+                <div id="category-magazzino" class="category-content">
+                    <a href="/magazzino-prodotti.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                        <i data-lucide="scan-barcode" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Prodotti</span>
+                    </a>
+                    <a href="/gestione-impegni.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                        <i data-lucide="lock" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Impegni Magazzino</span>
+                    </a>
+                    <a href="/gestione-kit.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                        <i data-lucide="box" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Kit</span>
+                    </a>
+                    <a href="/Admin/gestione-ordini-fornitori.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="shopping-cart" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Ordini Fornitori</span>
+                    </a>
+                    <a href="/Admin/gestione-magazzino.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                        <i data-lucide="clipboard-check" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Movimenti Operatori</span>
+                    </a>
+                    <a href="/magazzino-operatore.html" target="_blank" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 transition-colors">
+                        <i data-lucide="warehouse" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">🖥️ Kiosk Magazzino</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- SISTEMA -->
+            <div class="category-section">
+                <button onclick="toggleCategory('sistema')" class="flex items-center justify-between w-full px-4 py-2.5 mt-2 text-gray-500 hover:text-gray-700 transition-colors">
+                    <div class="flex items-center">
+                        <i data-lucide="settings" class="w-4 h-4 mr-2"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider sidebar-text">Sistema</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-text" id="icon-sistema"></i>
+                </button>
+                <div id="category-sistema" class="category-content">
+                    <a href="/analytics-dashboard.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Analytics</span>
+                    </a>
+                    <a href="/storico-audit.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i data-lucide="history" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Storico Audit</span>
+                    </a>
+                    <a href="/pannello-utente.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                        <i data-lucide="user" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">Pannello Utente</span>
+                    </a>
+                    <a href="/superuser.html" class="flex items-center px-4 py-2.5 mx-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <i data-lucide="shield-alert" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                        <span class="sidebar-text text-sm">SuperUser</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Logout -->
+            <div class="mt-6 pt-4 border-t mx-2">
+                <a href="#" onclick="logout()" class="flex items-center px-4 py-3 mx-2 rounded-lg text-red-700 hover:bg-red-50 transition-colors font-medium">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+                    <span class="sidebar-text">Logout</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="transition-all duration-300" id="mainContent" style="margin-left: 260px;">
+        <!-- Header -->
+                </div>
+            </div>
+
+            <!-- Logout -->
+            <div class="mt-6 pt-4 border-t mx-2">
+                </a>
+                <a href="#" onclick="logout()" class="flex items-center px-6 py-3 text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i>
+                    Logout
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Dashboard Admin</h2>
+                <p class="text-gray-600">Panoramica generale del sistema</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Ultimo accesso</p>
+                    <p class="text-sm font-medium" id="lastLogin">Oggi, 09:30</p>
+                </div>
+                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <i data-lucide="user" class="w-5 h-5 text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 fade-in">
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Dipendenti Totali</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalEmployees">...</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-green-600 text-sm font-medium" id="newEmployeesText">Caricamento...</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Lavorazioni Attive</p>
+                        <p class="text-2xl font-bold text-gray-900" id="activeTasks">...</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clipboard-list" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-green-600 text-sm font-medium" id="completedTasksText">Caricamento...</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Richieste Pendenti</p>
+                        <p class="text-2xl font-bold text-gray-900" id="pendingRequests">...</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clock" class="w-6 h-6 text-orange-600"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-orange-600 text-sm font-medium">Richiede attenzione</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Comunicazioni</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCommunications">...</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="message-circle" class="w-6 h-6 text-purple-600"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-purple-600 text-sm font-medium" id="sentTodayText">Caricamento...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="window.location.href='/gestione-lavorazioni.html?wizard=1'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Nuova Lavorazione</h3>
+                        <p class="text-blue-100">Crea e assegna nuovo task</p>
+                    </div>
+                    <i data-lucide="plus-circle" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="window.location.href='/gestione-mezzi.html'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Gestione Mezzi</h3>
+                        <p class="text-orange-100">Furgoni e assegnazioni</p>
+                    </div>
+                    <i data-lucide="truck" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="window.location.href='/gestione-richieste.html'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Gestisci Richieste</h3>
+                        <p class="text-green-100">Approva o rifiuta richieste</p>
+                    </div>
+                    <i data-lucide="check-circle" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white hover-scale cursor-pointer" onclick="window.location.href='/comunicazioni.html'">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Nuova Comunicazione</h3>
+                        <p class="text-purple-100">Invia annuncio a tutti</p>
+                    </div>
+                    <i data-lucide="send" class="w-8 h-8"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activities & Pending Requests -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Recent Activities -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Attività Recenti</h3>
+                    <button onclick="clearRecentActivities()" 
+                            class="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Elimina tutte le attività recenti">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span>Elimina attività</span>
+                    </button>
+                </div>
+                <div id="recentActivitiesList" class="divide-y divide-gray-200">
+                    <!-- Populated by JavaScript -->
+                    <div class="p-6 text-center text-gray-500">
+                        <i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                        <p>Caricamento attività...</p>
+                    </div>
+                </div>
+                <div class="px-6 py-3 bg-gray-50">
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:text-blue-500">Vedi tutte le attività</a>
+                </div>
+            </div>
+
+            <!-- Pending Requests -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden fade-in">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Richieste da Approvare</h3>
+                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">8 pendenti</span>
+                </div>
+                <div id="pendingRequestsList" class="divide-y divide-gray-200">
+                    <!-- Populated by JavaScript -->
+                </div>
+                <div class="px-6 py-3 bg-gray-50">
+                    <a href="gestione-richieste.html" class="text-sm font-medium text-blue-600 hover:text-blue-500">Gestisci tutte le richieste</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="mt-8 bg-white rounded-lg shadow-md p-6 fade-in">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Stato del Sistema</h3>
+            <div id="systemStatus" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">Server Database</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">Sistema di Backup</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 animate-pulse"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">Ultimo Aggiornamento</p>
+                        <p class="text-sm text-gray-500">Controllo...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for pending requests
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check admin access
+            if (!window.AuthHelper.requireAdmin()) {
+                return; // requireAdmin() handles redirect
+            }
+            
+            lucide.createIcons();
+            
+            // Wait for dataManager to be available
+            if (typeof window.dataManager === 'undefined') {
+                console.error('dataManager non disponibile');
+                return;
+            }
+            
+            await loadPendingRequests();
+            await loadRecentActivities();
+            await loadSystemStatus();
+            updateLastLogin();
+            await updateStats();
+        });
+
+        async function loadPendingRequests() {
+            try {
+                const container = document.getElementById('pendingRequestsList');
+                if (!container) return;
+                
+                const requests = await window.dataManager.getRichieste();
+                const pendingRequests = requests.filter(r => {
+                    const stato = r.status || r.stato;
+                    return stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+                });
+                
+                const count = pendingRequests.length;
+                document.getElementById('pendingRequests').textContent = count;
+                
+                // Update sidebar badge
+                const badge = document.getElementById('requestsBadge');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+                
+                if (pendingRequests.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-4">Nessuna richiesta pendente</p>';
+                    return;
+                }
+                
+                container.innerHTML = pendingRequests.slice(0, 5).map(req => `
+                    <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">${req.titolo || req.title || req.tipo || req.type || 'Richiesta'}</p>
+                            <p class="text-sm text-gray-500">${req.tipo || req.type || ''}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="approveRequest('${req.id}')" class="text-green-600 hover:text-green-900" title="Approva">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="rejectRequest('${req.id}')" class="text-red-600 hover:text-red-900" title="Rifiuta">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento richieste:', error);
+                const container = document.getElementById('pendingRequestsList');
+                if (container) {
+                    container.innerHTML = '<p class="text-red-500 text-center py-4">Errore caricamento richieste</p>';
+                }
+            }
+        }
+
+        async function loadRecentActivities() {
+            try {
+                const container = document.getElementById('recentActivitiesList');
+                if (!container) return;
+
+                // Fetch all data sources
+                const [tasks, users, requests, communications] = await Promise.all([
+                    window.dataManager.getLavorazioni(),
+                    window.dataManager.getUtenti(),
+                    window.dataManager.getRichieste(),
+                    window.dataManager.getComunicazioni()
+                ]);
+
+                // Create activity objects with timestamps
+                const activities = [];
+
+                // Add completed tasks
+                tasks.filter(t => t.stato === 'completato' && t.data_completamento).forEach(task => {
+                    activities.push({
+                        type: 'task_completed',
+                        timestamp: new Date(task.data_completamento),
+                        icon: 'check',
+                        iconColor: 'green',
+                        title: `Lavorazione "${task.titolo}" completata`,
+                        user: task.assigned_to_name || 'Utente',
+                        data: task
+                    });
+                });
+
+                // Add new users (created in last 30 days)
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                users.filter(u => u.created_at && new Date(u.created_at) > thirtyDaysAgo).forEach(user => {
+                    activities.push({
+                        type: 'user_created',
+                        timestamp: new Date(user.created_at),
+                        icon: 'user-plus',
+                        iconColor: 'blue',
+                        title: `Nuovo dipendente aggiunto: ${user.nome} ${user.cognome}`,
+                        user: 'Admin',
+                        data: user
+                    });
+                });
+
+                // Add pending requests
+                requests.filter(r => r.status === 'pending' && r.created_at).forEach(req => {
+                    activities.push({
+                        type: 'request_pending',
+                        timestamp: new Date(req.created_at),
+                        icon: 'clock',
+                        iconColor: 'orange',
+                        title: `Richiesta ${req.type || 'generica'} in attesa`,
+                        user: req.user_name || 'Dipendente',
+                        data: req
+                    });
+                });
+
+                // Add recent communications
+                communications.filter(c => c.created_at).forEach(comm => {
+                    activities.push({
+                        type: 'communication',
+                        timestamp: new Date(comm.created_at),
+                        icon: 'message-square',
+                        iconColor: 'purple',
+                        title: `Nuova comunicazione: ${comm.titolo}`,
+                        user: 'Admin',
+                        data: comm
+                    });
+                });
+
+                // Sort by timestamp (most recent first)
+                activities.sort((a, b) => b.timestamp - a.timestamp);
+
+                // Take top 10
+                const recentActivities = activities.slice(0, 10);
+
+                if (recentActivities.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">Nessuna attività recente</p>';
+                    return;
+                }
+
+                // Render activities
+                container.innerHTML = recentActivities.map(activity => {
+                    const timeAgo = getTimeAgo(activity.timestamp);
+                    return `
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-${activity.iconColor}-100 rounded-full flex items-center justify-center mr-4">
+                                    <i data-lucide="${activity.icon}" class="w-5 h-5 text-${activity.iconColor}-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">${activity.title}</p>
+                                    <p class="text-sm text-gray-500">${activity.user} • ${timeAgo}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore caricamento attività:', error);
+                const container = document.getElementById('recentActivitiesList');
+                if (container) {
+                    container.innerHTML = '<p class="text-red-500 text-center py-4">Errore caricamento attività</p>';
+                }
+            }
+        }
+
+        function getTimeAgo(date) {
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return 'Pochi secondi fa';
+            
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minuto' : 'minuti'} fa`;
+            
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ${hours === 1 ? 'ora' : 'ore'} fa`;
+            
+            const days = Math.floor(hours / 24);
+            if (days < 7) return `${days} ${days === 1 ? 'giorno' : 'giorni'} fa`;
+            
+            const weeks = Math.floor(days / 7);
+            if (weeks < 4) return `${weeks} ${weeks === 1 ? 'settimana' : 'settimane'} fa`;
+            
+            const months = Math.floor(days / 30);
+            return `${months} ${months === 1 ? 'mese' : 'mesi'} fa`;
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const statusContainer = document.getElementById('systemStatus');
+                if (!statusContainer) return;
+
+                // Test database connection
+                let dbStatus = 'offline';
+                let dbColor = 'red';
+                let dbText = 'Non raggiungibile';
+                
+                try {
+                    const { data, error } = await supabase.from('users').select('id').limit(1);
+                    if (!error) {
+                        dbStatus = 'online';
+                        dbColor = 'green';
+                        dbText = 'Operativo';
+                    }
+                } catch (e) {
+                    console.error('DB check failed:', e);
+                }
+
+                // Get last activity timestamp (most recent update across all tables)
+                let lastBackup = null;
+                let backupColor = 'yellow';
+                let backupText = 'Nessun dato';
+
+                try {
+                    const [tasks, users, communications] = await Promise.all([
+                        window.dataManager.getLavorazioni(),
+                        window.dataManager.getUtenti(),
+                        window.dataManager.getComunicazioni()
+                    ]);
+
+                    const allDates = [
+                        ...tasks.map(t => t.updated_at || t.created_at),
+                        ...users.map(u => u.updated_at || u.created_at),
+                        ...communications.map(c => c.updated_at || c.created_at)
+                    ].filter(Boolean).map(d => new Date(d));
+
+                    if (allDates.length > 0) {
+                        lastBackup = new Date(Math.max(...allDates));
+                        const hoursSinceBackup = (new Date() - lastBackup) / (1000 * 60 * 60);
+                        
+                        if (hoursSinceBackup < 24) {
+                            backupColor = 'green';
+                            backupText = `Ultimo backup: ${getTimeAgo(lastBackup)}`;
+                        } else if (hoursSinceBackup < 72) {
+                            backupColor = 'yellow';
+                            backupText = `Ultimo backup: ${getTimeAgo(lastBackup)}`;
+                        } else {
+                            backupColor = 'red';
+                            backupText = `⚠️ Backup obsoleto: ${getTimeAgo(lastBackup)}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Backup check failed:', e);
+                }
+
+                // Get app version from commits (simulated - in real app use version from package.json or git)
+                const appVersion = 'v2.5.0';
+                const lastUpdate = new Date('2025-11-28'); // Today's date
+                const updateText = `Versione ${appVersion} • ${getTimeAgo(lastUpdate)}`;
+
+                statusContainer.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-${dbColor}-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Server Database</p>
+                            <p class="text-sm text-gray-500">${dbText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-${backupColor}-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Sistema di Backup</p>
+                            <p class="text-sm text-gray-500">${backupText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-blue-400 rounded-full mr-3"></div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Ultimo Aggiornamento</p>
+                            <p class="text-sm text-gray-500">${updateText}</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Errore caricamento stato sistema:', error);
+            }
+        }
+
+        async function clearRecentActivities() {
+            // SAFE VERSION: Clear only visualization, does NOT delete from database
+            if (!confirm('Vuoi nascondere le attività visualizzate?\n\nNOTA: Questa azione nasconde solo la lista visualizzata.\nI dati rimangono nel database e riappariranno ricaricando la pagina.')) {
+                return;
+            }
+
+            try {
+                const container = document.getElementById('recentActivitiesList');
+                
+                // Clear the visual list only
+                container.innerHTML = `
+                    <div class="p-8 text-center">
+                        <i data-lucide="eye-off" class="w-12 h-12 mx-auto mb-3 text-gray-400"></i>
+                        <p class="text-gray-600 font-medium mb-2">Attività nascoste</p>
+                        <p class="text-sm text-gray-500 mb-4">La lista è stata nascosta. I dati sono ancora nel database.</p>
+                        <button onclick="loadRecentActivities()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2"></i>
+                            Ricarica Attività
+                        </button>
+                    </div>
+                `;
+                
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore durante l\'eliminazione:', error);
+                alert('❌ Errore durante l\'eliminazione delle attività: ' + error.message);
+                await loadRecentActivities();
+            }
+        }
+
+        function createRequestElement(request) {
+            const div = document.createElement('div');
+            div.className = 'p-6';
+            
+            const typeIcon = getTypeIcon(request.tipo);
+            
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                            <i data-lucide="${typeIcon}" class="w-4 h-4 text-orange-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">${request.titolo}</p>
+                            <p class="text-sm text-gray-500">${request.dipendente} • ${formatDate(request.data)}</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="approveRequest(${request.id})" class="p-1 text-green-600 hover:bg-green-50 rounded" title="Approva">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="rejectRequest(${request.id})" class="p-1 text-red-600 hover:bg-red-50 rounded" title="Rifiuta">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return div;
+        }
+
+        function getTypeIcon(type) {
+            switch(type) {
+                case 'ferie': return 'calendar';
+                case 'permessi': return 'clock';
+                case 'materiali': return 'package';
+                case 'veicoli': return 'car';
+                default: return 'file-text';
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function updateLastLogin() {
+            const now = new Date();
+            const loginElement = document.getElementById('lastLogin');
+            if (loginElement) {
+                loginElement.textContent = `Oggi, ${now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const users = await window.dataManager.getUtenti();
+                const clients = await window.dataManager.getClienti();
+                const tasks = await window.dataManager.getLavorazioni();
+                const requests = await window.dataManager.getRichieste();
+                const communications = await window.dataManager.getComunicazioni();
+                
+                // Calculate today's date for comparisons
+                const today = new Date().toISOString().split('T')[0];
+                const thisMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+                
+                // Update main counters
+                const totalEmployeesEl = document.getElementById('totalEmployees');
+                const totalClientsEl = document.getElementById('totalClients');
+                const activeTasksEl = document.getElementById('activeTasks');
+                const pendingRequestsEl = document.getElementById('pendingRequests');
+                const totalCommsEl = document.getElementById('totalCommunications');
+                
+                if (totalEmployeesEl) totalEmployeesEl.textContent = users.length || '0';
+                if (totalClientsEl) totalClientsEl.textContent = clients.length || '0';
+                if (activeTasksEl) {
+                    const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length;
+                    activeTasksEl.textContent = activeTasks || '0';
+                }
+                if (pendingRequestsEl) {
+                    const pending = requests.filter(r => {
+                        const stato = r.status || r.stato;
+                        return stato === 'pending' || stato === 'pendente' || stato === 'in_attesa';
+                    }).length;
+                    pendingRequestsEl.textContent = pending || '0';
+                }
+                if (totalCommsEl) totalCommsEl.textContent = communications.length || '0';
+                
+                // Update secondary stats
+                // New employees this month
+                const newEmployeesText = document.getElementById('newEmployeesText');
+                if (newEmployeesText) {
+                    const newThisMonth = users.filter(u => u.created_at?.startsWith(thisMonth)).length;
+                    newEmployeesText.textContent = newThisMonth > 0 ? `+${newThisMonth} questo mese` : 'Nessuno questo mese';
+                }
+                
+                // Completed tasks today
+                const completedTasksText = document.getElementById('completedTasksText');
+                if (completedTasksText) {
+                    const completedToday = tasks.filter(t => 
+                        t.status === 'completed' && t.completed_at?.startsWith(today)
+                    ).length;
+                    completedTasksText.textContent = completedToday > 0 ? `${completedToday} completate oggi` : 'Nessuna completata oggi';
+                }
+                
+                // Communications sent today
+                const sentTodayText = document.getElementById('sentTodayText');
+                if (sentTodayText) {
+                    const sentToday = communications.filter(c => 
+                        c.stato === 'inviata' && c.data_invio === today
+                    ).length;
+                    sentTodayText.textContent = sentToday > 0 ? `${sentToday} inviate oggi` : 'Nessuna inviata oggi';
+                }
+                
+            } catch (error) {
+                console.error('Errore aggiornamento statistiche:', error);
+                // Show 0 instead of errors
+                document.getElementById('totalEmployees').textContent = '0';
+                document.getElementById('activeTasks').textContent = '0';
+                document.getElementById('pendingRequests').textContent = '0';
+                document.getElementById('totalCommunications').textContent = '0';
+            }
+        }
+
+        async function approveRequest(requestId) {
+            try {
+                // Update request status in Supabase
+                await window.RequestsAPI.update(requestId, { status: 'approved' });
+                
+                showNotification('Richiesta approvata con successo!', 'success');
+                
+                // Reload pending requests
+                await loadPendingRequests();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore approvazione richiesta:', error);
+                showNotification('Errore durante l\'approvazione', 'error');
+            }
+        }
+
+        async function rejectRequest(requestId) {
+            try {
+                // Update request status in Supabase
+                await window.RequestsAPI.update(requestId, { status: 'rejected' });
+                
+                showNotification('Richiesta rifiutata', 'error');
+                
+                // Reload pending requests
+                await loadPendingRequests();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Errore rifiuto richiesta:', error);
+                showNotification('Errore durante il rifiuto', 'error');
+            }
+        }
+
+        function logout() {
+            // Crea modal per conferma logout
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+                        <i data-lucide="log-out" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Conferma Logout</h3>
+                    <p class="text-gray-600 text-center mb-6">Sei sicuro di voler uscire dal pannello amministrativo?</p>
+                    
+                    <div class="flex space-x-3">
+                        <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            Annulla
+                        </button>
+                        <button onclick="confirmLogout()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            <i data-lucide="log-out" class="w-4 h-4 inline mr-2"></i>
+                            Esci
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            lucide.createIcons();
+        }
+
+        function confirmLogout() {
+            // Rimuovi modal
+            const modal = document.querySelector('.fixed.inset-0');
+            if (modal) modal.remove();
+            
+            // Mostra notifica
+            showNotification('Logout effettuato', 'info');
+            
+            // Pulisci sessione e redirect
+            sessionStorage.removeItem('ast_current_user');
+            setTimeout(() => {
+                window.location.href = '/Admin/index.html';
+            }, 500);
+        }
+
+        // ===================================
+        // SIDEBAR COLLAPSABILE + CATEGORIE
+        // ===================================
+        
+        let sidebarCollapsed = false;
+        const openCategories = new Set(['anagrafica', 'operativo', 'commerciale']); // Aperte di default
+        
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+                mainContent.style.marginLeft = '70px';
+            } else {
+                sidebar.classList.remove('collapsed');
+                mainContent.style.marginLeft = '260px';
+            }
+        }
+        
+        function toggleCategory(categoryName) {
+            const content = document.getElementById(`category-${categoryName}`);
+            const icon = document.getElementById(`icon-${categoryName}`);
+            
+            if (openCategories.has(categoryName)) {
+                openCategories.delete(categoryName);
+                content.classList.remove('active');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                openCategories.add(categoryName);
+                content.classList.add('active');
+                icon.style.transform = 'rotate(180deg)';
+            }
+        }
+        
+        // Init categorie aperte
+        document.addEventListener('DOMContentLoaded', () => {
+            openCategories.forEach(cat => {
+                const content = document.getElementById(`category-${cat}`);
+                const icon = document.getElementById(`icon-${cat}`);
+                if (content && icon) {
+                    content.classList.add('active');
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : 
+                           type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Real-time clock
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('it-IT');
+            document.title = `Dashboard Admin - ${timeString}`;
+        }
+
+        setInterval(updateClock, 1000);
+
+        // ─── Notifica realtime nuova richiesta ──────────────────────────
+        let _realtimeQueue = [];   // coda se arriva un'altra mentre una è aperta
+        let _realtimeShowing = false;
+
+        function avviaRealtimeRichieste() {
+            window.supabase
+                .channel('admin-nuove-richieste')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'requests'
+                }, async (payload) => {
+                    const req = payload.new;
+                    // Carica nome utente
+                    let userName = 'Dipendente';
+                    try {
+                        const { data: u } = await window.supabase
+                            .from('users')
+                            .select('nome, cognome')
+                            .eq('id', req.user_id)
+                            .single();
+                        if (u) userName = `${u.nome} ${u.cognome}`;
+                    } catch (_) {}
+
+                    const item = { req, userName };
+                    if (_realtimeShowing) {
+                        _realtimeQueue.push(item);
+                    } else {
+                        mostraNuovaRichiestaModal(item);
+                    }
+                })
+                .subscribe();
+        }
+
+        function mostraNuovaRichiestaModal({ req, userName }) {
+            _realtimeShowing = true;
+            const tipo = req.tipo || req.type || '';
+            const titolo = req.titolo || req.title || tipo || 'Nuova Richiesta';
+            const descrizione = req.descrizione || req.description || '';
+            const priorita = req.priorita || req.priority || '';
+            const initials = userName.split(' ').map(n => n[0] || '').join('').toUpperCase();
+
+            const prioBadge = priorita === 'alta' || priorita === 'urgente'
+                ? `<span class="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-semibold ml-1">🔴 ${priorita}</span>`
+                : priorita === 'media'
+                ? `<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-semibold ml-1">🟡 ${priorita}</span>`
+                : '';
+
+            const modal = document.createElement('div');
+            modal.id = 'nuovaRichiestaModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-bounce-in overflow-hidden">
+                    <!-- Badge "in tempo reale" -->
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 flex items-center gap-2 text-sm font-bold">
+                        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping inline-block"></span>
+                        Nuova richiesta in arrivo!
+                    </div>
+                    <!-- Corpo -->
+                    <div class="p-6 space-y-4">
+                        <!-- Richiedente -->
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">${initials}</div>
+                            <div>
+                                <p class="font-bold text-gray-900">${userName}</p>
+                                <p class="text-sm text-gray-500 capitalize">${tipo.replace(/_/g, ' ')}</p>
+                            </div>
+                        </div>
+                        <!-- Dettagli -->
+                        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-1">
+                            <p class="font-semibold text-gray-900">${titolo} ${prioBadge}</p>
+                            ${descrizione ? `<p class="text-sm text-gray-600">${descrizione}</p>` : ''}
+                            ${req.data_inizio && req.data_fine
+                                ? `<p class="text-xs text-gray-500 mt-1">🗓️ ${new Date(req.data_inizio).toLocaleDateString('it-IT')} → ${new Date(req.data_fine).toLocaleDateString('it-IT')}</p>`
+                                : ''}
+                        </div>
+                        <!-- Azioni -->
+                        <div class="flex gap-2">
+                            <button onclick="realtimeApprova('${req.id}')"
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                ✅ Approva
+                            </button>
+                            <button onclick="realtimeRifiuta('${req.id}')"
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                ❌ Rifiuta
+                            </button>
+                            <button onclick="realtimeGestisciDopo()"
+                                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                                📋 Dopo
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function chiudiNuovaRichiestaModal() {
+            document.getElementById('nuovaRichiestaModal')?.remove();
+            _realtimeShowing = false;
+            if (_realtimeQueue.length > 0) {
+                mostraNuovaRichiestaModal(_realtimeQueue.shift());
+            }
+        }
+
+        async function realtimeApprova(requestId) {
+            try {
+                await window.RequestsAPI.update(requestId, { status: 'approved', stato: 'approvata' });
+                showNotification('✅ Richiesta approvata', 'success');
+                await loadPendingRequests();
+            } catch (e) { showNotification('Errore approvazione', 'error'); }
+            chiudiNuovaRichiestaModal();
+        }
+
+        async function realtimeRifiuta(requestId) {
+            try {
+                await window.RequestsAPI.update(requestId, { status: 'rejected', stato: 'rifiutata' });
+                showNotification('Richiesta rifiutata', 'error');
+                await loadPendingRequests();
+            } catch (e) { showNotification('Errore rifiuto', 'error'); }
+            chiudiNuovaRichiestaModal();
+        }
+
+        function realtimeGestisciDopo() {
+            chiudiNuovaRichiestaModal();
+            showNotification('📋 Richiesta spostata in coda', 'info');
+        }
+
+        // Avvia realtime dopo l'init
+        document.addEventListener('DOMContentLoaded', () => {
+            // Attendi che supabase sia pronto
+            const tryStart = setInterval(() => {
+                if (window.supabase) {
+                    clearInterval(tryStart);
+                    avviaRealtimeRichieste();
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>

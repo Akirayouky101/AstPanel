@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le mie Note - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
+    <script src="qz-print.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <script src="data-migration.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .note-card { cursor: pointer; transition: all 0.2s; }
+        .note-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+        #noteModal { backdrop-filter: blur(4px); }
+        .qr-live { transition: opacity 0.2s; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #printLabelContent, #printLabelContent * { visibility: visible !important; }
+            #printLabelContent {
+                position: fixed !important;
+                left: 0; top: 0;
+                border: none !important;
+                background: white !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Sidebar -->
+<div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50" id="sidebar">
+    <div class="flex items-center justify-center h-16 gradient-bg">
+        <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+    </div>
+    <nav class="mt-8">
+        <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="home" class="w-5 h-5 mr-3"></i>Dashboard
+        </a>
+        <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="users" class="w-5 h-5 mr-3"></i>Gestione Utenti
+        </a>
+        <a href="gestione-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>Gestione Lavorazioni
+        </a>
+        <a href="archivio-lavorazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <i data-lucide="archive" class="w-5 h-5 mr-3"></i>Lavorazioni Archiviate
+        </a>
+        <a href="gestione-richieste.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="file-text" class="w-5 h-5 mr-3"></i>Gestione Richieste
+        </a>
+        <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>Comunicazioni
+        </a>
+        <a href="note.html" class="flex items-center px-6 py-3 bg-amber-50 text-amber-700 border-r-4 border-amber-500 font-semibold">
+            <i data-lucide="sticky-note" class="w-5 h-5 mr-3"></i>Note
+        </a>
+        <a href="richiesta-ordine-interna.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+            <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i>Preventivi Interni
+        </a>
+        <a href="qr-builder.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+            <i data-lucide="qr-code" class="w-5 h-5 mr-3"></i>QR Builder
+        </a>
+    </nav>
+</div>
+
+<!-- Main Content -->
+<div class="ml-64 p-8">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-1">Le mie Note</h2>
+            <p class="text-gray-500 text-sm">Ogni nota ha un QR code dedicato per accesso rapido</p>
+        </div>
+        <button onclick="openNewNote()" class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuova Nota
+        </button>
+    </div>
+
+    <!-- Search bar + Scan -->
+    <div class="mb-6 flex gap-2 items-center">
+        <div class="relative flex-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="searchNotes" type="text" placeholder="Cerca nelle note..." oninput="renderNotes()"
+                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
+        </div>
+        <button onclick="toggleScanFilter()" id="scanBtn"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-semibold transition-colors flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+            Scansiona
+        </button>
+    </div>
+    <!-- Scan input (appare al click) -->
+    <div id="scanFilterWrapper" class="hidden mb-4">
+        <div class="bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+            <input id="scanFilterInput" type="text" placeholder="Punta il lettore QR sulla nota..."
+                oninput="handleNoteScan(this.value)"
+                onkeydown="if(event.key==='Escape'){toggleScanFilter()}"
+                class="flex-1 bg-transparent focus:outline-none text-sm text-amber-800 placeholder-amber-400">
+            <button onclick="toggleScanFilter()" class="text-amber-400 hover:text-amber-700 text-xl leading-none">&times;</button>
+        </div>
+    </div>
+
+    <!-- Notes grid -->
+    <div id="notesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="hidden flex flex-col items-center justify-center py-24 text-center">
+        <div class="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <h3 class="text-xl font-semibold text-gray-700 mb-2">Nessuna nota</h3>
+        <p class="text-gray-400 mb-6">Crea la tua prima nota con QR code dedicato</p>
+        <button onclick="openNewNote()" class="bg-amber-500 text-white px-6 py-2.5 rounded-xl hover:bg-amber-600 transition-colors font-semibold">
+            + Crea Nota
+        </button>
+    </div>
+
+</div>
+
+<!-- ===================== NOTE MODAL ===================== -->
+<div id="noteModal" class="hidden fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+
+        <!-- Modal header -->
+        <div class="flex items-center justify-between p-5 border-b border-gray-100">
+            <h3 id="noteModalTitle" class="font-bold text-lg text-gray-800">Nuova Nota</h3>
+            <button onclick="closeNoteModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">&times;</button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Left: form -->
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Titolo</label>
+                    <input id="noteInputTitle" type="text" placeholder="Titolo della nota..."
+                        oninput="onNoteInputChange()"
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-amber-400 focus:outline-none text-gray-800 font-semibold text-lg transition-colors">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Nota</label>
+                    <textarea id="noteInputContent" placeholder="Scrivi la tua nota qui..."
+                        oninput="onNoteInputChange()"
+                        rows="8"
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-amber-400 focus:outline-none text-gray-700 resize-none transition-colors leading-relaxed"></textarea>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex gap-2 mt-auto">
+                    <button onclick="saveNote()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Salva Nota
+                    </button>
+                    <button id="deleteNoteBtn" onclick="deleteCurrentNote()" class="hidden bg-red-50 hover:bg-red-100 text-red-600 py-2.5 px-4 rounded-xl font-semibold transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: QR code -->
+            <div class="flex flex-col items-center justify-start gap-4">
+                <div class="w-full bg-gray-50 rounded-2xl p-5 flex flex-col items-center gap-3 border border-gray-100">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">QR Code Nota</p>
+                    <div id="noteQrCanvas" class="flex items-center justify-center min-h-[180px]">
+                        <p class="text-sm text-gray-300">Scrivi la nota per generare il QR</p>
+                    </div>
+                    <p id="noteQrHint" class="text-xs text-gray-400 text-center px-2">Il QR contiene il titolo e il testo della nota. Scansionandolo si apre la nota su qualsiasi dispositivo.</p>
+                </div>
+                <div class="flex gap-2 w-full">
+                    <button onclick="copyNoteQrUrl()" class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-gray-200 text-gray-600 hover:border-amber-400 hover:text-amber-600 text-xs font-semibold transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copia URL
+                    </button>
+                    <button onclick="printNoteQr()" class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-gray-200 text-gray-600 hover:border-gray-400 text-xs font-semibold transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Stampa QR
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ===================== VIEW NOTE (from QR scan) ===================== -->
+<div id="viewNoteOverlay" class="hidden fixed inset-0 bg-amber-50 z-[300] flex items-center justify-center p-6">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <h2 id="viewNoteTitle" class="text-xl font-bold text-gray-800">—</h2>
+        </div>
+        <div id="viewNoteContent" class="text-gray-600 leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-xl p-4 min-h-[80px] mb-6"></div>
+        <a href="note.html" class="block text-center bg-amber-500 text-white py-2.5 rounded-xl font-semibold hover:bg-amber-600 transition-colors">← Apri Le mie Note</a>
+    </div>
+</div>
+
+<script>
+// ==================== SCAN FILTER ====================
+function toggleScanFilter() {
+    const wrapper = document.getElementById('scanFilterWrapper');
+    const isHidden = wrapper.classList.toggle('hidden');
+    if (!isHidden) {
+        setTimeout(() => document.getElementById('scanFilterInput').focus(), 50);
+    }
+}
+
+function handleNoteScan(val) {
+    if (!val || val.length < 10) return;
+    val = val.trim();
+    let encoded = null;
+    // 1. URL normale (tastiera EN)
+    try { const u = new URL(val); encoded = u.searchParams.get('nota') || u.searchParams.get('d'); } catch {}
+    // 2. Layout tastiera italiana: estrai base64 dopo 'nota=' o 'notaì'
+    if (!encoded) {
+        const m = val.match(/nota[=\xEC]([A-Za-z0-9%+\/=]+)/); // \xEC = ì
+        if (m) encoded = m[1];
+    }
+    if (!encoded) {
+        const m = val.match(/[?_]d[=\xEC]([A-Za-z0-9%+\/=]+)/);
+        if (m) encoded = m[1];
+    }
+    if (!encoded) return;
+    try {
+        const nd = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(encoded)))));
+        document.getElementById('scanFilterInput').value = '';
+        toggleScanFilter();
+        const notes = _notes;
+        const match = _notes.find(n => n.titolo === nd.t && (n.contenuto || '') === (nd.c || ''));
+        if (match) {
+            openExistingNote(match.id);
+        } else {
+            document.getElementById('noteInputTitle').value = nd.t || '';
+            document.getElementById('noteInputContent').value = nd.c || '';
+            document.getElementById('noteModalTitle').textContent = 'Anteprima Nota';
+            document.getElementById('deleteNoteBtn').classList.add('hidden');
+            _editingNoteId = null;
+            document.getElementById('noteQrCanvas').innerHTML = '';
+            new QRCode(document.getElementById('noteQrCanvas'), {
+                text: buildNoteUrl(nd.t, nd.c), width: 180, height: 180,
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            document.getElementById('noteModal').classList.remove('hidden');
+        }
+    } catch(e) { console.warn('QR nota non valido', e); }
+}
+
+// ==================== STORAGE (Supabase) ====================
+let _notes = [];
+let _currentUserId = null;
+
+async function initNotes() {
+    try {
+        let user = window.AuthHelper.getCurrentUser();
+        if (!user) {
+            await new Promise(r => setTimeout(r, 900));
+            user = window.AuthHelper.getCurrentUser();
+        }
+        if (user) _currentUserId = user.id;
+    } catch(e) {}
+    await loadNotesFromDB();
+    renderNotes();
+}
+
+async function loadNotesFromDB() {
+    try {
+        const client = window.supabaseAdmin || window.supabaseClient;
+        let q = client.from('notes').select('*').order('updated_at', { ascending: false });
+        if (_currentUserId) q = q.eq('user_id', _currentUserId);
+        const { data, error } = await q;
+        if (error) throw error;
+        _notes = data || [];
+    } catch(e) {
+        console.error('Errore caricamento note:', e);
+        // Fallback localStorage
+        try { _notes = JSON.parse(localStorage.getItem('notes_v1') || '[]'); } catch { _notes = []; }
+        if (_notes.length === 0) {
+            const em = document.querySelector('#emptyState p.text-gray-400');
+            if (em) em.textContent = 'Errore DB. Esegui create-notes-table.sql in Supabase.';
+        }
+    }
+}
+
+function noteById(id) {
+    return _notes.find(n => n.id === id);
+}
+
+// ==================== QR HELPERS ====================
+let _qrInstance = null;
+
+function buildNoteUrl(titolo, contenuto) {
+    const data = JSON.stringify({ t: titolo || '', c: contenuto || '' });
+    const encoded = btoa(unescape(encodeURIComponent(data)));
+    return `https://ast-panel.vercel.app/admin-functional.html?nota=${encodeURIComponent(encoded)}`;
+}
+
+function decodeNoteUrl(encoded) {
+    try {
+        const data = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(encoded)))));
+        return { titolo: data.t || '', contenuto: data.c || '' };
+    } catch { return null; }
+}
+
+let _qrDebounce = null;
+function generateQr(titolo, contenuto) {
+    clearTimeout(_qrDebounce);
+    _qrDebounce = setTimeout(() => {
+        const canvas = document.getElementById('noteQrCanvas');
+        if (!canvas) return;
+        const t = (titolo || '').trim();
+        const c = (contenuto || '').trim();
+        if (!t && !c) {
+            canvas.innerHTML = '<p class="text-sm text-gray-300">Scrivi la nota per generare il QR</p>';
+            _qrInstance = null;
+            return;
+        }
+        const url = buildNoteUrl(t, c);
+        canvas.innerHTML = '';
+        _qrInstance = new QRCode(canvas, {
+            text: url, width: 180, height: 180,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    }, 400);
+}
+
+// ==================== MODAL STATE ====================
+let _editingNoteId = null;
+
+function openNewNote() {
+    _editingNoteId = null;
+    document.getElementById('noteModalTitle').textContent = 'Nuova Nota';
+    document.getElementById('noteInputTitle').value = '';
+    document.getElementById('noteInputContent').value = '';
+    document.getElementById('deleteNoteBtn').classList.add('hidden');
+    document.getElementById('noteQrCanvas').innerHTML = '<p class="text-sm text-gray-300">Scrivi la nota per generare il QR</p>';
+    _qrInstance = null;
+    document.getElementById('noteModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('noteInputTitle').focus(), 100);
+}
+
+function openExistingNote(id) {
+    const note = noteById(id);
+    if (!note) return;
+    _editingNoteId = id;
+    document.getElementById('noteModalTitle').textContent = 'Modifica Nota';
+    document.getElementById('noteInputTitle').value = note.titolo || '';
+    document.getElementById('noteInputContent').value = note.contenuto || '';
+    document.getElementById('deleteNoteBtn').classList.remove('hidden');
+    document.getElementById('noteQrCanvas').innerHTML = '';
+    _qrInstance = new QRCode(document.getElementById('noteQrCanvas'), {
+        text: buildNoteUrl(note.titolo, note.contenuto),
+        width: 180, height: 180,
+        correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('noteModal').classList.remove('hidden');
+}
+
+function closeNoteModal() {
+    document.getElementById('noteModal').classList.add('hidden');
+    _editingNoteId = null;
+    _qrInstance = null;
+}
+
+function onNoteInputChange() {
+    const t = document.getElementById('noteInputTitle').value;
+    const c = document.getElementById('noteInputContent').value;
+    generateQr(t, c);
+}
+
+// ==================== CRUD ====================
+async function saveNote() {
+    const titolo = document.getElementById('noteInputTitle').value.trim();
+    const contenuto = document.getElementById('noteInputContent').value.trim();
+    if (!titolo) {
+        document.getElementById('noteInputTitle').focus();
+        document.getElementById('noteInputTitle').classList.add('border-red-400');
+        setTimeout(() => document.getElementById('noteInputTitle').classList.remove('border-red-400'), 1500);
+        return;
+    }
+    const saveBtn = document.querySelector('#noteModal button[onclick="saveNote()"]');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvataggio...'; }
+    try {
+        const client = window.supabaseAdmin || window.supabaseClient;
+        if (_editingNoteId) {
+            const { error } = await client.from('notes')
+                .update({ titolo, contenuto })
+                .eq('id', _editingNoteId);
+            if (error) throw error;
+            const idx = _notes.findIndex(n => n.id === _editingNoteId);
+            if (idx !== -1) { _notes[idx] = { ..._notes[idx], titolo, contenuto }; }
+        } else {
+            const { data, error } = await client.from('notes')
+                .insert([{ titolo, contenuto, user_id: _currentUserId }])
+                .select().single();
+            if (error) throw error;
+            _notes.unshift(data);
+        }
+        closeNoteModal();
+        renderNotes();
+    } catch(e) {
+        console.error('Errore salvataggio nota:', e);
+        alert('Errore salvataggio. Assicurati di aver eseguito create-notes-table.sql in Supabase.');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salva Nota'; }
+    }
+}
+
+async function deleteCurrentNote() {
+    if (!_editingNoteId) return;
+    if (!confirm('Eliminare questa nota?')) return;
+    try {
+        const client = window.supabaseAdmin || window.supabaseClient;
+        const { error } = await client.from('notes').delete().eq('id', _editingNoteId);
+        if (error) throw error;
+        _notes = _notes.filter(n => n.id !== _editingNoteId);
+        closeNoteModal();
+        renderNotes();
+    } catch(e) {
+        console.error('Errore eliminazione nota:', e);
+        alert('Errore eliminazione.');
+    }
+}
+
+// ==================== QR ACTIONS ====================
+function copyNoteQrUrl() {
+    const t = document.getElementById('noteInputTitle').value;
+    const c = document.getElementById('noteInputContent').value;
+    if (!t.trim() && !c.trim()) return;
+    const url = buildNoteUrl(t, c);
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = event.currentTarget;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copiato!';
+        btn.classList.add('text-green-600', 'border-green-400');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-600', 'border-green-400'); }, 2000);
+    });
+}
+
+function showPrintLabel(imgSrc, title, caption) {
+    window._currentLabelData = { imgSrc, title, caption };
+    const qrDiv = document.getElementById('printLabelQr');
+    qrDiv.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.style.cssText = 'width:120px;height:120px;display:block;margin:0 auto;';
+    qrDiv.appendChild(img);
+    document.getElementById('printLabelTitle').textContent = title;
+    document.getElementById('printLabelCaption').textContent = caption;
+    document.getElementById('qzStatus').classList.add('hidden');
+    document.getElementById('printLabelModal').classList.remove('hidden');
+}
+
+function closePrintLabel() {
+    document.getElementById('printLabelModal').classList.add('hidden');
+}
+
+function printNoteQrById(id, event) {
+    event.stopPropagation();
+    const note = _notes.find(n => n.id === id);
+    if (!note) return;
+    const url = buildNoteUrl(note.titolo, note.contenuto);
+    const tmp = document.createElement('div');
+    tmp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+    document.body.appendChild(tmp);
+    try {
+        new QRCode(tmp, { text: url, width: 200, height: 200 });
+        setTimeout(() => {
+            const img = tmp.querySelector('img');
+            if (!img) { document.body.removeChild(tmp); return; }
+            showPrintLabel(img.src, note.titolo, 'Scansiona per aprire la nota');
+            document.body.removeChild(tmp);
+        }, 400);
+    } catch(e) { document.body.removeChild(tmp); }
+}
+
+function printNoteQr() {
+    const t = document.getElementById('noteInputTitle').value || 'Nota';
+    const img = document.querySelector('#noteQrCanvas img');
+    if (!img) { alert('Genera prima il QR salvando o scrivendo nella nota'); return; }
+    showPrintLabel(img.src, t, 'Scansiona per aprire la nota');
+}
+
+// ==================== RENDER ====================
+function formatRelDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return 'Ora';
+    if (diff < 3600) return `${Math.floor(diff/60)} min fa`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h fa`;
+    if (diff < 604800) return `${Math.floor(diff/86400)}g fa`;
+    return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
+}
+
+// Palette colori per le card (cicla su id)
+const CARD_COLORS = [
+    { bg: 'bg-amber-50', border: 'border-amber-200', dot: 'bg-amber-400', text: 'text-amber-700' },
+    { bg: 'bg-blue-50',  border: 'border-blue-200',  dot: 'bg-blue-400',  text: 'text-blue-700' },
+    { bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-400', text: 'text-green-700' },
+    { bg: 'bg-purple-50',border: 'border-purple-200',dot: 'bg-purple-400',text: 'text-purple-700' },
+    { bg: 'bg-rose-50',  border: 'border-rose-200',  dot: 'bg-rose-400',  text: 'text-rose-700' },
+    { bg: 'bg-teal-50',  border: 'border-teal-200',  dot: 'bg-teal-400',  text: 'text-teal-700' },
+];
+
+function colorForNote(note, idx) {
+    return CARD_COLORS[idx % CARD_COLORS.length];
+}
+
+function renderNotes() {
+    const notes = _notes;
+    const search = document.getElementById('searchNotes').value.toLowerCase();
+    const filtered = notes.filter(n =>
+        n.titolo.toLowerCase().includes(search) ||
+        (n.contenuto || '').toLowerCase().includes(search)
+    );
+
+    const grid = document.getElementById('notesGrid');
+    const empty = document.getElementById('emptyState');
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    grid.innerHTML = filtered.map((note, idx) => {
+        const col = colorForNote(note, idx);
+        const preview = (note.contenuto || '').substring(0, 120).replace(/\n/g, ' ');
+        return `
+        <div class="note-card ${col.bg} border-2 ${col.border} rounded-2xl p-5 fade-in"
+             onclick="openExistingNote('${note.id}')">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <div class="w-2 h-2 rounded-full ${col.dot} flex-shrink-0 mt-1"></div>
+                    <h3 class="font-bold text-gray-800 truncate text-sm">${escHtml(note.titolo)}</h3>
+                </div>
+                <span class="text-xs ${col.text} ml-2 flex-shrink-0">${formatRelDate(note.updatedAt || note.createdAt)}</span>
+            </div>
+            ${preview ? `<p class="text-gray-500 text-xs leading-relaxed line-clamp-3 mb-3">${escHtml(preview)}</p>` : '<p class="text-gray-400 text-xs italic mb-3">Nota vuota</p>'}
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-400">Clicca per aprire</span>
+                <div class="flex items-center gap-2">
+                    <button onclick="printNoteQrById('${note.id}', event)" title="Stampa etichetta QR"
+                        class="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-600 transition-colors px-1.5 py-0.5 rounded hover:bg-white/60">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+                        Stampa
+                    </button>
+                    <div class="flex items-center gap-1 text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                        <span class="text-xs font-medium">QR</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ==================== URL PARAM HANDLER ====================
+// ?d=ENCODED → mostra nota direttamente (da QR scan)
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const d = params.get('d');
+    if (d) {
+        history.replaceState({}, '', window.location.pathname);
+        const note = decodeNoteUrl(d);
+        if (note) {
+            document.getElementById('viewNoteTitle').textContent = note.titolo || '(Senza titolo)';
+            document.getElementById('viewNoteContent').textContent = note.contenuto || '';
+            document.getElementById('viewNoteOverlay').classList.remove('hidden');
+            // Hide main content
+            document.querySelector('.ml-64').style.display = 'none';
+            document.querySelector('#sidebar').style.display = 'none';
+        }
+        return; // don't continue with normal init
+    }
+
+    // Normal page init — il DOM è già pronto (script in fondo al body)
+    try { lucide.createIcons(); } catch(e) {}
+    document.getElementById('noteModal').addEventListener('click', function(e) {
+        if (e.target === this) closeNoteModal();
+    });
+    initNotes();
+})();
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeNoteModal(); closePrintLabel(); }
+});
+</script>
+
+<!-- Modal Anteprima Etichetta -->
+<div id="printLabelModal" class="hidden fixed inset-0 bg-black/60 z-[200] flex items-center justify-center" onclick="if(event.target===this)closePrintLabel()">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-96 flex flex-col items-center">
+        <h3 class="font-bold text-gray-800 text-lg mb-0.5">Stampa Etichetta</h3>
+        <p class="text-xs text-gray-400 mb-3">Stampa diretta via QZ Tray &mdash; nessun dialog</p>
+        <!-- Anteprima -->
+        <div id="printLabelContent" class="border-2 border-dashed border-gray-200 rounded-xl p-3 flex flex-col items-center text-center w-full bg-gray-50 mb-3">
+            <div id="printLabelQr" class="mb-1.5"></div>
+            <div id="printLabelTitle" class="font-bold text-gray-800 text-sm max-w-full truncate"></div>
+            <div id="printLabelCaption" class="text-gray-400 text-xs mt-0.5"></div>
+        </div>
+        <!-- Stampante -->
+        <div class="w-full mb-3">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Stampante</label>
+            <div class="flex gap-2">
+                <select id="qzPrinterSelect" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:ring-cyan-400">
+                    <option value="">-- premi Trova --</option>
+                </select>
+                <button onclick="detectQZPrinters()" class="px-3 py-2 bg-gray-100 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors whitespace-nowrap">🔍 Trova</button>
+            </div>
+        </div>
+        <!-- Dimensioni -->
+        <div class="w-full mb-2">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Dimensioni etichetta (mm)</label>
+            <div class="flex gap-2 items-end mb-2">
+                <div class="flex-1 text-center">
+                    <div class="text-xs text-gray-400 mb-0.5">Larghezza</div>
+                    <input id="labelW" type="number" value="100" min="20" max="300" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:ring-2 focus:ring-cyan-400">
+                </div>
+                <span class="text-gray-300 text-xl pb-1">&times;</span>
+                <div class="flex-1 text-center">
+                    <div class="text-xs text-gray-400 mb-0.5">Altezza</div>
+                    <input id="labelH" type="number" value="70" min="20" max="300" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:ring-2 focus:ring-cyan-400">
+                </div>
+            </div>
+            <div class="flex gap-1.5 flex-wrap">
+                <button onclick="setLabelSize(100,70)" class="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600 hover:bg-cyan-100 hover:text-cyan-700 transition-colors">100&times;70</button>
+                <button onclick="setLabelSize(101,152)" class="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600 hover:bg-cyan-100 hover:text-cyan-700 transition-colors">4&times;6" (101&times;152)</button>
+                <button onclick="setLabelSize(62,29)" class="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600 hover:bg-cyan-100 hover:text-cyan-700 transition-colors">62&times;29</button>
+                <button onclick="setLabelSize(50,30)" class="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600 hover:bg-cyan-100 hover:text-cyan-700 transition-colors">50&times;30</button>
+            </div>
+        </div>
+        <!-- Status -->
+        <div id="qzStatus" class="hidden w-full"></div>
+        <!-- Bottoni -->
+        <div class="flex gap-3 mt-3 w-full">
+            <button onclick="closePrintLabel()" class="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Chiudi</button>
+            <button onclick="printWithQZ()" class="flex-1 py-2.5 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+                Stampa Diretto
+            </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2 text-center">Richiede <a href="https://qz.io/download" target="_blank" class="text-cyan-600 underline">QZ Tray</a> installato e avviato</p>
+    </div>
+</div>
+
+</body>
+</html>

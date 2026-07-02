@@ -21,6 +21,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
+        *::-webkit-scrollbar { width: 0; display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -223,12 +225,12 @@
 
                 <!-- Informazioni Base -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
+                    <div id="ragioneSocialeWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2" id="labelRagioneSociale">Ragione Sociale / Nome Completo</label>
                            <input type="text" id="ragioneSociale" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    <div>
+                    <div id="settoreWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Settore</label>
                         <input type="text" id="settore" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -238,12 +240,12 @@
                 <!-- Campi Referente (per aziende, associazioni, comuni) -->
                 <div id="referenteFields" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome Referente</label>
+                        <label id="labelNomeReferente" class="block text-sm font-medium text-gray-700 mb-2">Nome Referente</label>
                         <input type="text" id="nome" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Cognome Referente</label>
+                        <label id="labelCognomeReferente" class="block text-sm font-medium text-gray-700 mb-2">Cognome Referente</label>
                         <input type="text" id="cognome" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
@@ -431,16 +433,16 @@
                 <!-- Contatti -->
                 <div id="contattiFields" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                           <label class="block text-sm font-medium text-gray-700 mb-2">
-                               <i class="fas fa-building text-gray-400 mr-1"></i>Telefono Azienda
+                           <label id="labelTelefono" class="block text-sm font-medium text-gray-700 mb-2">
+                               <i id="iconTelefono" class="fas fa-building text-gray-400 mr-1"></i>Telefono Azienda
                            </label>
                            <input type="tel" id="telefono" 
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                placeholder="+39 02 1234567">
                     </div>
-                    <div>
-                           <label class="block text-sm font-medium text-gray-700 mb-2">
-                               <i class="fas fa-user text-gray-400 mr-1"></i>Telefono Referente
+                    <div id="telefonoReferenteWrapper">
+                           <label id="labelTelefonoReferente" class="block text-sm font-medium text-gray-700 mb-2">
+                               <i class="fas fa-mobile-alt text-gray-400 mr-1"></i>Telefono Referente
                            </label>
                            <input type="tel" id="telefonoReferente"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -454,7 +456,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div id="pecPivaRow" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">PEC</label>
                         <input type="email" id="pec" 
@@ -479,48 +481,97 @@
                     <div></div>
                 </div>
 
+                <!-- Header Dati Struttura (solo struttura) -->
+                <div id="strutturaDataHeader" style="display:none" class="mb-3 mt-2 flex items-center gap-2">
+                    <div class="flex-1 h-px bg-teal-200"></div>
+                    <span class="text-xs font-bold text-teal-700 uppercase tracking-wide px-2"><i class="fas fa-sitemap mr-1"></i>Dati Struttura</span>
+                    <div class="flex-1 h-px bg-teal-200"></div>
+                </div>
+
                 <!-- Sede Operativa -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <label id="sedeOperativaLabel" class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                         <i class="fas fa-map-marker-alt text-blue-500"></i> Sede Operativa / Amministrativa
                     </label>
-                    <div class="flex gap-2 mb-3">
-                        <input type="text" id="indirizzo" 
-                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                               placeholder="Via Roma 123">
-                        <button type="button" onclick="searchAddress()" 
-                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                            <i class="fas fa-search mr-2"></i>Cerca
-                        </button>
+
+                    <!-- Barra di ricerca indirizzo -->
+                    <div class="relative mb-3">
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400"></i>
+                                </div>
+                                <input type="text" id="addrSearch"
+                                       class="w-full pl-10 pr-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50 placeholder-gray-400"
+                                       placeholder="Cerca ubicazione: es. Via Roma 10, Milano"
+                                       oninput="onAddrSearchInput()"
+                                       autocomplete="off">
+                                <div id="addrSuggestions" class="hidden absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden max-h-64 overflow-y-auto"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-12 gap-3">
-                        <div class="col-span-6">
+
+                    <!-- Campi indirizzo compilati dalla ricerca -->
+                    <div class="grid grid-cols-12 gap-2 mb-2">
+                        <div class="col-span-7">
+                            <input type="text" id="indirizzo"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Via / Piazza"
+                                   autocomplete="off">
+                        </div>
+                        <div class="col-span-2">
+                            <input type="text" id="civico"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="Civico"
+                                   autocomplete="off">
+                        </div>
+                        <div class="col-span-3">
                             <input type="text" id="citta"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                    placeholder="Città">
                         </div>
-                        <div class="col-span-3">
-                            <input type="text" id="provincia" maxlength="2"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
-                                   placeholder="Prov.">
-                        </div>
-                        <div class="col-span-3">
+                    </div>
+                    <div class="grid grid-cols-12 gap-2 mb-2">
+                        <div class="col-span-4">
                             <input type="text" id="cap" maxlength="5"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                    placeholder="CAP">
                         </div>
+                        <div class="col-span-4">
+                            <input type="text" id="provincia" maxlength="2"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+                                   placeholder="Prov.">
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Inserisci l'indirizzo e clicca "Cerca" oppure clicca sulla mappa</p>
+
+                    <p class="text-xs text-gray-500 mt-1">Cerca l'indirizzo nella barra sopra — i campi vengono compilati automaticamente. Puoi anche modificarli a mano.</p>
                 </div>
 
-                <!-- Sede Legale -->
+                <!-- Header Dati Amministrativi (solo struttura) -->
+                <div id="ammDataHeader" style="display:none" class="mb-3 mt-2 flex items-center gap-2">
+                    <div class="flex-1 h-px bg-indigo-200"></div>
+                    <span class="text-xs font-bold text-indigo-700 uppercase tracking-wide px-2"><i class="fas fa-building mr-1"></i>Dati Amministrativi</span>
+                    <div class="flex-1 h-px bg-indigo-200"></div>
+                </div>
+
+                <!-- Sede Legale / Amministrativa -->
                 <div id="sedeLegaleDetails" class="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
-                    <p class="text-sm font-medium text-indigo-800 mb-3 flex items-center gap-2">
+                    <p id="sedeLegaleTitleP" class="text-sm font-medium text-indigo-800 mb-3 flex items-center gap-2">
                         <i class="fas fa-building text-indigo-500"></i>
-                        Sede Legale
-                        <span class="text-xs text-gray-500 font-normal">(se diversa dalla sede operativa)</span>
+                        <span id="sedeLegaleTitleText">Sede Legale</span>
+                        <span id="sedeLegaleTitleSub" class="text-xs text-gray-500 font-normal">(se diversa dalla sede operativa)</span>
                     </p>
-                    <div class="space-y-3">
+
+                    <!-- Checkbox: stessa sede -->
+                    <label class="flex items-center gap-3 mb-3 cursor-pointer select-none">
+                        <input type="checkbox" id="sedeLegaleStessa"
+                               onchange="toggleSedeLegaleStessa()"
+                               class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        <span class="text-sm text-indigo-700 font-medium">La sede legale coincide con la sede operativa</span>
+                    </label>
+
+                    <!-- Campi sede legale (nascosti se stessa sede) -->
+                    <div id="sedeLegaleFields" class="space-y-3">
                         <div>
                             <input type="text" id="sedeLegaleIndirizzo"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
@@ -786,6 +837,44 @@
             document.getElementById('aziendaSelectedSub').textContent = [a.partita_iva, a.telefono, a.email].filter(Boolean).join(' · ');
             document.getElementById('aziendaSelectedDisplay').style.display = 'block';
             document.getElementById('aziendaPickerSection').style.display = 'none';
+
+            // Auto-fill campi AMMINISTRATIVI dalla azienda (solo se non già compilati)
+            // Per struttura: compila sede legale (= sede amministrativa), PEC, P.IVA, CF, tel amm
+            const filled = [];
+            function _fill(id, value, label) {
+                if (!value) return;
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (!el.value) {
+                    el.value = value;
+                    el.style.transition = 'background 0.5s';
+                    el.style.background = '#eef2ff';
+                    setTimeout(() => { el.style.background = ''; }, 2000);
+                    filled.push(label);
+                }
+            }
+            // Dati amministrativi → sede legale (rinominata "Sede Amministrativa" per struttura)
+            _fill('sedeLegaleIndirizzo', a.indirizzo,     'Indirizzo amm.');
+            _fill('sedeLegaleCitta',    a.citta,          'Città amm.');
+            _fill('sedeLegaleProvincia',a.provincia,      'Prov. amm.');
+            _fill('sedeLegaleCap',      a.cap,            'CAP amm.');
+            // Dati fiscali/contatto azienda
+            _fill('telefonoReferente',  a.telefono,       'Telefono amm.');
+            _fill('pec',               a.pec,            'PEC');
+            _fill('partitaIva',        a.partita_iva,    'P.IVA');
+            _fill('codiceFiscale',     a.codice_fiscale, 'C.F.');
+
+            if (filled.length) {
+                let banner = document.getElementById('aziendaAutofillBanner');
+                if (!banner) {
+                    banner = document.createElement('div');
+                    banner.id = 'aziendaAutofillBanner';
+                    banner.style.cssText = 'margin-top:8px;padding:8px 14px;background:#eef2ff;border:1.5px solid #6366f1;border-radius:8px;font-size:12px;color:#3730a3;display:flex;align-items:center;gap:8px';
+                    document.getElementById('aziendaFields').appendChild(banner);
+                }
+                banner.innerHTML = `<i class="fas fa-magic" style="flex-shrink:0"></i><span><strong>Dati amministrativi compilati:</strong> ${filled.join(', ')} — modifica pure se necessario.</span>`;
+                banner.style.display = 'flex';
+            }
         }
 
         function clearAzienda() {
@@ -797,6 +886,8 @@
             if (disp) disp.style.display = 'none';
             const picker = document.getElementById('aziendaPickerSection');
             if (picker) picker.style.display = '';
+            const banner = document.getElementById('aziendaAutofillBanner');
+            if (banner) banner.style.display = 'none';
         }
 
         function comuneFill(clientId) {
@@ -1031,6 +1122,7 @@
                     </div>
                     <div class="p-4 flex flex-col gap-2 flex-1 text-sm">
                         ${client.telefono ? `<div class="flex items-center gap-2 text-gray-700"><i class="fas fa-phone w-4 text-gray-400"></i><span>${client.telefono}</span></div>` : ''}
+                        ${client.telefono_referente ? `<div class="flex items-center gap-2 text-gray-700"><i class="fas fa-mobile-alt w-4 text-gray-400"></i><span>${client.telefono_referente}</span></div>` : ''}
                         ${client.email ? `<div class="flex items-center gap-2 text-gray-700 min-w-0"><i class="fas fa-envelope w-4 text-gray-400 flex-shrink-0"></i><span class="truncate">${client.email}</span></div>` : ''}
                         ${client.indirizzo ? `<div class="flex items-start gap-2 text-gray-600"><i class="fas fa-map-marker-alt w-4 text-gray-400 mt-0.5 flex-shrink-0"></i><span class="break-words">${client.indirizzo}</span></div>` : ''}
                         ${client.settore ? `<div class="flex items-center gap-2 text-gray-500"><i class="fas fa-briefcase w-4 text-gray-400"></i><span>${client.settore}</span></div>` : ''}
@@ -1087,6 +1179,9 @@
                     document.getElementById('pec').value = client.pec || '';
                     document.getElementById('partitaIva').value = client.partita_iva || '';
                     document.getElementById('indirizzo').value = client.indirizzo || '';
+                    document.getElementById('civico').value = '';
+                    const addrSrch = document.getElementById('addrSearch');
+                    if (addrSrch) addrSrch.value = client.indirizzo ? [client.indirizzo, client.citta].filter(Boolean).join(', ') : '';
                     if (document.getElementById('citta')) document.getElementById('citta').value = client.citta || '';
                     if (document.getElementById('provincia')) document.getElementById('provincia').value = client.provincia || '';
                     if (document.getElementById('cap')) document.getElementById('cap').value = client.cap || '';
@@ -1098,6 +1193,13 @@
                         document.getElementById('sedeLegaleCitta').value = client.sede_legale_citta || '';
                         document.getElementById('sedeLegaleProvincia').value = client.sede_legale_provincia || '';
                         document.getElementById('sedeLegaleCap').value = client.sede_legale_cap || '';
+                    }
+                    // Auto-check "stessa sede" se i dati coincidono
+                    const stessaEl = document.getElementById('sedeLegaleStessa');
+                    if (stessaEl) {
+                        const sameAddr = slIndirizzo && slIndirizzo === (client.indirizzo || '');
+                        stessaEl.checked = !!sameAddr;
+                        toggleSedeLegaleStessa();
                     }
                     const rifEl = document.getElementById('rifPreventivo');
                     if (rifEl) rifEl.value = client.rif_preventivo || '';
@@ -1161,6 +1263,11 @@
                     document.getElementById('modalTitle').textContent = 'Nuovo Cliente';
                     document.getElementById('clientForm').reset();
                     document.getElementById('clientId').value = '';
+                    // Reset checkbox "stessa sede"
+                    const stEl = document.getElementById('sedeLegaleStessa');
+                    if (stEl) { stEl.checked = false; toggleSedeLegaleStessa(); }
+                    const srchEl = document.getElementById('addrSearch');
+                    if (srchEl) srchEl.value = '';
                     clearAmm();
                     clearComune();
                     clearAzienda();
@@ -1220,38 +1327,144 @@
             document.getElementById('longitude').value = defaultLng;
         }
 
-        function searchAddress() {
-            const address = document.getElementById('indirizzo').value;
-            if (!address) {
-                alert('Inserisci un indirizzo da cercare');
-                return;
-            }
-            
-            // Use Nominatim (OpenStreetMap) geocoding service
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lng = parseFloat(data[0].lon);
-                        
-                        marker.setLatLng([lat, lng]);
-                        map.setView([lat, lng], 15);
-                        
-                        document.getElementById('latitude').value = lat.toFixed(6);
-                        document.getElementById('longitude').value = lng.toFixed(6);
-                        
-                        showNotification('Indirizzo trovato sulla mappa!', 'success');
-                    } else {
-                        showNotification('Indirizzo non trovato. Prova a essere più specifico.', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Geocoding error:', error);
-                    showNotification('Errore nella ricerca dell\'indirizzo', 'error');
-                });
+        // ── Address autocomplete & search ──────────────────────────────
+        let _addrDebounce = null;
+
+        function onAddrSearchInput() {
+            clearTimeout(_addrDebounce);
+            const q = (document.getElementById('addrSearch').value || '').trim();
+            if (q.length < 3) { hideAddrSuggestions(); return; }
+            _addrDebounce = setTimeout(() => _fetchAddrSuggestions(false), 400);
         }
 
+        // keep old name for any legacy calls
+        function onIndirizzoInput() { onAddrSearchInput(); }
+
+        function _buildQuery() {
+            const q = (document.getElementById('addrSearch').value || '').trim();
+            if (!q) return null;
+            // append Italia if not already there
+            return q.toLowerCase().includes('italia') ? q : q + ', Italia';
+        }
+
+        async function _fetchAddrSuggestions(fromButton) {
+            const q = _buildQuery();
+            if (!q) {
+                if (fromButton) showNotification('Compila almeno un campo indirizzo', 'warning');
+                return;
+            }
+            const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=it&limit=6&q=${encodeURIComponent(q)}`;
+            try {
+                const res = await fetch(url, {headers:{'Accept-Language':'it'}});
+                const data = await res.json();
+                if (!data || data.length === 0) {
+                    if (fromButton) showNotification('Nessun risultato trovato. Prova a variare i dati.', 'error');
+                    hideAddrSuggestions();
+                    return;
+                }
+                renderAddrSuggestions(data);
+            } catch(e) {
+                if (fromButton) showNotification('Errore nella ricerca: ' + e.message, 'error');
+            }
+        }
+
+        function renderAddrSuggestions(results) {
+            const box = document.getElementById('addrSuggestions');
+            box.innerHTML = results.map((r, i) => {
+                const a = r.address || {};
+                const via  = [a.road, a.house_number].filter(Boolean).join(' ');
+                const cit  = a.city || a.town || a.village || a.municipality || '';
+                const cap  = a.postcode || '';
+                const prov = _extractProvincia(a);
+                const line1 = [via, cit].filter(Boolean).join(', ') || r.display_name.split(',').slice(0,2).join(',');
+                const line2 = [cap, prov].filter(Boolean).join(' ');
+                return `<button type="button"
+                    class="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-3"
+                    onclick="selectAddrSuggestion(${i})">
+                    <i class="fas fa-map-marker-alt text-blue-400 mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        <div class="text-sm font-semibold text-gray-800">${line1}</div>
+                        ${line2 ? `<div class="text-xs text-gray-500">${line2}</div>` : ''}
+                    </div>
+                </button>`;
+            }).join('');
+            box.dataset.results = JSON.stringify(results);
+            box.classList.remove('hidden');
+        }
+
+        function _extractProvincia(a) {
+            // Try county code (e.g. "TO") from various Nominatim fields
+            if (a.ISO3166_2_lvl6) return a.ISO3166_2_lvl6.replace(/^IT-/,'');
+            if (a.county) {
+                const m = a.county.match(/\(([A-Z]{2})\)/);
+                if (m) return m[1];
+                return a.county.slice(0,2).toUpperCase();
+            }
+            if (a.state_district) return a.state_district.slice(0,2).toUpperCase();
+            return '';
+        }
+
+        function selectAddrSuggestion(idx) {
+            const box = document.getElementById('addrSuggestions');
+            const results = JSON.parse(box.dataset.results || '[]');
+            const r = results[idx];
+            if (!r) return;
+            const a = r.address || {};
+            const cit   = a.city || a.town || a.village || a.municipality || '';
+            const cap   = a.postcode || '';
+            const prov  = _extractProvincia(a);
+            const lat   = parseFloat(r.lat);
+            const lng   = parseFloat(r.lon);
+
+            const road  = a.road || '';
+            const hnum  = a.house_number || '';
+            if (road) document.getElementById('indirizzo').value = road;
+            if (hnum) document.getElementById('civico').value = hnum;
+            if (cit) document.getElementById('citta').value = cit;
+            if (cap) document.getElementById('cap').value = cap;
+            if (prov) document.getElementById('provincia').value = prov;
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lng.toFixed(6);
+
+            if (typeof marker !== 'undefined' && typeof map !== 'undefined') {
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], 16);
+            }
+
+            hideAddrSuggestions();
+            // show selected address in search bar
+            const display = [road, hnum, cit, cap].filter(Boolean).join(', ');
+            document.getElementById('addrSearch').value = display;
+            showNotification('Indirizzo selezionato!', 'success');
+        }
+
+        function hideAddrSuggestions() {
+            const box = document.getElementById('addrSuggestions');
+            if (box) box.classList.add('hidden');
+        }
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#addrSearch') && !e.target.closest('#addrSuggestions')) {
+                hideAddrSuggestions();
+            }
+        });
+
+        function toggleSedeLegaleStessa() {
+            const checked = document.getElementById('sedeLegaleStessa')?.checked;
+            const fields  = document.getElementById('sedeLegaleFields');
+            if (!fields) return;
+            if (checked) {
+                fields.style.display = 'none';
+            } else {
+                fields.style.display = '';
+            }
+        }
+
+        function searchAddress() {
+            clearTimeout(_addrDebounce);
+            _fetchAddrSuggestions(true);
+        }
         function updateClientTypeFields() {
             const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
             const referenteFields = document.getElementById('referenteFields');
@@ -1272,6 +1485,21 @@
                 'struttura': 'Nome Struttura'
             };
             labelRagioneSociale.textContent = labels[tipoCliente] || 'Ragione Sociale';
+
+            // Aggiorna le label dei campi contatto in base al tipo
+            const isPrivato = tipoCliente === 'privato';
+            const lTel = document.getElementById('labelTelefono');
+            const lTelRef = document.getElementById('labelTelefonoReferente');
+            const lNome = document.getElementById('labelNomeReferente');
+            const lCognome = document.getElementById('labelCognomeReferente');
+            if (lTel) lTel.innerHTML = isPrivato
+                ? '<i class="fas fa-phone text-gray-400 mr-1"></i>Telefono'
+                : '<i class="fas fa-building text-gray-400 mr-1"></i>Telefono Azienda';
+            if (lTelRef) lTelRef.innerHTML = isPrivato
+                ? '<i class="fas fa-mobile-alt text-gray-400 mr-1"></i>Cellulare'
+                : '<i class="fas fa-mobile-alt text-gray-400 mr-1"></i>Telefono Referente';
+            if (lNome) lNome.textContent = isPrivato ? 'Nome' : 'Nome Referente';
+            if (lCognome) lCognome.textContent = isPrivato ? 'Cognome' : 'Cognome Referente';
 
             // Reset selezione se si cambia tipo
             if (tipoCliente !== 'condominio') clearAmm();
@@ -1296,7 +1524,6 @@
                 amministratoreFields.classList.add('hidden');
                 if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 if (aziendaFields) aziendaFields.classList.add('hidden');
-                document.getElementById('referenteFields').querySelector('label').textContent = 'Nome Amministratore';
                 document.getElementById('nomeAmministratore').removeAttribute('required');
                 document.getElementById('cognomeAmministratore').removeAttribute('required');
                 document.getElementById('telefonoAmministratore').removeAttribute('required');
@@ -1324,9 +1551,30 @@
                 amministratoreFields.classList.add('hidden');
                 if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 if (aziendaFields) aziendaFields.classList.remove('hidden');
-                document.getElementById('referenteFields').querySelector('label').textContent = 'Nome Referente';
+                // Mostra sezione amministrativa
+                const pecPivaRow = document.getElementById('pecPivaRow');
+                if (pecPivaRow) pecPivaRow.style.display = '';
+                const sedeLegale = document.getElementById('sedeLegaleDetails');
+                if (sedeLegale) sedeLegale.style.display = '';
+                document.getElementById('ragioneSocialeWrapper').style.display = '';
+                document.getElementById('settoreWrapper').style.display = 'none'; // non rilevante per struttura
+                // Mostra headers visivi separatori
+                const shdr = document.getElementById('strutturaDataHeader');
+                if (shdr) shdr.style.display = '';
+                const ahdr = document.getElementById('ammDataHeader');
+                if (ahdr) ahdr.style.display = '';
+                // Rinomina label per contesto struttura
+                const lTelRef2 = document.getElementById('labelTelefonoReferente');
+                if (lTelRef2) lTelRef2.innerHTML = '<i class="fas fa-phone-office text-gray-400 mr-1"></i>Telefono Amministrativo';
+                const sedeOpLbl = document.getElementById('sedeOperativaLabel');
+                if (sedeOpLbl) sedeOpLbl.innerHTML = '<i class="fas fa-map-marker-alt text-teal-500 mr-1"></i> Indirizzo Struttura';
+                const sedeLegTxt = document.getElementById('sedeLegaleTitleText');
+                if (sedeLegTxt) sedeLegTxt.textContent = 'Sede Amministrativa';
+                const sedeLegSub = document.getElementById('sedeLegaleTitleSub');
+                if (sedeLegSub) sedeLegSub.textContent = '(auto-compilata dall\'azienda, modificabile)';
             } else if (tipoCliente === 'privato') {
-                referenteFields.classList.add('hidden');
+                // Per il privato mostra Nome/Cognome (già label aggiornate sopra)
+                referenteFields.classList.remove('hidden');
                 amministratoreFields.classList.add('hidden');
                 if (scuolaComuneFields) scuolaComuneFields.classList.add('hidden');
                 if (aziendaFields) aziendaFields.classList.add('hidden');
@@ -1336,6 +1584,16 @@
                 document.getElementById('cognomeAmministratore').removeAttribute('required');
                 document.getElementById('telefonoAmministratore').removeAttribute('required');
                 document.getElementById('emailAmministratore').removeAttribute('required');
+                // Nascondi campi non pertinenti per privato
+                const pecPivaRow = document.getElementById('pecPivaRow');
+                if (pecPivaRow) pecPivaRow.style.display = 'none';
+                const sedeLegale = document.getElementById('sedeLegaleDetails');
+                if (sedeLegale) sedeLegale.style.display = 'none';
+                // Nascondi ragione sociale e settore (già coperto da nome/cognome)
+                const rsw = document.getElementById('ragioneSocialeWrapper');
+                if (rsw) rsw.style.display = 'none';
+                const sw = document.getElementById('settoreWrapper');
+                if (sw) sw.style.display = 'none';
             } else {
                 // azienda, associazione, comune
                 referenteFields.classList.remove('hidden');
@@ -1346,13 +1604,38 @@
                 document.getElementById('cognomeAmministratore').removeAttribute('required');
                 document.getElementById('telefonoAmministratore').removeAttribute('required');
                 document.getElementById('emailAmministratore').removeAttribute('required');
+                // Mostra campi aziendali
+                const pecPivaRow = document.getElementById('pecPivaRow');
+                if (pecPivaRow) pecPivaRow.style.display = '';
+                const sedeLegale = document.getElementById('sedeLegaleDetails');
+                if (sedeLegale) sedeLegale.style.display = '';
+                document.getElementById('ragioneSocialeWrapper').style.display = '';
+                document.getElementById('settoreWrapper').style.display = '';
+                // Nascondi headers struttura e ripristina label originali
+                const shdr = document.getElementById('strutturaDataHeader');
+                if (shdr) shdr.style.display = 'none';
+                const ahdr = document.getElementById('ammDataHeader');
+                if (ahdr) ahdr.style.display = 'none';
+                const lTelRef2 = document.getElementById('labelTelefonoReferente');
+                if (lTelRef2) lTelRef2.innerHTML = '<i class="fas fa-mobile-alt text-gray-400 mr-1"></i>Telefono Referente';
+                const sedeOpLbl = document.getElementById('sedeOperativaLabel');
+                if (sedeOpLbl) sedeOpLbl.innerHTML = '<i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sede Operativa / Amministrativa';
+                const sedeLegTxt = document.getElementById('sedeLegaleTitleText');
+                if (sedeLegTxt) sedeLegTxt.textContent = 'Sede Legale';
+                const sedeLegSub = document.getElementById('sedeLegaleTitleSub');
+                if (sedeLegSub) sedeLegSub.textContent = '(se diversa dalla sede operativa)';
             }
         }
 
         async function saveClient() {
             try {
                 const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
-                const ragioneSociale = document.getElementById('ragioneSociale').value;
+                const nome = document.getElementById('nome').value.trim();
+                const cognome = document.getElementById('cognome').value.trim();
+                // Per privato: componi ragione_sociale da nome + cognome
+                const ragioneSociale = tipoCliente === 'privato'
+                    ? [nome, cognome].filter(Boolean).join(' ') || document.getElementById('ragioneSociale').value
+                    : document.getElementById('ragioneSociale').value;
                 const settore = document.getElementById('settore').value;
                 const telefono = document.getElementById('telefono').value;
                 const telefonoReferente = document.getElementById('telefonoReferente')?.value || null;
@@ -1360,17 +1643,28 @@
                 const pec = document.getElementById('pec').value;
                 const partitaIva = document.getElementById('partitaIva').value;
                 const codiceFiscale = document.getElementById('codiceFiscale').value;
-                const indirizzo = document.getElementById('indirizzo').value;
+                const _via = (document.getElementById('indirizzo').value || '').trim();
+                const _civ = (document.getElementById('civico').value || '').trim();
+                const indirizzo = [_via, _civ].filter(Boolean).join(' ');
                 const citta = document.getElementById('citta')?.value || null;
                 const provincia = document.getElementById('provincia')?.value || null;
                 const cap = document.getElementById('cap')?.value || null;
                 const note = document.getElementById('note').value;
                 const lat = parseFloat(document.getElementById('latitude').value);
                 const lng = parseFloat(document.getElementById('longitude').value);
-                const sedeLegaleIndirizzo = document.getElementById('sedeLegaleIndirizzo')?.value || null;
-                const sedeLegaleCitta = document.getElementById('sedeLegaleCitta')?.value || null;
-                const sedeLegaleProvincia = document.getElementById('sedeLegaleProvincia')?.value || null;
-                const sedeLegaleCap = document.getElementById('sedeLegaleCap')?.value || null;
+                const sedeLegaleStessa = document.getElementById('sedeLegaleStessa')?.checked;
+                const sedeLegaleIndirizzo = sedeLegaleStessa
+                    ? (indirizzo || null)
+                    : (document.getElementById('sedeLegaleIndirizzo')?.value || null);
+                const sedeLegaleCitta = sedeLegaleStessa
+                    ? (document.getElementById('citta')?.value || null)
+                    : (document.getElementById('sedeLegaleCitta')?.value || null);
+                const sedeLegaleProvincia = sedeLegaleStessa
+                    ? (document.getElementById('provincia')?.value || null)
+                    : (document.getElementById('sedeLegaleProvincia')?.value || null);
+                const sedeLegaleCap = sedeLegaleStessa
+                    ? (document.getElementById('cap')?.value || null)
+                    : (document.getElementById('sedeLegaleCap')?.value || null);
 
                 const clientData = {
                     tipo_cliente: tipoCliente,

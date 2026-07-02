@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
+    <script src="/push-manager.js"></script>
     <script src="Admin/auth-helper.js"></script>
     <script src="data-migration.js"></script>
     <!-- FullCalendar -->
@@ -86,6 +87,39 @@
         .fc .fc-daygrid-day { min-height: 90px; }
         .mc-day:hover { background: #f1f3f4 !important; }
         .mc-today { background: #1a73e8 !important; color: white !important; font-weight: 600 !important; }
+
+        /* ===== MOBILE FIXES ===== */
+        @media (max-width: 768px) {
+            /* Nascondi header iniettato da mobile-enhancements.js (questa pagina ha il suo topbar) */
+            .mobile-header { display: none !important; }
+            body::before { display: none !important; }
+            body { padding-top: 0 !important; }
+            /* Rimuovi margin sidebar */
+            #mainContent { margin-left: 0 !important; }
+            /* Mostra hamburger nel topbar */
+            #calHamburger { display: flex !important; }
+            /* Nascondi elementi non essenziali su mobile */
+            #solaLetturaBadge { display: none !important; }
+            #viewBtnWeek { display: none !important; }
+            /* Compatta il topbar */
+            #calTopTitle { font-size: 15px !important; min-width: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+            #calTopbar { gap: 4px !important; padding: 0 8px !important; height: 52px !important; }
+            #calTopbar > button { padding: 5px 10px !important; font-size: 13px !important; min-height: 36px !important; min-width: 0 !important; }
+            /* Riduci altezza minima celle calendario su mobile */
+            .fc .fc-daygrid-day { min-height: 60px !important; }
+            /* Correggi padding link FullCalendar sovrascritti da mobile-optimizations.css */
+            #calendar a, #calendar button {
+                min-height: 0 !important;
+                min-width: 0 !important;
+                padding: revert !important;
+                font-size: revert !important;
+            }
+            /* CRITICO: mobile-optimizations.css imposta table{display:block} che rompe FullCalendar */
+            #calendar table {
+                display: table !important;
+                overflow-x: visible !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-white" style="height:100vh;overflow:hidden;">
@@ -148,9 +182,11 @@
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40" onclick="toggleMobileSidebar()"></div>
 
     <!-- Main Content -->
-    <div style="margin-left:256px;display:flex;flex-direction:column;height:100vh;">
+    <div id="mainContent" style="margin-left:256px;display:flex;flex-direction:column;height:100vh;">
         <!-- Top bar Google-style -->
-        <div style="display:flex;align-items:center;gap:8px;height:64px;padding:0 20px;border-bottom:1px solid #e8eaed;flex-shrink:0;background:white;position:sticky;top:0;z-index:40;">
+        <div id="calTopbar" style="display:flex;align-items:center;gap:8px;height:64px;padding:0 20px;border-bottom:1px solid #e8eaed;flex-shrink:0;background:white;position:sticky;top:0;z-index:40;">
+            <!-- Hamburger mobile (id diverso da quello iniettato da mobile-enhancements.js) -->
+            <button id="calHamburger" onclick="toggleMobileSidebar()" style="display:none;width:36px;height:36px;border-radius:8px;border:none;background:none;cursor:pointer;align-items:center;justify-content:center;font-size:22px;color:#3c4043;flex-shrink:0;" title="Menu">&#9776;</button>
             <button onclick="calendar.today();updateCalTopTitle();"
                     style="padding:7px 16px;border:1px solid #dadce0;border-radius:4px;background:white;font-size:14px;font-weight:500;color:#3c4043;cursor:pointer;transition:background 0.1s;"
                     onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">Oggi</button>
@@ -162,7 +198,7 @@
                     onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='none'">&#8250;</button>
             <h1 id="calTopTitle" style="font-size:22px;font-weight:400;color:#3c4043;min-width:180px;white-space:nowrap;margin:0;"></h1>
             <div style="flex:1;"></div>
-            <div style="background:#e8f0fe;color:#1a73e8;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">📖 Sola lettura</div>
+            <div id="solaLetturaBadge" style="background:#e8f0fe;color:#1a73e8;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">📖 Sola lettura</div>
             <!-- View selector -->
             <div style="display:flex;border:1px solid #dadce0;border-radius:4px;overflow:hidden;margin-left:4px;">
                 <button id="viewBtnMonth" onclick="calendar.changeView('dayGridMonth');updateCalTopTitle();setActiveViewBtn('viewBtnMonth');"
@@ -241,6 +277,9 @@
             renderMiniCalendar();
             await initCalendar();
             await updateStats();
+            // PWA: SW + Badge + Realtime
+            const u = window.AuthHelper?.getCurrentUser();
+            if (u?.id) window.ZGPwa?.init(u.id);
         });
 
         // ===== MINI CALENDARIO SIDEBAR =====

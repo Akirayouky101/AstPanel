@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Action</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .fade-in { animation: fadeIn .5s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
+
+    <!-- Loading -->
+    <div id="loadingState" class="text-center">
+        <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-600">Caricamento...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="errorState" class="hidden text-center max-w-sm">
+        <div class="text-6xl mb-4">❌</div>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">QR non valido</h2>
+        <p class="text-gray-500 text-sm">Il codice QR non contiene dati validi o è scaduto.</p>
+    </div>
+
+    <!-- Form card -->
+    <div id="formCard" class="hidden w-full max-w-md fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div id="formHeader" class="p-6 text-white text-center" style="background:#7c3aed">
+                <div class="text-4xl mb-2">📋</div>
+                <h1 id="formTitle" class="text-2xl font-bold mb-1">Form</h1>
+                <p id="formDesc" class="text-white/80 text-sm"></p>
+            </div>
+            <!-- Fields -->
+            <div class="p-6">
+                <form id="actionForm" onsubmit="submitForm(event)" class="space-y-4">
+                    <div id="formFields"></div>
+                    <button type="submit" id="submitBtn"
+                            class="w-full py-3 text-white font-bold rounded-xl hover:opacity-90 transition-opacity mt-4"
+                            style="background:#7c3aed">
+                        Invia
+                    </button>
+                </form>
+            </div>
+        </div>
+        <p class="text-center text-xs text-gray-400 mt-4">Powered by AST Admin Panel</p>
+    </div>
+
+    <!-- Success -->
+    <div id="successState" class="hidden text-center max-w-sm fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl p-8">
+            <div class="text-6xl mb-4">✅</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Inviato!</h2>
+            <p class="text-gray-500 text-sm mb-6" id="successMsg">La tua richiesta è stata registrata correttamente.</p>
+            <button onclick="resetForm()" class="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700">
+                Compila di nuovo
+            </button>
+        </div>
+    </div>
+
+<script>
+    let _actionData = null;
+
+    function decodeAction() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const d = params.get('d');
+            if (!d) return null;
+            return JSON.parse(decodeURIComponent(escape(atob(d))));
+        } catch { return null; }
+    }
+
+    function renderForm(action) {
+        const color = action.c || '#7c3aed';
+        document.getElementById('formHeader').style.background = color;
+        document.getElementById('formTitle').textContent = action.n || 'Form';
+        document.getElementById('formDesc').textContent  = action.d || '';
+        document.getElementById('submitBtn').style.background = color;
+
+        const container = document.getElementById('formFields');
+        container.innerHTML = (action.f || []).map((f, i) => {
+            const id = `field_${i}`;
+            const req = f.r ? 'required' : '';
+            const label = `<label class="block text-sm font-semibold text-gray-700 mb-1">${f.l || 'Campo'}${f.r ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            let input = '';
+            if (f.t === 'text')     input = `<input type="text" id="${id}" name="${id}" ${req} placeholder="${f.l||''}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-transparent">`;
+            else if (f.t === 'number')  input = `<input type="number" id="${id}" name="${id}" ${req} class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-400">`;
+            else if (f.t === 'date')    input = `<input type="date" id="${id}" name="${id}" ${req} class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-400">`;
+            else if (f.t === 'textarea') input = `<textarea id="${id}" name="${id}" rows="3" ${req} placeholder="${f.l||''}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-400"></textarea>`;
+            else if (f.t === 'checkbox') input = `<label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="${id}" name="${id}" class="w-5 h-5 rounded text-purple-600"><span class="text-sm text-gray-700">${f.l||''}</span></label>`;
+            else if (f.t === 'select') {
+                const opts = (f.o||'').split(',').map(o => o.trim()).filter(Boolean);
+                input = `<select id="${id}" name="${id}" ${req} class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-400 bg-white">
+                    <option value="">-- Seleziona --</option>
+                    ${opts.map(o => `<option value="${o}">${o}</option>`).join('')}
+                </select>`;
+            }
+            return `<div>${label}${input}</div>`;
+        }).join('');
+    }
+
+    async function submitForm(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.textContent = 'Invio in corso...';
+
+        // Collect values
+        const entries = {};
+        (_actionData.f || []).forEach((f, i) => {
+            const el = document.getElementById(`field_${i}`);
+            if (!el) return;
+            entries[f.l || `campo_${i}`] = f.t === 'checkbox' ? el.checked : el.value;
+        });
+
+        // Try to save to Supabase comunicazioni if client is available
+        try {
+            if (window.supabaseAdmin || window.supabaseClient) {
+                const client = window.supabaseAdmin || window.supabaseClient;
+                const testo = `📋 **${_actionData.n}**\n\n` + Object.entries(entries).map(([k,v]) => `• **${k}**: ${v}`).join('\n');
+                await client.from('comunicazioni').insert({
+                    titolo: `[QR] ${_actionData.n}`,
+                    messaggio: testo,
+                    tipo: 'info',
+                    priorita: 'media',
+                    destinatari: 'tutti',
+                    created_at: new Date().toISOString()
+                });
+            }
+        } catch {}
+
+        document.getElementById('formCard').classList.add('hidden');
+        document.getElementById('successMsg').textContent = `"${_actionData.n}" registrata correttamente.`;
+        document.getElementById('successState').classList.remove('hidden');
+    }
+
+    function resetForm() {
+        document.getElementById('successState').classList.add('hidden');
+        document.getElementById('actionForm').reset();
+        document.getElementById('formCard').classList.remove('hidden');
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        _actionData = decodeAction();
+        document.getElementById('loadingState').classList.add('hidden');
+        if (!_actionData || !_actionData.n) {
+            document.getElementById('errorState').classList.remove('hidden');
+        } else {
+            renderForm(_actionData);
+            document.getElementById('formCard').classList.remove('hidden');
+        }
+    });
+</script>
+</body>
+</html>

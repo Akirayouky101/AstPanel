@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richieste Preventivi Fornitori - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <style>
+        @keyframes bounce-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in { animation: bounce-in 0.3s ease-out; }
+
+        /* ── Flatpickr orange theme ── */
+        .flatpickr-calendar {
+            border-radius: 16px !important;
+            border: 2px solid #99f6e4 !important;
+            box-shadow: 0 12px 40px rgba(13,148,136,0.18) !important;
+            font-family: inherit !important;
+            padding: 6px !important;
+        }
+        .flatpickr-months {
+            background: linear-gradient(135deg, #0d9488, #06b6d4);
+            border-radius: 12px 12px 0 0;
+            padding: 8px 4px 6px;
+        }
+        .flatpickr-month, .flatpickr-current-month,
+        .flatpickr-current-month .cur-month,
+        .flatpickr-current-month input.cur-year {
+            color: #fff !important;
+            fill: #fff !important;
+        }
+        .flatpickr-prev-month, .flatpickr-next-month {
+            color: #fff !important;
+            fill: #fff !important;
+        }
+        .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #fed7aa !important; }
+        .flatpickr-weekdays { background: #f0fdfa; border-bottom: 1px solid #99f6e4; }
+        .flatpickr-weekday { color: #134e4a !important; font-weight: 700 !important; font-size: 12px; }
+        .flatpickr-day {
+            border-radius: 10px !important;
+            font-weight: 500;
+            color: #374151;
+        }
+        .flatpickr-day:hover, .flatpickr-day.prevMonthDay:hover, .flatpickr-day.nextMonthDay:hover {
+            background: #fff7ed !important;
+            border-color: #fed7aa !important;
+        }
+        .flatpickr-day.selected, .flatpickr-day.selected:hover,
+        .flatpickr-day.startRange, .flatpickr-day.endRange {
+            background: #0d9488 !important;
+            border-color: #0d9488 !important;
+            color: #fff !important;
+            font-weight: 700 !important;
+        }
+        .flatpickr-day.today {
+            border-color: #2dd4bf !important;
+            color: #0d9488 !important;
+            font-weight: 700 !important;
+        }
+        .flatpickr-day.today.selected { color: #fff !important; }
+        .flatpickr-monthDropdown-months {
+            background: transparent;
+            color: #fff !important;
+            font-weight: 700;
+        }
+        .numInputWrapper:hover { background: rgba(255,255,255,0.15); border-radius: 6px; }
+        .numInput { color: #fff !important; font-weight: 700; }
+        .numInputWrapper span { border-color: rgba(255,255,255,0.3) !important; }
+        .numInputWrapper span:hover { background: rgba(255,255,255,0.2) !important; }
+        .numInputWrapper span svg { fill: #fff !important; }
+        /* altInput styling */
+        .flatpickr-input.flatpickr-mobile { display: block !important; }
+        /* Scrollbar nascosta */
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='/admin-functional.html'" class="hover:bg-teal-700 p-2 rounded" title="Torna al menu">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">📋 Richieste Preventivi Fornitori</h1>
+                        <p class="text-teal-100 text-sm">Invia richieste di preventivo ai fornitori</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="text-right">
+                    <p class="text-sm opacity-90" id="userName">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Totali</p>
+                        <p class="text-2xl font-bold text-gray-800" id="statTotal">0</p>
+                    </div>
+                    <i class="fas fa-clipboard-list text-gray-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Da Inviare</p>
+                        <p class="text-2xl font-bold text-red-600" id="statDaInviare">0</p>
+                    </div>
+                    <i class="fas fa-clock text-red-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Risposto</p>
+                        <p class="text-2xl font-bold text-blue-600" id="statInviate">0</p>
+                    </div>
+                    <i class="fas fa-truck text-blue-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Accettate</p>
+                        <p class="text-2xl font-bold text-green-600" id="statAccettati">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Rifiutate</p>
+                        <p class="text-xl font-bold text-red-600" id="statRifiutate">0</p>
+                    </div>
+                    <i class="fas fa-times-circle text-red-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <button onclick="nuovaRichiesta()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-medium">
+                    <i class="fas fa-plus mr-2"></i>Nuovo Ordine
+                </button>
+                <div class="flex items-center space-x-3">
+                    <select id="filterStato" onchange="loadRichieste()" class="px-4 py-2 border rounded-lg" title="Filtra per stato">
+                        <option value="">Tutti gli stati</option>
+                        <option value="da_inviare">Da Inviare</option>
+                        <option value="inviato">Inviato</option>
+                        <option value="risposto">Risposto</option>
+                        <option value="accettato">Accettato</option>
+                        <option value="rifiutato">Rifiutato</option>
+                        <option value="annullato">Annullato</option>
+                    </select>
+                    <select id="filterFornitore" onchange="loadRichieste()" class="px-4 py-2 border rounded-lg" title="Filtra per fornitore">
+                        <option value="">Tutti i fornitori</option>
+                    </select>
+                    <input type="text" id="searchRichiesta" placeholder="Cerca richiesta..." 
+                        onkeyup="searchRichieste()" class="px-4 py-2 border rounded-lg w-64">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabella Richieste -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fornitore</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oggetto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Richiesta</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risposta Entro</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="richiesteTable" class="divide-y divide-gray-200">
+                        <!-- Popolato via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Richiesta -->
+    <div id="ordineModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-8">
+            <div class="bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-500 text-white p-6 sticky top-0 z-10 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold" id="modalTitle">📋 Nuova Richiesta Preventivo</h3>
+                        <p class="text-teal-100 text-sm">Richiedi un preventivo al fornitore</p>
+                    </div>
+                    <button onclick="closeModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar">
+                <input type="hidden" id="richiestaId">
+                
+                <!-- Fornitore -->
+                <div class="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-xl border border-teal-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                        <div class="bg-orange-600 text-white w-10 h-10 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        Fornitore
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-search text-teal-600 mr-1"></i>
+                                Seleziona Fornitore *
+                            </label>
+                            <div class="relative">
+                                <select id="fornitoreId" onchange="fillFornitoreData()" required 
+                                    class="w-full px-4 py-3 border-2 border-teal-200 rounded-xl appearance-none bg-white cursor-pointer font-semibold text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition outline-none" title="Seleziona fornitore">
+                                    <option value="">-- Seleziona fornitore --</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-orange-400 text-sm"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dettagli Richiesta -->
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-teal-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center text-base">
+                        <div class="bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        Dettagli Richiesta
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Oggetto *</label>
+                            <input type="text" id="oggetto" required placeholder="es: Richiesta preventivo materiale idraulico"
+                                class="w-full px-4 py-3 border-2 border-teal-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition outline-none font-medium text-gray-700">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data Richiesta</label>
+                            <input type="date" id="dataRichiesta" 
+                                class="w-full px-4 py-3 border-2 border-teal-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition outline-none font-medium text-gray-700">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Risposta Entro
+                                <span class="text-xs text-gray-400 font-normal ml-1">(opzionale)</span>
+                            </label>
+                            <div class="relative">
+                                <input type="date" id="dataRispostaEntro"
+                                    class="w-full px-4 py-3 pr-10 border-2 border-teal-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition outline-none font-medium text-gray-700">
+                                <button type="button" onclick="fpRisposta.clear()" title="Rimuovi data"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-400 transition-colors text-sm">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Set di Consegna -->
+                <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold text-gray-800 flex items-center text-base">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                            Set di Consegna
+                            <span class="ml-2 text-xs font-normal text-gray-500">(opzionale – dividi la merce per destinazione)</span>
+                        </h4>
+                        <button onclick="aggiungiDestinazione()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-semibold">
+                            <i class="fas fa-plus mr-1"></i>Aggiungi Set
+                        </button>
+                    </div>
+                    <div id="destinazioniList">
+                        <p class="text-gray-400 text-sm italic">Nessun set — tutti gli articoli andranno nella stessa destinazione.</p>
+                    </div>
+                </div>
+
+                <!-- Prodotti -->
+                <div class="bg-purple-50 p-6 rounded-xl border border-purple-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-gray-800 flex items-center text-lg">
+                            <i class="fas fa-boxes mr-2 text-purple-600"></i>
+                            Articoli per cui chiedere preventivo
+                        </h4>
+                        <div class="flex gap-2 items-center">
+                            <button onclick="eliminaTuttiItems()" class="text-red-500 hover:text-red-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-red-50 transition" title="Elimina tutti gli articoli">
+                                <i class="fas fa-trash mr-1"></i>Elimina tutto
+                            </button>
+                            <div id="topAddButtons" class="flex gap-2">
+                                <button onclick="aggiungiRigaManuale()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                                    <i class="fas fa-edit mr-2"></i>Riga Manuale
+                                </button>
+                                <button onclick="aggiungiProdotto()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                                    <i class="fas fa-warehouse mr-2"></i>Da Magazzino
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full" id="prodottiTable">
+                            <thead class="bg-purple-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Codice</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Descrizione</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">UM</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Quantità</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Note/Specifiche</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prodottiTableBody">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                        Nessun prodotto aggiunto
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <!-- Note + Stato -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-sticky-note text-orange-400 mr-1"></i>Note Interne</label>
+                        <textarea id="noteInterne" rows="3" placeholder="Note sulla richiesta..."
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition outline-none resize-none text-gray-700"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-tag text-orange-400 mr-1"></i>Stato Richiesta</label>
+                        <div class="relative">
+                            <select id="stato" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl appearance-none bg-white cursor-pointer font-semibold text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition outline-none" title="Stato richiesta">
+                                                <option value="da_inviare">🕐 Da Inviare</option>
+                                <option value="inviato">📤 Inviato</option>
+                                <option value="risposto">💬 Risposto</option>
+                                <option value="accettato">✅ Accettato</option>
+                                <option value="rifiutato">❌ Rifiutato</option>
+                                <option value="annullato">🚫 Annullato</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-orange-400 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Azioni -->
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <button onclick="closeModal()" class="px-6 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-semibold text-gray-600 transition">
+                        Annulla
+                    </button>
+                    <button onclick="salvaRichiesta()" class="px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:from-teal-600 hover:to-cyan-600 font-bold shadow-lg hover:shadow-teal-200 transition-all">
+                        <i class="fas fa-save mr-2"></i>Salva Richiesta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Selezione Prodotto -->
+    <div id="prodottoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold">🏪 Magazzino Prodotti</h3>
+                        <p class="text-purple-100 text-sm">Seleziona i prodotti da ordinare</p>
+                    </div>
+                    <button onclick="closeProdottoModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Tabs fornitore / tutti -->
+            <div id="prodottiTabs" class="hidden px-6 pt-4 pb-3 border-b border-gray-100 flex gap-2">
+                <button id="tabFornitore" onclick="cambiaModaleProdotti('fornitore')" class="px-4 py-2 rounded-lg text-sm font-semibold bg-purple-600 text-white">
+                    <i class="fas fa-building mr-2"></i>Prodotti del Fornitore
+                </button>
+                <button id="tabTutti" onclick="cambiaModaleProdotti('tutti')" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-globe mr-2"></i>Da altro fornitore
+                    <span class="ml-1 text-xs text-orange-500">(senza codice)</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 flex gap-3">
+                    <input type="text" id="searchProdotto" placeholder="🔍 Cerca prodotto..." 
+                        onkeyup="searchProdotti()" 
+                        class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500">
+                    <button onclick="apriNuovoProdottoInline()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold whitespace-nowrap">
+                        <i class="fas fa-plus mr-2"></i>Nuovo Prodotto
+                    </button>
+                </div>
+                <div class="overflow-y-auto max-h-[calc(85vh-240px)]" id="prodottiMagazzino">
+                    <!-- Lista prodotti -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuovo Prodotto Inline -->
+    <div id="nuovoProdottoInlineModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold">➕ Nuovo Prodotto</h3>
+                        <p class="text-green-100 text-sm">Crea un nuovo prodotto nel magazzino</p>
+                    </div>
+                    <button onclick="chiudiNuovoProdottoInline()" class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Descrizione *</label>
+                    <input type="text" id="npDescr" placeholder="Es. Palo in acciaio 3mt..." class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Codice Prodotto</label>
+                        <input type="text" id="npCodice" placeholder="Es. SD4704" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Barcode/EAN</label>
+                        <input type="text" id="npBarcode" placeholder="Opzionale" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Unità Misura</label>
+                        <select id="npUM" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 outline-none">
+                            <option value="pz">pz (pezzi)</option>
+                            <option value="mt">mt (metri)</option>
+                            <option value="kg">kg (kilogrammi)</option>
+                            <option value="lt">lt (litri)</option>
+                            <option value="conf">conf (confezioni)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                        <select id="npCategoria" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 outline-none">
+                            <option value="Componentistica">Componentistica</option>
+                            <option value="Materiali">Materiali</option>
+                            <option value="Accessori">Accessori</option>
+                            <option value="Antifurto">Antifurto</option>
+                            <option value="Antintrusione">Antintrusione</option>
+                            <option value="Antincendio">Antincendio</option>
+                            <option value="Automazione">Automazione</option>
+                            <option value="Citofonia">Citofonia</option>
+                            <option value="Elettrico">Elettrico</option>
+                            <option value="Videosorveglianza">Videosorveglianza</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="chiudiNuovoProdottoInline()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50">
+                        Annulla
+                    </button>
+                    <button onclick="salvaNuovoProdottoInline()" class="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg">
+                        <i class="fas fa-save mr-2"></i>Salva e Aggiungi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Conferma Invio Email -->
+    <div id="emailConfirmModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white bg-opacity-20 rounded-full w-10 h-10 flex items-center justify-center">
+                        <i class="fas fa-paper-plane text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-white font-bold text-lg">Invia Richiesta di Preventivo</h3>
+                        <p class="text-blue-100 text-sm">Invia la richiesta di preventivo al fornitore</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-5">
+                <p class="text-sm text-gray-500 mb-1">Richiesta</p>
+                <p id="emailConfirmNumero" class="font-bold text-gray-900 text-lg mb-4"></p>
+
+                <!-- Destinatario singolo -->
+                <div id="emailSingleDest" class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
+                    <div class="bg-blue-100 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <i class="fas fa-user text-blue-600 text-xs"></i>
+                    </div>
+                    <div>
+                        <p id="emailConfirmNome" class="font-semibold text-gray-800 text-sm"></p>
+                        <p id="emailConfirmEmail" class="text-blue-600 text-sm"></p>
+                    </div>
+                </div>
+
+                <!-- Selezione destinatario (quando ci sono 2 email) -->
+                <div id="emailMultiDest" class="hidden space-y-2">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Invia a:</p>
+                    <label class="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 transition">
+                        <input type="radio" name="emailDestChoice" value="referente" class="accent-blue-600">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800" id="emailReferenteLbl">Referente Commerciale</p>
+                            <p class="text-xs text-blue-600" id="emailReferenteVal"></p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 transition">
+                        <input type="radio" name="emailDestChoice" value="ufficio" class="accent-blue-600">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">Ufficio / Amministrazione</p>
+                            <p class="text-xs text-blue-600" id="emailUfficioVal"></p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 border-2 border-blue-400 bg-blue-50 rounded-xl cursor-pointer hover:border-blue-500 transition">
+                        <input type="radio" name="emailDestChoice" value="entrambi" checked class="accent-blue-600">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">✉️ Referente principale + Ufficio in CC</p>
+                            <p class="text-xs text-gray-500" id="emailEntrambiVal"></p>
+                            <p class="text-xs text-indigo-500 mt-0.5">Una sola email — il referente è il destinatario, l'ufficio è in copia conoscenza</p>
+                        </div>
+                    </label>
+                </div>
+
+                <p class="text-xs text-gray-400 mt-3">Se lo stato è "Da Inviare" verrà aggiornato automaticamente a "Inviato".</p>
+            </div>
+            <div class="px-6 pb-5 flex gap-3 justify-end">
+                <button onclick="emailConfirmResolve(false)" class="px-5 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition">Annulla</button>
+                <button onclick="emailConfirmResolve(true)" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold hover:opacity-90 transition flex items-center gap-2">
+                    <i class="fas fa-paper-plane text-sm"></i> Invia
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Conferma Eliminazione -->
+    <div id="confirmDeleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-teal-500 to-red-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-exclamation-triangle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Conferma Eliminazione</h2>
+            </div>
+            <div class="p-6">
+                <div class="text-center text-gray-700 mb-6">
+                    <p id="confirmDeleteMessage" class="text-lg"></p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmDeleteModal()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Annulla
+                    </button>
+                    <button onclick="confermaEliminazione(false)" class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                        <i class="fas fa-trash mr-2"></i>Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Selezione Approvatori -->
+    <div id="approvatoreSelectModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm" style="animation:bounceIn .25s cubic-bezier(.34,1.4,.64,1)">
+            <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-5 rounded-t-2xl flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-lg" id="approvatoreSelectTitle">Scegli a chi inviare</h3>
+                    <p class="text-teal-100 text-xs mt-0.5">Seleziona uno o più approvatori</p>
+                </div>
+                <button onclick="document.getElementById('approvatoreSelectModal').classList.add('hidden'); window._approvatoreSelectResolve && window._approvatoreSelectResolve(null);" class="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-5">
+                <div id="approvatoreSelectList" class="space-y-2 max-h-64 overflow-y-auto mb-4"></div>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('approvatoreSelectModal').classList.add('hidden'); window._approvatoreSelectResolve && window._approvatoreSelectResolve(null);" class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors">Annulla</button>
+                    <button onclick="_approvatoreSelectConfirm()" class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-md">Invia ✉️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Riepilogo Ordine -->
+    <div id="riepilogoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col" style="overflow:hidden">
+            <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 rounded-t-2xl flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-bold" id="riepilogoTitolo">📋 Riepilogo Richiesta</h3>
+                        <p class="text-teal-100 text-sm" id="riepilogoSottotitolo"></p>
+                    </div>
+                    <button onclick="closeRiepilogoModal()" class="text-white hover:bg-white hover:bg-opacity-20 p-3 rounded-full" title="Chiudi">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-5 flex-1 overflow-y-auto hide-scrollbar" id="riepilogoScrollArea">
+                <!-- Info ordine -->
+                <div id="riepilogoInfo" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                <!-- Tabella prodotti -->
+                <div>
+                    <h4 class="font-bold text-gray-700 mb-3 flex items-center"><i class="fas fa-boxes mr-2 text-teal-500"></i>Articoli</h4>
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Codice</th>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Descrizione</th>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Quantità</th>
+                                    <th class="px-4 py-2 text-left text-gray-600 font-semibold">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riepilogoItems" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- Note -->
+                <div id="riepilogoNoteBox" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
+                    <p id="riepilogoNote" class="text-gray-700 text-sm"></p>
+                </div>
+            </div>
+            <div class="px-6 pb-6 flex justify-end gap-3">
+                <button onclick="closeRiepilogoModal()" class="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">Chiudi</button>
+
+                <button id="riepilogoBtnModifica" class="px-6 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm">
+                    <i class="fas fa-edit mr-2"></i>Modifica
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Successo -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-check-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Successo!</h2>
+            </div>
+            <div class="p-6">
+                <p id="successMessage" class="text-center text-gray-800 text-lg font-semibold mb-6"></p>
+                <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold">
+                    <i class="fas fa-check mr-2"></i>OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Errore -->
+    <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full animate-bounce-in">
+            <div class="bg-gradient-to-r from-red-500 to-red-700 text-white p-6 rounded-t-xl">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-times-circle text-6xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-center">Errore</h2>
+            </div>
+            <div class="p-6">
+                <p id="errorMessage" class="text-center text-gray-800 text-lg font-semibold mb-2"></p>
+                <p id="errorDetails" class="text-center text-gray-600 text-sm mb-6"></p>
+                <button onclick="closeErrorModal()" class="w-full bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                    <i class="fas fa-times mr-2"></i>Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let richieste = [];
+        let fornitori = [];
+        let prodotti = [];
+        let currentItems = [];
+        let destinazioni = [];
+        let pendingDestId = null;
+        let prodottiModalMode = 'fornitore'; // 'fornitore' | 'tutti'
+        let pendingApprovalAfterSave = false; // true quando si salva una modifica_approvata
+        let fpDataRichiesta, fpRisposta;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await window.AuthHelper.requireLogin()) return;
+            
+            currentUser = window.AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+
+            // Inizializza flatpickr
+            const fpOpts = {
+                locale: 'it',
+                dateFormat: 'Y-m-d',
+                altInput: true,
+                altFormat: 'd/m/Y',
+                disableMobile: true,
+                onReady(_, __, instance) {
+                    instance.altInput.className = instance.element.className;
+                    instance.altInput.placeholder = 'gg/mm/aaaa';
+                }
+            };
+            fpDataRichiesta = flatpickr('#dataRichiesta', fpOpts);
+            fpRisposta   = flatpickr('#dataRispostaEntro', { ...fpOpts, onReady(_, __, instance) {
+                instance.altInput.className = instance.element.className;
+                instance.altInput.placeholder = 'gg/mm/aaaa';
+            }});
+
+            const today = new Date().toISOString().split('T')[0];
+            fpDataRichiesta.setDate(today, true);
+
+            await Promise.all([
+                loadRichieste(),
+                loadFornitori(),
+                loadProdotti()
+            ]);
+
+            // Realtime: aggiorna automaticamente quando cambia approvazione_stato o altro
+            window.supabase
+                .channel('richieste-preventivo-changes')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'richieste_preventivo_fornitori'
+                }, () => {
+                    if (!document.getElementById('ordineModal').classList.contains('hidden')) return;
+                    loadRichieste();
+                })
+                .subscribe();
+
+            // Polling fallback: aggiorna ogni 10s + al ritorno sul tab
+            setInterval(() => {
+                const modal = document.getElementById('ordineModal');
+                if (modal && !modal.classList.contains('hidden')) return;
+                loadRichieste();
+            }, 10000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) return;
+                const modal = document.getElementById('ordineModal');
+                if (modal && !modal.classList.contains('hidden')) return;
+                loadRichieste();
+            });
+        });
+
+        async function loadFornitori() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('fornitori')
+                    .select('*')
+                    .eq('attivo', true)
+                    .order('ragione_sociale');
+
+                if (error) throw error;
+                fornitori = data || [];
+
+                // Popola dropdown
+                const selectFornitore = document.getElementById('fornitoreId');
+                selectFornitore.innerHTML = '<option value="">-- Seleziona fornitore --</option>';
+                fornitori.forEach(f => {
+                    selectFornitore.innerHTML += `<option value="${f.id}">${f.ragione_sociale}</option>`;
+                });
+
+                // Popola filtro
+                const filterFornitore = document.getElementById('filterFornitore');
+                filterFornitore.innerHTML = '<option value="">Tutti i fornitori</option>';
+                fornitori.forEach(f => {
+                    filterFornitore.innerHTML += `<option value="${f.id}">${f.ragione_sociale}</option>`;
+                });
+            } catch (error) {
+                console.error('Errore caricamento fornitori:', error);
+            }
+        }
+
+        async function loadProdotti() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('components')
+                    .select('*')
+                    .order('codice');
+
+                if (error) throw error;
+                prodotti = data || [];
+            } catch (error) {
+                console.error('Errore caricamento prodotti:', error);
+            }
+        }
+
+        async function loadRichieste() {
+            try {
+                const filterStato = document.getElementById('filterStato').value;
+                const filterFornitore = document.getElementById('filterFornitore').value;
+
+                let query = window.supabase
+                    .from('richieste_preventivo_fornitori')
+                    .select('*, fornitore:fornitori(ragione_sociale)')
+                    .order('data_richiesta', { ascending: false });
+
+                if (filterStato) query = query.eq('stato', filterStato);
+                if (filterFornitore) query = query.eq('fornitore_id', filterFornitore);
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                richieste = data || [];
+                renderRichieste();
+                updateStats();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento: ' + error.message);
+            }
+        }
+
+        function renderRichieste() {
+            const tbody = document.getElementById('richiesteTable');
+            
+            if (richieste.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4 block"></i>
+                            <p class="text-lg">Nessuna richiesta trovata</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = richieste.map(richiesta => `
+                <tr class="hover:bg-teal-50 cursor-pointer transition-colors" onclick="apriRiepilogo('${richiesta.id}')">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">${richiesta.numero}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${richiesta.fornitore?.ragione_sociale || richiesta.fornitore_nome || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${richiesta.oggetto || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        ${new Date(richiesta.data_richiesta).toLocaleDateString('it-IT')}
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        ${richiesta.data_risposta_entro ? 
+                            `<span class="${new Date(richiesta.data_risposta_entro) < new Date() ? 'text-red-600' : 'text-gray-700'}">
+                                ${new Date(richiesta.data_risposta_entro).toLocaleDateString('it-IT')}
+                            </span>` : '-'
+                        }
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col gap-1">
+                            ${getStatoBadge(richiesta.stato)}
+                            ${richiesta.approvazione_stato && richiesta.approvazione_stato !== 'non_richiesta' ? getApprovazioneBadge(richiesta.approvazione_stato) : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm space-x-2" onclick="event.stopPropagation()">
+                        ${isLocked(richiesta)
+                            ? `<button onclick="showToast('🔒 Bloccata. Clicca \'Richiedi Modifica\' per sbloccarla.','warning')" class="text-gray-400 cursor-not-allowed" title="Bloccata"><i class="fas fa-lock"></i></button>`
+                            : `<button onclick="modificaRichiesta('${richiesta.id}')" class="${richiesta.approvazione_stato === 'modifica_approvata' ? 'text-amber-500 hover:text-amber-700' : 'text-teal-600 hover:text-teal-900'}" title="${richiesta.approvazione_stato === 'modifica_approvata' ? 'Modifica approvata – clicca per editare' : 'Modifica'}"><i class="fas fa-edit"></i></button>`
+                        }
+                        ${canRichiediModifica(richiesta)
+                            ? `<button onclick="richiediModifica('${richiesta.id}')" class="text-purple-600 hover:text-purple-900" title="Richiedi approvazione per modificare"><i class="fas fa-unlock-alt"></i></button>`
+                            : (!isLocked(richiesta) && !['in_attesa','modifica_in_attesa'].includes(richiesta.approvazione_stato)
+                                ? `<button onclick="inviaPerApprovazione('${richiesta.id}')" class="text-amber-500 hover:text-amber-700" title="Richiedi approvazione"><i class="fas fa-user-check"></i></button>`
+                                : '')
+                        }
+                        ${ ['in_attesa','modifica_in_attesa','visione_in_attesa'].includes(richiesta.approvazione_stato)
+                            ? `<button onclick="reinviaEmailApprovazione('${richiesta.id}')" class="text-indigo-500 hover:text-indigo-700" title="Reinvia email"><i class="fas fa-paper-plane"></i></button>`
+                            : ''
+                        }
+                        <button onclick="inviaPerPrisaVisione('${richiesta.id}')" class="text-slate-500 hover:text-slate-700" title="Invia per presa visione">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="inviaEmailRichiesta('${richiesta.id}')" class="text-blue-600 hover:text-blue-900" title="Invia richiesta preventivo">
+                            <i class="fas fa-envelope"></i>
+                        </button>
+                        <button onclick="eliminaRichiesta('${richiesta.id}', '${richiesta.numero}', '${richiesta.stato}')" class="text-red-600 hover:text-red-900" title="Elimina">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatoBadge(stato) {
+            const badges = {
+                'da_inviare': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-clock mr-1"></i>Da Inviare</span>',
+                'inviato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-paper-plane mr-1"></i>Inviato</span>',
+                'risposto': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-comment mr-1"></i>Risposto</span>',
+                'accettato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Accettato</span>',
+                'rifiutato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times mr-1"></i>Rifiutato</span>',
+                'annullato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-times-circle mr-1"></i>Annullato</span>'
+            };
+            return badges[stato] || stato;
+        }
+
+        function getApprovazioneBadge(stato) {
+            const map = {
+                'in_attesa':          '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-user-clock mr-1"></i>Approv. in attesa</span>',
+                'approvata':          '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-green-100 text-green-800"><i class="fas fa-lock mr-1"></i>Approvata</span>',
+                'rifiutata':          '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-red-100 text-red-800"><i class="fas fa-user-times mr-1"></i>Rifiutata</span>',
+                'modifica_in_attesa': '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-orange-100 text-orange-800"><i class="fas fa-pen-square mr-1"></i>Modifica in attesa</span>',
+                'modifica_approvata': '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-amber-100 text-amber-800"><i class="fas fa-unlock-alt mr-1"></i>Modifica approvata</span>',
+                'visione_in_attesa':  '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-cyan-100 text-cyan-800"><i class="fas fa-eye mr-1"></i>Visione in attesa</span>',
+                'presa_visione':      '<span class="px-2 py-0.5 inline-flex text-xs font-medium rounded-full bg-teal-100 text-teal-800"><i class="fas fa-eye-slash mr-1"></i>Presa visione</span>',
+            };
+            return map[stato] || '';
+        }
+
+        // Bloccato = non modificabile direttamente
+        function isLocked(r) {
+            if (['approvata', 'in_attesa', 'modifica_in_attesa', 'visione_in_attesa', 'presa_visione'].includes(r.approvazione_stato)) return true;
+            if (['inviato', 'risposto', 'accettato', 'rifiutato', 'annullato'].includes(r.stato)) return true;
+            return false;
+        }
+
+        // Può richiedere modifica = è bloccato ma NON già in attesa di una risposta
+        function canRichiediModifica(r) {
+            if (!isLocked(r)) return false;
+            if (['in_attesa', 'modifica_in_attesa', 'visione_in_attesa'].includes(r.approvazione_stato)) return false;
+            return true;
+        }
+
+        function updateStats() {
+            const daInviare  = richieste.filter(o => o.stato === 'da_inviare').length;
+            const inviate    = richieste.filter(o => o.stato === 'inviato' || o.stato === 'risposto').length;
+            const accettate  = richieste.filter(o => o.stato === 'accettato').length;
+            const rifiutate  = richieste.filter(o => o.stato === 'rifiutato').length;
+
+            document.getElementById('statTotal').textContent     = richieste.length;
+            document.getElementById('statDaInviare').textContent = daInviare;
+            document.getElementById('statInviate').textContent   = inviate;
+            document.getElementById('statAccettati').textContent = accettate;
+            document.getElementById('statRifiutate').textContent = rifiutate;
+        }
+
+        function searchRichieste() {
+            const search = document.getElementById('searchRichiesta').value.toLowerCase();
+            const filtered = richieste.filter(o => 
+                o.numero?.toLowerCase().includes(search) ||
+                o.oggetto?.toLowerCase().includes(search) ||
+                o.fornitore_nome?.toLowerCase().includes(search)
+            );
+            
+            const temp = richieste;
+            richieste = filtered;
+            renderRichieste();
+            richieste = temp;
+        }
+
+        function nuovaRichiesta() {
+            document.getElementById('richiestaId').value = '';
+            document.getElementById('modalTitle').innerHTML = '📋 Nuova Richiesta Preventivo';
+            
+            document.getElementById('fornitoreId').value = '';
+            document.getElementById('oggetto').value = '';
+            fpDataRichiesta.setDate(new Date(), true);
+            fpRisposta.clear();
+            document.getElementById('noteInterne').value = '';
+            document.getElementById('stato').value = 'da_inviare';
+            
+            currentItems = [];
+            destinazioni = [];
+            renderDestinazioni();
+            renderProdottiTable();
+            
+            document.getElementById('ordineModal').classList.remove('hidden');
+        }
+
+        function fillFornitoreData() {
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            if (!fornitoreId) return;
+
+            const fornitore = fornitori.find(f => f.id === fornitoreId);
+            if (!fornitore) return;
+
+            // Auto-calcola data consegna prevista
+            if (fornitore.giorni_consegna) {
+                const dataRichiesta = new Date(document.getElementById('dataRichiesta').value || new Date());
+                const risposta = new Date(dataRichiesta);
+                risposta.setDate(risposta.getDate() + (fornitore.giorni_risposta_preventivo || fornitore.giorni_consegna || 7));
+                fpRisposta.setDate(risposta, true);
+            }
+        }
+
+        function aggiungiProdotto(destId = null) {
+            pendingDestId = destId;
+            document.getElementById('prodottoModal').classList.remove('hidden');
+            cambiaModaleProdotti('fornitore');
+        }
+
+        function cambiaModaleProdotti(mode) {
+            prodottiModalMode = mode;
+            const tabF = document.getElementById('tabFornitore');
+            const tabT = document.getElementById('tabTutti');
+            if (tabF && tabT) {
+                tabF.className = mode === 'fornitore'
+                    ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-purple-600 text-white'
+                    : 'px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100';
+                tabT.className = mode === 'tutti'
+                    ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-orange-500 text-white'
+                    : 'px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100';
+            }
+            renderProdottiMagazzino();
+        }
+
+        function renderProdottiMagazzino() {
+            const search = document.getElementById('searchProdotto').value.toLowerCase();
+            const selectedFornitoreId = document.getElementById('fornitoreId').value;
+
+            // Mostra/nascondi tabs
+            const tabsEl = document.getElementById('prodottiTabs');
+            if (tabsEl) tabsEl.classList.toggle('hidden', !selectedFornitoreId);
+
+            let filtered;
+            if (prodottiModalMode === 'fornitore' && selectedFornitoreId) {
+                filtered = prodotti.filter(p =>
+                    p.fornitore_id === selectedFornitoreId &&
+                    (p.codice?.toLowerCase().includes(search) || p.descrizione?.toLowerCase().includes(search))
+                );
+            } else {
+                filtered = prodotti.filter(p =>
+                    p.codice?.toLowerCase().includes(search) ||
+                    p.descrizione?.toLowerCase().includes(search)
+                );
+            }
+
+            const container = document.getElementById('prodottiMagazzino');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16">
+                        <i class="fas fa-box-open text-gray-300 text-6xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nessun prodotto trovato</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(p => {
+                const codiceBadge = prodottiModalMode === 'tutti'
+                    ? `<span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>codice diverso</span>`
+                    : `<span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">${p.codice || 'N/A'}</span>`;
+                return `
+                <div onclick="selezionaProdotto('${p.id}')" 
+                    class="border-b border-gray-100 p-4 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 cursor-pointer transition-all group">
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                ${codiceBadge}
+                                <span class="text-xs ${p.giacenza > 0 ? 'text-green-600' : 'text-red-600'}">
+                                    <i class="fas fa-boxes mr-1"></i>
+                                    Giacenza: ${parseFloat(p.giacenza || 0).toFixed(2)} ${p.um || 'pz'}
+                                </span>
+                            </div>
+                            <p class="font-medium text-gray-800">${p.descrizione || 'Senza descrizione'}</p>
+                        </div>
+                        <div class="text-right ml-6">
+                            <p class="text-xs text-gray-500">${p.um || 'pz'}</p>
+                            <button class="mt-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i class="fas fa-plus mr-1"></i>Aggiungi
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function searchProdotti() {
+            renderProdottiMagazzino();
+        }
+
+        function selezionaProdotto(prodottoId) {
+            const prodotto = prodotti.find(p => p.id === prodottoId);
+            if (!prodotto) return;
+
+            // Verifica se già presente nello stesso set
+            const alreadyInSet = currentItems.some(item =>
+                item.prodotto_id === prodottoId &&
+                item.destinazione_id === pendingDestId
+            );
+            if (alreadyInSet) {
+                const setName = pendingDestId
+                    ? (destinazioni.find(d => d.id === pendingDestId)?.nome || 'questo set')
+                    : 'la lista';
+                showErrorModal('Prodotto già presente', `"${prodotto.descrizione}" è già in ${setName}`);
+                return;
+            }
+
+            const item = {
+                id: '',
+                prodotto_id: prodotto.id,
+                codice: prodottiModalMode === 'tutti' ? '' : (prodotto.codice || ''),
+                descrizione: prodotto.descrizione,
+                um: prodotto.um || 'pz',
+                quantita: 1,
+                note: '',
+                destinazione_id: pendingDestId
+            };
+
+            pendingDestId = null;
+            currentItems.push(item);
+            renderProdottiTable();
+            closeProdottoModal();
+        }
+
+        function renderItemRow(item, index, isFirst = false, isLast = false) {
+            const isManuale = !item.prodotto_id;
+            const codiceField = isManuale
+                ? `<input type="text" value="${item.codice || ''}" placeholder="Codice..." onchange="updateItemCodice(${index}, this.value)" class="w-20 px-2 py-1 border rounded text-sm">`
+                : `<span class="font-mono text-xs">${item.codice || '-'}</span>`;
+            const descrizioneField = isManuale
+                ? `<input type="text" value="${item.descrizione || ''}" placeholder="Descrizione *" onchange="updateItemDescrizione(${index}, this.value)" class="w-44 px-2 py-1 border rounded text-sm">`
+                : `<span>${item.descrizione}</span>`;
+            const umField = isManuale
+                ? `<select onchange="updateItemUM(${index}, this.value)" class="w-16 px-1 py-1 border rounded text-sm"><option ${item.um==='pz'?'selected':''} value="pz">pz</option><option ${item.um==='mt'?'selected':''} value="mt">mt</option><option ${item.um==='kg'?'selected':''} value="kg">kg</option><option ${item.um==='lt'?'selected':''} value="lt">lt</option><option ${item.um==='conf'?'selected':''} value="conf">conf</option></select>`
+                : `<span>${item.um}</span>`;
+            return `<tr class="${isManuale ? 'bg-yellow-50' : ''}">
+                <td class="px-4 py-2 text-sm">${codiceField}</td>
+                <td class="px-4 py-2 text-sm">${descrizioneField}</td>
+                <td class="px-4 py-2 text-sm">${umField}</td>
+                <td class="px-4 py-2">
+                    <input type="number" value="${item.quantita}" min="1" step="1"
+                        onchange="updateItemQuantita(${index}, this.value)"
+                        class="w-24 px-2 py-1 border rounded">
+                </td>
+                <td class="px-4 py-2">
+                    <input type="text" value="${item.note || ''}" placeholder="Specifiche..."
+                        onchange="updateItemNote(${index}, this.value)"
+                        class="w-36 px-2 py-1 border rounded text-sm">
+                </td>
+                <td class="px-4 py-2">
+                    <div class="flex items-center gap-1">
+                        <div class="flex flex-col">
+                            <button onclick="spostaItemSu(${index})" ${isFirst ? 'disabled' : ''} class="text-gray-400 hover:text-gray-700 leading-none disabled:opacity-20 disabled:cursor-not-allowed" title="Sposta su">
+                                <i class="fas fa-chevron-up text-xs"></i>
+                            </button>
+                            <button onclick="spostaItemGiu(${index})" ${isLast ? 'disabled' : ''} class="text-gray-400 hover:text-gray-700 leading-none disabled:opacity-20 disabled:cursor-not-allowed" title="Sposta giù">
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                        </div>
+                        <button onclick="rimuoviItem(${index})" class="text-red-600 hover:text-red-900 ml-1" title="Rimuovi">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        }
+
+        function renderProdottiTable() {
+            const tbody = document.getElementById('prodottiTableBody');
+            // Mostra/nascondi pulsanti top quando ci sono set
+            document.getElementById('topAddButtons').style.display = destinazioni.length > 0 ? 'none' : '';
+
+            if (currentItems.length === 0 && destinazioni.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Nessun prodotto aggiunto</td></tr>`;
+                return;
+            }
+
+            if (destinazioni.length === 0) {
+                // Tabella piatta (comportamento originale)
+                tbody.innerHTML = currentItems.map((item, index) =>
+                    renderItemRow(item, index, index === 0, index === currentItems.length - 1)
+                ).join('');
+                return;
+            }
+
+            // Vista raggruppata per set
+            let html = '';
+            destinazioni.forEach(dest => {
+                const destItems = currentItems
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item }) => item.destinazione_id === dest.id);
+
+                const altriSet = destinazioni
+                    .filter(d => d.id !== dest.id)
+                    .map(d => `<option value="${d.id}">${d.nome}</option>`)
+                    .join('');
+
+                html += `<tr class="bg-blue-50 border-t-2 border-blue-300">
+                    <td colspan="6" class="px-4 py-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-blue-800 text-sm">
+                                <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                                ${dest.nome}${dest.indirizzo ? ' <span class="font-normal text-blue-600 ml-1">— ' + dest.indirizzo + '</span>' : ''}
+                            </span>
+                            <div class="flex gap-2 items-center">
+                                ${destinazioni.length > 1 ? `
+                                <select onchange="copiaSetIn('${dest.id}', this.value); this.value=''"
+                                    class="bg-teal-50 text-teal-700 border border-teal-300 px-2 py-1 rounded text-xs font-semibold cursor-pointer">
+                                    <option value="">📋 Copia in...</option>
+                                    ${altriSet}
+                                </select>` : ''}
+                                <button onclick="svuotaSet('${dest.id}')" class="bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1 rounded text-xs font-semibold" title="Svuota set">
+                                    <i class="fas fa-eraser mr-1"></i>Svuota
+                                </button>
+                                <button onclick="aggiungiRigaManuale('${dest.id}')" class="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">
+                                    <i class="fas fa-edit mr-1"></i>Manuale
+                                </button>
+                                <button onclick="aggiungiProdotto('${dest.id}')" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs">
+                                    <i class="fas fa-warehouse mr-1"></i>Da Magazzino
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+
+                if (destItems.length === 0) {
+                    html += `<tr class="bg-blue-50/40"><td colspan="6" class="px-8 py-3 text-gray-400 text-sm italic">Nessun articolo in questo set. Usa i pulsanti sopra per aggiungere.</td></tr>`;
+                } else {
+                    html += destItems.map(({ item, idx }, i) =>
+                        renderItemRow(item, idx, i === 0, i === destItems.length - 1)
+                    ).join('');
+                }
+            });
+
+            // Articoli non assegnati a nessun set
+            const unassigned = currentItems
+                .map((item, idx) => ({ item, idx }))
+                .filter(({ item }) => !item.destinazione_id || !destinazioni.find(d => d.id === item.destinazione_id));
+
+            if (unassigned.length > 0) {
+                html += `<tr class="bg-gray-100 border-t-2 border-gray-300">
+                    <td colspan="6" class="px-4 py-2.5 font-bold text-gray-500 text-sm">
+                        <i class="fas fa-question-circle mr-2"></i>Non assegnati a nessun set
+                    </td>
+                </tr>`;
+                html += unassigned.map(({ item, idx }, i) =>
+                    renderItemRow(item, idx, i === 0, i === unassigned.length - 1)
+                ).join('');
+            }
+
+            tbody.innerHTML = html || `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 text-sm italic">Nessun prodotto aggiunto</td></tr>`;
+        }
+
+        function updateItemQuantita(index, value) {
+            const quantita = parseInt(value) || 0;
+            currentItems[index].quantita = quantita;
+            renderProdottiTable();
+        }
+
+        function spostaItemSu(index) {
+            if (destinazioni.length > 0) {
+                // Trova il precedente con la stessa destinazione
+                const destId = currentItems[index].destinazione_id;
+                let prev = -1;
+                for (let i = index - 1; i >= 0; i--) {
+                    if (currentItems[i].destinazione_id === destId) { prev = i; break; }
+                }
+                if (prev === -1) return;
+                [currentItems[prev], currentItems[index]] = [currentItems[index], currentItems[prev]];
+            } else {
+                if (index === 0) return;
+                [currentItems[index - 1], currentItems[index]] = [currentItems[index], currentItems[index - 1]];
+            }
+            renderProdottiTable();
+        }
+
+        function spostaItemGiu(index) {
+            if (destinazioni.length > 0) {
+                // Trova il successivo con la stessa destinazione
+                const destId = currentItems[index].destinazione_id;
+                let next = -1;
+                for (let i = index + 1; i < currentItems.length; i++) {
+                    if (currentItems[i].destinazione_id === destId) { next = i; break; }
+                }
+                if (next === -1) return;
+                [currentItems[index], currentItems[next]] = [currentItems[next], currentItems[index]];
+            } else {
+                if (index === currentItems.length - 1) return;
+                [currentItems[index], currentItems[index + 1]] = [currentItems[index + 1], currentItems[index]];
+            }
+            renderProdottiTable();
+        }
+
+        function updateItemNote(index, value) {
+            currentItems[index].note = value;
+        }
+
+        function updateItemCodice(index, value) {
+            currentItems[index].codice = value;
+        }
+
+        function updateItemDescrizione(index, value) {
+            currentItems[index].descrizione = value;
+        }
+
+        function updateItemUM(index, value) {
+            currentItems[index].um = value;
+        }
+
+        function aggiungiRigaManuale(destId = null) {
+            currentItems.push({
+                id: '',
+                prodotto_id: null,
+                codice: '',
+                descrizione: '',
+                um: 'pz',
+                quantita: 1,
+                note: '',
+                destinazione_id: destId
+            });
+            renderProdottiTable();
+        }
+
+        function apriNuovoProdottoInline() {
+            document.getElementById('nuovoProdottoInlineModal').classList.remove('hidden');
+        }
+
+        function chiudiNuovoProdottoInline() {
+            document.getElementById('nuovoProdottoInlineModal').classList.add('hidden');
+            document.getElementById('npDescr').value = '';
+            document.getElementById('npCodice').value = '';
+            document.getElementById('npBarcode').value = '';
+        }
+
+        let _salvandoProdotto = false;
+        async function salvaNuovoProdottoInline() {
+            if (_salvandoProdotto) return;
+            const descrizione = document.getElementById('npDescr').value.trim();
+            if (!descrizione) {
+                showErrorModal('Campo obbligatorio', 'La descrizione è obbligatoria');
+                return;
+            }
+            const codice = document.getElementById('npCodice').value.trim() || null;
+            const barcode = document.getElementById('npBarcode').value.trim() || null;
+            const um = document.getElementById('npUM').value || 'pz';
+            const categoria = document.getElementById('npCategoria').value || 'Componentistica';
+
+            _salvandoProdotto = true;
+            const btnSalva = document.querySelector('[onclick="salvaNuovoProdottoInline()"]');
+            if (btnSalva) { btnSalva.disabled = true; btnSalva.style.opacity = '0.6'; }
+
+            try {
+                let data;
+
+                const { data: inserted, error } = await window.supabase
+                    .from('components')
+                    .insert({
+                        nome: descrizione,
+                        descrizione: descrizione,
+                        codice: codice,
+                        barcode: barcode,
+                        categoria: categoria,
+                        um: um,
+                        unita_misura: um,
+                        giacenza: 0,
+                        quantita_disponibile: 0,
+                        stato: 'attivo'
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    // Codice già esistente → usa il componente esistente
+                    if (error.code === '23505' && codice) {
+                        const { data: existing, error: fetchErr } = await window.supabase
+                            .from('components')
+                            .select()
+                            .eq('codice', codice)
+                            .single();
+                        if (fetchErr || !existing) throw error;
+                        data = existing;
+                        showToast('Codice già presente — componente esistente aggiunto alla richiesta.', 'warning');
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    data = inserted;
+                }
+
+                // Aggiunge al catalogo locale (se non già presente)
+                if (!prodotti.find(p => p.id === data.id)) prodotti.push(data);
+
+                // Auto-aggiunge alla richiesta
+                currentItems.push({
+                    id: '',
+                    prodotto_id: data.id,
+                    codice: data.codice || '',
+                    descrizione: data.descrizione || data.nome,
+                    um: data.um || 'pz',
+                    quantita: 1,
+                    note: '',
+                    destinazione_id: pendingDestId
+                });
+                pendingDestId = null;
+
+                renderProdottiTable();
+                chiudiNuovoProdottoInline();
+                closeProdottoModal();
+                if (!error) showToast('Prodotto creato e aggiunto alla richiesta!');
+
+            } catch(e) {
+                console.error(e);
+                showErrorModal('Errore creazione prodotto', e.message || 'Errore imprevisto');
+            } finally {
+                _salvandoProdotto = false;
+                if (btnSalva) { btnSalva.disabled = false; btnSalva.style.opacity = ''; }
+            }
+        }
+
+        function rimuoviItem(index) {
+            currentItems.splice(index, 1);
+            renderProdottiTable();
+        }
+
+        // ── SET DI CONSEGNA ──────────────────────────────────────────────
+        function renderDestinazioni() {
+            const container = document.getElementById('destinazioniList');
+            if (destinazioni.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-sm italic">Nessun set — tutti gli articoli andranno nella stessa destinazione.</p>';
+            } else {
+                container.innerHTML = destinazioni.map((dest, i) => `
+                    <div class="flex items-center gap-3 bg-white p-3 rounded-xl border border-blue-100 mb-2">
+                        <div class="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold flex-shrink-0">${i + 1}</div>
+                        <input type="text" value="${dest.nome}" placeholder="Nome set (es. Cantiere Via Roma)" 
+                            onchange="updateDestinazioneNome('${dest.id}', this.value)"
+                            class="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-semibold">
+                        <input type="text" value="${dest.indirizzo}" placeholder="Indirizzo / Via (opzionale)" 
+                            onchange="updateDestinazioneIndirizzo('${dest.id}', this.value)"
+                            class="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm">
+                        <button onclick="rimuoviDestinazione('${dest.id}')" class="text-red-400 hover:text-red-600 p-1" title="Rimuovi set">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+            renderProdottiTable();
+        }
+
+        function aggiungiDestinazione() {
+            destinazioni.push({
+                id: crypto.randomUUID(),
+                nome: `Set ${destinazioni.length + 1}`,
+                indirizzo: ''
+            });
+            renderDestinazioni();
+        }
+
+        function rimuoviDestinazione(id) {
+            destinazioni = destinazioni.filter(d => d.id !== id);
+            currentItems.forEach(item => {
+                if (item.destinazione_id === id) item.destinazione_id = null;
+            });
+            renderDestinazioni();
+        }
+
+        function updateDestinazioneNome(id, value) {
+            const dest = destinazioni.find(d => d.id === id);
+            if (dest) { dest.nome = value; renderProdottiTable(); }
+        }
+
+        function updateDestinazioneIndirizzo(id, value) {
+            const dest = destinazioni.find(d => d.id === id);
+            if (dest) dest.indirizzo = value;
+        }
+
+        function copiaSetIn(sourceId, targetId) {
+            if (!targetId) return;
+            const sourceItems = currentItems.filter(i => i.destinazione_id === sourceId);
+            if (sourceItems.length === 0) {
+                showToast('Nessun articolo nel set da copiare', 'warning');
+                return;
+            }
+            sourceItems.forEach(item => {
+                currentItems.push({
+                    id: '',
+                    prodotto_id: item.prodotto_id,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita: item.quantita,
+                    note: item.note,
+                    destinazione_id: targetId
+                });
+            });
+            renderProdottiTable();
+            const targetNome = destinazioni.find(d => d.id === targetId)?.nome || 'set';
+            showToast(`${sourceItems.length} articoli copiati in "${targetNome}"!`, 'success');
+        }
+
+        function svuotaSet(destId) {
+            const n = currentItems.filter(i => i.destinazione_id === destId).length;
+            if (n === 0) return;
+            currentItems = currentItems.filter(i => i.destinazione_id !== destId);
+            renderProdottiTable();
+            showToast(`${n} articoli rimossi dal set.`, 'info');
+        }
+
+        function eliminaTuttiItems() {
+            if (currentItems.length === 0) return;
+            currentItems = [];
+            renderProdottiTable();
+            showToast('Tutti gli articoli eliminati.', 'info');
+        }
+        // ────────────────────────────────────────────────────────────────
+
+
+
+        async function salvaRichiesta() {
+            try {
+                const fornitoreId = document.getElementById('fornitoreId').value;
+                const oggetto = document.getElementById('oggetto').value.trim();
+
+                if (!fornitoreId) {
+                    showErrorModal('Seleziona un fornitore', 'È necessario selezionare un fornitore per creare la richiesta');
+                    return;
+                }
+
+                if (!oggetto) {
+                    showErrorModal('Inserisci l\'oggetto della richiesta', 'L\'oggetto della richiesta è obbligatorio');
+                    return;
+                }
+
+                if (currentItems.length === 0) {
+                    showErrorModal('Aggiungi almeno un prodotto', 'Non puoi creare una richiesta senza articoli');
+                    return;
+                }
+
+                // Recupera dati fornitore
+                const fornitore = fornitori.find(f => f.id === fornitoreId);
+
+                const richiestaData = {
+                    fornitore_id: fornitoreId,
+                    fornitore_nome: fornitore?.ragione_sociale,
+                    oggetto: oggetto,
+                    data_richiesta: document.getElementById('dataRichiesta').value,
+                    data_risposta_entro: document.getElementById('dataRispostaEntro').value || null,
+                    stato: document.getElementById('stato').value,
+                    note_interne: document.getElementById('noteInterne').value.trim() || null,
+                    destinazioni: destinazioni.length > 0 ? destinazioni : null
+                };
+
+                const richiestaId = document.getElementById('richiestaId').value;
+                let savedRichiestaId;
+
+                if (richiestaId) {
+                    // Update
+                    const { data: updated, error } = await window.supabase
+                        .from('richieste_preventivo_fornitori')
+                        .update(richiestaData)
+                        .eq('id', richiestaId)
+                        .select('id');
+
+                    if (error) throw error;
+                    if (!updated?.length) throw new Error('Nessuna riga aggiornata. La richiesta potrebbe non essere più disponibile, ricarica la pagina.');
+                    savedRichiestaId = richiestaId;
+
+                    // Carica item esistenti dal DB
+                    const { data: existingItems } = await window.supabase
+                        .from('richieste_preventivo_items')
+                        .select('id')
+                        .eq('richiesta_id', richiestaId);
+
+                    const existingIds = (existingItems || []).map(i => i.id);
+                    const currentIds = currentItems.filter(i => i.id).map(i => i.id);
+
+                    // Elimina solo gli item rimossi dall'utente
+                    const toDelete = existingIds.filter(id => !currentIds.includes(id));
+                    if (toDelete.length > 0) {
+                        await window.supabase
+                            .from('richieste_preventivo_items')
+                            .delete()
+                            .in('id', toDelete);
+                    }
+
+                    for (const item of currentItems.filter(i => i.id)) {
+                        await window.supabase
+                            .from('richieste_preventivo_items')
+                            .update({
+                                codice: item.codice,
+                                descrizione: item.descrizione,
+                                um: item.um,
+                                quantita: item.quantita,
+                                note: item.note || null,
+                                destinazione_id: item.destinazione_id || null
+                            })
+                            .eq('id', item.id);
+                    }
+
+                    // Inserisci solo i nuovi item (senza id)
+                    const newItems = currentItems
+                        .filter(i => !i.id)
+                        .map(item => ({
+                            richiesta_id: savedRichiestaId,
+                            prodotto_id: item.prodotto_id || null,
+                            codice: item.codice || null,
+                            descrizione: item.descrizione,
+                            um: item.um,
+                            quantita: item.quantita,
+                            note: item.note || null,
+                            destinazione_id: item.destinazione_id || null
+                        }));
+                    if (newItems.length > 0) {
+                        await window.supabase
+                            .from('richieste_preventivo_items')
+                            .insert(newItems);
+                    }
+                } else {
+                    // Insert - genera numero
+                    const { data: numeroData, error: numeroError } = await window.supabase
+                        .rpc('generate_richiesta_preventivo_numero');
+
+                    if (numeroError) throw numeroError;
+                    richiestaData.numero = numeroData;
+
+                    const { data, error } = await window.supabase
+                        .from('richieste_preventivo_fornitori')
+                        .insert([richiestaData])
+                        .select();
+
+                    if (error) throw error;
+                    savedRichiestaId = data[0].id;
+                }
+
+                // Inserisci righe (solo per nuovo)
+                if (!richiestaId) {
+                    const items = currentItems.map(item => ({
+                        richiesta_id: savedRichiestaId,
+                        prodotto_id: item.prodotto_id || null,
+                        codice: item.codice || null,
+                        descrizione: item.descrizione,
+                        um: item.um,
+                        quantita: item.quantita,
+                        note: item.note || null,
+                        destinazione_id: item.destinazione_id || null
+                    }));
+
+                    const { error: itemsError } = await window.supabase
+                        .from('richieste_preventivo_items')
+                        .insert(items);
+
+                    if (itemsError) throw itemsError;
+                }
+
+                // Se era una modifica approvata → rimanda in approvazione
+                if (pendingApprovalAfterSave) {
+                    pendingApprovalAfterSave = false;
+                    const { data: approvatori } = await window.supabase.from('approvatori').select('*').eq('attivo', true);
+                    if (approvatori?.length) {
+                        // Chiudi il modale prima di mostrare il selettore
+                        closeModal();
+                        await loadRichieste();
+
+                        const selezionati = await showApprovatoreSelector(approvatori, 'Invia nuova approvazione a...');
+                        if (selezionati) {
+                            await window.supabase.from('richieste_preventivo_fornitori')
+                                .update({ approvazione_stato: 'in_attesa' })
+                                .eq('id', savedRichiestaId);
+                            const { data: { session: s2 } } = await window.supabase.auth.getSession();
+                            const tok2 = s2?.access_token;
+                            const apprUrl = 'https://ast-panel.vercel.app/Admin/approva-preventivo.html';
+                            const numSaved = richieste.find(r => r.id === savedRichiestaId)?.numero || richiestaData.numero || '';
+                            for (const appr of selezionati) {
+                                try {
+                                    await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/dynamic-responder', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok2}` },
+                                        body: JSON.stringify({
+                                            tipo: 'approvazione_preventivo',
+                                            to: appr.email, approvatore: appr.nome,
+                                            numero: numSaved,
+                                            oggetto: richiestaData.oggetto || '',
+                                            fornitore: richiestaData.fornitore_nome || '',
+                                            articoli: currentItems.map(i => ({ codice: i.codice, descrizione: i.descrizione, quantita: i.quantita, um: i.um })),
+                                            approvalUrl: `${apprUrl}?s=${appr.token}`
+                                        })
+                                    });
+                                } catch(e) { console.warn(e); }
+                            }
+                            showToast(`✅ Modifiche salvate! Approvazione inviata a ${selezionati.length} approvatore/i`, 'success');
+                        } else {
+                            showToast('✅ Modifiche salvate (nessuna email inviata)', 'success');
+                        }
+                        await loadRichieste();
+                        return; // già chiuso il modal sopra
+                    } else {
+                        showSuccessModal('Modifiche salvate con successo!');
+                    }
+                } else {
+                    showSuccessModal('Richiesta salvata con successo!');
+                }
+                closeModal();
+                await loadRichieste();
+            } catch (error) {
+                console.error('Errore:', error);
+                showErrorModal('Errore nel salvataggio della richiesta', error.message);
+            }
+        }
+
+        async function modificaRichiesta(id) {
+            try {
+                const richiesta = richieste.find(o => o.id === id);
+                if (!richiesta) return;
+
+                if (isLocked(richiesta)) {
+                    showToast('🔒 Questa richiesta è bloccata. Usa il pulsante 🔓 "Richiedi Modifica" per sbloccarla.', 'warning');
+                    return;
+                }
+
+                // Tieni traccia se era 'modifica_approvata' → dopo il salvataggio va in approvazione
+                pendingApprovalAfterSave = (richiesta.approvazione_stato === 'modifica_approvata');
+
+                document.getElementById('richiestaId').value = richiesta.id;
+                document.getElementById('modalTitle').innerHTML = '✏️ Modifica Richiesta';
+                
+                document.getElementById('fornitoreId').value = richiesta.fornitore_id || '';
+                document.getElementById('oggetto').value = richiesta.oggetto || '';
+                fpDataRichiesta.setDate(richiesta.data_richiesta, true);
+                if (richiesta.data_risposta_entro) fpRisposta.setDate(richiesta.data_risposta_entro, true); else fpRisposta.clear();
+                document.getElementById('noteInterne').value = richiesta.note_interne || '';
+                document.getElementById('stato').value = richiesta.stato;
+
+                // Carica items
+                const { data: items, error } = await window.supabase
+                    .from('richieste_preventivo_items')
+                    .select('*')
+                    .eq('richiesta_id', id);
+
+                if (error) throw error;
+
+                currentItems = items.map(item => ({
+                    id: item.id,
+                    prodotto_id: item.prodotto_id,
+                    codice: item.codice,
+                    descrizione: item.descrizione,
+                    um: item.um,
+                    quantita: parseFloat(item.quantita || 0),
+                    note: item.note || '',
+                    destinazione_id: item.destinazione_id || null
+                }));
+
+                // Carica set di consegna
+                destinazioni = Array.isArray(richiesta.destinazioni) ? richiesta.destinazioni : [];
+                renderDestinazioni();
+                renderProdottiTable();
+
+                document.getElementById('ordineModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel caricamento ordine: ' + error.message);
+            }
+        }
+
+
+        let emailConfirmResolve = null;
+        let _emailConfirmReferente = null;
+        let _emailConfirmUfficio = null;
+
+        function showEmailConfirm({ numero, nome, emailReferente, emailUfficio }) {
+            document.getElementById('emailConfirmNumero').textContent = numero;
+            _emailConfirmReferente = emailReferente;
+            _emailConfirmUfficio = emailUfficio || null;
+
+            if (emailUfficio) {
+                document.getElementById('emailSingleDest').classList.add('hidden');
+                document.getElementById('emailMultiDest').classList.remove('hidden');
+                document.getElementById('emailReferenteLbl').textContent = nome;
+                document.getElementById('emailReferenteVal').textContent = emailReferente;
+                document.getElementById('emailUfficioVal').textContent = emailUfficio;
+                document.getElementById('emailEntrambiVal').textContent = `${emailReferente}  +  ${emailUfficio}`;
+                document.querySelector('input[name="emailDestChoice"][value="entrambi"]').checked = true;
+            } else {
+                document.getElementById('emailSingleDest').classList.remove('hidden');
+                document.getElementById('emailMultiDest').classList.add('hidden');
+                document.getElementById('emailConfirmNome').textContent = nome;
+                document.getElementById('emailConfirmEmail').textContent = emailReferente;
+            }
+
+            document.getElementById('emailConfirmModal').classList.remove('hidden');
+            return new Promise(resolve => {
+                emailConfirmResolve = (confirmed) => {
+                    document.getElementById('emailConfirmModal').classList.add('hidden');
+                    if (!confirmed) { resolve(null); return; }
+                    if (_emailConfirmUfficio) {
+                        const sel = document.querySelector('input[name="emailDestChoice"]:checked')?.value;
+                        if (sel === 'referente') resolve({ to: _emailConfirmReferente });
+                        else if (sel === 'ufficio') resolve({ to: _emailConfirmUfficio });
+                        else resolve({ to: _emailConfirmReferente, cc: _emailConfirmUfficio });
+                    } else {
+                        resolve({ to: _emailConfirmReferente });
+                    }
+                };
+            });
+        }
+
+        async function richiediModifica(id) {
+            try {
+            const richiesta = richieste.find(o => o.id === id);
+            if (!richiesta) return;
+
+            const { data: approvatori } = await window.supabase
+                .from('approvatori').select('*').eq('attivo', true);
+
+            if (!approvatori?.length) {
+                showErrorModal('Nessun approvatore', 'Nessun approvatore attivo. Vai in Impostazioni per configurarne uno.');
+                return;
+            }
+
+            const selezionati = await showApprovatoreSelector(approvatori, 'Invia richiesta modifica a...');
+            if (!selezionati) return;
+
+            const { error } = await window.supabase
+                .from('richieste_preventivo_fornitori')
+                .update({ approvazione_stato: 'modifica_in_attesa' })
+                .eq('id', id);
+
+            if (error) { showErrorModal('Errore', error.message); return; }
+
+            const { data: { session } } = await window.supabase.auth.getSession();
+            const token = session?.access_token;
+            const BASE_APPROVAL_URL = 'https://ast-panel.vercel.app/Admin/approva-preventivo.html';
+
+            let sent = 0;
+            for (const approvatore of selezionati) {
+                try {
+                    await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/dynamic-responder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({
+                            tipo: 'approvazione_preventivo',
+                            to: approvatore.email,
+                            approvatore: approvatore.nome,
+                            numero: richiesta.numero,
+                            oggetto: `[RICHIESTA MODIFICA] ${richiesta.oggetto || ''}`,
+                            fornitore: richiesta.fornitore_nome || '',
+                            articoli: [],
+                            approvalUrl: `${BASE_APPROVAL_URL}?s=${approvatore.token}`
+                        })
+                    });
+                    sent++;
+                } catch(e) { console.warn(e); }
+            }
+
+            showToast(`✅ Richiesta di modifica inviata a ${sent} approvatore/i`, 'success');
+            } catch(e) {
+                console.error('richiediModifica error:', e);
+                showToast('⚠️ Errore nella richiesta di modifica', 'error');
+            } finally {
+                await loadRichieste();
+            }
+        }
+
+        // ── Selettore approvatori ───────────────────────────────────────
+        function showApprovatoreSelector(approvatori, title = 'Scegli a chi inviare') {
+            return new Promise(resolve => {
+                window._approvatoreSelectResolve = resolve;
+                document.getElementById('approvatoreSelectTitle').textContent = title;
+                const list = document.getElementById('approvatoreSelectList');
+
+                // Build list
+                list.innerHTML = `
+                    <label class="flex items-center gap-3 p-3 rounded-xl border-2 border-teal-100 bg-teal-50 cursor-pointer hover:bg-teal-100 transition-colors">
+                        <input type="checkbox" id="appr_tutti" class="w-4 h-4 accent-teal-600" onchange="
+                            document.querySelectorAll('#approvatoreSelectList .appr-check').forEach(c=>c.checked=this.checked)
+                        ">
+                        <span class="font-bold text-teal-800 text-sm">Tutti gli approvatori</span>
+                        <span class="ml-auto text-xs text-teal-500">${approvatori.length} persone</span>
+                    </label>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    ${approvatori.map(a => `
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" class="appr-check w-4 h-4 accent-teal-600" data-id="${a.id}" onchange="
+                                const all = document.querySelectorAll('#approvatoreSelectList .appr-check');
+                                const tutti = document.getElementById('appr_tutti');
+                                tutti.checked = [...all].every(c=>c.checked);
+                                tutti.indeterminate = !tutti.checked && [...all].some(c=>c.checked);
+                            ">
+                            <div>
+                                <div class="font-semibold text-gray-800 text-sm">${a.nome}</div>
+                                <div class="text-xs text-gray-400">${a.email}</div>
+                            </div>
+                        </label>
+                    `).join('')}
+                `;
+
+                document.getElementById('approvatoreSelectModal').classList.remove('hidden');
+
+                window._approvatoreSelectConfirmData = approvatori;
+            });
+        }
+
+        function _approvatoreSelectConfirm() {
+            const modal = document.getElementById('approvatoreSelectModal');
+            const checks = document.querySelectorAll('#approvatoreSelectList .appr-check');
+            const allAppr = window._approvatoreSelectConfirmData || [];
+            const selectedIds = new Set([...checks].filter(c => c.checked).map(c => c.dataset.id));
+            const selected = allAppr.filter(a => selectedIds.has(a.id));
+            modal.classList.add('hidden');
+            if (window._approvatoreSelectResolve) window._approvatoreSelectResolve(selected.length ? selected : null);
+        }
+
+        // Reinvia l'email di approvazione senza cambiare stato (per mail perse)
+        async function reinviaEmailApprovazione(id) {
+            try {
+                const richiesta = richieste.find(o => o.id === id);
+                if (!richiesta) return;
+
+                const { data: approvatori } = await window.supabase
+                    .from('approvatori').select('*').eq('attivo', true);
+
+                if (!approvatori?.length) {
+                    showErrorModal('Nessun approvatore', 'Nessun approvatore attivo configurato.');
+                    return;
+                }
+
+                const selezionati = await showApprovatoreSelector(approvatori, 'Reinvia a chi?');
+                if (!selezionati) return;
+
+                const { data: { session } } = await window.supabase.auth.getSession();
+                const token = session?.access_token;
+                const BASE_APPROVAL_URL = 'https://ast-panel.vercel.app/Admin/approva-preventivo.html';
+                const isModifica = richiesta.approvazione_stato === 'modifica_in_attesa';
+
+                let sent = 0;
+                for (const approvatore of selezionati) {
+                    try {
+                        await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/dynamic-responder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({
+                                tipo: 'approvazione_preventivo',
+                                to: approvatore.email,
+                                approvatore: approvatore.nome,
+                                numero: richiesta.numero,
+                                oggetto: isModifica ? `[RICHIESTA MODIFICA] ${richiesta.oggetto || ''}` : (richiesta.oggetto || ''),
+                                fornitore: richiesta.fornitore_nome || '',
+                                articoli: [],
+                                approvalUrl: `${BASE_APPROVAL_URL}?s=${approvatore.token}`
+                            })
+                        });
+                        sent++;
+                    } catch(e) { console.warn(e); }
+                }
+                showToast(`📨 Email reinviata a ${sent} approvatore/i`, 'success');
+            } catch(e) {
+                console.error(e);
+                showToast('⚠️ Errore nel reinvio', 'error');
+            }
+        }
+
+        async function inviaPerApprovazione(id) {
+            const richiesta = richieste.find(o => o.id === id);
+            if (!richiesta) return;
+
+            // Load active approvers
+            const { data: approvatori, error: appErr } = await window.supabase
+                .from('approvatori')
+                .select('*')
+                .eq('attivo', true);
+
+            if (appErr || !approvatori?.length) {
+                showErrorModal('Nessun approvatore', 'Nessun approvatore attivo configurato. Vai in <strong>Impostazioni → Approvatori</strong> per aggiungerne uno.');
+                return;
+            }
+
+            const selezionati = await showApprovatoreSelector(approvatori, 'Scegli a chi inviare');
+            if (!selezionati) return;
+
+            // Load items for this request
+            const { data: items } = await window.supabase
+                .from('richieste_preventivo_items')
+                .select('codice, descrizione, quantita, um')
+                .eq('richiesta_id', id);
+
+            // Mark as in_attesa
+            const { error: updateErr } = await window.supabase
+                .from('richieste_preventivo_fornitori')
+                .update({ approvazione_stato: 'in_attesa' })
+                .eq('id', id);
+
+            if (updateErr) {
+                showErrorModal('Errore', updateErr.message);
+                return;
+            }
+
+            // Send email to each selected approver
+            const { data: { session } } = await window.supabase.auth.getSession();
+            const token = session?.access_token;
+            const BASE_APPROVAL_URL = 'https://ast-panel.vercel.app/Admin/approva-preventivo.html';
+
+            let sent = 0;
+            for (const approvatore of selezionati) {
+                try {
+                    await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/dynamic-responder', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            tipo: 'approvazione_preventivo',
+                            to: approvatore.email,
+                            approvatore: approvatore.nome,
+                            numero: richiesta.numero,
+                            oggetto: richiesta.oggetto || '',
+                            fornitore: richiesta.fornitore_nome || '',
+                            articoli: (items || []).map(i => ({
+                                codice: i.codice,
+                                descrizione: i.descrizione,
+                                quantita: i.quantita,
+                                um: i.um
+                            })),
+                            approvalUrl: `${BASE_APPROVAL_URL}?s=${approvatore.token}`
+                        })
+                    });
+                    sent++;
+                } catch (e) { console.warn('Email error:', e); }
+            }
+
+            showToast(`✅ Richiesta approvazione inviata a ${sent} approvatore/i`, 'success');
+            await loadRichieste();
+        }
+
+        async function inviaPerPrisaVisione(id) {
+            const richiesta = richieste.find(o => o.id === id);
+            if (!richiesta) return;
+
+            const { data: approvatori, error: appErr } = await window.supabase
+                .from('approvatori').select('*').eq('attivo', true);
+
+            if (appErr || !approvatori?.length) {
+                showErrorModal('Nessun approvatore', 'Nessun approvatore attivo configurato. Vai in <strong>Impostazioni → Approvatori</strong> per aggiungerne uno.');
+                return;
+            }
+
+            const selezionati = await showApprovatoreSelector(approvatori, 'Invia per presa visione a...');
+            if (!selezionati) return;
+
+            const { data: items } = await window.supabase
+                .from('richieste_preventivo_items')
+                .select('codice, descrizione, quantita, um')
+                .eq('richiesta_id', id);
+
+            // Segna come visione_in_attesa
+            const { error: updateErr } = await window.supabase
+                .from('richieste_preventivo_fornitori')
+                .update({ approvazione_stato: 'visione_in_attesa' })
+                .eq('id', id);
+
+            if (updateErr) {
+                showErrorModal('Errore', updateErr.message);
+                return;
+            }
+
+            const { data: { session } } = await window.supabase.auth.getSession();
+            const token = session?.access_token;
+            const BASE_APPROVAL_URL = 'https://ast-panel.vercel.app/Admin/approva-preventivo.html';
+
+            let sent = 0;
+            for (const appr of selezionati) {
+                try {
+                    await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/dynamic-responder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({
+                            tipo: 'approvazione_preventivo',
+                            to: appr.email,
+                            approvatore: appr.nome,
+                            numero: richiesta.numero,
+                            oggetto: `[PRESA VISIONE] ${richiesta.oggetto || ''}`,
+                            fornitore: richiesta.fornitore_nome || '',
+                            articoli: (items || []).map(i => ({
+                                codice: i.codice,
+                                descrizione: i.descrizione,
+                                quantita: i.quantita,
+                                um: i.um
+                            })),
+                            approvalUrl: `${BASE_APPROVAL_URL}?s=${appr.token}`
+                        })
+                    });
+                    sent++;
+                } catch(e) { console.warn('Email error:', e); }
+            }
+
+            showToast(`👁️ Presa visione inviata a ${sent} approvatore/i`, 'success');
+            await loadRichieste();
+        }
+
+        async function inviaEmailRichiesta(id) {
+            const richiesta = richieste.find(o => o.id === id);
+            if (!richiesta) return;
+
+            const fornitore = fornitori.find(f => f.id === richiesta.fornitore_id);
+            const emailReferente = fornitore?.referente_email || fornitore?.email;
+            const emailUfficio = fornitore?.email_ufficio || null;
+
+            if (!emailReferente) {
+                showToast('⚠️ Nessuna email configurata per questo fornitore. Vai su Gestione Fornitori e aggiungi il Referente Commerciale.', 'warning');
+                return;
+            }
+
+            const emailDest = await showEmailConfirm({
+                numero: richiesta.numero,
+                nome: fornitore.referente_commerciale || fornitore.ragione_sociale,
+                emailReferente,
+                emailUfficio,
+            });
+            if (!emailDest) return;
+
+            showToast('📧 Invio in corso…', 'info');
+
+            try {
+                const { data: items } = await window.supabase
+                    .from('richieste_preventivo_items')
+                    .select('*')
+                    .eq('richiesta_id', id);
+
+                const { data: { session } } = await window.supabase.auth.getSession();
+                const token = session?.access_token;
+
+                const payload = {
+                    tipo:              'preventivo',
+                    to:                emailDest.to,
+                    ...(emailDest.cc ? { cc: emailDest.cc } : {}),
+                    // campi per buildPreventivoHtml (versione aggiornata)
+                    toName:            fornitore.referente_commerciale || fornitore.ragione_sociale || fornitore.nome || '',
+                    fornitoreNome:     fornitore.ragione_sociale || fornitore.nome || '',
+                    numeroRichiesta:   richiesta.numero,
+                    oggetto:           richiesta.oggetto,
+                    dataRichiesta:     richiesta.data_richiesta,
+                    dataRispostaEntro: richiesta.data_risposta_entro || null,
+                    articoli:          (items || []).map(p => ({
+                        codice:      p.codice || '',
+                        descrizione: p.descrizione || '',
+                        quantita:    p.quantita || 0,
+                        um:          p.um || 'pz',
+                        note:        p.note || ''
+                    })),
+                    note: richiesta.note_interne || null,
+                    // campi compatibili con buildOrdineHtml (versione vecchia fallback)
+                    numeroOrdine:  richiesta.numero,
+                    dataOrdine:    richiesta.data_richiesta,
+                    dataConsegna:  richiesta.data_risposta_entro || null,
+                    prodotti:      (items || []).map(p => ({
+                        codice:      p.codice || '',
+                        descrizione: p.descrizione || '',
+                        quantita:    p.quantita || 0,
+                        um:          p.um || 'pz'
+                    })),
+                };
+
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
+
+                if (richiesta.stato === 'da_inviare') {
+                    await window.supabase.from('richieste_preventivo_fornitori').update({ stato: 'inviato' }).eq('id', id);
+                    await loadRichieste();
+                }
+
+                const destLabel = emailDest.cc ? `${emailDest.to} (+ ${emailDest.cc} in CC)` : emailDest.to;
+                showToast(`✅ Email inviata a ${destLabel}`, 'success');
+            } catch (err) {
+                console.error('Errore invio email:', err);
+                showToast('❌ Errore invio email: ' + err.message, 'error');
+            }
+        }
+
+        async function eliminaRichiesta(id, numero, stato) {
+            richiestaIdDaEliminare = id;
+            richiestaNumeroDaEliminare = numero;
+            document.getElementById('confirmDeleteMessage').textContent =
+                `Sei sicuro di voler eliminare la richiesta "${numero}"?`;
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+
+        function closeModal() {
+            document.getElementById('ordineModal').classList.add('hidden');
+            currentItems = [];
+            destinazioni = [];
+        }
+
+        function closeRiepilogoModal() {
+            document.getElementById('riepilogoModal').classList.add('hidden');
+        }
+
+        async function apriRiepilogo(richiestaId) {
+            const richiesta = richieste.find(o => o.id === richiestaId);
+            if (!richiesta) return;
+
+            // Titolo e sottotitolo
+            document.getElementById('riepilogoTitolo').textContent = `📋 Richiesta ${richiesta.numero}`;
+            document.getElementById('riepilogoSottotitolo').textContent =
+                `${richiesta.fornitore?.ragione_sociale || richiesta.fornitore_nome || ''} · ${new Date(richiesta.data_richiesta).toLocaleDateString('it-IT')}`;
+
+            // Info card
+            document.getElementById('riepilogoInfo').innerHTML = `
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Fornitore</p>
+                    <p class="font-medium text-gray-800">${richiesta.fornitore?.ragione_sociale || richiesta.fornitore_nome || '-'}</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Stato</p>
+                    <div>${getStatoBadge(richiesta.stato)}</div>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Risposta Entro</p>
+                    <p class="font-medium text-gray-800">${richiesta.data_risposta_entro ? new Date(richiesta.data_risposta_entro).toLocaleDateString('it-IT') : '-'}</p>
+                </div>
+
+                ${richiesta.oggetto ? `<div class="bg-gray-50 rounded-xl p-4 border border-gray-100 col-span-2 md:col-span-4">
+                    <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Oggetto</p>
+                    <p class="text-gray-800">${richiesta.oggetto}</p>
+                </div>` : ''}
+            `;
+
+            // Note
+            if (richiesta.note_interne) {
+                document.getElementById('riepilogoNote').textContent = richiesta.note_interne;
+                document.getElementById('riepilogoNoteBox').classList.remove('hidden');
+            } else {
+                document.getElementById('riepilogoNoteBox').classList.add('hidden');
+            }
+
+            // Bottoni footer
+            const btnModifica = document.getElementById('riepilogoBtnModifica');
+            btnModifica.onclick = () => { closeRiepilogoModal(); modificaRichiesta(richiestaId); };
+
+            // Carica items dal DB
+            document.getElementById('riepilogoItems').innerHTML =
+                '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</td></tr>';
+            document.getElementById('riepilogoModal').classList.remove('hidden');
+
+            const { data: items, error } = await window.supabase
+                .from('richieste_preventivo_items')
+                .select('*')
+                .eq('richiesta_id', richiestaId)
+                .order('created_at', { ascending: true });
+
+            if (error || !items) {
+                document.getElementById('riepilogoItems').innerHTML =
+                    '<tr><td colspan="4" class="px-4 py-4 text-center text-red-500">Errore nel caricamento articoli</td></tr>';
+                return;
+            }
+
+            // Render articoli (raggruppati per set se presenti)
+            const destList = Array.isArray(richiesta.destinazioni) ? richiesta.destinazioni : [];
+            const itemRow = item => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-xs text-gray-600">${item.codice || '-'}</td>
+                    <td class="px-4 py-3 text-gray-800">${item.descrizione || '-'}</td>
+                    <td class="px-4 py-3 text-gray-700">${parseFloat(item.quantita || 0)} ${item.um || ''}</td>
+                    <td class="px-4 py-3 text-gray-500 text-sm">${item.note || ''}</td>
+                </tr>`;
+
+            if (destList.length === 0) {
+                document.getElementById('riepilogoItems').innerHTML = items.map(itemRow).join('');
+            } else {
+                let html = '';
+                destList.forEach(dest => {
+                    const destItems = items.filter(i => i.destinazione_id === dest.id);
+                    html += `<tr class="bg-blue-50 border-t-2 border-blue-200">
+                        <td colspan="4" class="px-4 py-2.5 font-bold text-blue-800 text-sm">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                            ${dest.nome}${dest.indirizzo ? ' <span class="font-normal text-blue-600 ml-1">\u2014 ' + dest.indirizzo + '</span>' : ''}
+                        </td>
+                    </tr>`;
+                    html += destItems.length > 0
+                        ? destItems.map(itemRow).join('')
+                        : `<tr><td colspan="4" class="px-8 py-2 text-gray-400 text-sm italic">Nessun articolo</td></tr>`;
+                });
+                // Non assegnati
+                const unassigned = items.filter(i => !i.destinazione_id || !destList.find(d => d.id === i.destinazione_id));
+                if (unassigned.length > 0) {
+                    html += `<tr class="bg-gray-100 border-t-2 border-gray-300">
+                        <td colspan="4" class="px-4 py-2.5 font-bold text-gray-500 text-sm">
+                            <i class="fas fa-question-circle mr-2"></i>Non assegnati a nessun set
+                        </td>
+                    </tr>`;
+                    html += unassigned.map(itemRow).join('');
+                }
+                document.getElementById('riepilogoItems').innerHTML = html || '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-400">Nessun articolo</td></tr>';
+            }
+        }
+
+        function closeProdottoModal() {
+            document.getElementById('prodottoModal').classList.add('hidden');
+            document.getElementById('searchProdotto').value = '';
+        }
+
+        // ========================================
+        // TOAST NOTIFICATIONS
+        // ========================================
+        function showToast(msg, type = 'info') {
+            let container = document.getElementById('toastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none';
+                document.body.appendChild(container);
+            }
+            const colors = {
+                success: 'linear-gradient(135deg,#16a34a,#15803d)',
+                error:   'linear-gradient(135deg,#dc2626,#b91c1c)',
+                warning: 'linear-gradient(135deg,#d97706,#b45309)',
+                info:    'linear-gradient(135deg,#2563eb,#1d4ed8)',
+            };
+            const toast = document.createElement('div');
+            toast.style.cssText = `background:${colors[type]||colors.info};color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;max-width:360px;box-shadow:0 4px 20px rgba(0,0,0,0.18);pointer-events:auto;animation:fadeIn .25s ease`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), type === 'warning' ? 6000 : 3500);
+        }
+
+        // ========================================
+        // MODAL SYSTEM
+        // ========================================
+        let richiestaIdDaEliminare = null;
+        let richiestaNumeroDaEliminare = '';
+
+        function closeConfirmDeleteModal() {
+            document.getElementById('confirmDeleteModal').classList.add('hidden');
+            richiestaIdDaEliminare = null;
+            richiestaNumeroDaEliminare = '';
+        }
+
+        async function confermaEliminazione() {
+            if (!richiestaIdDaEliminare) return;
+            const id = richiestaIdDaEliminare;
+            const numero = richiestaNumeroDaEliminare;
+            closeConfirmDeleteModal();
+            closeConfirmDeleteModal();
+
+            try {
+                if (false) { // storno non applicabile alle richieste
+                    const { data: items } = await window.supabase
+                        .from('richieste_preventivo_items')
+                        .select('*')
+                        .eq('ordine_id', id);
+
+                    for (const item of (items || [])) {
+                        if (qtaRicevuta <= 0 || !item.prodotto_id) continue;
+
+                        const { data: comp } = await window.supabase
+                            .from('components')
+                            .select('giacenza')
+                            .eq('id', item.prodotto_id)
+                            .single();
+
+
+                        await window.supabase
+                            .from('components')
+                            .eq('id', item.prodotto_id);
+
+                        await window.supabase
+                            .insert({
+                                prodotto_id: item.prodotto_id,
+                                codice: item.codice || '',
+                                descrizione: item.descrizione || '',
+                                quantita: qtaRicevuta,
+                                created_by: currentUser.id,
+                                note: `Ordine eliminato: ${numero}`
+                            });
+                    }
+                }
+
+                // Elimina items e ordine
+                await window.supabase.from('richieste_preventivo_items').delete().eq('richiesta_id', id);
+                const { error } = await window.supabase.from('richieste_preventivo_fornitori').delete().eq('id', id);
+                if (error) throw error;
+
+                showSuccessModal(`Richiesta "${numero}" eliminata.`);
+                await loadRichieste();
+            } catch (error) {
+                console.error('Errore:', error);
+                showErrorModal('Errore nell\'eliminazione dell\'ordine', error.message);
+            }
+        }
+
+        function showSuccessModal(message) {
+            document.getElementById('successMessage').textContent = message;
+            document.getElementById('successModal').classList.remove('hidden');
+            setTimeout(() => closeSuccessModal(), 2500);
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+        }
+
+        function showErrorModal(message, details = '') {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDetails').textContent = details;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

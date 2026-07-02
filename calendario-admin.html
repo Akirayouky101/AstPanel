@@ -11,8 +11,8 @@
     <script src="Admin/auth-helper.js"></script>
     <script src="data-migration.js"></script>
     <!-- FullCalendar -->
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+    
+    <script src='https://unpkg.com/fullcalendar@6.1.15/index.global.min.js'></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in; }
@@ -129,6 +129,13 @@
         .fc .fc-daygrid-day { min-height: 90px; }
         .mc-day:hover { background: #f1f3f4 !important; }
         .mc-today { background: #1a73e8 !important; color: white !important; font-weight: 600 !important; }
+        /* Priority pill buttons */
+        .priority-pill { cursor:pointer; transition: all 0.15s; user-select:none; }
+        .priority-pill[data-active="true"][data-priority="bassa"] { border-color:#4ade80!important; background:#f0fdf4!important; color:#16a34a!important; box-shadow:0 0 0 3px #bbf7d0; }
+        .priority-pill[data-active="true"][data-priority="media"] { border-color:#facc15!important; background:#fefce8!important; color:#a16207!important; box-shadow:0 0 0 3px #fef08a; }
+        .priority-pill[data-active="true"][data-priority="alta"]  { border-color:#f87171!important; background:#fef2f2!important; color:#dc2626!important; box-shadow:0 0 0 3px #fecaca; }
+        .priority-pill[data-active="false"] { border-color:#e5e7eb!important; background:white!important; color:#9ca3af!important; box-shadow:none; }
+        .priority-pill[data-active="false"]:hover { border-color:#d1d5db!important; color:#374151!important; }
     </style>
 </head>
 <body class="bg-white" style="height:100vh;overflow:hidden;">
@@ -161,7 +168,7 @@
             <a href="gestione-clienti.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
                 <i data-lucide="building-2" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Clienti
             </a>
-            <a href="gestione-lavorazioni.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
+            <a href="admin-functional.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#3c4043;text-decoration:none;font-weight:500;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'">
                 <i data-lucide="clipboard-list" style="width:18px;height:18px;flex-shrink:0;color:#5f6368;"></i>Gestione Lavorazioni
             </a>
             <a href="calendario-admin.html" style="display:flex;align-items:center;gap:12px;padding:8px 16px 8px 14px;border-radius:0 24px 24px 0;margin-right:12px;font-size:13px;color:#1a73e8;text-decoration:none;font-weight:700;background:#e8f0fe;">
@@ -267,6 +274,27 @@
                 <div id="taskSummary" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;"></div>
             </div>
         </div>
+    <!-- Day View Modal -->
+    <div id="dayViewModal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.78);z-index:99999" onclick="if(event.target===this)closeDayModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden" style="max-height:85vh">
+            <!-- Header -->
+            <div class="px-4 pt-4 pb-3 border-b border-gray-100 flex items-start justify-between flex-shrink-0">
+                <div>
+                    <div id="dayViewDate" class="text-lg font-bold text-gray-900 capitalize leading-tight"></div>
+                    <div id="dayViewCount" class="text-gray-400 text-xs mt-0.5"></div>
+                </div>
+                <button onclick="closeDayModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 ml-3 flex-shrink-0 transition-colors">&times;</button>
+            </div>
+            <!-- Body: eventi come chip del calendario -->
+            <div id="dayViewBody" class="flex-1 overflow-y-auto px-3 py-3" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <!-- Footer: azioni -->
+            <div class="px-4 py-4 border-t border-gray-100 flex gap-2 flex-shrink-0">
+                <button onclick="_dayViewAction('nuova')" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">+ Nuova Lavorazione</button>
+                <button onclick="_dayViewAction('giornata')" class="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors">Giornata Dipendente</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Task Details Modal -->
     <div id="taskDetailsModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -321,6 +349,19 @@
                     </div>
                 </div>
                 
+                <!-- Orari - CELESTE -->
+                <div id="modalHoursCard" class="hidden bg-gradient-to-br from-sky-50 to-cyan-100 border-2 border-sky-200 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="clock" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-sky-700 font-medium mb-1">Orari</p>
+                            <p class="text-sm font-bold text-gray-900" id="modalHours"></p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Priorità - ROSA -->
                 <div class="bg-gradient-to-br from-pink-50 to-rose-100 border-2 border-pink-200 rounded-xl p-4">
                     <div class="flex items-center gap-3">
@@ -375,7 +416,7 @@
             
             <!-- Footer -->
             <div class="bg-gray-50 px-4 py-4 border-t border-gray-200 flex gap-3">
-                <button onclick="openTaskInGestioneLavorazioni()" class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg font-bold">
+                <button onclick="openInlineEditModal()" class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg font-bold">
                     <i data-lucide="edit" class="w-4 h-4 inline mr-2"></i>
                     Modifica Lavorazione
                 </button>
@@ -385,6 +426,133 @@
             </div>
         </div>
     </div>
+
+    <!-- ═══ INLINE EDIT MODAL ═══════════════════════════════════ -->
+    <div id="calEditModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col" style="max-height:90vh">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-5 flex items-center justify-between rounded-t-2xl flex-shrink-0">
+                <h2 class="text-lg font-bold text-white">Modifica Lavorazione</h2>
+                <button onclick="closeCalEditModal()" class="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <!-- Body scrollabile -->
+            <div class="overflow-y-auto flex-1 p-4 space-y-3">
+                <!-- Titolo - BLU -->
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
+                    <label class="block text-xs font-bold text-blue-700 mb-1.5"><i data-lucide="type" class="w-3.5 h-3.5 inline mr-1"></i>Titolo *</label>
+                    <input type="text" id="calEditTitle" class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <!-- Stato + Priorità -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-indigo-700 mb-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 inline mr-1"></i>Stato</label>
+                        <select id="calEditStato" class="w-full px-2 py-2 border-2 border-indigo-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="da_fare">Da fare</option>
+                            <option value="in_corso">In corso</option>
+                            <option value="revisione">Revisione</option>
+                            <option value="completato">Completato</option>
+                            <option value="annullato">Annullato</option>
+                        </select>
+                    </div>
+                    <div class="bg-pink-50 border-2 border-pink-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-pink-700 mb-1.5"><i data-lucide="alert-circle" class="w-3.5 h-3.5 inline mr-1"></i>Priorità</label>
+                        <select id="calEditPriorita" class="w-full px-2 py-2 border-2 border-pink-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-pink-500 focus:outline-none">
+                            <option value="bassa">Bassa</option>
+                            <option value="media">Media</option>
+                            <option value="alta">Alta</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Scadenza + Ore stimate -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-orange-700 mb-1.5"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>Scadenza</label>
+                        <input type="hidden" id="calEditScadenza">
+                        <button type="button" onclick="openCalEditScadenzaPicker()"
+                                class="w-full flex items-center gap-2 px-3 py-2 bg-white border-2 border-orange-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-all text-sm">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-orange-400 flex-shrink-0"></i>
+                            <span id="calEditScadenzaLabel" class="text-gray-400 flex-1 text-left">Scegli data...</span>
+                        </button>
+                    </div>
+                    <div class="bg-sky-50 border-2 border-sky-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-sky-700 mb-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 inline mr-1"></i>Ore stimate</label>
+                        <input type="number" id="calEditOre" min="0" step="0.5" class="w-full px-2 py-2 border-2 border-sky-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="0">
+                    </div>
+                </div>
+                <!-- Ora inizio / fine -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-teal-700 mb-1.5"><i data-lucide="play" class="w-3.5 h-3.5 inline mr-1"></i>Ora inizio</label>
+                        <input type="time" id="calEditOraInizio" class="w-full px-2 py-2 border-2 border-teal-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                    <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-3">
+                        <label class="block text-xs font-bold text-teal-700 mb-1.5"><i data-lucide="square" class="w-3.5 h-3.5 inline mr-1"></i>Ora fine</label>
+                        <input type="time" id="calEditOraFine" class="w-full px-2 py-2 border-2 border-teal-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                </div>
+                <!-- Progresso -->
+                <div class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-3">
+                    <label class="block text-xs font-bold text-cyan-700 mb-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5 inline mr-1"></i>Progresso: <span id="calEditProgrLabel">0</span>%</label>
+                    <input type="range" id="calEditProgresso" min="0" max="100" step="5" value="0"
+                           oninput="document.getElementById('calEditProgrLabel').textContent=this.value"
+                           class="w-full accent-cyan-600">
+                </div>
+                <!-- Cliente - VERDE -->
+                <div class="bg-green-50 border-2 border-green-200 rounded-xl p-3">
+                    <label class="block text-xs font-bold text-green-700 mb-1.5"><i data-lucide="building-2" class="w-3.5 h-3.5 inline mr-1"></i>Cliente</label>
+                    <input type="hidden" id="calEditClientId">
+                    <button type="button" onclick="openCalEditClientPicker()"
+                            id="calEditClientLabel"
+                            class="w-full text-left px-3 py-2 border-2 border-green-300 rounded-lg bg-white text-sm text-gray-500 hover:border-green-500 transition-colors">
+                        <i data-lucide="search" class="w-3.5 h-3.5 inline mr-1 text-green-400"></i>Seleziona cliente...
+                    </button>
+                </div>
+                <!-- Assegnato a - VIOLA -->
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-3">
+                    <label class="block text-xs font-bold text-purple-700 mb-1.5"><i data-lucide="user" class="w-3.5 h-3.5 inline mr-1"></i>Assegnato a</label>
+                    <select id="calEditAssignee" class="w-full px-2 py-2 border-2 border-purple-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <option value="">— Nessuno —</option>
+                    </select>
+                </div>
+                <!-- Descrizione - GRIGIO -->
+                <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-3">
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5"><i data-lucide="file-text" class="w-3.5 h-3.5 inline mr-1"></i>Descrizione</label>
+                    <textarea id="calEditDesc" rows="3" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <!-- Interventi Collegati - VIOLA -->
+                <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #ddd6fe;border-radius:14px;padding:14px">
+                    <input type="hidden" id="form-parent-task-id">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                        <label style="font-size:12px;font-weight:700;color:#5b21b6;display:flex;align-items:center;gap:5px">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            Interventi Collegati
+                        </label>
+                        <button type="button"
+                                onclick="window.LinkedTasks && window.LinkedTasks.openPickerForForm(window._calEditTaskId)"
+                                style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer">
+                            + Collega
+                        </button>
+                    </div>
+                    <div id="form-linked-display"></div>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex gap-3 rounded-b-2xl flex-shrink-0">
+                <button onclick="saveCalEditTask()" id="calEditSaveBtn"
+                        class="flex-1 px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow font-bold text-sm">
+                    <i data-lucide="save" class="w-4 h-4 inline mr-1.5"></i>Salva Modifiche
+                </button>
+                <button onclick="closeCalEditModal()" class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-800 transition-colors font-bold text-sm">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Wizard Task (inline modal, shared with gestione-lavorazioni) -->
 
     <!-- Create Task Modal with Smart Wizard -->
     <div id="createTaskModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -470,10 +638,21 @@
                                 <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
                                 Priorità
                             </label>
-                            <select id="newTaskPriority" class="w-full px-4 py-2 border-2 border-pink-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
-                                <option value="bassa">🟢 Bassa</option>
-                                <option value="media" selected>🟡 Media</option>
-                                <option value="alta">🔴 Alta</option>
+                            <div class="flex gap-1.5">
+                                <button type="button" data-priority-group="newTaskPriority" data-priority="bassa" data-active="false" onclick="setPriorityBtn('newTaskPriority','bassa')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>Bassa
+                                </button>
+                                <button type="button" data-priority-group="newTaskPriority" data-priority="media" data-active="true" onclick="setPriorityBtn('newTaskPriority','media')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#eab308;flex-shrink:0;"></span>Media
+                                </button>
+                                <button type="button" data-priority-group="newTaskPriority" data-priority="alta" data-active="false" onclick="setPriorityBtn('newTaskPriority','alta')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1">
+                                    <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>Alta
+                                </button>
+                            </div>
+                            <select id="newTaskPriority" class="hidden">
+                                <option value="bassa">Bassa</option>
+                                <option value="media" selected>Media</option>
+                                <option value="alta">Alta</option>
                             </select>
                         </div>
                     </div>
@@ -508,6 +687,7 @@
                         </label>
                         <textarea id="newTaskDescription" rows="3" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500" placeholder="Dettagli della lavorazione..."></textarea>
                     </div>
+                    <!-- INTERVENTI COLLEGATI rimossi qui, ora in wizard-step-3 -->
                 </div>
 
                 <!-- Step 2: AI Scheduling -->
@@ -897,7 +1077,7 @@
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
             renderMiniCalendar();
-            await loadEmployees();
+            await Promise.all([loadEmployees(), loadClients()]);
             await initCalendar();
         });
 
@@ -914,6 +1094,14 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('Errore caricamento dipendenti:', error);
+            }
+        }
+
+        async function loadClients() {
+            try {
+                allClients = await window.ClientsAPI.getAll();
+            } catch (error) {
+                console.error('Errore caricamento clienti:', error);
             }
         }
 
@@ -937,8 +1125,11 @@
                     selectable: false,
                     dayMaxEvents: true,
                     dateClick: function(info) {
-                        console.log('📅 Date clicked:', info.dateStr);
-                        openCreateTaskModal(info.dateStr);
+                        openDayModal(info.dateStr);
+                    },
+                    moreLinkClick: function(info) {
+                        openDayModal(info.date.toISOString().split('T')[0]);
+                        return false;
                     },
                     eventClick: function(info) {
                         info.jsEvent.preventDefault();
@@ -947,7 +1138,7 @@
                     },
                     eventDidMount: function(info) {
                         // Add tooltip
-                        info.el.title = `${info.event.title}\n${info.event.extendedProps.assigneeName}\nPriorità: ${info.event.extendedProps.priority}`;
+                        info.el.title = `${info.event.title}\n${info.event.extendedProps.assigneeName}\nPriorità: ${info.event.extendedProps.priorita || info.event.extendedProps.priority || 'normale'}`;
                     },
                     datesSet: function() { updateCalTopTitle(); },
                     height: '100%',
@@ -1191,7 +1382,24 @@
                 document.getElementById('modalPriority').textContent = priorityText[task.priorita || task.priority || 'normale'];
                 document.getElementById('modalStatus').textContent = statusText[task.stato || task.status] || 'Da Fare';
                 document.getElementById('modalDescription').textContent = task.descrizione || task.description || 'Nessuna descrizione';
-                
+
+                // Orari
+                const hoursCard = document.getElementById('modalHoursCard');
+                const hoursEl = document.getElementById('modalHours');
+                if (task.ora_inizio) {
+                    let hoursText = task.ora_inizio.slice(0,5);
+                    if (task.ora_fine) hoursText += ' → ' + task.ora_fine.slice(0,5);
+                    if (task.data_inizio && task.scadenza && task.data_inizio !== task.scadenza) {
+                        const di = new Date(task.data_inizio+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+                        const sc = new Date(task.scadenza+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+                        hoursText += ' · dal ' + di + ' al ' + sc;
+                    }
+                    hoursEl.textContent = hoursText;
+                    hoursCard.classList.remove('hidden');
+                } else {
+                    hoursCard.classList.add('hidden');
+                }
+
                 // Progress bar
                 const progress = task.progress || task.progresso;
                 if (progress !== undefined) {
@@ -1218,9 +1426,138 @@
         
         function openTaskInGestioneLavorazioni() {
             if (currentTaskId) {
-                window.location.href = `gestione-lavorazioni.html?taskId=${currentTaskId}`;
+                window.location.href = 'admin-functional.html?editTask=' + currentTaskId;
             }
         }
+
+        // ─── INLINE EDIT MODAL ────────────────────────────────────────────
+        async function openInlineEditModal() {
+            if (!currentTaskId) return;
+            const taskId = currentTaskId;
+
+            // Carica dati task
+            let t;
+            try { t = await window.TasksAPI.getById(taskId); }
+            catch(e) { showCalToast('Errore nel caricamento dei dati', 'error'); return; }
+
+            // Popola campi
+            document.getElementById('calEditTitle').value     = t.titolo || '';
+            document.getElementById('calEditStato').value     = t.stato || 'da_fare';
+            document.getElementById('calEditPriorita').value  = (['bassa','media','alta'].includes(t.priorita) ? t.priorita : null) || 'media';
+            // Scadenza — popola hidden input e label
+            document.getElementById('calEditScadenza').value = t.scadenza || '';
+            const scadLbl = document.getElementById('calEditScadenzaLabel');
+            if (t.scadenza) {
+                const d = new Date(t.scadenza + 'T12:00:00');
+                scadLbl.innerHTML = `<i data-lucide="calendar-check" class="w-3.5 h-3.5 inline mr-1 text-orange-600"></i><span class="text-orange-800 font-semibold">${d.toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'})}</span>`;
+                lucide.createIcons();
+            } else {
+                scadLbl.innerHTML = 'Scegli data...';
+                scadLbl.className = 'text-gray-400 flex-1 text-left';
+            }
+            document.getElementById('calEditOre').value       = t.ore_stimate || '';
+            document.getElementById('calEditOraInizio').value = t.ora_inizio || '';
+            document.getElementById('calEditOraFine').value   = t.ora_fine || '';
+            document.getElementById('calEditDesc').value      = t.descrizione || '';
+            const prog = t.progresso || 0;
+            document.getElementById('calEditProgresso').value  = prog;
+            document.getElementById('calEditProgrLabel').textContent = prog;
+
+            // Cliente
+            const cid = t.client_id || '';
+            document.getElementById('calEditClientId').value = cid;
+            const cliente = allClients.find(c => c.id === cid);
+            const lbl = document.getElementById('calEditClientLabel');
+            if (cliente) {
+                lbl.innerHTML = `<i data-lucide="building-2" class="w-3.5 h-3.5 inline mr-1 text-green-500"></i><span class="font-semibold text-green-800">${cliente.ragione_sociale}</span>`;
+            } else {
+                lbl.innerHTML = `<i data-lucide="search" class="w-3.5 h-3.5 inline mr-1 text-green-400"></i>Seleziona cliente...`;
+            }
+
+            // Assegnato a
+            const sel = document.getElementById('calEditAssignee');
+            sel.innerHTML = '<option value="">— Nessuno —</option>';
+            allUsers.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = `${u.nome} ${u.cognome}`;
+                if (u.id === t.assigned_user_id) opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            // Interventi collegati
+            window._calEditTaskId = taskId;
+            if (window.LinkedTasks) window.LinkedTasks.loadForForm(t).then(() => {});
+
+            // Chiudi dettagli, apri modifica
+            closeTaskModal();
+            document.getElementById('calEditModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeCalEditModal() {
+            document.getElementById('calEditModal').classList.add('hidden');
+            if (window.LinkedTasks) window.LinkedTasks.resetForm();
+        }
+
+        async function saveCalEditTask() {
+            const titolo = document.getElementById('calEditTitle').value.trim();
+            if (!titolo) { showCalToast('Il titolo è obbligatorio', 'error'); return; }
+
+            const btn = document.getElementById('calEditSaveBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin w-4 h-4 inline mr-1" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" stroke-dasharray="30" stroke-dashoffset="10"/></svg>Salvataggio...';
+
+            try {
+                const taskData = {
+                    id:              window._calEditTaskId,
+                    titolo,
+                    stato:           document.getElementById('calEditStato').value,
+                    priorita:        document.getElementById('calEditPriorita').value,
+                    scadenza:        document.getElementById('calEditScadenza').value || null,
+                    ore_stimate:     parseFloat(document.getElementById('calEditOre').value) || null,
+                    ora_inizio:      document.getElementById('calEditOraInizio').value || null,
+                    ora_fine:        document.getElementById('calEditOraFine').value || null,
+                    progresso:       parseInt(document.getElementById('calEditProgresso').value) || 0,
+                    descrizione:     document.getElementById('calEditDesc').value || null,
+                    client_id:       document.getElementById('calEditClientId').value || null,
+                    assigned_user_id: document.getElementById('calEditAssignee').value || null,
+                    parent_task_id:  document.getElementById('form-parent-task-id')?.value || null,
+                };
+                await window.dataManager.saveLavorazione(taskData);
+                showCalToast('✅ Lavorazione aggiornata!', 'success');
+                closeCalEditModal();
+                await initCalendar();
+                await filterCalendar();
+            } catch(e) {
+                console.error('Errore salvataggio:', e);
+                showCalToast(e.message || 'Errore nel salvataggio', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 inline mr-1.5"></i>Salva Modifiche';
+                lucide.createIcons();
+            }
+        }
+
+        // Cliente picker per edit modal
+        function openCalEditClientPicker() {
+            renderCalPickerList('calPickerModal', 'calPickerSearch', 'calPickerList',
+                allClients.map(c => ({ id: c.id, label: c.ragione_sociale, sub: c.citta || '', extra: c.telefono || '' })),
+                (id, label) => {
+                    document.getElementById('calEditClientId').value = id;
+                    const lbl = document.getElementById('calEditClientLabel');
+                    lbl.innerHTML = `<i data-lucide="building-2" class="w-3.5 h-3.5 inline mr-1 text-green-500"></i><span class="font-semibold text-green-800">${label}</span>`;
+                    document.getElementById('calPickerModal').classList.add('hidden');
+                    lucide.createIcons();
+                });
+            document.getElementById('calPickerModalTitle').textContent = 'Cliente';
+            document.getElementById('calPickerModalSubtitle').textContent = 'Seleziona cliente';
+            document.getElementById('calPickerHeader').style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            document.getElementById('calPickerModal').classList.remove('hidden');
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('calPickerSearch').focus(), 50);
+        }
+        // ──────────────────────────────────────────────────────────────────
 
         function logout() {
             if (confirm('Sei sicuro di voler uscire?')) {
@@ -1247,36 +1584,204 @@
         let selectedSlot = null;
         let allClients = [];
 
-        async function openCreateTaskModal(dateStr) {
-            console.log('🚀 Opening create task modal for date:', dateStr);
-            selectedDate = dateStr;
-            currentWizardStep = 1;
-            selectedSlot = null;
+        // =====================================================
+        // DAY VIEW MODAL
+        // =====================================================
+        let _dayViewDate = null;
 
-            // Load clients (store in allClients for picker)
-            try {
-                allClients = await window.ClientsAPI.getAll();
-                console.log('🏢 Clients loaded:', allClients.length);
-            } catch (error) {
-                console.error('Errore caricamento clienti:', error);
+        function openDayModal(dateStr) {
+            _dayViewDate = dateStr;
+            const d = new Date(dateStr + 'T12:00:00');
+            const label = d.toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+            // Prendi tutti gli eventi del giorno (escludi blocchi/background)
+            const events = calendar.getEvents().filter(ev => {
+                if (ev.display === 'background' || ev.extendedProps?.tipo === 'blocco') return false;
+                if (!ev.start) return false;
+                const s = ev.start.toISOString().split('T')[0];
+                // end in FullCalendar è esclusivo: event su 2026-06-26 ha end=2026-06-27 (all-day)
+                const eEnd = ev.end ? new Date(ev.end.getTime() - 1).toISOString().split('T')[0] : s;
+                return dateStr >= s && dateStr <= eEnd;
+            }).sort((a, b) => {
+                const ta = a.extendedProps?.oraInizio || a.start?.toISOString() || '';
+                const tb = b.extendedProps?.oraInizio || b.start?.toISOString() || '';
+                return ta < tb ? -1 : ta > tb ? 1 : 0;
+            });
+
+            document.getElementById('dayViewDate').textContent = label;
+            document.getElementById('dayViewCount').textContent =
+                events.length === 0 ? 'Nessuna lavorazione' :
+                events.length + ' lavorazion' + (events.length === 1 ? 'e' : 'i');
+
+            const body = document.getElementById('dayViewBody');
+
+            if (events.length === 0) {
+                body.innerHTML = `<div style="padding:32px 16px;text-align:center;color:#9ca3af;font-size:13px">Nessuna lavorazione per questo giorno</div>`;
+            } else {
+                body.innerHTML = events.map(ev => {
+                    const props  = ev.extendedProps || {};
+                    const color  = ev.backgroundColor || '#6366f1';
+                    const assegn = props.assigneeName || props.userName || '';
+                    const oid    = ev.id;
+                    const timeMatch = ev.title.match(/^(\d{1,2}:\d{2})\s/);
+                    const timeLabel = timeMatch ? timeMatch[1] : '';
+                    const cleanTitle = ev.title.replace(/^\d{1,2}:\d{2}\s/, '').replace(/\s*\([^)]+\)$/, '');
+                    return `<div onclick="_openEventFromDayModal('${oid}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:#fff;border:1px solid #e5e7eb;border-left:4px solid ${color};transition:background 0.1s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+                        ${timeLabel ? `<span style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap;flex-shrink:0">${timeLabel}</span>` : ''}
+                        <span style="font-size:13px;font-weight:600;color:#111827;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cleanTitle}</span>
+                        ${assegn ? `<span style="font-size:11px;color:#9ca3af;white-space:nowrap;flex-shrink:0">${assegn}</span>` : ''}
+                    </div>`;
+                }).join('');
             }
 
-            // Reset form
-            document.getElementById('newTaskTitle').value = '';
-            document.getElementById('newTaskDuration').value = '4';
-            document.getElementById('newTaskPriority').value = 'media';
-            document.getElementById('newTaskDescription').value = '';
-            clearCalClient();
-            clearCalAssignee();
+            document.getElementById('dayViewModal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-            // Show modal
-            document.getElementById('createTaskModal').classList.remove('hidden');
-            showWizardStep(1);
-            lucide.createIcons();
+        function closeDayModal() {
+            document.getElementById('dayViewModal').classList.add('hidden');
+        }
+
+        function _openEventFromDayModal(eventId) {
+            closeDayModal();
+            setTimeout(() => {
+                const ev = calendar.getEventById(eventId);
+                if (ev) showEventDetails(ev);
+            }, 80);
+        }
+
+        function _dayViewAction(type) {
+            const date = _dayViewDate;
+            closeDayModal();
+            if (type === 'nuova') {
+                setTimeout(() => openCreateTaskModal(date), 80);
+            } else {
+                window.open('/giornaliero-dipendente.html?date=' + date, '_blank');
+            }
+        }
+
+        window.openDayModal   = openDayModal;
+        window.closeDayModal  = closeDayModal;
+        window._openEventFromDayModal = _openEventFromDayModal;
+        window._dayViewAction = _dayViewAction;
+
+        // =====================================================
+        // MENU AZIONE DATA (click sul giorno del calendario)
+        // =====================================================
+        function showDateActionMenu(dateStr, jsEvent) {
+            // Rimuovi menu precedente se esiste
+            const prev = document.getElementById('date-action-menu');
+            if (prev) prev.remove();
+
+            const d = new Date(dateStr + 'T12:00:00');
+            const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' });
+
+            const menu = document.createElement('div');
+            menu.id = 'date-action-menu';
+            menu.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+                padding: 8px;
+                z-index: 9999;
+                min-width: 210px;
+            `;
+
+            // Posiziona vicino al click, evitando uscita dallo schermo
+            const x = Math.min(jsEvent.clientX + 8, window.innerWidth - 230);
+            const y = Math.min(jsEvent.clientY + 8, window.innerHeight - 120);
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+
+            menu.innerHTML = `
+                <div style="font-size:11px;font-weight:700;color:#9ca3af;padding:4px 8px 6px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #f3f4f6;margin-bottom:4px;">${label}</div>
+                <button id="dam-nuova-lav" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;transition:background 0.12s;" 
+                        onmouseover="this.style.background='#f5f3ff';this.style.color='#7c3aed';" 
+                        onmouseout="this.style.background='none';this.style.color='#374151';">
+                    <span style="width:28px;height:28px;background:#ede9fe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i data-lucide="plus-circle" style="width:14px;height:14px;color:#7c3aed;"></i>
+                    </span>
+                    Nuova Lavorazione
+                </button>
+                <button id="dam-giornata-dip" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;transition:background 0.12s;"
+                        onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb';" 
+                        onmouseout="this.style.background='none';this.style.color='#374151';">
+                    <span style="width:28px;height:28px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i data-lucide="layout-list" style="width:14px;height:14px;color:#2563eb;"></i>
+                    </span>
+                    Giornata Dipendente
+                </button>
+            `;
+
+            document.body.appendChild(menu);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Handlers pulsanti
+            document.getElementById('dam-nuova-lav').addEventListener('click', () => {
+                menu.remove();
+                openCreateTaskModal(dateStr);
+            });
+            document.getElementById('dam-giornata-dip').addEventListener('click', () => {
+                menu.remove();
+                window.open('/giornaliero-dipendente.html?date=' + dateStr, '_blank');
+            });
+
+            // Chiudi su click esterno
+            setTimeout(() => {
+                function closeMenu(e) {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    }
+                }
+                document.addEventListener('click', closeMenu);
+            }, 10);
+        }
+
+        async function openCreateTaskModal(dateStr) {
+            selectedDate = dateStr;
+            await window.taskWizard.iniziaWizard();
+            // Pre-compila la data cliccata nel wizard (sistema nuovo: wizard-scadenza + wizard-data-inizio)
+            if (dateStr) {
+                // Aggiorna il wizardData
+                if (window.taskWizard) {
+                    window.taskWizard.wizardData.scadenza = dateStr;
+                    window.taskWizard.wizardData.data_inizio = dateStr;
+                }
+                // Aggiorna gli input nascosti
+                const scEl = document.getElementById('wizard-scadenza');
+                const diEl = document.getElementById('wizard-data-inizio');
+                if (scEl) scEl.value = dateStr;
+                if (diEl) diEl.value = dateStr;
+                // Aggiorna il label del pulsante data
+                const dpLbl = document.getElementById('datePickerLabel');
+                if (dpLbl) {
+                    const d = new Date(dateStr + 'T12:00:00');
+                    const label = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+                    dpLbl.innerHTML = '<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-orange-600"></i><span class="text-orange-800 font-semibold">' + label + '</span>';
+                    dpLbl.classList.remove('text-gray-400');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+                if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
+            }
+        }
+
+        function loadTasks() {
+            // Re-sync from DB then refresh calendar events
+            window.dataManager.syncCalendarFromTasks().then(events => {
+                allEvents = events;
+                filterCalendar();
+            }).catch(e => {
+                console.warn('loadTasks sync error', e);
+                if (typeof calendar !== 'undefined' && calendar) calendar.refetchEvents();
+            });
         }
 
         function closeCreateTaskModal() {
             document.getElementById('createTaskModal').classList.add('hidden');
+            if (window.LinkedTasks) window.LinkedTasks.reset();
         }
 
         function showWizardStep(step) {
@@ -1475,13 +1980,17 @@
                     const employee = allUsers.find(u => u.id === employeeId);
                     if (!employee) continue;
 
-                    // Get employee's tasks for this day
+                    // Get employee's tasks for this day (considers multi-day tasks via data_inizio → scadenza range)
                     const employeeTasks = tasks.filter(t => {
                         const assignedDirectly = t.assigned_user_id === employeeId;
                         const assignedMulti = (t.task_assignments || []).some(a => a.user_id === employeeId);
-                        return (assignedDirectly || assignedMulti) &&
-                            t.scadenza &&
-                            new Date(t.scadenza).toDateString() === checkDate.toDateString();
+                        if (!assignedDirectly && !assignedMulti) return false;
+                        const startDate = t.data_inizio || t.scadenza;
+                        const endDate = t.scadenza || startDate;
+                        if (!startDate) return false;
+                        const start = new Date(startDate + 'T00:00:00');
+                        const end = new Date(endDate + 'T00:00:00');
+                        return checkDate >= start && checkDate <= end;
                     });
 
                     // Calculate available hours (8:00-18:00 = 10 hours)
@@ -1620,7 +2129,8 @@
                     descrizione: document.getElementById('newTaskDescription').value,
                     stato: 'da_fare',
                     progresso: 0,
-                    ora_inizio: selectedSlot.timeSlot.split('-')[0]
+                    ora_inizio: selectedSlot.timeSlot.split('-')[0],
+                    parent_task_id: (document.getElementById('wizard-parent-task-id')?.value) || null
                 };
 
                 await window.dataManager.saveLavorazione(newTask);
@@ -1890,34 +2400,100 @@
 
     <!-- ===== MODAL BLOCCA GIORNI ===== -->
     <div id="bloccaGiorniModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-red-500 to-rose-600 p-5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+            <div class="bg-gradient-to-r from-red-500 to-rose-600 p-4 rounded-t-2xl flex items-center justify-between flex-shrink-0">
                 <div class="flex items-center gap-3">
-                    <i class="fas fa-ban text-white text-xl"></i>
-                    <h2 class="text-xl font-bold text-white">Blocca Giorni</h2>
+                    <i class="fas fa-ban text-white text-lg"></i>
+                    <h2 class="text-lg font-bold text-white">Blocca Giorni</h2>
                 </div>
-                <button onclick="closeBloccaModal()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+                <button onclick="closeBloccaModal()" class="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <!-- Form nuovo blocco -->
-            <div class="p-5 border-b border-gray-100 flex-shrink-0">
-                <p class="text-sm font-semibold text-gray-700 mb-4">Nuovo blocco</p>
-                <div class="space-y-3">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Dal</label>
-                            <input type="date" id="bloccaDal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+
+            <!-- Form scroll -->
+            <div class="flex-1 overflow-y-auto">
+                <!-- Calendarietto inline range picker -->
+                <div class="p-4 border-b border-gray-100">
+                    <!-- Date selezionate display -->
+                    <div class="flex gap-2 mb-3">
+                        <div id="bloccaDalDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-red-400 bg-red-50 cursor-pointer transition-all"
+                             onclick="bloccaRangeStep='start'; bloccaRenderMiniCal();">
+                            <div class="text-xs text-red-600 font-semibold uppercase tracking-wide mb-0.5">Dal</div>
+                            <div id="bloccaDalText" class="text-sm font-bold text-gray-800">—</div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Al</label>
-                            <input type="date" id="bloccaAl" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                        <div class="flex items-center text-gray-400 text-lg">→</div>
+                        <div id="bloccaAlDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-gray-200 bg-gray-50 cursor-pointer transition-all"
+                             onclick="bloccaRangeStep='end'; bloccaRenderMiniCal();">
+                            <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Al</div>
+                            <div id="bloccaAlText" class="text-sm font-bold text-gray-800">—</div>
                         </div>
                     </div>
+                    <!-- Mini calendar -->
+                    <div class="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                        <!-- Nav mese -->
+                        <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                            <button type="button" onclick="bloccaCalPrev()"
+                                    class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors font-bold">‹</button>
+                            <span id="bloccaCalTitle" class="text-sm font-semibold text-gray-700"></span>
+                            <button type="button" onclick="bloccaCalNext()"
+                                    class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors font-bold">›</button>
+                        </div>
+                        <!-- Giorni della settimana -->
+                        <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f9fafb;border-bottom:1px solid #f3f4f6;">
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0;">Lun</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0;">Mar</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0;">Mer</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0;">Gio</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0;">Ven</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#f87171;padding:6px 0;">Sab</div>
+                            <div style="text-align:center;font-size:11px;font-weight:600;color:#f87171;padding:6px 0;">Dom</div>
+                        </div>
+                        <!-- Griglia giorni -->
+                        <div id="bloccaCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);padding:8px;gap:2px 0;background:white;"></div>
+                    </div>
+                    <!-- Shortcut rapidi -->
+                    <div class="flex flex-wrap gap-1.5 mt-2.5">
+                        <button type="button" onclick="bloccaShortcut(0,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium transition-colors">Oggi</button>
+                        <button type="button" onclick="bloccaShortcut(6,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium transition-colors">Settimana</button>
+                        <button type="button" onclick="bloccaShortcutMonth()" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium transition-colors">Questo mese</button>
+                        <button type="button" onclick="bloccaReset()" class="px-2.5 py-1 text-xs bg-red-50 hover:bg-red-100 rounded-full text-red-600 font-medium transition-colors">Reset</button>
+                    </div>
+                    <!-- Hidden inputs per compatibilità con il codice save -->
+                    <input type="hidden" id="bloccaDal">
+                    <input type="hidden" id="bloccaAl">
+                </div>
+
+                <!-- Orario -->
+                <div class="px-4 py-3 border-b border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Orario</span>
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="bloccaTuttoGiorno" checked
+                                   onchange="bloccaToggleOrario(this.checked)"
+                                   class="w-4 h-4 rounded accent-red-500">
+                            <span class="text-xs text-gray-600 font-medium">Tutto il giorno</span>
+                        </label>
+                    </div>
+                    <div id="bloccaOrariWrap" style="display:none;" class="flex gap-3">
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-500 mb-1">Dalle</label>
+                            <input type="time" id="bloccaOraInizio" value="08:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-500 mb-1">Alle</label>
+                            <input type="time" id="bloccaOraFine" value="12:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Per chi + Motivo + Colore -->
+                <div class="p-4 space-y-3">
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Per chi</label>
-                        <!-- Toggle tutti / selezione -->
+                        <label class="block text-xs font-medium text-gray-600 mb-1.5">Per chi</label>
                         <div class="flex gap-2 mb-2">
                             <button type="button" id="bloccaTuttiBtn" onclick="bloccaToggleTutti(true)"
                                 class="flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 border-red-400 bg-red-50 text-red-700 transition-colors">
@@ -1928,9 +2504,7 @@
                                 👤 Seleziona persone
                             </button>
                         </div>
-                        <!-- Lista dipendenti (hidden di default) -->
-                        <div id="bloccaDipendentiList" class="hidden border border-gray-200 rounded-lg max-h-36 overflow-y-auto bg-white">
-                        </div>
+                        <div id="bloccaDipendentiList" class="hidden border border-gray-200 rounded-lg max-h-32 overflow-y-auto bg-white"></div>
                         <input type="hidden" id="bloccaTutti" value="true">
                     </div>
                     <div>
@@ -1941,7 +2515,7 @@
                     <div class="flex items-center gap-3">
                         <label class="text-xs font-medium text-gray-600">Colore</label>
                         <div class="flex gap-2">
-                            <button type="button" onclick="selectBloccaColor('#ef4444')" data-color="#ef4444" class="blocca-color-btn w-7 h-7 rounded-full bg-red-500 border-2 border-white ring-2 ring-red-500"></button>
+                            <button type="button" onclick="selectBloccaColor('#ef4444')" data-color="#ef4444" class="blocca-color-btn w-7 h-7 rounded-full bg-red-500 border-2 border-white"></button>
                             <button type="button" onclick="selectBloccaColor('#f97316')" data-color="#f97316" class="blocca-color-btn w-7 h-7 rounded-full bg-orange-500 border-2 border-white"></button>
                             <button type="button" onclick="selectBloccaColor('#eab308')" data-color="#eab308" class="blocca-color-btn w-7 h-7 rounded-full bg-yellow-500 border-2 border-white"></button>
                             <button type="button" onclick="selectBloccaColor('#6b7280')" data-color="#6b7280" class="blocca-color-btn w-7 h-7 rounded-full bg-gray-500 border-2 border-white"></button>
@@ -1950,26 +2524,187 @@
                         <input type="hidden" id="bloccaColore" value="#ef4444">
                     </div>
                     <button onclick="salvaBloccaGiorno()"
-                            class="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+                            class="w-full py-2.5 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2 shadow-sm">
                         <i class="fas fa-ban"></i> Aggiungi Blocco
                     </button>
                 </div>
-            </div>
-            <!-- Lista blocchi esistenti -->
-            <div class="flex-1 overflow-y-auto p-5">
-                <p class="text-sm font-semibold text-gray-700 mb-3">Blocchi attivi</p>
-                <div id="bloccaListContainer">
-                    <p class="text-sm text-gray-400 text-center py-4">Nessun blocco attivo</p>
+
+                <!-- Lista blocchi esistenti -->
+                <div class="px-4 pb-4">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Blocchi attivi</p>
+                    <div id="bloccaListContainer">
+                        <p class="text-sm text-gray-400 text-center py-4">Nessun blocco attivo</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+    // ===== PRIORITY PILL BUTTONS =====
+    function setPriorityBtn(selectId, value) {
+        const sel = document.getElementById(selectId);
+        if (sel) sel.value = value;
+        syncPriorityBtns(selectId);
+    }
+    function syncPriorityBtns(selectId) {
+        const val = document.getElementById(selectId)?.value || 'media';
+        document.querySelectorAll(`[data-priority-group="${selectId}"]`).forEach(btn => {
+            btn.dataset.active = btn.dataset.priority === val ? 'true' : 'false';
+        });
+    }
+    window.setPriorityBtn = setPriorityBtn;
+    window.syncPriorityBtns = syncPriorityBtns;
+
     // ===== GIORNI BLOCCATI =====
     let _bloccaColoreSelezionato = '#ef4444';
     let _giorniBlocchi = [];
-    let _bloccaSelectedUsers = []; // [] = tutti, altrimenti array di id
+    let _bloccaSelectedUsers = [];
+    // Range picker state
+    let _bloccaStartDate = null;  // 'YYYY-MM-DD'
+    let _bloccaEndDate   = null;
+    let _bloccaHoverDate = null;
+    let _bloccaRangeStep = 'start'; // 'start' | 'end'
+    let _bloccaCalYear   = new Date().getFullYear();
+    let _bloccaCalMonth  = new Date().getMonth();
+
+    const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+    function bloccaRenderMiniCal() {
+        const grid  = document.getElementById('bloccaCalGrid');
+        const title = document.getElementById('bloccaCalTitle');
+        if (!grid) return;
+        title.textContent = MESI_IT[_bloccaCalMonth] + ' ' + _bloccaCalYear;
+
+        // Prima cella = lunedì: calcola offset
+        const firstDay = new Date(_bloccaCalYear, _bloccaCalMonth, 1);
+        let offset = firstDay.getDay() - 1; // 0=lun
+        if (offset < 0) offset = 6;
+        const daysInMonth  = new Date(_bloccaCalYear, _bloccaCalMonth + 1, 0).getDate();
+        const today = new Date().toISOString().split('T')[0];
+
+        let html = '';
+        // Celle vuote prima del primo giorno
+        for (let i = 0; i < offset; i++) html += '<div></div>';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const iso  = `${_bloccaCalYear}-${String(_bloccaCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const dow  = new Date(_bloccaCalYear, _bloccaCalMonth, d).getDay(); // 0=dom
+            const isWeekend = dow === 0 || dow === 6;
+            const isToday   = iso === today;
+            const isStart   = iso === _bloccaStartDate;
+            const isEnd     = iso === _bloccaEndDate;
+            const inRange   = _bloccaStartDate && _bloccaEndDate && iso > _bloccaStartDate && iso < _bloccaEndDate;
+            const inHover   = _bloccaStartDate && !_bloccaEndDate && _bloccaHoverDate && iso > _bloccaStartDate && iso <= _bloccaHoverDate;
+
+            // Colore sfondo cella (per range)
+            let cellBg = 'transparent';
+            if ((inRange || inHover) && !isStart && !isEnd) cellBg = '#fee2e2';
+            if (isStart && (_bloccaEndDate || _bloccaHoverDate)) cellBg = 'linear-gradient(to right,transparent 50%,#fee2e2 50%)';
+            if (isEnd && _bloccaStartDate) cellBg = 'linear-gradient(to left,transparent 50%,#fee2e2 50%)';
+
+            // Stile numero
+            let numBg     = 'transparent';
+            let numColor  = isWeekend ? '#ef4444' : '#374151';
+            let numBorder = 'none';
+            let numWeight = '500';
+            if (isStart || isEnd) { numBg = '#ef4444'; numColor = 'white'; numWeight = '700'; }
+            else if (inRange || inHover) { numColor = '#b91c1c'; }
+            else if (isToday) { numBorder = '2px solid #ef4444'; numColor = '#ef4444'; numWeight = '700'; }
+
+            html += `<div style="text-align:center;cursor:pointer;user-select:none;background:${cellBg};"
+                         onmouseover="bloccaHover('${iso}')"
+                         onmouseout="bloccaHoverOut()"
+                         onclick="bloccaClickDay('${iso}')">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;font-size:12px;font-weight:${numWeight};background:${numBg};color:${numColor};border:${numBorder};box-sizing:border-box;">${d}</span>
+                    </div>`;
+        }
+        grid.innerHTML = html;
+
+        // Aggiorna display date
+        const dalEl = document.getElementById('bloccaDalText');
+        const alEl  = document.getElementById('bloccaAlText');
+        const dalDisp = document.getElementById('bloccaDalDisplay');
+        const alDisp  = document.getElementById('bloccaAlDisplay');
+        if (dalEl) dalEl.textContent = _bloccaStartDate ? fmtDateIT(_bloccaStartDate) : '—';
+        if (alEl)  alEl.textContent  = _bloccaEndDate   ? fmtDateIT(_bloccaEndDate)   : '—';
+        // Active border
+        if (dalDisp && alDisp) {
+            if (_bloccaRangeStep === 'start') {
+                dalDisp.style.borderColor = '#ef4444'; dalDisp.style.background = '#fef2f2';
+                alDisp.style.borderColor  = '#e5e7eb'; alDisp.style.background  = '#f9fafb';
+            } else {
+                alDisp.style.borderColor  = '#ef4444'; alDisp.style.background  = '#fef2f2';
+                dalDisp.style.borderColor = '#e5e7eb'; dalDisp.style.background = '#f9fafb';
+            }
+        }
+        // Sync hidden inputs
+        if (document.getElementById('bloccaDal')) document.getElementById('bloccaDal').value = _bloccaStartDate || '';
+        if (document.getElementById('bloccaAl'))  document.getElementById('bloccaAl').value  = _bloccaEndDate   || '';
+    }
+
+    function fmtDateIT(iso) {
+        const [y,m,d] = iso.split('-');
+        return `${d} ${MESI_IT[parseInt(m)-1].slice(0,3)} ${y}`;
+    }
+
+    function bloccaClickDay(iso) {
+        if (_bloccaRangeStep === 'start') {
+            _bloccaStartDate = iso;
+            _bloccaEndDate   = null;
+            _bloccaRangeStep = 'end';
+        } else {
+            if (iso < _bloccaStartDate) { _bloccaStartDate = iso; _bloccaRangeStep = 'end'; }
+            else { _bloccaEndDate = iso; _bloccaRangeStep = 'start'; }
+        }
+        bloccaRenderMiniCal();
+    }
+    window.bloccaClickDay = bloccaClickDay;
+
+    function bloccaHover(iso) { _bloccaHoverDate = iso; bloccaRenderMiniCal(); }
+    function bloccaHoverOut()  { _bloccaHoverDate = null; bloccaRenderMiniCal(); }
+    window.bloccaHover = bloccaHover; window.bloccaHoverOut = bloccaHoverOut;
+
+    function bloccaCalPrev() {
+        _bloccaCalMonth--;
+        if (_bloccaCalMonth < 0) { _bloccaCalMonth = 11; _bloccaCalYear--; }
+        bloccaRenderMiniCal();
+    }
+    function bloccaCalNext() {
+        _bloccaCalMonth++;
+        if (_bloccaCalMonth > 11) { _bloccaCalMonth = 0; _bloccaCalYear++; }
+        bloccaRenderMiniCal();
+    }
+    window.bloccaCalPrev = bloccaCalPrev; window.bloccaCalNext = bloccaCalNext;
+
+    function bloccaShortcut(addDays, startOffset) {
+        const s = new Date(); s.setDate(s.getDate() + startOffset);
+        const e = new Date(); e.setDate(e.getDate() + startOffset + addDays);
+        _bloccaStartDate = s.toISOString().split('T')[0];
+        _bloccaEndDate   = e.toISOString().split('T')[0];
+        _bloccaCalYear   = s.getFullYear(); _bloccaCalMonth = s.getMonth();
+        _bloccaRangeStep = 'start';
+        bloccaRenderMiniCal();
+    }
+    function bloccaShortcutMonth() {
+        const now = new Date();
+        const s = new Date(now.getFullYear(), now.getMonth(), 1);
+        const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        _bloccaStartDate = s.toISOString().split('T')[0];
+        _bloccaEndDate   = e.toISOString().split('T')[0];
+        _bloccaCalYear   = s.getFullYear(); _bloccaCalMonth = s.getMonth();
+        _bloccaRangeStep = 'start';
+        bloccaRenderMiniCal();
+    }
+    function bloccaReset() {
+        _bloccaStartDate = null; _bloccaEndDate = null; _bloccaRangeStep = 'start';
+        bloccaRenderMiniCal();
+    }
+    function bloccaToggleOrario(tuttoGiorno) {
+        document.getElementById('bloccaOrariWrap').style.display = tuttoGiorno ? 'none' : 'flex';
+    }
+    window.bloccaShortcut = bloccaShortcut; window.bloccaShortcutMonth = bloccaShortcutMonth; window.bloccaReset = bloccaReset;
+    window.bloccaToggleOrario = bloccaToggleOrario;
 
     function selectBloccaColor(color) {
         _bloccaColoreSelezionato = color;
@@ -2023,15 +2758,23 @@
 
     async function openBloccaModal() {
         _bloccaSelectedUsers = [];
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('bloccaDal').value = today;
-        document.getElementById('bloccaAl').value  = today;
+        // Reset range picker
+        const now = new Date();
+        _bloccaStartDate = null; _bloccaEndDate = null;
+        _bloccaHoverDate = null; _bloccaRangeStep = 'start';
+        _bloccaCalYear   = now.getFullYear();
+        _bloccaCalMonth  = now.getMonth();
         document.getElementById('bloccaMotivo').value = '';
+        document.getElementById('bloccaTuttoGiorno').checked = true;
+        document.getElementById('bloccaOraInizio').value = '08:00';
+        document.getElementById('bloccaOraFine').value = '12:00';
+        document.getElementById('bloccaOrariWrap').style.display = 'none';
         bloccaToggleTutti(true);
         renderBloccaDipendentiList();
         selectBloccaColor('#ef4444');
         await caricaListaBlocchi();
         document.getElementById('bloccaGiorniModal').classList.remove('hidden');
+        bloccaRenderMiniCal();
     }
     window.openBloccaModal = openBloccaModal;
 
@@ -2074,10 +2817,16 @@
             const dal = new Date(b.data_inizio + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
             const al  = new Date(b.data_fine  + 'T00:00:00').toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
             const range = b.data_inizio === b.data_fine ? dal : dal + ' → ' + al;
+            const orarioStr = (b.ora_inizio && b.ora_fine)
+                ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 font-semibold text-[10px]"><i class="fas fa-clock" style="font-size:9px"></i>${b.ora_inizio.slice(0,5)}–${b.ora_fine.slice(0,5)}</span>`
+                : '';
             return `<div class="flex items-center gap-3 py-2.5 border-b border-gray-100 last:border-0">
                 <span style="width:12px;height:12px;border-radius:50%;background:${b.colore||'#ef4444'};flex-shrink:0;"></span>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-800 truncate">${b.motivo || 'Blocco'}</p>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <p class="text-sm font-semibold text-gray-800 truncate">${b.motivo || 'Blocco'}</p>
+                        ${orarioStr}
+                    </div>
                     <p class="text-xs text-gray-500">${range} · <span class="font-medium">${chi}</span></p>
                 </div>
                 <button onclick="eliminaBlocco('${b.id}')" class="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 px-2 py-1 text-xs">
@@ -2093,26 +2842,37 @@
         const tutti  = document.getElementById('bloccaTutti').value === 'true';
         const motivo = document.getElementById('bloccaMotivo').value.trim();
         const colore = document.getElementById('bloccaColore').value;
+        const tuttoGiorno = document.getElementById('bloccaTuttoGiorno').checked;
+        const oraInizio = tuttoGiorno ? null : (document.getElementById('bloccaOraInizio').value || null);
+        const oraFine   = tuttoGiorno ? null : (document.getElementById('bloccaOraFine').value  || null);
 
         if (!dal || !al) { alert('Seleziona le date'); return; }
         if (al < dal)    { alert('La data fine deve essere uguale o successiva alla data inizio'); return; }
+        if (!tuttoGiorno && oraInizio && oraFine && oraFine <= oraInizio) { alert("L'ora fine deve essere successiva all'ora inizio"); return; }
         if (!tutti && _bloccaSelectedUsers.length === 0) { alert('Seleziona almeno un dipendente'); return; }
 
         const userIds = tutti ? null : _bloccaSelectedUsers;
 
         try {
-            const { data: { user } } = await window.supabaseClient.auth.getUser();
             const { error } = await window.supabaseClient.from('giorni_bloccati').insert([{
                 data_inizio: dal, data_fine: al,
                 user_ids: userIds,
                 motivo: motivo || null,
-                colore, created_by: user?.id || null
+                colore,
+                ora_inizio: oraInizio,
+                ora_fine:   oraFine
             }]);
             if (error) throw error;
             document.getElementById('bloccaMotivo').value = '';
+            document.getElementById('bloccaTuttoGiorno').checked = true;
+            document.getElementById('bloccaOraInizio').value = '08:00';
+            document.getElementById('bloccaOraFine').value = '12:00';
+            document.getElementById('bloccaOrariWrap').style.display = 'none';
             _bloccaSelectedUsers = [];
+            _bloccaStartDate = null; _bloccaEndDate = null; _bloccaRangeStep = 'start';
             bloccaToggleTutti(true);
             renderBloccaDipendentiList();
+            bloccaRenderMiniCal();
             await caricaListaBlocchi();
             await aggiornaBlocksNelCalendario();
         } catch(e) {
@@ -2155,11 +2915,17 @@
                 }
                 const endDate = new Date(b.data_fine + 'T00:00:00');
                 endDate.setDate(endDate.getDate() + 1);
+                // Usa componenti locali (non toISOString che converte in UTC e perde il +1 in timezone +2)
+                const endStr = endDate.getFullYear() + '-'
+                    + String(endDate.getMonth() + 1).padStart(2, '0') + '-'
+                    + String(endDate.getDate()).padStart(2, '0');
+                const orarioLabel = (b.ora_inizio && b.ora_fine)
+                    ? ` [${b.ora_inizio.slice(0,5)}–${b.ora_fine.slice(0,5)}]` : '';
                 calendar.addEvent({
                     id: 'blocco-' + b.id,
-                    title: (b.motivo || 'Blocco') + (chi !== 'Tutti' ? ' · ' + chi : ''),
+                    title: (b.motivo || 'Blocco') + orarioLabel + (chi !== 'Tutti' ? ' · ' + chi : ''),
                     start: b.data_inizio,
-                    end: endDate.toISOString().split('T')[0],
+                    end: endStr,
                     display: 'background',
                     backgroundColor: b.colore || '#ef4444',
                     extendedProps: { tipo: 'blocco', bloccoId: b.id, userIds: b.user_ids, chi }
@@ -2176,5 +2942,426 @@
         setTimeout(caricaBlocksNelCalendario, 1200);
     });
     </script>
+
+    <!-- ===== WIZARD SCRIPTS ===== -->
+    <script src="availability-checker.js"></script>
+    <script src="multi-user-assignment.js"></script>
+    <script src="task-wizard.js"></script>
+    <script src="wizard-helpers.js"></script>
+    <script src="linked-tasks.js"></script>
+    <script src="component-multi-scanner.js"></script>
+    <script src="component-multi-selector.js"></script>
+
+    <!-- ===== WIZARD INIT ===== -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Override renderWizard: mostra il modal
+        if (window.taskWizard) {
+            window.taskWizard.renderWizard = async function() {
+                var modal = document.getElementById('task-wizard-modal');
+                if (modal) modal.classList.remove('hidden');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            };
+        }
+
+        // Hook per reset giornate quando wizard resetta
+        window._wizardGiornateReset = function() {
+            if (typeof _wizardGiornate !== 'undefined') _wizardGiornate = [];
+            const diEl = document.getElementById('wizard-data-inizio');
+            const scEl = document.getElementById('wizard-scadenza');
+            if (diEl) diEl.value = '';
+            if (scEl) scEl.value = '';
+            const lbl = document.getElementById('datePickerLabel');
+            if (lbl) { lbl.innerHTML = 'Scegli data...'; lbl.classList.add('text-gray-400'); }
+            if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
+        };
+
+        // Inizializza ComponentMultiScanner se disponibile
+        if (typeof ComponentMultiScanner !== 'undefined') {
+            window.componentScanner = new ComponentMultiScanner({
+                modalId: 'componentMultiScannerModal',
+                supabaseClient: window.supabaseAdmin || window.supabaseClient
+            });
+        }
+
+        // Priority pills init
+        if (typeof syncPriorityBtns === 'function') {
+            syncPriorityBtns('wizard-priorita');
+        }
+    });
+
+    // Apri selector componenti nel wizard
+    async function openWizardComponentSelector() {
+        if (!window.componentScanner) { console.warn('ComponentScanner non disponibile'); return; }
+        var wizardComponents = (window.taskWizard && window.taskWizard.wizardData.componenti) || [];
+        window.componentScanner.onComponentsSelected = function(selected) {
+            if (window.taskWizard) {
+                window.taskWizard.wizardData.componenti = selected.map(function(item) {
+                    return { prodotto_id: item.id, quantita: item.quantita, nome: item.component.nome, codice: item.component.codice };
+                });
+                updateWizardComponentsList(selected);
+            }
+        };
+        await window.componentScanner.open(wizardComponents.map(function(c) { return { id: c.prodotto_id || c.id, quantita: c.quantita || 1 }; }));
+    }
+
+    function updateWizardComponentsList(components) {
+        var container = document.getElementById('wizard-componenti-selezionati');
+        if (!container) return;
+        if (!components.length) {
+            container.innerHTML = '<div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg"><p class="text-sm">Nessun componente selezionato</p></div>';
+            return;
+        }
+        container.innerHTML = '<div class="space-y-2">' + components.map(function(item) {
+            return '<div class="flex items-center justify-between p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">' +
+                '<div><p class="font-semibold text-gray-900">' + item.component.nome + '</p>' +
+                '<p class="text-sm text-gray-600">' + (item.component.codice || 'N/A') + '</p></div>' +
+                '<span class="px-3 py-1 bg-purple-600 text-white rounded-lg font-bold">' + item.quantita + ' ' + (item.component.unita_misura || 'pz') + '</span></div>';
+        }).join('') + '</div>';
+    }
+    </script>
+
+    <!-- ===== WIZARD MODAL HTML ===== -->
+    <div id="task-wizard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col overflow-hidden" style="max-height:min(90vh,780px)">
+            <!-- Header con Progress Bar -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-2xl flex-shrink-0">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold">🪄 Wizard Creazione Lavorazione</h2>
+                    <button onclick="window.taskWizard.closeWizard()" class="text-white hover:text-gray-200">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-full h-2 mb-2">
+                    <div id="wizard-progress-bar" class="bg-white h-2 rounded-full transition-all duration-300" style="width: 25%"></div>
+                </div>
+                <p id="wizard-progress-text" class="text-sm text-white text-opacity-90">Step 1 di 4</p>
+                <div class="flex justify-between mt-4">
+                    <div id="step-indicator-1" class="flex flex-col items-center active">
+                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">1</div>
+                        <span class="text-xs">Dati Base</span>
+                    </div>
+                    <div id="step-indicator-2" class="flex flex-col items-center opacity-50">
+                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">2</div>
+                        <span class="text-xs">Assegnazione</span>
+                    </div>
+                    <div id="step-indicator-3" class="flex flex-col items-center opacity-50">
+                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">3</div>
+                        <span class="text-xs">Dettagli</span>
+                    </div>
+                    <div id="step-indicator-4" class="flex flex-col items-center opacity-50">
+                        <div class="w-10 h-10 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold mb-1">4</div>
+                        <span class="text-xs">Conferma</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenuto Steps -->
+            <div class="p-6 flex-1 overflow-y-auto min-h-0">
+                <!-- STEP 1: Dati Base -->
+                <div id="wizard-step-1" class="space-y-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Informazioni Base</h3>
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-blue-900 mb-2"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>Titolo Lavorazione *</label>
+                        <input type="text" id="wizard-titolo" class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" placeholder="Es: Riparazione impianto elettrico">
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-green-900 mb-2"><i data-lucide="building-2" class="w-4 h-4 inline mr-1"></i>Cliente *</label>
+                        <input type="hidden" id="wizard-cliente-select">
+                        <button type="button" id="wizardClientPickerBtn" onclick="openWizardClientPicker()" class="w-full flex items-center justify-between px-4 py-3 border-2 border-green-300 rounded-xl bg-white hover:border-green-500 hover:bg-green-50 transition-all text-left group">
+                            <span id="wizardClientPickerLabel" class="text-gray-400 text-sm group-hover:text-green-700"><i data-lucide="search" class="w-4 h-4 inline mr-2 text-green-500"></i>Seleziona cliente...</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-green-400 flex-shrink-0"></i>
+                        </button>
+                        <div id="wizardClientPickerActions" class="hidden flex gap-2 mt-2">
+                            <button type="button" onclick="clearWizardClientPicker()" class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"><i data-lucide="x" class="w-3 h-3"></i> Rimuovi</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-red-50 to-pink-100 border-2 border-red-200 rounded-xl p-4">
+                            <label class="block text-sm font-bold text-red-900 mb-2"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>Priorità</label>
+                            <div class="flex gap-1.5">
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="bassa" data-active="false" onclick="setPriorityBtn('wizard-priorita','bassa')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>Bassa</button>
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="media" data-active="true" onclick="setPriorityBtn('wizard-priorita','media')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1"><span style="width:8px;height:8px;border-radius:50%;background:#eab308;flex-shrink:0;"></span>Media</button>
+                                <button type="button" data-priority-group="wizard-priorita" data-priority="alta" data-active="false" onclick="setPriorityBtn('wizard-priorita','alta')" class="priority-pill flex-1 py-2 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>Alta</button>
+                            </div>
+                            <select id="wizard-priorita" class="hidden"><option value="bassa">Bassa</option><option value="media" selected>Media</option><option value="alta">Alta</option></select>
+                        </div>
+                        <div class="bg-gradient-to-br from-orange-50 to-amber-100 border-2 border-orange-200 rounded-xl p-4">
+                            <label class="block text-sm font-bold text-orange-900 mb-2"><i data-lucide="calendar-days" class="w-4 h-4 inline mr-1"></i>Data *</label>
+                            <input type="hidden" id="wizard-scadenza">
+                            <input type="hidden" id="wizard-data-inizio">
+                            <div id="wizard-date-display" class="mb-2"></div>
+                            <button type="button" id="wizard-single-date-btn" onclick="openDatePicker('single')" class="w-full flex items-center gap-3 px-4 py-3 bg-white border-2 border-orange-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-all text-sm group"><i data-lucide="calendar" class="w-5 h-5 text-orange-400 group-hover:text-orange-600 flex-shrink-0"></i><span id="datePickerLabel" class="text-gray-400 flex-1 text-left">Scegli data...</span></button>
+                            <button type="button" id="wizard-range-btn" onclick="openRangePicker()" class="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-orange-300 rounded-xl bg-white hover:border-orange-500 hover:bg-orange-50 transition-all text-orange-600 font-semibold text-sm"><i data-lucide="calendar-range" class="w-4 h-4"></i>Scegli intervallo Date</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
+                            <label class="block text-sm font-bold text-blue-900 mb-2"><i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>Ora Inizio</label>
+                            <input type="time" id="wizard-ora-inizio" class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
+                            <label class="block text-sm font-bold text-blue-900 mb-2"><i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>Ora Fine</label>
+                            <input type="time" id="wizard-ora-fine" class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-50 to-violet-100 border-2 border-purple-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-purple-900 mb-2"><i data-lucide="tag" class="w-4 h-4 inline mr-1"></i>Categoria</label>
+                        <input type="text" id="wizard-categoria" class="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white" placeholder="Es: Elettrico, Idraulico, Manutenzione...">
+                    </div>
+                    <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-2"><i data-lucide="align-left" class="w-4 h-4 inline mr-1"></i>Descrizione</label>
+                        <textarea id="wizard-descrizione" rows="3" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" placeholder="Descrizione dettagliata della lavorazione..."></textarea>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Assegnazione -->
+                <div id="wizard-step-2" class="hidden space-y-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">👤 Dipendenti</h3>
+                    <input type="hidden" name="tipo-assegnazione" id="wizard-tipo-multi" value="multi">
+                    <input type="hidden" id="wizard-tipo-user" value="multi">
+                    <input type="hidden" id="wizard-tipo-team" value="multi">
+                    <input type="hidden" id="wizard-dipendente-select" value="">
+                    <input type="hidden" id="wizard-squadra-select" value="">
+                    <div id="wizard-dipendente-container" class="hidden"></div>
+                    <div id="wizard-squadra-container" class="hidden"></div>
+                    <div id="wizard-multi-container">
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+                            <div class="flex items-center gap-3 mb-4">
+                                <i data-lucide="users-2" class="w-8 h-8 text-purple-600"></i>
+                                <div>
+                                    <h4 class="font-bold text-lg">Seleziona Dipendenti</h4>
+                                    <p class="text-sm text-gray-600">Scegli uno o più dipendenti da assegnare</p>
+                                </div>
+                            </div>
+                            <button onclick="openWizardMultiUserPicker()" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold mb-4" style="background:linear-gradient(to right,#9333ea,#4f46e5);color:#fff;"><i data-lucide="user-plus" class="w-5 h-5"></i>Seleziona Dipendenti</button>
+                            <div id="wizard-multi-users-container">
+                                <div class="text-center text-gray-500 py-6">
+                                    <i data-lucide="user-plus" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                                    <p class="text-sm">Nessun dipendente selezionato</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Dettagli e Componenti -->
+                <div id="wizard-step-3" class="hidden space-y-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">⚙️ Dettagli Tecnici e Componenti</h3>
+                    <div class="max-w-xs">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ore Stimate Totali</label>
+                        <input type="number" id="wizard-ore-stimate" min="0" step="0.5" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Es: 8">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Componenti/Materiali Necessari</label>
+                        <button type="button" onclick="openWizardComponentSelector()" class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
+                            <i data-lucide="package" class="w-5 h-5"></i>Seleziona Componenti
+                        </button>
+                        <div id="wizard-componenti-selezionati">
+                            <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                                <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                                <p class="text-sm">Nessun componente selezionato</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- INTERVENTI COLLEGATI -->
+                    <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #ddd6fe;border-radius:14px;padding:14px">
+                        <input type="hidden" id="wizard-parent-task-id">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                            <label style="font-size:13px;font-weight:700;color:#5b21b6;display:flex;align-items:center;gap:6px">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                Interventi Collegati
+                            </label>
+                            <button type="button"
+                                    onclick="if(window.LinkedTasks){window.LinkedTasks._calWizardOpenPicker(document.getElementById('wizard-cliente-select').value, document.getElementById('wizard-titolo').value)}"
+                                    style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px"
+                                    onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                Collega
+                            </button>
+                        </div>
+                        <div id="wizard-linked-tasks-display"></div>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Riepilogo e Conferma -->
+                <div id="wizard-step-4" class="hidden space-y-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">✅ Riepilogo Finale</h3>
+                    <div id="wizard-riepilogo-container"><p class="text-center text-gray-500 py-8">Generazione riepilogo...</p></div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                            <p class="text-sm text-green-800 font-medium">Tutto pronto! Clicca "Crea Lavorazione" per salvare.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer con Pulsanti Navigazione -->
+            <div class="bg-gray-50 px-6 py-3 rounded-b-2xl border-t flex justify-between items-center flex-shrink-0">
+                <button id="wizard-prev-btn" onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.prevStep();" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">← Indietro</button>
+                <div class="flex gap-3">
+                    <button onclick="window.taskWizard.closeWizard()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Annulla</button>
+                    <button id="wizard-next-btn" onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.nextStep();" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" style="background:#2563eb;color:#fff;">Avanti →</button>
+                    <button id="wizard-submit-btn" onclick="window.taskWizard.submitWizard();" class="hidden px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors" style="background:#16a34a;color:#fff;">🎉 Crea Lavorazione</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #step-indicator-1.active, #step-indicator-2.active,
+        #step-indicator-3.active, #step-indicator-4.active { opacity: 1; }
+        #step-indicator-1.completed div, #step-indicator-2.completed div,
+        #step-indicator-3.completed div, #step-indicator-4.completed div { background-color: #10b981; color: white; }
+        .priority-pill[data-active="true"][data-priority="bassa"]  { border-color: #4ade80; background: #dcfce7; color: #15803d; }
+        .priority-pill[data-active="true"][data-priority="media"]  { border-color: #facc15; background: #fef9c3; color: #a16207; }
+        .priority-pill[data-active="true"][data-priority="alta"]   { border-color: #f87171; background: #fee2e2; color: #b91c1c; }
+        .priority-pill[data-active="false"] { border-color: #e5e7eb; background: #fff; color: #6b7280; }
+    </style>
+
+    <!-- datePickerModal -->
+    <div id="datePickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden" style="width:min(340px,calc(100vw - 32px));max-height:90vh;overflow-y:auto">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <button onclick="dpPrevMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <span id="dpMonthYear" class="text-white font-bold text-base"></span>
+                    <button onclick="dpNextMonth()" class="text-white hover:text-purple-200 p-1 rounded-lg hover:bg-white/20 transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+                <p id="dpSelectedLabel" class="text-center text-purple-200 text-xs min-h-[1rem]"></p>
+            </div>
+            <div class="p-3">
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:0.25rem">
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">L</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">M</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">G</div>
+                    <div class="text-center text-xs font-bold text-gray-400 py-1">V</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">S</div>
+                    <div class="text-center text-xs font-bold text-red-400 py-1">D</div>
+                </div>
+                <div id="dpGrid" style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px"></div>
+            </div>
+            <div style="padding:12px 12px 24px;display:flex;gap:8px">
+                <button onclick="dpSelectToday()" class="flex-1 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-xl hover:bg-purple-50 transition-colors">Oggi</button>
+                <button id="dpConfermaBtn" onclick="closeDatePicker()" style="display:none" class="flex-1 py-2 text-sm font-bold text-white bg-orange-500 border border-orange-400 rounded-xl hover:bg-orange-600 transition-colors">Conferma</button>
+                <button onclick="closeDatePicker()" class="flex-1 py-2 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- wizardMultiUserPickerModal -->
+    <div id="wizardMultiUserPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <p class="text-purple-200 text-xs font-semibold uppercase tracking-wider mb-1">Assegnazione Multipla</p>
+                    <h3 class="text-white font-bold text-lg">Seleziona Dipendenti</h3>
+                </div>
+                <button onclick="closeWizardMultiUserPicker()" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 text-xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div style="position:relative;">
+                    <input id="wizardMultiUserSearch" type="text" placeholder="🔍 Cerca per nome o ruolo..." style="width:100%;padding:10px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;font-size:14px;outline:none;box-sizing:border-box;" oninput="filterWizardMultiUserList()" onfocus="this.style.borderColor='#a78bfa';this.style.boxShadow='0 0 0 3px rgba(167,139,250,0.2)';" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';">
+                </div>
+            </div>
+            <div id="wizardMultiUserPickerList" class="overflow-y-auto flex-1 divide-y divide-gray-50 p-2">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex-shrink-0">
+                <div id="wizardMultiUserSelectionPreview" class="text-sm text-gray-500 mb-3">Nessun utente selezionato</div>
+                <button onclick="applyWizardMultiUserSelection()" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all" style="background:linear-gradient(to right,#9333ea,#4f46e5);color:#fff;">Conferma Selezione →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- clientPickerModal -->
+    <div id="clientPickerModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style="max-height:min(520px,85vh)">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Seleziona Cliente</h3>
+                    <p class="text-green-100 text-xs mt-0.5">Cerca o aggiungi un nuovo cliente</p>
+                </div>
+                <button onclick="closeClientPicker()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4 border-b border-gray-100 flex-shrink-0">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input type="text" id="clientPickerSearch" placeholder="🔍 Cerca per nome o ragione sociale..." oninput="filterClientPickerList()" class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg focus:border-green-400 focus:ring-0 text-sm outline-none">
+                    </div>
+                    <button onclick="toggleAddClientForm()" class="flex items-center gap-1.5 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0"><i data-lucide="plus" class="w-4 h-4"></i>Nuovo</button>
+                </div>
+            </div>
+            <div id="addClientForm" class="hidden p-4 bg-green-50 border-b border-green-200 flex-shrink-0">
+                <p class="text-sm font-bold text-green-800 mb-3 flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i>Aggiungi nuovo cliente</p>
+                <div class="space-y-2">
+                    <input type="text" id="newClientRagioneSociale" placeholder="Ragione sociale / Nome *" class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="newClientTelefono" placeholder="Telefono" class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <input type="email" id="newClientEmail" placeholder="Email" class="px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                    </div>
+                    <select id="newClientTipo" class="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 text-sm outline-none bg-white">
+                        <option value="azienda">Azienda</option><option value="privato">Privato</option><option value="condominio">Condominio</option><option value="associazione">Associazione</option><option value="comune">Comune</option>
+                    </select>
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="saveNewClientFromPicker()" class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors"><i data-lucide="check" class="w-4 h-4 inline mr-1"></i>Salva e Seleziona</button>
+                        <button onclick="toggleAddClientForm(false)" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg transition-colors">Annulla</button>
+                    </div>
+                </div>
+            </div>
+            <div id="clientPickerList" class="overflow-y-auto divide-y divide-gray-50" style="max-height:220px">
+                <p class="p-8 text-center text-gray-400 text-sm">Caricamento...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIZARD RANGE DATE PICKER MODAL -->
+    <div id="wizard-range-picker-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div class="bg-gradient-to-r from-orange-500 to-amber-500 p-4 rounded-t-2xl flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="calendar-range" class="w-5 h-5 text-white"></i>
+                    <h2 class="text-base font-bold text-white">Seleziona Intervallo Date</h2>
+                </div>
+                <button onclick="closeRangePicker()" class="text-white hover:bg-white/20 rounded-lg p-1.5"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4">
+                <div class="flex gap-2 mb-3">
+                    <div id="wpRangeDalDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-orange-400 bg-orange-50 cursor-pointer" onclick="_wpRangeStep='start';_wpRenderMiniCal();">
+                        <div class="text-xs text-orange-600 font-semibold uppercase tracking-wide mb-0.5">Dal</div>
+                        <div id="wpRangeDalText" class="text-sm font-bold text-gray-800">—</div>
+                    </div>
+                    <div class="flex items-center text-gray-400 text-lg font-bold">→</div>
+                    <div id="wpRangeAlDisplay" class="flex-1 text-center py-2 px-3 rounded-xl border-2 border-gray-200 bg-gray-50 cursor-pointer" onclick="_wpRangeStep='end';_wpRenderMiniCal();">
+                        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Al</div>
+                        <div id="wpRangeAlText" class="text-sm font-bold text-gray-800">—</div>
+                    </div>
+                </div>
+                <div class="rounded-xl border border-gray-100 overflow-hidden shadow-sm mb-3">
+                    <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                        <button type="button" onclick="_wpCalPrev()" class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-lg">‹</button>
+                        <span id="wpCalTitle" class="text-sm font-semibold text-gray-700"></span>
+                        <button type="button" onclick="_wpCalNext()" class="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-lg">›</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f9fafb;border-bottom:1px solid #f3f4f6;">
+                        <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Lun</div><div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Mar</div><div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Mer</div><div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Gio</div><div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:6px 0">Ven</div><div style="text-align:center;font-size:11px;font-weight:600;color:#f97316;padding:6px 0">Sab</div><div style="text-align:center;font-size:11px;font-weight:600;color:#f97316;padding:6px 0">Dom</div>
+                    </div>
+                    <div id="wpCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);padding:8px;gap:2px 0;background:white;"></div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                    <button type="button" onclick="_wpShortcut(0,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium">Oggi</button>
+                    <button type="button" onclick="_wpShortcut(4,0)" class="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 font-medium">Sett. lavorativa</button>
+                    <button type="button" onclick="_wpReset()" class="px-2.5 py-1 text-xs bg-orange-50 hover:bg-orange-100 rounded-full text-orange-600 font-medium">Reset</button>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeRangePicker()" class="flex-1 py-2.5 border-2 border-gray-300 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 text-sm">Annulla</button>
+                    <button type="button" id="wpConfirmBtn" onclick="confirmRangePicker()" disabled class="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 text-sm disabled:opacity-40 disabled:cursor-not-allowed">Conferma</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

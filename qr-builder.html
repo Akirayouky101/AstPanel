@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Builder – Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .fade-in { animation: fadeIn .4s ease-in; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        .gradient-bg { background: linear-gradient(135deg,#667eea,#764ba2); }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Sidebar -->
+<div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+    <div class="flex items-center justify-center h-16 gradient-bg">
+        <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+    </div>
+    <nav class="mt-8 text-sm">
+        <a href="admin-functional.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="home" class="w-5 h-5 mr-3"></i>Dashboard
+        </a>
+        <a href="gestione-utenti.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="users" class="w-5 h-5 mr-3"></i>Gestione Utenti
+        </a>
+        <a href="comunicazioni.html" class="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>Comunicazioni
+        </a>
+        <a href="qr-builder.html" class="flex items-center px-6 py-3 bg-purple-50 text-purple-700 border-r-4 border-purple-600 font-semibold">
+            <i data-lucide="qr-code" class="w-5 h-5 mr-3"></i>QR Builder
+        </a>
+    </nav>
+</div>
+
+<!-- Main -->
+<div class="ml-64 p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-1">QR Builder</h2>
+            <p class="text-gray-500">Crea azioni personalizzate con form custom — genera un QR, scansionalo e il form appare</p>
+        </div>
+        <button onclick="openBuilderModal()" class="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-purple-700 transition-colors flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nuova Azione QR
+        </button>
+    </div>
+
+    <!-- Grid azioni -->
+    <div id="actionsGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div class="col-span-full text-center py-20 text-gray-400">
+            <i data-lucide="qr-code" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+            <p class="font-medium">Nessuna azione QR ancora</p>
+            <p class="text-sm mt-1">Clicca "Nuova Azione QR" per crearne una</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Builder Modal ── -->
+<div id="builderModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col" style="max-height:90vh">
+        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 rounded-t-2xl flex-shrink-0 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="qr-code" class="w-5 h-5"></i> <span id="builderModalTitle">Nuova Azione QR</span></h3>
+            <button onclick="closeBuilderModal()" class="text-white/70 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            <input type="hidden" id="editingActionId">
+            <!-- Nome -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Nome dell'azione *</label>
+                <input type="text" id="actionName" placeholder="es. Richiesta Materiale, Segnalazione Guasto..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+            <!-- Descrizione / istruzioni per chi scansiona -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Istruzione per chi scansiona</label>
+                <input type="text" id="actionDesc" placeholder="es. Compila per richiedere materiale"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+            <!-- Colore -->
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Colore tema</label>
+                <div id="colorPicker" class="flex gap-2 flex-wrap">
+                    <button onclick="selectColor(this,'#7c3aed')" data-color="#7c3aed" class="color-btn w-7 h-7 rounded-full bg-purple-600 ring-2 ring-offset-2 ring-purple-600"></button>
+                    <button onclick="selectColor(this,'#2563eb')" data-color="#2563eb" class="color-btn w-7 h-7 rounded-full bg-blue-600"></button>
+                    <button onclick="selectColor(this,'#16a34a')" data-color="#16a34a" class="color-btn w-7 h-7 rounded-full bg-green-600"></button>
+                    <button onclick="selectColor(this,'#ea580c')" data-color="#ea580c" class="color-btn w-7 h-7 rounded-full bg-orange-600"></button>
+                    <button onclick="selectColor(this,'#dc2626')" data-color="#dc2626" class="color-btn w-7 h-7 rounded-full bg-red-600"></button>
+                    <button onclick="selectColor(this,'#0891b2')" data-color="#0891b2" class="color-btn w-7 h-7 rounded-full bg-cyan-600"></button>
+                </div>
+            </div>
+            <!-- Campi -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-sm font-bold text-gray-700">Campi del form</label>
+                    <button onclick="addField()" class="text-xs px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 font-semibold flex items-center gap-1">
+                        <i data-lucide="plus" class="w-3 h-3"></i> Aggiungi campo
+                    </button>
+                </div>
+                <div id="fieldsContainer" class="space-y-2">
+                    <!-- filled by JS -->
+                </div>
+                <p id="noFieldsMsg" class="text-xs text-gray-400 text-center py-3">Nessun campo. Clicca "Aggiungi campo".</p>
+            </div>
+        </div>
+        <div class="p-5 border-t flex gap-3 flex-shrink-0">
+            <button onclick="closeBuilderModal()" class="flex-1 py-2.5 border-2 border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50">Annulla</button>
+            <button onclick="saveAction()" class="flex-1 py-2.5 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700">Salva Azione</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── QR Preview Modal ── -->
+<div id="qrPreviewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-gray-800" id="qrPreviewTitle">QR</h3>
+            <button onclick="closeQrPreview()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-4" id="qrPreviewDesc"></p>
+        <div id="qrPreviewCanvas" class="flex justify-center mb-4"></div>
+        <p class="text-xs text-gray-400 break-all mb-4" id="qrPreviewUrl"></p>
+        <div class="flex gap-2">
+            <button onclick="printQrPreview()" class="flex-1 py-2.5 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 flex items-center justify-center gap-2">
+                <i data-lucide="printer" class="w-4 h-4"></i> Stampa
+            </button>
+            <button onclick="copyQrUrl()" class="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2">
+                <i data-lucide="copy" class="w-4 h-4"></i> Copia URL
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BASE_URL = 'https://ast-panel.vercel.app/qr-action.html';
+    const LS_KEY   = 'qrActions_v1';
+    let _selectedColor = '#7c3aed';
+    let _fields = [];
+    let _actions = [];
+    let _qrPreviewInstance = null;
+
+    // ── Storage ──
+    function loadActions() {
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
+    }
+    function saveActions(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+
+    // ── Render grid ──
+    function renderGrid() {
+        _actions = loadActions();
+        const grid = document.getElementById('actionsGrid');
+        if (_actions.length === 0) {
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-400">
+                <i data-lucide="qr-code" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+                <p class="font-medium">Nessuna azione QR ancora</p>
+                <p class="text-sm mt-1">Clicca "Nuova Azione QR" per crearne una</p></div>`;
+            lucide.createIcons(); return;
+        }
+        grid.innerHTML = _actions.map(a => {
+            const fieldsLabel = a.fields.length === 0 ? 'Nessun campo' : a.fields.length + ' camp' + (a.fields.length === 1 ? 'o' : 'i');
+            return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden fade-in">
+                <div class="h-2" style="background:${a.color||'#7c3aed'}"></div>
+                <div class="p-5">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h3 class="font-bold text-gray-900">${a.name}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">${a.desc||''}</p>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium text-white" style="background:${a.color||'#7c3aed'}">${fieldsLabel}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-4">Creato: ${new Date(a.created).toLocaleDateString('it-IT')}</div>
+                    <div class="flex gap-2">
+                        <button onclick="showQrPreview('${a.id}')" class="flex-1 py-2 bg-purple-50 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-100 flex items-center justify-center gap-1">
+                            <i data-lucide="qr-code" class="w-3.5 h-3.5"></i> QR Code
+                        </button>
+                        <button onclick="editAction('${a.id}')" class="py-2 px-3 bg-gray-50 text-gray-500 rounded-lg hover:bg-blue-50 hover:text-blue-600 border border-gray-200 hover:border-blue-200 transition-colors">
+                            <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteAction('${a.id}')" class="py-2 px-3 bg-gray-50 text-gray-400 rounded-lg hover:bg-red-50 hover:text-red-500 border border-gray-200 hover:border-red-200 transition-colors">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    // ── Builder Modal ──
+    function openBuilderModal(actionId = null) {
+        _fields = [];
+        _selectedColor = '#7c3aed';
+        document.getElementById('editingActionId').value = '';
+        document.getElementById('actionName').value = '';
+        document.getElementById('actionDesc').value  = '';
+        document.getElementById('builderModalTitle').textContent = 'Nuova Azione QR';
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-2','ring-offset-2'));
+        document.querySelector('[data-color="#7c3aed"]').classList.add('ring-2','ring-offset-2');
+
+        if (actionId) {
+            const a = _actions.find(x => x.id === actionId);
+            if (a) {
+                document.getElementById('editingActionId').value = a.id;
+                document.getElementById('actionName').value = a.name;
+                document.getElementById('actionDesc').value  = a.desc || '';
+                document.getElementById('builderModalTitle').textContent = 'Modifica Azione QR';
+                _selectedColor = a.color || '#7c3aed';
+                _fields = JSON.parse(JSON.stringify(a.fields));
+                const btn = document.querySelector(`[data-color="${_selectedColor}"]`);
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-2','ring-offset-2'));
+                if (btn) btn.classList.add('ring-2','ring-offset-2');
+            }
+        }
+        renderFields();
+        document.getElementById('builderModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+    function closeBuilderModal() { document.getElementById('builderModal').classList.add('hidden'); }
+    function editAction(id) { openBuilderModal(id); }
+
+    function selectColor(btn, color) {
+        _selectedColor = color;
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-2','ring-offset-2','ring-purple-600','ring-blue-600','ring-green-600','ring-orange-600','ring-red-600','ring-cyan-600'));
+        btn.classList.add('ring-2','ring-offset-2');
+        lucide.createIcons();
+    }
+
+    // ── Fields ──
+    const FIELD_TYPES = { text:'Testo', number:'Numero', date:'Data', select:'Selezione', textarea:'Testo lungo', checkbox:'Checkbox' };
+
+    function addField() {
+        _fields.push({ id: Date.now().toString(), type: 'text', label: '', required: false, options: '' });
+        renderFields();
+    }
+    function removeField(id) { _fields = _fields.filter(f => f.id !== id); renderFields(); }
+    function updateField(id, key, value) {
+        const f = _fields.find(f => f.id === id);
+        if (f) f[key] = value;
+    }
+    function renderFields() {
+        const c = document.getElementById('fieldsContainer');
+        document.getElementById('noFieldsMsg').style.display = _fields.length ? 'none' : '';
+        c.innerHTML = _fields.map((f, i) => `
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 flex gap-2 items-start" data-fid="${f.id}">
+                <div class="flex-1 grid grid-cols-2 gap-2">
+                    <input type="text" value="${f.label}" placeholder="Etichetta campo"
+                           onchange="updateField('${f.id}','label',this.value)"
+                           class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-purple-500">
+                    <select onchange="updateField('${f.id}','type',this.value)"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-purple-500">
+                        ${Object.entries(FIELD_TYPES).map(([v,l]) => `<option value="${v}" ${f.type===v?'selected':''}>${l}</option>`).join('')}
+                    </select>
+                    ${f.type === 'select' ? `<input type="text" value="${f.options||''}" placeholder="Opzioni (sep. con virgola)"
+                           onchange="updateField('${f.id}','options',this.value)"
+                           class="col-span-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-purple-500">` : ''}
+                    <label class="col-span-2 flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                        <input type="checkbox" ${f.required?'checked':''} onchange="updateField('${f.id}','required',this.checked)" class="rounded text-purple-600">
+                        Campo obbligatorio
+                    </label>
+                </div>
+                <button onclick="removeField('${f.id}')" class="mt-1 p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    function saveAction() {
+        const name = document.getElementById('actionName').value.trim();
+        if (!name) { alert('Inserisci un nome per l\'azione'); return; }
+        const editId = document.getElementById('editingActionId').value;
+        const action = {
+            id:      editId || Date.now().toString(),
+            name,
+            desc:    document.getElementById('actionDesc').value.trim(),
+            color:   _selectedColor,
+            fields:  _fields,
+            created: editId ? (_actions.find(a=>a.id===editId)?.created || new Date().toISOString()) : new Date().toISOString()
+        };
+        _actions = _actions.filter(a => a.id !== action.id);
+        _actions.unshift(action);
+        saveActions(_actions);
+        closeBuilderModal();
+        renderGrid();
+    }
+
+    function deleteAction(id) {
+        if (!confirm('Eliminare questa azione QR?')) return;
+        _actions = _actions.filter(a => a.id !== id);
+        saveActions(_actions);
+        renderGrid();
+    }
+
+    // ── QR Preview ──
+    function buildActionUrl(action) {
+        const data = { n: action.name, d: action.desc, c: action.color, f: action.fields.map(f => ({t:f.type,l:f.label,r:f.required,o:f.options})) };
+        return `${BASE_URL}?d=${btoa(unescape(encodeURIComponent(JSON.stringify(data))))}`;
+    }
+
+    function showQrPreview(actionId) {
+        const a = _actions.find(x => x.id === actionId);
+        if (!a) return;
+        const url = buildActionUrl(a);
+        document.getElementById('qrPreviewTitle').textContent = a.name;
+        document.getElementById('qrPreviewDesc').textContent  = a.desc || 'Scansiona per aprire il form';
+        document.getElementById('qrPreviewUrl').textContent   = url;
+        const c = document.getElementById('qrPreviewCanvas');
+        c.innerHTML = '';
+        _qrPreviewInstance = new QRCode(c, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+        document.getElementById('qrPreviewModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+    function closeQrPreview() {
+        document.getElementById('qrPreviewModal').classList.add('hidden');
+        document.getElementById('qrPreviewCanvas').innerHTML = '';
+        _qrPreviewInstance = null;
+    }
+    function copyQrUrl() {
+        const url = document.getElementById('qrPreviewUrl').textContent;
+        navigator.clipboard.writeText(url).then(() => alert('URL copiato!')).catch(() => {});
+    }
+    function printQrPreview() {
+        const title = document.getElementById('qrPreviewTitle').textContent;
+        const desc  = document.getElementById('qrPreviewDesc').textContent;
+        const img   = document.querySelector('#qrPreviewCanvas img');
+        if (!img) return;
+        const w = window.open('','_blank');
+        w.document.write(`<!DOCTYPE html><html><head><title>QR – ${title}</title>
+        <style>body{font-family:Arial;text-align:center;padding:30px;}img{width:220px;height:220px;}h2{margin:14px 0 6px;font-size:20px;}p{font-size:12px;color:#666;}</style>
+        </head><body><img src="${img.src}"><h2>${title}</h2><p>${desc}</p>
+        <script>window.onload=()=>window.print();<\/script></body></html>`);
+        w.document.close();
+    }
+
+    // ── Init ──
+    document.addEventListener('DOMContentLoaded', () => { renderGrid(); lucide.createIcons(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impostazioni – ZG Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #f9fafb; }
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            padding: 12px 20px; border-radius: 12px;
+            font-size: 13px; font-weight: 600;
+            color: #fff; z-index: 9999;
+            box-shadow: 0 8px 24px rgba(0,0,0,.15);
+            transform: translateY(60px); opacity: 0;
+            transition: all .3s ease;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: #059669; }
+        .toast.error   { background: #dc2626; }
+        .setting-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 1.5px solid #e5e7eb;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .setting-card:hover { border-color: #d1d5db; }
+        input[type="email"], input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s;
+            box-sizing: border-box;
+        }
+        input[type="email"]:focus, input[type="text"]:focus { border-color: #7c3aed; }
+
+        /* ── Confirm Modal ── */
+        #confirmModal {
+            position: fixed; inset: 0; z-index: 9998;
+            background: rgba(0,0,0,.45);
+            backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity .2s;
+        }
+        #confirmModal.open { opacity: 1; pointer-events: all; }
+        #confirmModal .box {
+            background: #fff;
+            border-radius: 22px;
+            padding: 32px 28px 24px;
+            max-width: 360px; width: 90%;
+            box-shadow: 0 24px 64px rgba(109,40,217,.18);
+            transform: scale(.94) translateY(8px);
+            transition: transform .22s cubic-bezier(.34,1.4,.64,1);
+            text-align: center;
+        }
+        #confirmModal.open .box { transform: scale(1) translateY(0); }
+        #confirmModal .icon-wrap {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: #fef2f2;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 18px;
+        }
+        #confirmModal .icon-wrap i { font-size: 26px; color: #dc2626; }
+        #confirmModal h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; color: #111827; }
+        #confirmModal p  { margin: 0 0 24px; font-size: 14px; color: #6b7280; line-height: 1.5; }
+        #confirmModal .btns { display: flex; gap: 10px; }
+        #confirmModal .btn-cancel {
+            flex: 1; padding: 11px; border-radius: 12px;
+            border: 1.5px solid #e5e7eb; background: #fff;
+            font-size: 14px; font-weight: 600; color: #374151;
+            cursor: pointer; transition: background .15s;
+        }
+        #confirmModal .btn-cancel:hover { background: #f9fafb; }
+        #confirmModal .btn-delete {
+            flex: 1; padding: 11px; border-radius: 12px;
+            border: none; background: linear-gradient(135deg,#dc2626,#b91c1c);
+            font-size: 14px; font-weight: 700; color: #fff;
+            cursor: pointer; transition: opacity .15s;
+            box-shadow: 0 4px 12px rgba(220,38,38,.35);
+        }
+        #confirmModal .btn-delete:hover { opacity: .88; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Confirm Modal -->
+<div id="confirmModal">
+    <div class="box">
+        <div class="icon-wrap"><i class="fas fa-trash"></i></div>
+        <h3 id="confirmTitle">Eliminare?</h3>
+        <p id="confirmMsg">Questa azione non è reversibile.</p>
+        <div class="btns">
+            <button class="btn-cancel" id="confirmCancel">Annulla</button>
+            <button class="btn-delete" id="confirmOk">Sì, elimina</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 32px">
+    <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:16px">
+        <a href="/admin-functional.html" style="color:rgba(255,255,255,.75);font-size:13px;text-decoration:none;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);padding:7px 14px;border-radius:8px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+        <div>
+            <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff">⚙️ Impostazioni</h1>
+            <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,.7)">Configurazione del pannello ZG Impianti</p>
+        </div>
+    </div>
+</div>
+
+<!-- Content -->
+<div style="max-width:720px;margin:32px auto;padding:0 20px">
+
+    <!-- Section: Approvatori -->
+    <h2 style="margin:0 0 16px;font-size:14px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.6px">
+        <i class="fas fa-user-check" style="margin-right:6px;color:#7c3aed"></i>Approvatori Ordini
+    </h2>
+
+    <!-- Lista approvatori -->
+    <div id="approvatori-list"></div>
+
+    <!-- Form aggiungi -->
+    <div id="addForm" style="display:none;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:14px;padding:20px;margin-top:12px">
+        <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#7c3aed"><i class="fas fa-plus-circle" style="margin-right:6px"></i>Nuovo Approvatore</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Nome e Cognome</label>
+                <input type="text" id="newNome" placeholder="es. Pietro Zocca" style="width:100%;padding:10px 14px;border:1.5px solid #ddd6fe;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#ddd6fe'">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Email</label>
+                <input type="email" id="newEmail" placeholder="es. p.zocca@zgimpianti.it" style="width:100%;padding:10px 14px;border:1.5px solid #ddd6fe;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#ddd6fe'">
+            </div>
+        </div>
+        <div style="display:flex;gap:10px">
+            <button onclick="aggiungiApprovatore()" id="btnAggiungi" style="padding:10px 22px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
+                <i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi
+            </button>
+            <button onclick="toggleForm()" style="padding:10px 22px;background:#fff;border:1.5px solid #ddd6fe;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:#374151">Annulla</button>
+        </div>
+    </div>
+
+    <!-- Bottone aggiungi -->
+    <button onclick="toggleForm()" id="btnMostraForm" style="margin-top:12px;width:100%;padding:12px;background:#fff;border:2px dashed #ddd6fe;border-radius:14px;color:#7c3aed;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">
+        <i class="fas fa-plus" style="margin-right:6px"></i>Aggiungi Approvatore
+    </button>
+
+    <!-- Info box -->
+    <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:14px;padding:20px;margin-top:16px">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#7c3aed"><i class="fas fa-info-circle" style="margin-right:6px"></i>Come funziona</p>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.8">
+            <li>Aggiungi ogni persona che può approvare ordini con nome + email</li>
+            <li>Ogni approvatore riceve una <strong>email personalizzata</strong> con il suo link unico</li>
+            <li>Quando approva o rifiuta, nel pannello comparirà il suo nome</li>
+            <li>Puoi aggiungere o disabilitare approvatori in qualsiasi momento</li>
+        </ol>
+    </div>
+
+    <!-- Future settings placeholder -->
+    <h2 style="margin:32px 0 16px;font-size:14px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.6px">
+        <i class="fas fa-sliders-h" style="margin-right:6px;color:#9ca3af"></i>Altre Impostazioni
+    </h2>
+    <div class="setting-card" style="opacity:.5;pointer-events:none">
+        <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;background:#f3f4f6;border-radius:10px;display:flex;align-items:center;justify-content:center">
+                <i class="fas fa-bell-slash" style="color:#9ca3af;font-size:15px"></i>
+            </div>
+            <div>
+                <p style="margin:0;font-size:14px;font-weight:600;color:#374151">Push Notifications <span style="background:#e5e7eb;color:#6b7280;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px">IN ARRIVO</span></p>
+                <p style="margin:3px 0 0;font-size:12px;color:#9ca3af">Notifiche push nel browser per i nuovi ordini in attesa.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const db = window.supabaseClient || window.supabase;
+    const BASE_URL = 'https://ast-panel.vercel.app/Admin/approva-ordine.html';
+    let approvatori = [];
+
+    // Auth check
+    (async () => {
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) { window.location.href = '/Admin/index.html'; return; }
+        await loadApprovatori();
+    })();
+
+    async function loadApprovatori() {
+        const { data, error } = await db.from('approvatori').select('*').order('created_at');
+        if (error) { showToast('Errore caricamento: ' + error.message, 'error'); return; }
+        approvatori = data || [];
+        renderApprovatori();
+    }
+
+    function renderApprovatori() {
+        const list = document.getElementById('approvatori-list');
+        if (approvatori.length === 0) {
+            list.innerHTML = `<div style="text-align:center;padding:32px 20px;color:#9ca3af;font-size:14px;background:#fff;border-radius:14px;border:1.5px solid #e5e7eb">
+                <i class="fas fa-users" style="font-size:32px;margin-bottom:10px;display:block;color:#ddd6fe"></i>
+                Nessun approvatore configurato.<br>Aggiungi il primo responsabile con il pulsante qui sotto.
+            </div>`;
+            return;
+        }
+
+        list.innerHTML = approvatori.map(a => {
+            const link = BASE_URL + '?s=' + a.token;
+            return `<div class="setting-card" style="margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <div style="width:44px;height:44px;background:${a.attivo ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : '#e5e7eb'};border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="fas fa-user" style="color:${a.attivo ? '#fff' : '#9ca3af'};font-size:18px"></i>
+                </div>
+                <div style="flex:1;min-width:140px">
+                    <div style="font-size:15px;font-weight:700;color:${a.attivo ? '#111827' : '#9ca3af'}">${a.nome}</div>
+                    <div style="font-size:12px;color:#6b7280"><i class="fas fa-envelope" style="margin-right:4px"></i>${a.email}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                    <button onclick="copiaLink('${link}','${a.nome}')" title="Copia link personale" style="padding:8px 14px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:8px;color:#7c3aed;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+                        <i class="fas fa-link" style="margin-right:4px"></i>Copia Link
+                    </button>
+                    <button onclick="toggleAttivo('${a.id}',${a.attivo})" title="${a.attivo ? 'Disabilita' : 'Abilita'}" style="padding:8px 12px;background:${a.attivo ? '#fff7ed' : '#f0fdf4'};border:1.5px solid ${a.attivo ? '#fed7aa' : '#bbf7d0'};border-radius:8px;color:${a.attivo ? '#ea580c' : '#16a34a'};font-size:12px;cursor:pointer">
+                        <i class="fas fa-${a.attivo ? 'pause' : 'play'}"></i>
+                    </button>
+                    <button onclick="eliminaApprovatore('${a.id}','${a.nome}')" title="Elimina" style="padding:8px 12px;background:#fff5f5;border:1.5px solid #fecaca;border-radius:8px;color:#dc2626;font-size:12px;cursor:pointer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleForm() {
+        const form = document.getElementById('addForm');
+        const btn = document.getElementById('btnMostraForm');
+        const visible = form.style.display !== 'none';
+        form.style.display = visible ? 'none' : 'block';
+        btn.style.display = visible ? '' : 'none';
+        if (!visible) { document.getElementById('newNome').focus(); }
+    }
+
+    async function aggiungiApprovatore() {
+        const nome  = document.getElementById('newNome').value.trim();
+        const email = document.getElementById('newEmail').value.trim();
+        if (!nome)  { showToast('Inserisci il nome', 'error'); return; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Email non valida', 'error'); return; }
+
+        const btn = document.getElementById('btnAggiungi');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:5px"></i>Aggiungo...';
+
+        const { data, error } = await db.from('approvatori').insert([{ nome, email }]).select().single();
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi';
+
+        if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+
+        document.getElementById('newNome').value = '';
+        document.getElementById('newEmail').value = '';
+        toggleForm();
+        await loadApprovatori();
+        showToast(`✅ ${nome} aggiunto! Link personale pronto.`, 'success');
+    }
+
+    async function toggleAttivo(id, attuale) {
+        const { error } = await db.from('approvatori').update({ attivo: !attuale }).eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+        await loadApprovatori();
+        showToast(attuale ? '⏸ Approvatore disabilitato' : '▶ Approvatore abilitato', 'success');
+    }
+
+    // ── Confirm Modal ──────────────────────────────────────────
+    function showConfirm(title, msg) {
+        return new Promise(resolve => {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMsg').textContent  = msg;
+            const modal  = document.getElementById('confirmModal');
+            const btnOk  = document.getElementById('confirmOk');
+            const btnNo  = document.getElementById('confirmCancel');
+            modal.classList.add('open');
+            const done = (val) => {
+                modal.classList.remove('open');
+                btnOk.onclick = null; btnNo.onclick = null;
+                resolve(val);
+            };
+            btnOk.onclick  = () => done(true);
+            btnNo.onclick  = () => done(false);
+            modal.onclick  = (e) => { if (e.target === modal) done(false); };
+        });
+    }
+
+    async function eliminaApprovatore(id, nome) {
+        const ok = await showConfirm(
+            `Eliminare ${nome}?`,
+            'Il suo link personale smetterà di funzionare. Questa azione non è reversibile.'
+        );
+        if (!ok) return;
+        const { error } = await db.from('approvatori').delete().eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+        await loadApprovatori();
+        showToast(`🗑 ${nome} eliminato`, 'success');
+    }
+
+    function copiaLink(link, nome) {
+        navigator.clipboard.writeText(link).then(() => {
+            showToast(`📋 Link di ${nome} copiato!`, 'success');
+        }).catch(() => {
+            prompt(`Link personale di ${nome}:`, link);
+        });
+    }
+
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast ${type} show`;
+        setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    document.getElementById('newNome').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('newEmail').focus(); });
+    document.getElementById('newEmail').addEventListener('keydown', e => { if (e.key === 'Enter') aggiungiApprovatore(); });
+</script>
+</body>
+</html>

@@ -188,7 +188,7 @@ window.dataManager = {
                 'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id',
                 'assigned_team_id', 'created_by', 'created_at', 'updated_at',
                 'ora_inizio', 'ora_fine', 'ore_stimate', 'costo_stimato',
-                'data_inizio', 'data_completamento', 'preventivo_id'
+                'data_inizio', 'data_completamento', 'preventivo_id', 'parent_task_id'
             ];
             
             const cleanedTask = {};
@@ -242,6 +242,11 @@ window.dataManager = {
                         await window.TasksAPI.addComponent(cleanedTask.id, comp.id, comp.quantita || 1, comp.note || null);
                     }
                 }
+
+                // Sincronizza progresso madre se questo è un figlio
+                if (cleanedTask.parent_task_id) {
+                    await this._syncParentProgress(cleanedTask.parent_task_id);
+                }
             } else {
                 savedTask = await window.TasksAPI.create(cleanedTask);
                 
@@ -251,12 +256,44 @@ window.dataManager = {
                         await window.TasksAPI.addComponent(savedTask.id, comp.id, comp.quantita || 1, comp.note || null);
                     }
                 }
+
+                // Sincronizza progresso madre se questo è un figlio
+                if (cleanedTask.parent_task_id) {
+                    await this._syncParentProgress(cleanedTask.parent_task_id);
+                }
             }
             
             return savedTask;
         } catch (error) {
             console.error('Errore salvataggio lavorazione:', error);
             throw error;
+        }
+    },
+
+    // ── Aggiorna il progresso della madre come media dei figli ──
+    async _syncParentProgress(parentId) {
+        try {
+            const client = window.supabaseAdmin || window.supabase;
+            const { data: siblings } = await client
+                .from('tasks')
+                .select('progresso')
+                .eq('parent_task_id', parentId)
+                .neq('stato', 'annullato');
+
+            if (!siblings || siblings.length === 0) return;
+
+            const avg = Math.round(
+                siblings.reduce((sum, t) => sum + (t.progresso || 0), 0) / siblings.length
+            );
+
+            await client
+                .from('tasks')
+                .update({ progresso: avg, updated_at: new Date().toISOString() })
+                .eq('id', parentId);
+
+            console.log(`🔗 Progresso madre aggiornato a ${avg}% (media ${siblings.length} figli)`);
+        } catch (e) {
+            console.warn('[_syncParentProgress] Errore:', e);
         }
     },
 
@@ -380,22 +417,89 @@ window.dataManager = {
             const lavorazioni = await this.getLavorazioni();
             const events = [];
 
-            // Costruisce start/end ISO con orario se disponibile
-            function buildEventTimes(task) {
-                const date = task.scadenza;
-                if (task.ora_inizio) {
-                    const start = `${date}T${task.ora_inizio}`;
-                    const end = task.ora_fine ? `${date}T${task.ora_fine}` : null;
-                    return { start, end, allDay: false };
+            // Helper: split a date range into contiguous weekday-only segments
+            function splitWeekdaySegments(startStr, endStr) {
+                const start = new Date(startStr + 'T00:00:00');
+                const end   = new Date(endStr   + 'T00:00:00');
+                const segs  = [];
+                let segStart = null, segEnd = null;
+                let cur = new Date(start);
+                while (cur <= end) {
+                    const dow = cur.getDay();
+                    if (dow !== 0 && dow !== 6) { // Mon–Fri
+                        if (!segStart) segStart = new Date(cur);
+                        segEnd = new Date(cur);
+                    } else {
+                        if (segStart) {
+                            const excEnd = new Date(segEnd);
+                            excEnd.setDate(excEnd.getDate() + 1);
+                            segs.push({ start: segStart.toISOString().split('T')[0], end: excEnd.toISOString().split('T')[0], allDay: true });
+                            segStart = null; segEnd = null;
+                        }
+                    }
+                    cur.setDate(cur.getDate() + 1);
                 }
-                return { start: date, end: null, allDay: true };
+                if (segStart) {
+                    const excEnd = new Date(segEnd);
+                    excEnd.setDate(excEnd.getDate() + 1);
+                    segs.push({ start: segStart.toISOString().split('T')[0], end: excEnd.toISOString().split('T')[0], allDay: true });
+                }
+                return segs;
+            }
+
+            // Returns array of {start,end,allDay} — may be >1 if task spans weekends
+            function buildEventTimes(task) {
+                const startDate = task.data_inizio || task.scadenza;
+                const endDate   = task.scadenza    || startDate;
+                if (!startDate) return [];
+
+                if (task.ora_inizio) {
+                    // Timed task: one event per weekday in the range (skip weekends)
+                    if (endDate && endDate !== startDate) {
+                        const segments = [];
+                        let cur = new Date(startDate + 'T12:00:00');
+                        const end = new Date(endDate + 'T12:00:00');
+                        while (cur <= end) {
+                            const dow = cur.getDay();
+                            if (dow !== 0 && dow !== 6) {
+                                const iso = cur.toISOString().split('T')[0];
+                                segments.push({
+                                    start: `${iso}T${task.ora_inizio}`,
+                                    end: task.ora_fine ? `${iso}T${task.ora_fine}` : null,
+                                    allDay: false
+                                });
+                            }
+                            cur.setDate(cur.getDate() + 1);
+                        }
+                        if (segments.length > 0) return segments;
+                    }
+                    // Single day
+                    const s = `${startDate}T${task.ora_inizio}`;
+                    const e = task.ora_fine ? `${endDate}T${task.ora_fine}` : null;
+                    return [{ start: s, end: e, allDay: false }];
+                }
+
+                // All-day: split into weekday-only segments
+                if (endDate && endDate !== startDate) {
+                    const segs = splitWeekdaySegments(startDate, endDate);
+                    if (segs.length > 0) return segs;
+                    // fallback if entirely on weekend (rare)
+                    const excEnd = new Date(endDate + 'T00:00:00');
+                    excEnd.setDate(excEnd.getDate() + 1);
+                    return [{ start: startDate, end: excEnd.toISOString().split('T')[0], allDay: true }];
+                }
+                return [{ start: startDate, end: null, allDay: true }];
             }
 
             for (const task of lavorazioni) {
                 if (!task.scadenza) continue;
                 if (task.visibile === false) continue; // Escludi standby dal calendario
 
-                const times = buildEventTimes(task);
+                const timeSegments = buildEventTimes(task);
+
+                for (let si = 0; si < timeSegments.length; si++) {
+                    const times = timeSegments[si];
+                    const segSuffix = timeSegments.length > 1 ? `-s${si}` : '';
 
                 // Se assegnato a squadra, crea evento per ogni membro
                 if (task.assigned_team_id) {
@@ -426,7 +530,7 @@ window.dataManager = {
                     teamMembers.forEach(member => {
                         if (!member || !member.id) return;
                         const evt = {
-                            id: `task-${task.id}-member-${member.id}`,
+                            id: `task-${task.id}-member-${member.id}${segSuffix}`,
                             title: `${task.titolo} (${teamNome})`,
                             start: times.start,
                             allDay: times.allDay,
@@ -449,7 +553,7 @@ window.dataManager = {
                     // Se la squadra non ha membri, crea comunque un evento per il task
                     if (teamMembers.length === 0) {
                         const evt = {
-                            id: `task-${task.id}-team`,
+                            id: `task-${task.id}-team${segSuffix}`,
                             title: `${task.titolo} (${teamNome})`,
                             start: times.start,
                             allDay: times.allDay,
@@ -478,7 +582,7 @@ window.dataManager = {
                         const assigneeName = u ? `${u.nome} ${u.cognome}` : userId;
                         const userColor = (window.USER_COLORS && window.USER_COLORS[userId]) || '#6366f1';
                         const evt = {
-                            id: `task-${task.id}-user-${userId}`,
+                            id: `task-${task.id}-user-${userId}${segSuffix}`,
                             title: `${task.titolo} (${assigneeName})`,
                             start: times.start,
                             allDay: times.allDay,
@@ -506,7 +610,7 @@ window.dataManager = {
                     const userColor = (window.USER_COLORS && window.USER_COLORS[task.assigned_user_id]) || '#3b82f6';
 
                     const evt = {
-                        id: `task-${task.id}`,
+                        id: `task-${task.id}${segSuffix}`,
                         title: task.titolo,
                         start: times.start,
                         allDay: times.allDay,
@@ -524,6 +628,7 @@ window.dataManager = {
                     if (times.end) evt.end = times.end;
                     events.push(evt);
                 }
+                } // end segment loop
             }
 
             return events;

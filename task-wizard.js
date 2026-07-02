@@ -142,6 +142,9 @@ class TaskWizard {
             indirizzo_lavoro: '',
             coordinate_gps: null,
             componenti: [], // {prodotto_id, quantita, note}
+
+            // Interventi collegati
+            parent_task_id: null
             
             // Step 4: Conferma (autogenerata)
         };
@@ -650,7 +653,7 @@ class TaskWizard {
                                         </div>
                                     </div>
                                     <div class="text-sm text-gray-600">
-                                        ${assignment.ore_assegnate || 0}h
+                                        ${assignment.ore_assegnate || this.wizardData.ore_stimate || 0}h
                                     </div>
                                 </div>
                             </div>
@@ -821,22 +824,31 @@ class TaskWizard {
         }
         document.getElementById('wizard-descrizione').value = this.wizardData.descrizione || '';
         document.getElementById('wizard-priorita').value = this.wizardData.priorita || 'media';
-        // Ripristina label date picker
+        if (window.syncPriorityBtns) window.syncPriorityBtns('wizard-priorita');
+        // Ripristina campi data (singola o intervallo)
         const scadenza = this.wizardData.scadenza || '';
-        document.getElementById('wizard-scadenza').value = scadenza;
+        const dataInizio = this.wizardData.data_inizio || '';
+        const scadenzaEl = document.getElementById('wizard-scadenza');
+        const dataInizioEl = document.getElementById('wizard-data-inizio');
+        if (scadenzaEl) scadenzaEl.value = scadenza;
+        if (dataInizioEl) dataInizioEl.value = dataInizio;
+        // Se data singola: aggiorna label pulsante
+        const isRange = dataInizio && scadenza && dataInizio !== scadenza;
         const dpLbl = document.getElementById('datePickerLabel');
-        if (dpLbl) {
+        if (dpLbl && !isRange) {
             if (scadenza) {
-                const d = new Date(scadenza);
+                const d = new Date(scadenza + 'T12:00:00');
                 const label = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-                dpLbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-purple-600"></i><span class="text-gray-800 font-semibold">${label}</span>`;
+                dpLbl.innerHTML = `<i data-lucide="calendar-check" class="w-4 h-4 inline mr-2 text-orange-600"></i><span class="text-orange-800 font-semibold">${label}</span>`;
                 dpLbl.classList.remove('text-gray-400');
             } else {
-                dpLbl.innerHTML = '<i data-lucide="calendar" class="w-4 h-4 inline mr-2 text-purple-400"></i>Scegli data...';
+                dpLbl.innerHTML = 'Scegli data...';
                 dpLbl.classList.add('text-gray-400');
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
+        // Aggiorna il display (range o singola)
+        if (typeof window._updateWizardDateDisplay === 'function') window._updateWizardDateDisplay();
         document.getElementById('wizard-categoria').value = this.wizardData.categoria || '';
         document.getElementById('wizard-ora-inizio').value = this.wizardData.ora_inizio || '';
         document.getElementById('wizard-ora-fine').value = this.wizardData.ora_fine || '';
@@ -892,9 +904,19 @@ class TaskWizard {
         this.wizardData.descrizione = document.getElementById('wizard-descrizione').value;
         this.wizardData.priorita = document.getElementById('wizard-priorita').value;
         this.wizardData.scadenza = document.getElementById('wizard-scadenza').value;
+        this.wizardData.data_inizio = document.getElementById('wizard-data-inizio')?.value || '';
         this.wizardData.ora_inizio = document.getElementById('wizard-ora-inizio').value;
         this.wizardData.ora_fine = document.getElementById('wizard-ora-fine').value;
         this.wizardData.categoria = document.getElementById('wizard-categoria').value;
+        // Interventi collegati (gestito da LinkedTasks, ma leggiamo anche l'hidden input)
+        const parentInp = document.getElementById('wizard-parent-task-id');
+        if (parentInp) this.wizardData.parent_task_id = parentInp.value || null;
+        // Progresso (solo in modalità modifica, sezione visibile)
+        const progInput = document.getElementById('wizard-task-progress');
+        if (progInput && !document.getElementById('wizard-progress-section')?.classList.contains('hidden')) {
+            this.wizardData.progresso = parseInt(progInput.value) || 0;
+            this.wizardData.note_progresso = document.getElementById('wizard-progress-notes')?.value || null;
+        }
     }
 
     saveStep2Data() {
@@ -959,8 +981,18 @@ class TaskWizard {
                 ore_stimate: this.wizardData.ore_stimate,
                 costo_stimato: this.wizardData.costo_stimato,
                 stato: this.wizardData.stato || 'da_fare',
-                wizard_completed: true
+                wizard_completed: true,
+                progresso: this.wizardData.progresso !== undefined ? this.wizardData.progresso : 0,
+                note_progresso: this.wizardData.note_progresso || null,
+                parent_task_id: this.wizardData.parent_task_id || null
             };
+
+            // Imposta data_inizio: range se diverso da scadenza, altrimenti uguale alla scadenza
+            if (this.wizardData.data_inizio && this.wizardData.data_inizio !== this.wizardData.scadenza) {
+                taskData.data_inizio = this.wizardData.data_inizio;
+            } else {
+                taskData.data_inizio = this.wizardData.scadenza || null;
+            }
 
             let task;
             
@@ -1030,6 +1062,11 @@ class TaskWizard {
             if (this.wizardData.componenti.length > 0) {
                 console.log('📦 [WIZARD] Salvando', this.wizardData.componenti.length, 'componenti...');
                 
+                // In caso di update, elimina prima i vecchi componenti
+                if (this.wizardData.id) {
+                    await supabaseClient.from('task_components').delete().eq('task_id', task.id);
+                }
+                
                 const componentiData = this.wizardData.componenti.map(c => ({
                     task_id: task.id,
                     component_id: c.prodotto_id,
@@ -1045,6 +1082,9 @@ class TaskWizard {
                 } else {
                     console.log('✅ [WIZARD] Componenti salvati con successo');
                 }
+            } else if (this.wizardData.id) {
+                // Update senza componenti: elimina quelli vecchi
+                await supabaseClient.from('task_components').delete().eq('task_id', task.id);
             }
 
             // Salva preventivi collegati (multi-preventivo)
@@ -1072,6 +1112,10 @@ class TaskWizard {
             if (typeof loadTasks === 'function') {
                 loadTasks();
             }
+            // Notifica parent (calendario) che una lavorazione è stata salvata
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'wizardSaved' }, '*');
+            }
             
             console.log('✅ [WIZARD] submitWizard() completato con successo');
 
@@ -1088,6 +1132,10 @@ class TaskWizard {
             modal.classList.add('hidden');
         }
         this.resetData();
+        // Notifica parent se in modalità iframe embedded
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'wizardClose' }, '*');
+        }
     }
 
     // ===================================
@@ -1168,6 +1216,7 @@ class TaskWizard {
             cliente_id: null,
             descrizione: '',
             priorita: 'media',
+            data_inizio: '',
             scadenza: '',
             ora_inizio: '',
             ora_fine: '',
@@ -1181,8 +1230,13 @@ class TaskWizard {
             costo_stimato: 0,
             indirizzo_lavoro: '',
             coordinate_gps: null,
-            componenti: []
+            componenti: [],
+            progresso: 0,
+            note_progresso: null
         };
+        // Nascondi la sezione progresso (solo per modifica)
+        const progSection = document.getElementById('wizard-progress-section');
+        if (progSection) progSection.classList.add('hidden');
         // Reset anche la selezione locale dipendenti nel picker
         window._wizardMultiSelected = [];
         if (typeof window._wizardGiornateReset === 'function') window._wizardGiornateReset();

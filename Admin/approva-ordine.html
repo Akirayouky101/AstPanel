@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approvazione Ordini – ZG Impianti</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{min-height:100vh;background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%);font-family:"Helvetica Neue",Arial,sans-serif;color:#111827}
+        .page-header{background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(109,40,217,.35)}
+        .page-header h1{color:#fff;font-size:20px;font-weight:800}
+        .page-header p{color:rgba(255,255,255,.75);font-size:13px;margin-top:3px}
+        .badge-count{background:rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:700;padding:6px 16px;border-radius:999px}
+        .state{display:none}.state.active{display:block}
+        .spinner-wrap{text-align:center;padding:80px 20px}
+        .spinner{width:52px;height:52px;border:4px solid #ddd6fe;border-top-color:#7c3aed;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .empty-state{text-align:center;padding:80px 20px;max-width:420px;margin:0 auto}
+        .empty-icon{font-size:72px;margin-bottom:16px}
+        .cards{max-width:860px;margin:32px auto;padding:0 20px 60px;display:flex;flex-direction:column;gap:24px}
+        .order-card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);border:1.5px solid #e5e7eb;transition:box-shadow .2s}
+        .order-card:hover{box-shadow:0 8px 32px rgba(0,0,0,.12)}
+        .card-head{background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .card-head-left{display:flex;align-items:center;gap:14px}
+        .card-numero{font-size:20px;font-weight:900;color:#fff}
+        .card-tipo{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+        .tipo-approva{background:rgba(255,255,255,.2);color:#fff}
+        .tipo-ratifica{background:rgba(255,230,100,.25);color:#fde68a}
+        .card-date{font-size:12px;color:rgba(255,255,255,.7)}
+        .card-body{padding:22px 24px}
+        .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:20px;padding-bottom:18px;border-bottom:1.5px solid #f3f4f6}
+        .info-cell label{display:block;font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+        .info-cell span{font-size:13px;font-weight:600;color:#374151}
+        .section-title{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+        .items-table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:18px}
+        .items-table thead tr{background:#f5f3ff}
+        .items-table th{padding:9px 12px;font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:1.5px solid #ddd6fe}
+        .items-table td{padding:10px 12px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6}
+        .items-table tbody tr:last-child td{border-bottom:none}
+        .items-table tbody tr:hover{background:#faf9ff}
+        .r{text-align:right}.c{text-align:center}
+        .totals{background:#f9fafb;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:flex-end}
+        .totals-table{border-collapse:collapse}
+        .totals-table td{padding:4px 0 4px 24px;font-size:13px;color:#374151}
+        .totals-table td:first-child{color:#9ca3af}
+        .totals-table td:last-child{font-weight:600;text-align:right;min-width:100px}
+        .totals-table .total-row td{font-size:16px;font-weight:800;color:#111827;padding-top:10px;border-top:2px solid #e5e7eb}
+        .note-box{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 10px 10px 0;font-size:13px;color:#374151;margin-bottom:14px}
+        .note-box.interne{background:#f0fdf4;border-left-color:#22c55e}
+        .note-label{font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+        .note-box.interne .note-label{color:#166534}
+        .card-foot{padding:16px 24px 20px;border-top:1.5px solid #f3f4f6;display:flex;align-items:center;justify-content:flex-end;gap:12px}
+        .btn-action{padding:12px 28px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:transform .1s,box-shadow .1s}
+        .btn-action:active{transform:scale(.97)}
+        .btn-reject{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;box-shadow:0 3px 12px rgba(220,38,38,.25)}
+        .btn-reject:hover{box-shadow:0 5px 18px rgba(220,38,38,.35)}
+        .btn-approve{background:linear-gradient(135deg,#059669,#047857);color:#fff;box-shadow:0 3px 12px rgba(5,150,105,.25)}
+        .btn-approve:hover{box-shadow:0 5px 18px rgba(5,150,105,.35)}
+        .result-overlay{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700}
+        @media(max-width:600px){.page-header{padding:18px 20px;flex-direction:column;align-items:flex-start;gap:10px}.cards{padding:16px 12px 40px}.card-head{flex-direction:column;align-items:flex-start}.card-body{padding:16px}.card-foot{padding:14px 16px}.info-grid{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+<div class="page-header">
+    <div><h1>&#9203; Approvazione Ordini Interni</h1><p id="headerSub">ZG Impianti &ndash; Pannello Responsabile</p></div>
+    <div id="headerBadge" class="badge-count" style="display:none"></div>
+</div>
+<div id="stateLoading" class="state active">
+    <div class="spinner-wrap"><div class="spinner"></div><p style="color:#6b7280;font-size:14px">Caricamento ordini...</p></div>
+</div>
+<div id="stateError" class="state">
+    <div class="empty-state">
+        <div class="empty-icon">&#10060;</div>
+        <p style="font-size:20px;font-weight:800;color:#dc2626;margin-bottom:8px">Accesso non riuscito</p>
+        <p id="errorMsg" style="font-size:14px;color:#6b7280;line-height:1.6"></p>
+    </div>
+</div>
+<div id="stateEmpty" class="state">
+    <div class="empty-state">
+        <div class="empty-icon">&#9989;</div>
+        <p style="font-size:22px;font-weight:800;color:#059669;margin-bottom:8px">Nessun ordine in attesa!</p>
+        <p style="font-size:14px;color:#6b7280;line-height:1.6">Tutti gli ordini sono stati gestiti. Quando un dipendente invier&#224; un nuovo ordine per approvazione, apparir&#224; qui.</p>
+    </div>
+</div>
+<div id="stateOrders" class="state">
+    <div class="cards" id="cardsList"></div>
+</div>
+
+<script>
+const db = window.supabaseClient;
+const session = new URLSearchParams(window.location.search).get('s');
+let pendingCount = 0;
+
+const fmtE = v => v != null
+    ? '\u20ac\u00a0' + parseFloat(v).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2})
+    : '\u2014';
+
+const fmtD = d => {
+    if (!d) return '\u2014';
+    const [y, m, day] = d.split('-');
+    return day + '/' + m + '/' + y;
+};
+
+function setState(n) {
+    document.querySelectorAll('.state').forEach(e => e.classList.remove('active'));
+    document.getElementById('state' + n)?.classList.add('active');
+}
+
+function updateBadge() {
+    const b = document.getElementById('headerBadge');
+    if (pendingCount > 0) { b.textContent = pendingCount + ' in attesa'; b.style.display = ''; }
+    else { b.style.display = 'none'; }
+}
+
+function buildCard(o) {
+    const tipoLabel = o.tipo === 'da_approvare' ? '&#9203; Da Approvare' : '&#9997; Da Ratificare';
+    const tipoCls   = o.tipo === 'da_approvare' ? 'tipo-approva' : 'tipo-ratifica';
+
+    const righe = (o.items || []).map((it, idx) => {
+        const sconto = it.sconto_percentuale > 0
+            ? `<span style="font-size:11px;color:#6b7280;margin-left:4px">-${it.sconto_percentuale}%</span>`
+            : '';
+        const noteRiga = it.note ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px">${it.note}</div>` : '';
+        return `<tr>
+            <td class="c" style="font-size:12px;color:#9ca3af">${idx + 1}</td>
+            <td style="font-family:monospace;font-size:12px;color:#7c3aed">${it.codice || '\u2014'}</td>
+            <td style="font-weight:600;color:#111827">${it.descrizione || '\u2014'}${noteRiga}</td>
+            <td class="c">${it.quantita ?? 0}</td>
+            <td class="c">${it.um || 'pz'}</td>
+            <td class="r">${fmtE(it.prezzo_unitario)}${sconto}</td>
+            <td class="r" style="font-weight:700">${fmtE(it.importo)}</td>
+        </tr>`;
+    }).join('');
+
+    const imponibile = o.subtotale * (1 - (o.sconto_percentuale || 0) / 100);
+    const iva = imponibile * ((o.iva_percentuale || 22) / 100);
+    const scontoRow = o.sconto_percentuale > 0 ? `
+        <tr><td>Sconto ${o.sconto_percentuale}%</td><td>- ${fmtE(o.subtotale * o.sconto_percentuale / 100)}</td></tr>
+        <tr><td>Imponibile</td><td>${fmtE(imponibile)}</td></tr>` : '';
+
+    const infoChips = [
+        ['Fornitore',          o.fornitore_nome],
+        ['Ordinato da',        o.chi_ha_ordinato],
+        ['Canale',             o.canale_ordine],
+        ['Data Ordine',        fmtD(o.data_ordine)],
+        ['Consegna Prevista',  o.data_consegna_prevista ? fmtD(o.data_consegna_prevista) : null]
+    ].filter(c => c[1]);
+
+    const infoHtml = infoChips.map(c =>
+        `<div class="info-cell"><label>${c[0]}</label><span>${c[1]}</span></div>`
+    ).join('');
+
+    const emptyRow = `<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px;font-size:13px">Nessun articolo</td></tr>`;
+
+    return `
+    <div class="order-card" id="card-${o.id}">
+        <div class="card-head">
+            <div class="card-head-left">
+                <span class="card-numero">${o.numero}</span>
+                <span class="card-tipo ${tipoCls}">${tipoLabel}</span>
+            </div>
+            <span class="card-date"><i class="fas fa-clock" style="margin-right:4px"></i>${fmtD(o.data_ordine)}</span>
+        </div>
+        <div class="card-body">
+            <div class="info-grid">${infoHtml}</div>
+            <div style="margin-bottom:18px">
+                <div class="section-title">Oggetto</div>
+                <div style="font-size:15px;font-weight:700;color:#111827">${o.oggetto}</div>
+            </div>
+            <div class="section-title">Articoli (${(o.items || []).length})</div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th class="c" style="width:32px">#</th>
+                        <th style="width:90px">Codice</th>
+                        <th>Descrizione</th>
+                        <th class="c" style="width:50px">Q.t&#224;</th>
+                        <th class="c" style="width:40px">UM</th>
+                        <th class="r" style="width:100px">Prezzo</th>
+                        <th class="r" style="width:100px">Importo</th>
+                    </tr>
+                </thead>
+                <tbody>${righe || emptyRow}</tbody>
+            </table>
+            <div class="totals">
+                <table class="totals-table">
+                    <tr><td>Subtotale</td><td>${fmtE(o.subtotale)}</td></tr>
+                    ${scontoRow}
+                    <tr><td>IVA ${o.iva_percentuale || 22}%</td><td>${fmtE(iva)}</td></tr>
+                    <tr class="total-row"><td>Totale</td><td>${fmtE(o.totale)}</td></tr>
+                </table>
+            </div>
+            ${o.note ? `<div class="note-box"><div class="note-label">Note per il fornitore</div>${o.note}</div>` : ''}
+            ${o.note_interne ? `<div class="note-box interne"><div class="note-label">Note interne</div>${o.note_interne}</div>` : ''}
+        </div>
+        <div class="card-foot" id="foot-${o.id}">
+            <button class="btn-action btn-reject" onclick="agisci('${o.id}','rifiuta')">
+                <i class="fas fa-times-circle"></i> Rifiuta
+            </button>
+            <button class="btn-action btn-approve" onclick="agisci('${o.id}','approva')">
+                <i class="fas fa-check-circle"></i> Approva
+            </button>
+        </div>
+    </div>`;
+}
+
+async function load() {
+    if (!session) {
+        setState('Error');
+        document.getElementById('errorMsg').textContent = 'Link non valido: parametro di sessione mancante.';
+        return;
+    }
+    const { data, error } = await db.rpc('get_ordini_approvazione', { p_token: session });
+    if (error || !data?.ok) {
+        setState('Error');
+        document.getElementById('errorMsg').textContent = data?.err || error?.message || 'Errore caricamento.';
+        return;
+    }
+    const ordini = data.ordini || [];
+    pendingCount = ordini.length;
+    // Mostra nome approvatore nel sottotitolo header
+    if (data.approvatore_nome) {
+        document.getElementById('headerSub').textContent = 'Ciao, ' + data.approvatore_nome + '! — ZG Impianti';
+    }
+    if (ordini.length === 0) { setState('Empty'); return; }
+    document.getElementById('cardsList').innerHTML = ordini.map(buildCard).join('');
+    updateBadge();
+    setState('Orders');
+}
+
+async function agisci(ordineId, azione) {
+    const foot = document.getElementById('foot-' + ordineId);
+    foot.innerHTML = `<div class="result-overlay"><div class="spinner" style="width:22px;height:22px;margin:0"></div><span style="color:#6b7280;font-size:13px">${azione === 'approva' ? 'Approvazione...' : 'Rifiuto...'}</span></div>`;
+
+    const { data, error } = await db.rpc('approva_ordine_diretto', {
+        p_token: session,
+        p_ordine_id: ordineId,
+        p_azione: azione
+    });
+
+    if (error || !data?.ok) {
+        foot.innerHTML = `<div class="result-overlay"><i class="fas fa-exclamation-triangle" style="color:#dc2626"></i><span style="color:#dc2626;font-size:13px">${data?.err || error?.message || 'Errore'}</span></div>`;
+        return;
+    }
+
+    const isApprova = data.azione === 'approva';
+    foot.innerHTML = `<div class="result-overlay">
+        <i class="fas fa-${isApprova ? 'check' : 'times'}-circle fa-lg" style="color:${isApprova ? '#059669' : '#dc2626'}"></i>
+        <span style="color:${isApprova ? '#059669' : '#dc2626'};font-size:15px;font-weight:700">${isApprova ? '\u2705 Approvato!' : '\u274c Rifiutato'}</span>
+    </div>`;
+
+    const card = document.getElementById('card-' + ordineId);
+    setTimeout(() => {
+        card.style.transition = 'opacity .5s, transform .5s';
+        card.style.opacity = '0.35';
+        card.style.transform = 'scale(.98)';
+        card.style.pointerEvents = 'none';
+    }, 800);
+
+    pendingCount--;
+    updateBadge();
+    if (pendingCount === 0) {
+        setTimeout(() => { document.getElementById('cardsList').innerHTML = ''; setState('Empty'); }, 1800);
+    }
+}
+
+load();
+</script>
+</body>
+</html>

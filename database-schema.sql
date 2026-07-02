@@ -34,7 +34,16 @@ CREATE TABLE clients (
     ragione_sociale VARCHAR(255) NOT NULL,
     nome VARCHAR(100),
     cognome VARCHAR(100),
-    tipo_cliente VARCHAR(50) CHECK (tipo_cliente IN ('azienda', 'privato', 'condominio', 'associazione', 'comune')),
+    tipo_cliente VARCHAR(50) CHECK (tipo_cliente IN (
+        'privato',
+        'azienda',
+        'condominio',
+        'associazione',
+        'comune',
+        'amministratore_condominio',
+        'scuola',
+        'struttura'
+    )),
     indirizzo TEXT,
     citta VARCHAR(100),
     provincia VARCHAR(10),
@@ -61,6 +70,9 @@ CREATE TABLE clients (
     telefono_amministratore VARCHAR(50),
     email_amministratore VARCHAR(255),
     pec_amministratore VARCHAR(255),
+
+    -- Collegamento struttura / azienda
+    azienda_id UUID REFERENCES aziende(id) ON DELETE SET NULL,
     
     data_inizio_rapporto DATE,
     stato VARCHAR(20) DEFAULT 'attivo' CHECK (stato IN ('attivo', 'inattivo', 'potenziale')),
