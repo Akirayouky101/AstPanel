@@ -645,7 +645,9 @@
             </div>
             <div class="px-6 pb-6 flex justify-end gap-3">
                 <button onclick="closeRiepilogoModal()" class="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">Chiudi</button>
-
+                <button onclick="printRichiesta()" class="px-6 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-800 text-sm">
+                    <i class="fas fa-print mr-2"></i>Stampa
+                </button>
                 <button id="riepilogoBtnModifica" class="px-6 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm">
                     <i class="fas fa-edit mr-2"></i>Modifica
                 </button>
@@ -2201,6 +2203,105 @@
 
         function closeRiepilogoModal() {
             document.getElementById('riepilogoModal').classList.add('hidden');
+        }
+
+        function printRichiesta() {
+            const titolo = document.getElementById('riepilogoTitolo').textContent;
+            const sottotitolo = document.getElementById('riepilogoSottotitolo').textContent;
+            const infoHTML = document.getElementById('riepilogoInfo').innerHTML;
+            const itemsHTML = document.getElementById('riepilogoItems').innerHTML;
+            const noteBox = document.getElementById('riepilogoNoteBox');
+            const noteText = document.getElementById('riepilogoNote').textContent;
+            const hasNote = !noteBox.classList.contains('hidden') && noteText.trim();
+
+            const win = window.open('', '_blank', 'width=900,height=700');
+            win.document.write(`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>${titolo}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1f2937; padding: 32px 40px; }
+  .header { border-bottom: 3px solid #0d9488; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .header h1 { font-size: 22px; font-weight: 800; color: #0d9488; }
+  .header .sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  .header .logo { font-size: 11px; color: #9ca3af; text-align: right; }
+  .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; }
+  .info-box .label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px; }
+  .info-box .value { font-size: 13px; font-weight: 600; color: #111827; }
+  .info-box.wide { grid-column: span 4; }
+  .info-box.wide2 { grid-column: span 2; }
+  h4 { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: #f3f4f6; }
+  th { padding: 8px 12px; text-align: left; font-weight: 700; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+  tr.dest-header td { background: #eff6ff; font-weight: 700; color: #1d4ed8; font-size: 12px; border-top: 2px solid #bfdbfe; }
+  tr.unassigned-header td { background: #f9fafb; font-weight: 700; color: #6b7280; border-top: 2px solid #e5e7eb; }
+  .note-box { margin-top: 20px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; }
+  .note-box .label { font-size: 10px; font-weight: 700; color: #92400e; text-transform: uppercase; margin-bottom: 4px; }
+  .note-box .text { font-size: 12px; color: #78350f; line-height: 1.6; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-bozza { background: #f3f4f6; color: #374151; }
+  .badge-inviata { background: #dbeafe; color: #1d4ed8; }
+  .badge-ricevuta { background: #d1fae5; color: #065f46; }
+  .badge-approvata { background: #dcfce7; color: #166534; }
+  .badge-rifiutata { background: #fee2e2; color: #991b1b; }
+  @media print { body { padding: 16px 20px; } button { display: none; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>${titolo}</h1>
+    <div class="sub">${sottotitolo}</div>
+  </div>
+  <div class="logo">AST Panel<br>${new Date().toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+</div>
+<div class="info-grid">
+${(()=>{
+  const tmp = document.createElement('div');
+  tmp.innerHTML = infoHTML;
+  return Array.from(tmp.querySelectorAll('div.bg-gray-50')).map(box => {
+    const label = box.querySelector('p.text-xs')?.textContent || '';
+    const valueDivText = box.querySelector('p.font-medium')?.textContent || '';
+    const valueDivBadge = box.querySelector('span[class]')?.textContent || '';
+    const value = valueDivText || valueDivBadge;
+    const isWide = box.classList.contains('col-span-2') || box.style.gridColumn;
+    return `<div class="info-box${isWide?'wide2':''}"><div class="label">${label.trim()}</div><div class="value">${value.trim()}</div></div>`;
+  }).join('');
+})()}
+</div>
+<h4><i style="margin-right:6px">📦</i>Articoli</h4>
+<table>
+  <thead><tr><th>Codice</th><th>Descrizione</th><th>Quantità</th><th>Note</th></tr></thead>
+  <tbody>
+${(()=>{
+  const tmp = document.createElement('table');
+  tmp.innerHTML = '<tbody>' + itemsHTML + '</tbody>';
+  return Array.from(tmp.querySelectorAll('tr')).map(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length === 1 && tr.querySelector('[colspan]')) {
+      const text = tds[0].textContent.trim();
+      const isUnassigned = text.includes('Non assegnati');
+      return `<tr class="${isUnassigned?'unassigned-header':'dest-header'}"><td colspan="4">${text}</td></tr>`;
+    }
+    return `<tr>${Array.from(tds).map(td=>`<td>${td.textContent.trim()}</td>`).join('')}</tr>`;
+  }).join('');
+})()}
+  </tbody>
+</table>
+${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text">${noteText}</div></div>` : ''}
+<div class="footer">
+  <span>Documento generato da AST Panel</span>
+  <span>Stampato il ${new Date().toLocaleString('it-IT')}</span>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`);
+            win.document.close();
         }
 
         async function apriRiepilogo(richiestaId) {
