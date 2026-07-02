@@ -648,6 +648,35 @@
         </div>
     </div>
 
+    <!-- ── Modal Conferma Completamento Lavorazione ── -->
+    <div id="completaLavorazioneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10200;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:20px;padding:0;max-width:420px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden">
+            <div style="background:linear-gradient(135deg,#16a34a,#15803d);padding:20px 24px 16px">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">✅</div>
+                    <div>
+                        <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Chiudi Lavorazione</h3>
+                        <p style="color:#bbf7d0;font-size:12px;margin-top:2px">Conferma completamento</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:24px">
+                <p style="font-size:15px;color:#1f2937;font-weight:600;margin:0 0 6px">Vuoi chiudere la lavorazione come completata?</p>
+                <p style="font-size:13px;color:#6b7280;margin:0 0 24px">Il progresso verrà portato al 100% e la lavorazione verrà spostata nella colonna <strong>Completate</strong>.</p>
+                <div style="display:flex;gap:10px">
+                    <button onclick="chiudiCompletaModal()"
+                        style="flex:1;padding:11px;border:2px solid #e5e7eb;background:#fff;color:#374151;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        Annulla
+                    </button>
+                    <button id="completaLavorazioneBtn" onclick="eseguiCompletaLavorazione()"
+                        style="flex:1;padding:11px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+                        ✅ Sì, Completa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Modal avviso disponibilità preventivo ── -->
     <div id="stockAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
@@ -1014,7 +1043,7 @@
                 ` : ''}
                 ${task.stato !== 'completato' ? `
                     <div class="mt-3 pt-3 border-t border-gray-100">
-                        <button onclick="event.stopPropagation();updateTaskStatus(${task.id},'completato')"
+                        <button onclick="event.stopPropagation();apriCompletaModal(${task.id})"
                             style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.15s"
                             onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
                             <i class="fas fa-check-circle"></i> Segna come Completata
@@ -1202,6 +1231,26 @@
             const newStatus = ev.currentTarget.getAttribute('data-status');
             
             updateTaskStatus(parseInt(taskId), newStatus);
+        }
+
+        // ── Modale conferma completamento ──
+        let _completaTaskId = null;
+        function apriCompletaModal(taskId) {
+            _completaTaskId = taskId;
+            const m = document.getElementById('completaLavorazioneModal');
+            m.style.display = 'flex';
+        }
+        function chiudiCompletaModal() {
+            _completaTaskId = null;
+            document.getElementById('completaLavorazioneModal').style.display = 'none';
+        }
+        async function eseguiCompletaLavorazione() {
+            if (!_completaTaskId) return;
+            const btn = document.getElementById('completaLavorazioneBtn');
+            btn.disabled = true;
+            btn.textContent = 'Salvataggio...';
+            await updateTaskStatus(_completaTaskId, 'completato');
+            chiudiCompletaModal();
         }
 
         async function updateTaskStatus(taskId, newStatus) {
