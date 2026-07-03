@@ -174,16 +174,6 @@
                     </button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <select id="filterStato" onchange="applyFilters()"
-                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
-                        <option value="">Tutti gli stati</option>
-                        <option value="da_inviare">Da Inviare</option>
-                        <option value="inviato">Inviato</option>
-                        <option value="risposto">Risposto</option>
-                        <option value="accettato">Accettato</option>
-                        <option value="rifiutato">Rifiutato</option>
-                        <option value="annullato">Annullato</option>
-                    </select>
                     <select id="filterFornitore" onchange="applyFilters()"
                             class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
                         <option value="">Tutti i fornitori</option>
@@ -211,6 +201,30 @@
                             class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-400 focus:border-transparent outline-none transition w-72">
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="bg-white shadow mb-6 overflow-x-auto" style="border-radius:8px;border:1px solid #f3f4f6">
+            <div class="flex" style="border-bottom:2px solid #f3f4f6;padding:0 16px">
+                <button id="tabRich-attive" onclick="setTabRichieste('attive')"
+                        class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid #0d9488;color:#0d9488;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-tasks mr-1"></i>Attive
+                    <span id="cnt-rich-attive" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#ccfbf1;color:#0f766e">0</span>
+                </button>
+                <button id="tabRich-convertite" onclick="setTabRichieste('convertite')"
+                        class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-shopping-cart mr-1"></i>Convertite in Ordine
+                    <span id="cnt-rich-convertite" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fed7aa;color:#c2410c">0</span>
+                </button>
+                <button id="tabRich-chiuse" onclick="setTabRichieste('chiuse')"
+                        class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-archive mr-1"></i>Chiuse
+                    <span id="cnt-rich-chiuse" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#f3f4f6;color:#4b5563">0</span>
+                </button>
             </div>
         </div>
 
@@ -845,6 +859,23 @@
     <script>
         let currentUser = null;
         let richieste = [];
+        let currentTabRichieste = 'attive';
+
+        const RICHIESTE_TAB_STATI = {
+            'attive':     ['da_inviare', 'inviato', 'risposto', 'accettato'],
+            'convertite': ['convertito'],
+            'chiuse':     ['rifiutato', 'annullato']
+        };
+
+        function setTabRichieste(tab) {
+            currentTabRichieste = tab;
+            document.querySelectorAll('.rich-tab').forEach(btn => {
+                const active = btn.id === 'tabRich-' + tab;
+                btn.style.borderBottom = active ? '2px solid #0d9488' : '2px solid transparent';
+                btn.style.color = active ? '#0d9488' : '#6b7280';
+            });
+            applyFilters();
+        }
         let fornitori = [];
         let prodotti = [];
         let currentItems = [];
@@ -1063,15 +1094,13 @@
 
         async function loadRichieste() {
             try {
-                const filterStato = document.getElementById('filterStato').value;
                 const filterFornitore = document.getElementById('filterFornitore').value;
 
                 let query = window.supabase
                     .from('richieste_preventivo_fornitori')
-                    .select('*, fornitore:fornitori(ragione_sociale), items:richieste_preventivo_items(codice, descrizione)')
+                    .select('*, fornitore:fornitori(ragione_sociale), items:richieste_preventivo_items(codice, descrizione), ordine:ordini_fornitore!richieste_preventivo_fornitori_ordine_fornitore_id_fkey(numero)')
                     .order('data_richiesta', { ascending: false });
 
-                // filterStato applicato lato client (così gli annullati vanno nella sezione dedicata)
                 if (filterFornitore) query = query.eq('fornitore_id', filterFornitore);
 
                 const { data, error } = await query;
@@ -1089,7 +1118,6 @@
         function applyFilters() {
             const search = document.getElementById('searchRichiesta').value.toLowerCase().trim();
             const mese = document.getElementById('filterMese').value;
-            const filterStato = document.getElementById('filterStato').value;
             let filtered = richieste;
 
             if (search) {
@@ -1112,23 +1140,14 @@
                 });
             }
 
-            // Sezione annullati separata
-            const annullatiList = filtered.filter(o => o.stato === 'annullato');
-
-            // Tabella principale: escludi annullati (hanno la propria sezione)
-            let mainFiltered;
-            if (filterStato && filterStato !== 'annullato') {
-                mainFiltered = filtered.filter(o => o.stato === filterStato);
-            } else {
-                mainFiltered = filtered.filter(o => o.stato !== 'annullato');
-            }
+            // Filtra per tab corrente
+            const statiTab = RICHIESTE_TAB_STATI[currentTabRichieste] || [];
+            const mainFiltered = filtered.filter(o => statiTab.includes(o.stato));
 
             const backup = richieste;
             richieste = mainFiltered;
             renderRichieste();
             richieste = backup;
-
-            renderAnnullati(annullatiList);
         }
 
         function renderAnnullati(annullati) {
@@ -1301,6 +1320,7 @@
                         <div class="flex flex-col gap-1">
                             ${getStatoBadge(richiesta.stato)}
                             ${richiesta.approvazione_stato && richiesta.approvazione_stato !== 'non_richiesta' ? getApprovazioneBadge(richiesta.approvazione_stato) : ''}
+                            ${richiesta.ordine?.numero ? `<a href="gestione-ordini-fornitori.html" class="px-2 py-0.5 inline-flex items-center text-xs font-semibold rounded-full bg-orange-100 text-orange-800 hover:bg-orange-200 transition" title="Vai all'ordine"><i class="fas fa-box mr-1"></i>${richiesta.ordine.numero}</a>` : ''}
                         </div>
                     </td>
                     <td class="px-6 py-4 text-sm space-x-2" onclick="event.stopPropagation()">
@@ -1324,9 +1344,13 @@
                         <button onclick="inviaEmailRichiesta('${richiesta.id}')" class="text-blue-600 hover:text-blue-900" title="Invia richiesta preventivo">
                             <i class="fas fa-envelope"></i>
                         </button>
-                        ${richiesta.stato !== 'annullato' ? `
+                        ${richiesta.stato !== 'annullato' && richiesta.stato !== 'convertito' ? `
                         <button onclick="annullaRichiesta('${richiesta.id}')" class="text-orange-500 hover:text-orange-700" title="Annulla preventivo">
                             <i class="fas fa-ban"></i>
+                        </button>` : ''}
+                        ${richiesta.stato === 'annullato' ? `
+                        <button onclick="ripristinaRichiesta('${richiesta.id}')" class="text-teal-600 hover:text-teal-800" title="Ripristina">
+                            <i class="fas fa-undo"></i>
                         </button>` : ''}
                         <button onclick="duplicaRichiesta('${richiesta.id}')" class="text-indigo-500 hover:text-indigo-700" title="Duplica (copia con stati azzerati)">
                             <i class="fas fa-copy"></i>
@@ -1351,12 +1375,13 @@
 
         function getStatoBadge(stato) {
             const badges = {
-                'da_inviare': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-clock mr-1"></i>Da Inviare</span>',
-                'inviato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-paper-plane mr-1"></i>Inviato</span>',
-                'risposto': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-comment mr-1"></i>Risposto</span>',
-                'accettato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Accettato</span>',
-                'rifiutato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times mr-1"></i>Rifiutato</span>',
-                'annullato': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-times-circle mr-1"></i>Annullato</span>'
+                'da_inviare':  '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-clock mr-1"></i>Da Inviare</span>',
+                'inviato':     '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-paper-plane mr-1"></i>Inviato</span>',
+                'risposto':    '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-comment mr-1"></i>Risposto</span>',
+                'accettato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Accettato</span>',
+                'rifiutato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times mr-1"></i>Rifiutato</span>',
+                'annullato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-times-circle mr-1"></i>Annullato</span>',
+                'convertito':  '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800"><i class="fas fa-shopping-cart mr-1"></i>Convertito</span>'
             };
             return badges[stato] || stato;
         }
@@ -1391,16 +1416,24 @@
         }
 
         function updateStats() {
-            const daInviare  = richieste.filter(o => o.stato === 'da_inviare').length;
-            const inviate    = richieste.filter(o => o.stato === 'inviato' || o.stato === 'risposto').length;
-            const accettate  = richieste.filter(o => o.stato === 'accettato').length;
-            const rifiutate  = richieste.filter(o => o.stato === 'rifiutato').length;
+            const daInviare   = richieste.filter(o => o.stato === 'da_inviare').length;
+            const inviate     = richieste.filter(o => o.stato === 'inviato' || o.stato === 'risposto').length;
+            const accettate   = richieste.filter(o => o.stato === 'accettato').length;
+            const rifiutate   = richieste.filter(o => o.stato === 'rifiutato').length;
+            const convertite  = richieste.filter(o => o.stato === 'convertito').length;
+            const chiuse      = rifiutate + richieste.filter(o => o.stato === 'annullato').length;
 
             document.getElementById('statTotal').textContent     = richieste.length;
             document.getElementById('statDaInviare').textContent = daInviare;
             document.getElementById('statInviate').textContent   = inviate;
             document.getElementById('statAccettati').textContent = accettate;
             document.getElementById('statRifiutate').textContent = rifiutate;
+
+            // Badge nelle tab
+            const attive = richieste.filter(o => RICHIESTE_TAB_STATI['attive'].includes(o.stato)).length;
+            if (document.getElementById('cnt-rich-attive'))     document.getElementById('cnt-rich-attive').textContent     = attive;
+            if (document.getElementById('cnt-rich-convertite')) document.getElementById('cnt-rich-convertite').textContent = convertite;
+            if (document.getElementById('cnt-rich-chiuse'))     document.getElementById('cnt-rich-chiuse').textContent     = chiuse;
         }
 
         function nuovaRichiesta() {
@@ -3161,10 +3194,10 @@ ${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text
                     if (righeErr) throw righeErr;
                 }
 
-                // 5. Aggiorna la richiesta con ordine_fornitore_id
+                // 5. Aggiorna la richiesta con ordine_fornitore_id + stato convertito
                 await window.supabase
                     .from('richieste_preventivo_fornitori')
-                    .update({ ordine_fornitore_id: nuovoOrdine.id })
+                    .update({ ordine_fornitore_id: nuovoOrdine.id, stato: 'convertito' })
                     .eq('id', _convertiRichiestaId);
 
                 closeConvertiModal();
