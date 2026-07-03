@@ -3164,7 +3164,7 @@ ${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text
                 const dataConsegna = document.getElementById('convertiDataConsegna').value || null;
                 const noteExtra   = document.getElementById('convertiNoteOrdine').value.trim();
 
-                // 3. Crea ordine_fornitore
+                // 3. Crea ordine_fornitore (con destinazioni copiate dalla richiesta)
                 const { data: nuovoOrdine, error: ordErr } = await window.supabase
                     .from('ordini_fornitore')
                     .insert({
@@ -3179,13 +3179,14 @@ ${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text
                         totale_ordine:           0,
                         created_by:              currentUser.id,
                         richiesta_id:            _convertiRichiestaId,
+                        destinazioni:            richiesta.destinazioni?.length ? richiesta.destinazioni : null,
                     })
                     .select()
                     .single();
 
                 if (ordErr) throw ordErr;
 
-                // 4. Crea righe ordine dagli articoli della richiesta
+                // 4. Crea righe ordine dagli articoli della richiesta (con destinazione_id)
                 if (items?.length) {
                     const righe = items.map(i => ({
                         ordine_id:         nuovoOrdine.id,
@@ -3197,6 +3198,7 @@ ${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text
                         prezzo_acquisto:   0,
                         importo:           0,
                         stato:             'da_ricevere',
+                        destinazione_id:   i.destinazione_id || null,
                     }));
                     const { error: righeErr } = await window.supabase
                         .from('ordini_fornitore_items')

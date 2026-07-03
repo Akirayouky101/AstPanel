@@ -19,19 +19,45 @@ const fmt = (d?: string | null) => {
 
 // ── Ordine Fornitore ──────────────────────────────────────────────────────────
 function buildOrdineHtml(p: Record<string, unknown>): string {
-  const { toName, fornitoreNome, numeroOrdine, oggetto, dataOrdine, dataConsegna, prodotti, note } = p as {
+  const { toName, fornitoreNome, numeroOrdine, oggetto, dataOrdine, dataConsegna, prodotti, destinazioni, note } = p as {
     toName?: string; fornitoreNome: string; numeroOrdine: string; oggetto: string;
     dataOrdine: string; dataConsegna?: string | null;
-    prodotti: Array<{ codice?: string; descrizione: string; quantita: number; um?: string }>;
+    destinazioni?: Array<{ id: string; nome: string; indirizzo?: string }>;
+    prodotti: Array<{ codice?: string; descrizione: string; quantita: number; um?: string; destinazione_id?: string | null }>;
     note?: string | null;
   };
 
-  const righe = (prodotti ?? []).map(r => `
+  const destList = Array.isArray(destinazioni) ? destinazioni : [];
+
+  const itemRow = (r: typeof prodotti[0]) => `
     <tr style="border-bottom:1px solid #f3f4f6">
       <td style="padding:10px 12px;font-size:13px;color:#374151;font-family:monospace">${r.codice ?? '—'}</td>
       <td style="padding:10px 12px;font-size:13px;color:#111827;font-weight:600">${r.descrizione ?? '—'}</td>
       <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:center">${r.quantita ?? 0} ${r.um ?? 'pz'}</td>
-    </tr>`).join('');
+    </tr>`;
+
+  const destHeader = (dest: { nome: string; indirizzo?: string }) => `
+    <tr style="background:#eff6ff;border-top:2px solid #bfdbfe">
+      <td colspan="3" style="padding:10px 14px;font-size:13px;font-weight:700;color:#1d4ed8">
+        📍 ${dest.nome}${dest.indirizzo ? ` <span style="font-weight:400;color:#3b82f6">— ${dest.indirizzo}</span>` : ''}
+      </td>
+    </tr>`;
+
+  let righe = '';
+  if (destList.length === 0) {
+    righe = (prodotti ?? []).map(itemRow).join('');
+  } else {
+    destList.forEach(dest => {
+      const di = (prodotti ?? []).filter(r => r.destinazione_id === dest.id);
+      righe += destHeader(dest);
+      righe += di.length > 0 ? di.map(itemRow).join('') : `<tr><td colspan="3" style="padding:8px 20px;color:#9ca3af;font-style:italic;font-size:12px">Nessun articolo</td></tr>`;
+    });
+    const unassigned = (prodotti ?? []).filter(r => !r.destinazione_id || !destList.find(d => d.id === r.destinazione_id));
+    if (unassigned.length > 0) {
+      righe += `<tr style="background:#f3f4f6;border-top:2px solid #d1d5db"><td colspan="3" style="padding:10px 14px;font-size:13px;font-weight:700;color:#6b7280">Articoli non assegnati</td></tr>`;
+      righe += unassigned.map(itemRow).join('');
+    }
+  }
 
   return `<!DOCTYPE html>
 <html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

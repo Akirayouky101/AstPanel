@@ -1562,11 +1562,13 @@
                     oggetto:        ordine.oggetto,
                     dataOrdine:     ordine.data_ordine,
                     dataConsegna:   ordine.data_consegna_prevista || null,
+                    destinazioni:   ordine.destinazioni || [],
                     prodotti:       (items || []).map(p => ({
-                        codice:      p.codice || '',
-                        descrizione: p.descrizione || '',
-                        quantita:    p.quantita_ordinata || 0,
-                        um:          p.um || 'pz',
+                        codice:         p.codice || '',
+                        descrizione:    p.descrizione || '',
+                        quantita:       p.quantita_ordinata || 0,
+                        um:             p.um || 'pz',
+                        destinazione_id: p.destinazione_id || null,
                     })),
                     note: ordine.note_interne || null,
                 };
@@ -1629,18 +1631,131 @@
             if (!ordine) return;
             const items = _riepilogoItemsCache;
             const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
+            const destList = Array.isArray(ordine.destinazioni) ? ordine.destinazioni : [];
 
-            const righe = items.map(i => `
+            const itemRow = i => `
                 <tr>
-                    <td style="padding:8px 10px;font-family:monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb">${i.codice || '—'}</td>
-                    <td style="padding:8px 10px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb">${i.descrizione || '—'}</td>
-                    <td style="padding:8px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">${parseFloat(i.quantita_ordinata||0).toFixed(2)} ${i.um||'pz'}</td>
-                    <td style="padding:8px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.prezzo_acquisto||0).toFixed(2)}</td>
-                    <td style="padding:8px 10px;text-align:right;font-size:13px;font-weight:700;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.importo||0).toFixed(2)}</td>
-                </tr>`).join('');
+                    <td style="padding:7px 10px;font-family:monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb">${i.codice || '—'}</td>
+                    <td style="padding:7px 10px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb">${i.descrizione || '—'}</td>
+                    <td style="padding:7px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">${parseFloat(i.quantita_ordinata||0).toFixed(2)} ${i.um||'pz'}</td>
+                    <td style="padding:7px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.prezzo_acquisto||0).toFixed(2)}</td>
+                    <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.importo||0).toFixed(2)}</td>
+                </tr>`;
+
+            const destHeader = dest => `
+                <tr>
+                    <td colspan="5" style="padding:8px 12px;background:#eff6ff;border-top:2px solid #bfdbfe;border-bottom:1px solid #bfdbfe;font-size:13px;font-weight:700;color:#1d4ed8">
+                        📍 ${dest.nome}${dest.indirizzo ? ` <span style="font-weight:400;color:#3b82f6;margin-left:6px">— ${dest.indirizzo}</span>` : ''}
+                    </td>
+                </tr>`;
+
+            let righe = '';
+            if (destList.length === 0) {
+                righe = items.map(itemRow).join('');
+            } else {
+                destList.forEach(dest => {
+                    const di = items.filter(i => i.destinazione_id === dest.id);
+                    righe += destHeader(dest);
+                    righe += di.length > 0 ? di.map(itemRow).join('') : `<tr><td colspan="5" style="padding:6px 20px;color:#9ca3af;font-style:italic;font-size:12px">Nessun articolo</td></tr>`;
+                });
+                const unassigned = items.filter(i => !i.destinazione_id || !destList.find(d => d.id === i.destinazione_id));
+                if (unassigned.length > 0) {
+                    righe += `<tr><td colspan="5" style="padding:8px 12px;background:#f3f4f6;border-top:2px solid #d1d5db;font-size:13px;font-weight:700;color:#6b7280">Articoli non assegnati</td></tr>`;
+                    righe += unassigned.map(itemRow).join('');
+                }
+            }
 
             const totale = parseFloat(ordine.totale_ordine || 0).toFixed(2);
             const fornitoreNome = ordine.fornitore?.ragione_sociale || ordine.fornitore_nome || '—';
+
+            const html = `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>Ordine ${ordine.numero}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 32px 40px; color: #111827; font-size: 13px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #ea580c; padding-bottom: 20px; margin-bottom: 24px; }
+  .company-name { font-size: 22px; font-weight: 900; color: #ea580c; }
+  .company-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .doc-type { text-align: right; }
+  .doc-type h1 { font-size: 18px; font-weight: 800; color: #1f2937; }
+  .doc-type p { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; }
+  .info-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .info-value { font-size: 14px; font-weight: 700; color: #1f2937; }
+  .info-value.orange { color: #ea580c; }
+  .oggetto-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
+  .oggetto-label { font-size: 10px; font-weight: 700; color: #9a3412; text-transform: uppercase; margin-bottom: 4px; }
+  .oggetto-value { font-size: 14px; font-weight: 600; color: #1f2937; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead tr { background: #ea580c; color: white; }
+  thead th { padding: 10px 10px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  thead th:nth-child(3), thead th:nth-child(4), thead th:nth-child(5) { text-align: right; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .total-row td { padding: 10px 10px; font-weight: 900; font-size: 14px; border-top: 2px solid #ea580c; }
+  .note-box { background: #f9fafb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
+  .footer { text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; }
+  @media print { body { padding: 16px 24px; } }
+</style></head><body>
+  <div class="header">
+    <div>
+      <div class="company-name">ZG Impianti Srl</div>
+      <div class="company-sub">Ufficio Acquisti · ordini@zgimpianti.it · zgimpianti.it</div>
+    </div>
+    <div class="doc-type">
+      <h1>Ordine Fornitore</h1>
+      <p>${ordine.numero} · ${fmt(ordine.data_ordine)}</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Fornitore</div>
+      <div class="info-value">${fornitoreNome}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Numero Ordine</div>
+      <div class="info-value orange">${ordine.numero}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Data Ordine</div>
+      <div class="info-value">${fmt(ordine.data_ordine)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Consegna Prevista</div>
+      <div class="info-value">${fmt(ordine.data_consegna_prevista)}</div>
+    </div>
+  </div>
+
+  ${ordine.oggetto ? `<div class="oggetto-box"><div class="oggetto-label">Oggetto</div><div class="oggetto-value">${ordine.oggetto}</div></div>` : ''}
+
+  <table>
+    <thead><tr>
+      <th>Codice</th><th>Descrizione</th>
+      <th style="text-align:right">Q.tà</th>
+      <th style="text-align:right">Prezzo</th>
+      <th style="text-align:right">Importo</th>
+    </tr></thead>
+    <tbody>
+      ${righe}
+      <tr class="total-row">
+        <td colspan="4" style="text-align:right;padding-right:10px">TOTALE ORDINE</td>
+        <td style="text-align:right;color:#ea580c">€ ${totale}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  ${ordine.note_interne ? `<div class="note-box"><strong style="font-size:11px;text-transform:uppercase;color:#92400e">Note</strong><p style="margin-top:6px;color:#374151">${ordine.note_interne}</p></div>` : ''}
+
+  <div class="footer">Documento generato il ${new Date().toLocaleDateString('it-IT')} · ZG Impianti Srl · ordini@zgimpianti.it</div>
+
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+            const w = window.open('', '_blank', 'width=900,height=700');
+            w.document.write(html);
+            w.document.close();
+        }
 
             const html = `<!DOCTYPE html>
 <html lang="it"><head><meta charset="UTF-8"><title>Ordine ${ordine.numero}</title>
@@ -1814,7 +1929,10 @@
 
             _riepilogoItemsCache = items;
 
-            document.getElementById('riepilogoItems').innerHTML = items.map(item => `
+            // Render articoli raggruppati per set/destinazione (se presenti)
+            const destList = Array.isArray(ordine.destinazioni) ? ordine.destinazioni : [];
+
+            const itemRowOdf = item => `
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 font-mono text-xs text-gray-600">${item.codice || '-'}</td>
                     <td class="px-4 py-3 text-gray-800">${item.descrizione || '-'}</td>
@@ -1825,8 +1943,35 @@
                     <td class="px-4 py-3 text-right text-gray-600">€ ${parseFloat(item.prezzo_acquisto || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-right font-semibold text-gray-800">€ ${parseFloat(item.importo || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-center">${itemBadges[item.stato] || item.stato}</td>
-                </tr>
-            `).join('');
+                </tr>`;
+
+            if (destList.length === 0) {
+                document.getElementById('riepilogoItems').innerHTML = items.map(itemRowOdf).join('');
+            } else {
+                let html = '';
+                destList.forEach(dest => {
+                    const destItems = items.filter(i => i.destinazione_id === dest.id);
+                    html += `<tr class="bg-blue-50 border-t-2 border-blue-200">
+                        <td colspan="7" class="px-4 py-2.5 font-bold text-blue-800 text-sm">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>
+                            ${dest.nome}${dest.indirizzo ? ` <span class="font-normal text-blue-600 ml-1">— ${dest.indirizzo}</span>` : ''}
+                        </td>
+                    </tr>`;
+                    html += destItems.length > 0
+                        ? destItems.map(itemRowOdf).join('')
+                        : `<tr><td colspan="7" class="px-8 py-2 text-gray-400 text-sm italic">Nessun articolo</td></tr>`;
+                });
+                const unassigned = items.filter(i => !i.destinazione_id || !destList.find(d => d.id === i.destinazione_id));
+                if (unassigned.length > 0) {
+                    html += `<tr class="bg-gray-100 border-t-2 border-gray-300">
+                        <td colspan="7" class="px-4 py-2.5 font-bold text-gray-500 text-sm">
+                            <i class="fas fa-question-circle mr-2"></i>Non assegnati a nessun set
+                        </td>
+                    </tr>`;
+                    html += unassigned.map(itemRowOdf).join('');
+                }
+                document.getElementById('riepilogoItems').innerHTML = html || '<tr><td colspan="7" class="px-4 py-4 text-center text-gray-400">Nessun articolo</td></tr>';
+            }
         }
 
         function closeProdottoModal() {
