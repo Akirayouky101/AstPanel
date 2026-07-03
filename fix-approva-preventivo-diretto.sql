@@ -1,16 +1,83 @@
 -- ============================================================
--- FIX URGENTE: Ripristina la versione corretta di
---              approva_preventivo_diretto
+-- FIX URGENTE: Ripristina le versioni corrette di:
+--   1. get_preventivi_approvazione
+--   2. approva_preventivo_diretto
 -- ============================================================
 -- PROBLEMA: add-approvazione-preventivi.sql (versione vecchia)
 --   è stata eseguita dopo add-lock-preventivi.sql sovrascrivendo
---   la logica che gestisce modifica_in_attesa → modifica_approvata.
---   Risultato: approvare una richiesta di modifica non sblocca il
---   form per l'utente.
+--   entrambe le funzioni con versioni che:
+--   - filtrano solo 'in_attesa' (non vedono modifica_in_attesa)
+--   - impostano sempre 'approvata' (non gestiscono modifica_approvata)
+--   Risultato: l'approvatore non vede le richieste di modifica e
+--   anche se le vedesse, non verrebbero sbloccate correttamente.
 --
 -- ESEGUIRE nel Supabase SQL Editor
 -- ============================================================
 
+-- ── 1. get_preventivi_approvazione ─────────────────────────────────────────
+-- Mostra le richieste in attesa, incluse quelle con modifica_in_attesa
+-- e visione_in_attesa (non solo in_attesa come nella versione rotta)
+CREATE OR REPLACE FUNCTION get_preventivi_approvazione(p_token TEXT)
+RETURNS JSON
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_approvatore RECORD;
+    v_result      JSON;
+BEGIN
+    SELECT * INTO v_approvatore
+    FROM approvatori
+    WHERE token = p_token AND attivo = true
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object('ok', false, 'err', 'Token non valido o approvatore non attivo.');
+    END IF;
+
+    SELECT json_build_object(
+        'ok', true,
+        'approvatore_nome', v_approvatore.nome,
+        'preventivi', COALESCE((
+            SELECT json_agg(
+                json_build_object(
+                    'id',                  r.id,
+                    'numero',              r.numero,
+                    'fornitore_nome',      r.fornitore_nome,
+                    'oggetto',             r.oggetto,
+                    'data_richiesta',      r.data_richiesta,
+                    'data_risposta_entro', r.data_risposta_entro,
+                    'note_interne',        r.note_interne,
+                    'destinazioni',        r.destinazioni,
+                    'approvazione_stato',  r.approvazione_stato,
+                    'items', (
+                        SELECT json_agg(json_build_object(
+                            'codice',          i.codice,
+                            'descrizione',     i.descrizione,
+                            'quantita',        i.quantita,
+                            'um',              i.um,
+                            'note',            i.note,
+                            'destinazione_id', i.destinazione_id
+                        ) ORDER BY i.created_at)
+                        FROM richieste_preventivo_items i
+                        WHERE i.richiesta_id = r.id
+                    )
+                ) ORDER BY r.created_at DESC
+            )
+            FROM richieste_preventivo_fornitori r
+            WHERE r.approvazione_stato IN ('in_attesa', 'modifica_in_attesa', 'visione_in_attesa')
+        ), '[]'::json)
+    ) INTO v_result;
+
+    RETURN v_result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_preventivi_approvazione(TEXT) TO anon, authenticated;
+
+-- ── 2. approva_preventivo_diretto ──────────────────────────────────────────
+-- Gestisce le transizioni di stato corrette inclusa modifica_approvata
 CREATE OR REPLACE FUNCTION approva_preventivo_diretto(
     p_token         TEXT,
     p_preventivo_id UUID,
