@@ -101,24 +101,22 @@ BEGIN
         RETURN json_build_object('ok', false, 'err', 'Token non valido.');
     END IF;
 
-    IF p_azione NOT IN ('approva', 'rifiuta', 'prendi_visione') THEN
+    IF p_azione NOT IN ('approva', 'rifiuta', 'prendi_visione', 'approva_modifica') THEN
         RETURN json_build_object('ok', false, 'err', 'Azione non valida.');
     END IF;
 
-    -- Transizione di stato intelligente:
-    --   in_attesa        + approva        → approvata
-    --   modifica_in_attesa + approva      → modifica_approvata  ← sblocca la richiesta per la modifica
-    --   visione_in_attesa  + prendi_visione → presa_visione
-    --   qualsiasi        + rifiuta        → rifiutata
+    -- Transizioni di stato esplicite:
+    --   approva_modifica  → modifica_approvata  (sblocca il form per la modifica)
+    --   approva           → approvata            (approvazione normale)
+    --   rifiuta           → rifiutata
+    --   prendi_visione    → presa_visione
+    -- La pagina approva-preventivo.html passa 'approva_modifica' quando lo stato è modifica_in_attesa
     UPDATE richieste_preventivo_fornitori
     SET approvazione_stato = CASE
-            WHEN p_azione = 'rifiuta'
-                THEN 'rifiutata'
-            WHEN p_azione = 'approva' AND approvazione_stato = 'modifica_in_attesa'
-                THEN 'modifica_approvata'
-            WHEN p_azione = 'prendi_visione' AND approvazione_stato = 'visione_in_attesa'
-                THEN 'presa_visione'
-            ELSE 'approvata'
+            WHEN p_azione = 'approva_modifica'  THEN 'modifica_approvata'
+            WHEN p_azione = 'prendi_visione'    THEN 'presa_visione'
+            WHEN p_azione = 'rifiuta'           THEN 'rifiutata'
+            ELSE                                     'approvata'
         END,
         approvato_da = v_approvatore.nome,
         approvato_at = NOW()

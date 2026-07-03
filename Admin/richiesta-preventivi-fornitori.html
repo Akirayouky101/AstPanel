@@ -226,6 +226,32 @@
                 </table>
             </div>
         </div>
+
+        <!-- Sezione Annullati -->
+        <div id="annullatiSection" class="hidden mt-6">
+            <button onclick="document.getElementById('annullatiBody').classList.toggle('hidden'); this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');" class="w-full flex items-center justify-between bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl px-5 py-3 transition text-left">
+                <span class="flex items-center gap-2 font-semibold text-gray-600 text-sm">
+                    <i class="fas fa-ban text-orange-400"></i>
+                    Preventivi Annullati
+                    <span id="annullatiBadge" class="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </span>
+                <i class="fas fa-chevron-down text-gray-400"></i>
+            </button>
+            <div id="annullatiBody" class="hidden mt-2 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numero</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fornitore</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oggetto</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="annullatiTable" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Richiesta -->
@@ -848,7 +874,7 @@
                     .select('*, fornitore:fornitori(ragione_sociale), items:richieste_preventivo_items(codice, descrizione)')
                     .order('data_richiesta', { ascending: false });
 
-                if (filterStato) query = query.eq('stato', filterStato);
+                // filterStato applicato lato client (così gli annullati vanno nella sezione dedicata)
                 if (filterFornitore) query = query.eq('fornitore_id', filterFornitore);
 
                 const { data, error } = await query;
@@ -866,6 +892,7 @@
         function applyFilters() {
             const search = document.getElementById('searchRichiesta').value.toLowerCase().trim();
             const mese = document.getElementById('filterMese').value;
+            const filterStato = document.getElementById('filterStato').value;
             let filtered = richieste;
 
             if (search) {
@@ -888,10 +915,77 @@
                 });
             }
 
+            // Sezione annullati separata
+            const annullatiList = filtered.filter(o => o.stato === 'annullato');
+
+            // Tabella principale: escludi annullati (hanno la propria sezione)
+            let mainFiltered;
+            if (filterStato && filterStato !== 'annullato') {
+                mainFiltered = filtered.filter(o => o.stato === filterStato);
+            } else {
+                mainFiltered = filtered.filter(o => o.stato !== 'annullato');
+            }
+
             const backup = richieste;
-            richieste = filtered;
+            richieste = mainFiltered;
             renderRichieste();
             richieste = backup;
+
+            renderAnnullati(annullatiList);
+        }
+
+        function renderAnnullati(annullati) {
+            const section = document.getElementById('annullatiSection');
+            const tbody = document.getElementById('annullatiTable');
+            const badge = document.getElementById('annullatiBadge');
+            if (!section) return;
+            badge.textContent = annullati.length;
+            if (annullati.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+            if (tbody.innerHTML === '' || !document.getElementById('annullatiBody').classList.contains('hidden')) {
+                tbody.innerHTML = annullati.map(r => `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-sm font-mono font-semibold text-gray-500">${r.numero || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${r.fornitore_nome || r.fornitore?.ragione_sociale || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${r.oggetto || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-gray-400">${new Date(r.data_richiesta).toLocaleDateString('it-IT')}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <button onclick="ripristinaRichiesta('${r.id}')" class="text-teal-600 hover:text-teal-800 text-xs font-semibold px-2 py-1 rounded border border-teal-200 hover:bg-teal-50 transition" title="Ripristina richiesta">
+                                <i class="fas fa-undo mr-1"></i>Ripristina
+                            </button>
+                            <button onclick="eliminaRichiesta('${r.id}', '${r.numero}', '${r.stato}')" class="ml-1 text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition" title="Elimina definitivamente">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function annullaRichiesta(id) {
+            const r = richieste.find(o => o.id === id);
+            if (!r) return;
+            if (!confirm(`Annullare la richiesta ${r.numero}?\nVerrà spostata nella sezione Annullati.`)) return;
+            const { error } = await window.supabase
+                .from('richieste_preventivo_fornitori')
+                .update({ stato: 'annullato' })
+                .eq('id', id);
+            if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+            showToast(`Richiesta ${r.numero} annullata`, 'warning');
+            await loadRichieste();
+        }
+
+        async function ripristinaRichiesta(id) {
+            const { error } = await window.supabase
+                .from('richieste_preventivo_fornitori')
+                .update({ stato: 'da_inviare' })
+                .eq('id', id);
+            if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+            showToast('Richiesta ripristinata a Da Inviare', 'success');
+            await loadRichieste();
         }
 
         function renderRichieste() {
@@ -957,6 +1051,10 @@
                         <button onclick="inviaEmailRichiesta('${richiesta.id}')" class="text-blue-600 hover:text-blue-900" title="Invia richiesta preventivo">
                             <i class="fas fa-envelope"></i>
                         </button>
+                        ${richiesta.stato !== 'annullato' ? `
+                        <button onclick="annullaRichiesta('${richiesta.id}')" class="text-orange-500 hover:text-orange-700" title="Annulla preventivo">
+                            <i class="fas fa-ban"></i>
+                        </button>` : ''}
                         <button onclick="eliminaRichiesta('${richiesta.id}', '${richiesta.numero}', '${richiesta.stato}')" class="text-red-600 hover:text-red-900" title="Elimina">
                             <i class="fas fa-trash"></i>
                         </button>
