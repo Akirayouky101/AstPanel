@@ -779,10 +779,21 @@
             <div style="background:linear-gradient(135deg,#374151,#1f2937);padding:18px 22px 16px;display:flex;align-items:center;justify-content:space-between">
                 <div>
                     <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0">Seleziona dal Magazzino</h3>
-                    <p style="color:#9ca3af;font-size:12px;margin-top:3px">Cerca e aggiungi prodotti all'ordine</p>
+                    <p style="color:#9ca3af;font-size:12px;margin-top:3px" id="magazzinoPickerSubtitle">Cerca e aggiungi prodotti all'ordine</p>
                 </div>
                 <button onclick="closeMagazzinoModal()" style="color:#fff;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">
                     <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <!-- Tab fornitore / tutti (visibili solo quando è selezionato un fornitore) -->
+            <div id="magazzinoTabs" class="hidden" style="background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:10px 20px;display:flex;gap:8px">
+                <button id="tabMagFornitore" onclick="cambiaMagazzinoMode('fornitore')"
+                        style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:#374151;color:#fff">
+                    <i class="fas fa-truck" style="margin-right:5px"></i><span id="tabMagFornitoreLabel">Questo fornitore</span>
+                </button>
+                <button id="tabMagTutti" onclick="cambiaMagazzinoMode('tutti')"
+                        style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#6b7280">
+                    <i class="fas fa-warehouse" style="margin-right:5px"></i>Tutti i prodotti
                 </button>
             </div>
             <div style="padding:16px 20px">
@@ -1863,7 +1874,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                         <input type="text" value="${item.um || 'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle;width:96px">
-                        <input type="number" value="${item.quantita}" min="0.001" step="0.001" onchange="updateArticolo(${i},'quantita',parseFloat(this.value))" ${focus} style="${inp};text-align:right">
+                        <input type="number" value="${item.quantita}" min="1" step="1" onchange="updateArticolo(${i},'quantita',Math.max(1,parseInt(this.value)||1))" ${focus} style="${inp};text-align:right">
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle;width:150px">
                         <div style="display:flex;align-items:center;gap:4px">
@@ -1934,10 +1945,52 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
 
         // ══════════════════ MAGAZZINO PICKER ══════════════════
 
+        let magazzinoPickerMode = 'fornitore'; // 'fornitore' | 'tutti'
+
         function aggiungiDalMagazzino() {
             document.getElementById('searchMagazzino').value = '';
+
+            // Aggiorna tabs: visibili solo se c'è un fornitore selezionato
+            const fornId = document.getElementById('fornitoreId').value;
+            const fornNome = fornId
+                ? (fornitori.find(f => f.id === fornId)?.ragione_sociale || 'Fornitore')
+                : null;
+            const tabs = document.getElementById('magazzinoTabs');
+            const sub  = document.getElementById('magazzinoPickerSubtitle');
+
+            if (fornNome) {
+                tabs.classList.remove('hidden');
+                tabs.style.display = 'flex';
+                document.getElementById('tabMagFornitoreLabel').textContent = fornNome;
+                sub.textContent = `Prodotti di ${fornNome} o tutto il magazzino`;
+                magazzinoPickerMode = 'fornitore';
+            } else {
+                tabs.classList.add('hidden');
+                sub.textContent = 'Cerca e aggiungi prodotti all\'ordine';
+                magazzinoPickerMode = 'tutti';
+            }
+            _aggiornaTabs();
             renderMagazzinoList();
             document.getElementById('magazzinoPicker').classList.remove('hidden');
+        }
+
+        function cambiaMagazzinoMode(mode) {
+            magazzinoPickerMode = mode;
+            _aggiornaTabs();
+            renderMagazzinoList();
+        }
+
+        function _aggiornaTabs() {
+            const tF = document.getElementById('tabMagFornitore');
+            const tT = document.getElementById('tabMagTutti');
+            if (!tF || !tT) return;
+            if (magazzinoPickerMode === 'fornitore') {
+                tF.style.background = '#374151'; tF.style.color = '#fff';
+                tT.style.background = 'transparent'; tT.style.color = '#6b7280';
+            } else {
+                tF.style.background = 'transparent'; tF.style.color = '#6b7280';
+                tT.style.background = '#ea580c'; tT.style.color = '#fff';
+            }
         }
 
         function closeMagazzinoModal() {
@@ -1946,25 +1999,47 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
 
         function renderMagazzinoList() {
             const q = document.getElementById('searchMagazzino').value.toLowerCase();
-            const filtered = prodotti.filter(p =>
-                !q || p.codice?.toLowerCase().includes(q) || p.descrizione?.toLowerCase().includes(q) || p.categoria?.toLowerCase().includes(q)
-            );
+            const fornId = document.getElementById('fornitoreId').value;
+
+            let filtered;
+            if (magazzinoPickerMode === 'fornitore' && fornId) {
+                // Solo prodotti del fornitore selezionato
+                filtered = prodotti.filter(p =>
+                    p.fornitore_id === fornId &&
+                    (!q || p.codice?.toLowerCase().includes(q) || p.descrizione?.toLowerCase().includes(q))
+                );
+            } else {
+                // Tutti i prodotti (senza filtro fornitore)
+                filtered = prodotti.filter(p =>
+                    !q || p.codice?.toLowerCase().includes(q) || p.descrizione?.toLowerCase().includes(q) || p.categoria?.toLowerCase().includes(q)
+                );
+            }
+
             const container = document.getElementById('magazzinoList');
             if (filtered.length === 0) {
-                container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af"><i class="fas fa-box-open" style="font-size:40px;margin-bottom:12px;display:block;opacity:.3"></i>Nessun prodotto trovato</div>`;
+                const msg = magazzinoPickerMode === 'fornitore' && fornId
+                    ? 'Nessun prodotto abbinato a questo fornitore.<br><small style="color:#9ca3af">Prova il tab <strong>Tutti i prodotti</strong> oppure usa Aggiungi Riga Manuale.</small>'
+                    : 'Nessun prodotto trovato';
+                container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af"><i class="fas fa-box-open" style="font-size:40px;margin-bottom:12px;display:block;opacity:.3"></i>${msg}</div>`;
                 return;
             }
             container.innerHTML = filtered.map(p => {
                 const giac = parseFloat(p.giacenza || 0);
                 const dispBadge = giac > 0
-                    ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"><i class="fas fa-check-circle"></i> Disponibile (${giac.toFixed(0)} ${p.um || 'pz'})</span>`
-                    : `<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"><i class="fas fa-exclamation-triangle"></i> Non disponibile</span>`;
+                    ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"><i class="fas fa-check-circle"></i> Disp. (${giac.toFixed(0)} ${p.um || 'pz'})</span>`
+                    : `<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"><i class="fas fa-exclamation-triangle"></i> Non disp.</span>`;
+
+                // In modalità 'tutti': mostra badge avviso codice diverso (no codice fornitore)
+                const codiceBadge = magazzinoPickerMode === 'fornitore'
+                    ? `<span style="background:#fff7ed;color:#c2410c;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:800;border:1px solid #fed7aa">${p.codice || 'N/A'}</span>`
+                    : `<span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;border:1px solid #fde68a"><i class="fas fa-exclamation-triangle" style="margin-right:3px"></i>codice diverso</span>`;
+
                 return `
                 <div onclick="selezionaDalMagazzino('${p.id}')" style="padding:14px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background=''">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start">
                         <div style="flex:1">
                             <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
-                                <span style="background:#fff7ed;color:#c2410c;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:800;border:1px solid #fed7aa">${p.codice || 'N/A'}</span>
+                                ${codiceBadge}
                                 ${dispBadge}
                                 ${p.categoria ? `<span style="font-size:10px;color:#6b7280"><i class="fas fa-tag"></i> ${p.categoria}</span>` : ''}
                             </div>
@@ -1972,7 +2047,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                         </div>
                         <div style="text-align:right;margin-left:16px">
                             <div style="font-size:18px;font-weight:800;color:#374151">€ ${parseFloat(p.prezzo_acquisto || 0).toFixed(2)}</div>
-                            <div style="font-size:10px;color:#9ca3af">${p.um || 'pz'} (acquisto)</div>
+                            <div style="font-size:10px;color:#9ca3af">${p.um || 'pz'}</div>
                         </div>
                     </div>
                 </div>`;
@@ -1984,7 +2059,8 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             if (!p) return;
             currentItems.push({
                 prodotto_id: p.id,
-                codice: p.codice || '',
+                // In modalità 'tutti' (fornitore diverso): niente codice
+                codice: magazzinoPickerMode === 'fornitore' ? (p.codice || '') : '',
                 descrizione: p.descrizione || '',
                 um: p.um || 'pz',
                 quantita: 1,
