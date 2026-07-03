@@ -332,15 +332,6 @@
                         <option value="da_approvare">⏳ Da Approvare</option>
                         <option value="da_ratificare">✍️ Da Ratificare</option>
                     </select>
-                    <!-- Filter stato -->
-                    <select id="filterStato" onchange="loadOrdini()"
-                            class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-orange-400">
-                        <option value="">Tutti gli stati</option>
-                        <option value="bozza">📝 Bozza</option>
-                        <option value="in_attesa">⏸ In Attesa</option>
-                        <option value="approvato">✅ Approvato</option>
-                        <option value="annullato">❌ Annullato</option>
-                    </select>
                     <!-- Filter mese -->
                     <select id="filterMese" onchange="searchOrdini()"
                             class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-orange-400">
@@ -366,6 +357,30 @@
                                class="pl-9 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition w-72">
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Tab bar ordini interni -->
+        <div class="bg-white shadow mb-6 no-print overflow-x-auto" style="border-radius:8px;border:1px solid #f3f4f6">
+            <div class="flex" style="border-bottom:2px solid #f3f4f6;padding:0 16px">
+                <button id="tabInt-lavorazione" onclick="setTabInterni('lavorazione')"
+                        class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid #ea580c;color:#ea580c;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-tasks mr-1"></i>In Lavorazione
+                    <span id="cnt-int-lavorazione" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fff7ed;color:#c2410c">0</span>
+                </button>
+                <button id="tabInt-approvati" onclick="setTabInterni('approvati')"
+                        class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-check-circle mr-1"></i>Approvati
+                    <span id="cnt-int-approvati" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#dcfce7;color:#15803d">0</span>
+                </button>
+                <button id="tabInt-annullati" onclick="setTabInterni('annullati')"
+                        class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-times-circle mr-1"></i>Annullati
+                    <span id="cnt-int-annullati" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#f3f4f6;color:#4b5563">0</span>
+                </button>
             </div>
         </div>
 
@@ -927,17 +942,15 @@
         async function loadOrdini() {
             try {
                 const tipo  = document.getElementById('filterTipo')?.value || '';
-                const stato = document.getElementById('filterStato')?.value || '';
 
                 let query = db.from('ordini_interni').select('*, items:ordini_interni_items(codice, descrizione)').order('created_at', { ascending: false });
                 if (tipo)  query = query.eq('tipo', tipo);
-                if (stato) query = query.eq('stato', stato);
 
                 const { data, error } = await query;
                 if (error) throw error;
                 ordini = data || [];
-                searchOrdini();
                 updateStats();
+                searchOrdini();
             } catch (err) {
                 console.error('loadOrdini:', err);
                 document.getElementById('ordiniList').innerHTML = `
@@ -1069,13 +1082,40 @@
             document.getElementById('statApprovati').textContent = ordini.filter(o => o.stato === 'approvato').length;
             const valore = ordini.reduce((s, o) => s + parseFloat(o.totale || 0), 0);
             document.getElementById('statValore').textContent = '€ ' + valore.toFixed(2);
+
+            // Badge tab
+            const cntLav = ordini.filter(o => ['bozza','in_attesa'].includes(o.stato)).length;
+            const cntApp = ordini.filter(o => o.stato === 'approvato').length;
+            const cntAnn = ordini.filter(o => o.stato === 'annullato').length;
+            if (document.getElementById('cnt-int-lavorazione')) document.getElementById('cnt-int-lavorazione').textContent = cntLav;
+            if (document.getElementById('cnt-int-approvati'))   document.getElementById('cnt-int-approvati').textContent   = cntApp;
+            if (document.getElementById('cnt-int-annullati'))   document.getElementById('cnt-int-annullati').textContent   = cntAnn;
+        }
+
+        let currentTabInterni = 'lavorazione';
+
+        const TAB_STATI_INTERNI = {
+            'lavorazione': ['bozza', 'in_attesa'],
+            'approvati':   ['approvato'],
+            'annullati':   ['annullato']
+        };
+
+        function setTabInterni(tab) {
+            currentTabInterni = tab;
+            document.querySelectorAll('.int-tab').forEach(btn => {
+                const active = btn.id === 'tabInt-' + tab;
+                btn.style.borderBottom = active ? '2px solid #ea580c' : '2px solid transparent';
+                btn.style.color = active ? '#ea580c' : '#6b7280';
+            });
+            searchOrdini();
         }
 
         // ── Cerca ──
         function searchOrdini() {
-            const q = document.getElementById('searchQuery').value.toLowerCase().trim();
+            const q    = document.getElementById('searchQuery').value.toLowerCase().trim();
             const mese = document.getElementById('filterMese')?.value || '';
-            let filtered = ordini;
+            const statiTab = TAB_STATI_INTERNI[currentTabInterni] || [];
+            let filtered = ordini.filter(o => statiTab.includes(o.stato));
 
             if (q) {
                 filtered = filtered.filter(o =>
