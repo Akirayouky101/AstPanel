@@ -2216,7 +2216,12 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         async function segnaEvaso(id) {
             const ordine = ordini.find(o => o.id === id);
             if (!ordine) return;
-            if (!confirm(`Segna ordine ${ordine.numero} come "In Attesa Merce"?\n(Per Amazon/ordini verbali senza ODF formale)`)) return;
+            const ok = await showConfirm(
+                'Segna In Attesa Merce',
+                `Ordine ${ordine.numero}\n\nUsa questa opzione per Amazon o ordini verbali senza ODF formale.`,
+                '🚚', 'Conferma', false
+            );
+            if (!ok) return;
             try {
                 const { error } = await db.from('ordini_interni').update({ stato: 'evaso' }).eq('id', id);
                 if (error) throw error;
@@ -2230,7 +2235,12 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         async function segnaChiuso(id) {
             const ordine = ordini.find(o => o.id === id);
             if (!ordine) return;
-            if (!confirm(`Chiudi ordine ${ordine.numero}?\nConferma che la merce è stata ricevuta.`)) return;
+            const ok = await showConfirm(
+                'Chiudi ordine',
+                `Ordine ${ordine.numero}\n\nConferma che la merce è stata ricevuta e la pratica può essere chiusa.`,
+                '🔒', 'Chiudi ordine', false
+            );
+            if (!ok) return;
             try {
                 const { error } = await db.from('ordini_interni').update({ stato: 'chiuso' }).eq('id', id);
                 if (error) throw error;

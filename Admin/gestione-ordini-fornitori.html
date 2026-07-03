@@ -1812,6 +1812,21 @@
                     }
                 }
 
+                // Cascade: ripristina lo stato delle pratiche collegate
+                const ordineDaEliminare = ordini.find(o => o.id === id);
+                if (ordineDaEliminare?.richiesta_id) {
+                    await window.supabase
+                        .from('richieste_preventivo_fornitori')
+                        .update({ stato: 'accettato', ordine_fornitore_id: null })
+                        .eq('id', ordineDaEliminare.richiesta_id);
+                }
+                if (ordineDaEliminare?.ordine_interno_id) {
+                    await window.supabase
+                        .from('ordini_interni')
+                        .update({ stato: 'approvato', numero_ordine_fornitore: null })
+                        .eq('id', ordineDaEliminare.ordine_interno_id);
+                }
+
                 // Elimina items e ordine
                 await window.supabase.from('ordini_fornitore_items').delete().eq('ordine_id', id);
                 const { error } = await window.supabase.from('ordini_fornitore').delete().eq('id', id);
