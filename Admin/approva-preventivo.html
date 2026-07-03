@@ -256,6 +256,18 @@ async function agisci(preventivoId, azione) {
     } else {
         icon = 'times'; color = '#dc2626'; label = '❌ Rifiutata'; sub = '<span style="font-size:12px;color:#9ca3af;margin-left:8px">(la richiesta può procedere comunque)</span>';
     }
+
+    // Log nella storia
+    try {
+        const tipoLog = data.azione === 'approva' ? 'approvazione' : data.azione === 'rifiuta' ? 'rifiuto' : 'presa_visione';
+        const appNome = document.getElementById('headerSub').textContent.replace('Ciao, ','').replace('! — ZG Impianti','').trim() || 'Approvatore';
+        await db.from('richieste_preventivo_storia').insert({
+            richiesta_id: preventivoId,
+            tipo: tipoLog,
+            autore_nome: appNome,
+            note: tipoLog === 'rifiuto' ? 'Richiesta rifiutata dall\'approvatore' : null
+        });
+    } catch(e) { console.warn('storia log error', e); }
     foot.innerHTML = `<div class="result-overlay">
         <i class="fas fa-${icon}-circle fa-lg" style="color:${color}"></i>
         <span style="color:${color};font-size:15px;font-weight:700">${label}</span>

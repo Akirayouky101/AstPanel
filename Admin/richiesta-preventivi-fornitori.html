@@ -664,6 +664,15 @@
                     <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
                     <p id="riepilogoNote" class="text-gray-700 text-sm"></p>
                 </div>
+                <!-- Storia / Audit trail -->
+                <div id="riepilogoStoriaBox">
+                    <h4 class="font-bold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-history mr-2 text-indigo-400"></i>Cronologia azioni
+                    </h4>
+                    <div id="riepilogoStoriaList" class="space-y-2">
+                        <p class="text-gray-400 text-sm italic">Caricamento...</p>
+                    </div>
+                </div>
             </div>
             <div class="px-6 pb-6 flex justify-end gap-3">
                 <button onclick="closeRiepilogoModal()" class="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">Chiudi</button>
@@ -1606,18 +1615,23 @@
                     if (!updated?.length) throw new Error('Nessuna riga aggiornata. La richiesta potrebbe non essere più disponibile, ricarica la pagina.');
                     savedRichiestaId = richiestaId;
 
-                    // Carica item esistenti dal DB
+                    // Carica item esistenti dal DB (con descrizione per il diff)
                     const { data: existingItems } = await window.supabase
                         .from('richieste_preventivo_items')
-                        .select('id')
+                        .select('id, descrizione, quantita, um')
                         .eq('richiesta_id', richiestaId);
 
                     const existingIds = (existingItems || []).map(i => i.id);
                     const currentIds = currentItems.filter(i => i.id).map(i => i.id);
 
-                    // Elimina solo gli item rimossi dall'utente
+                    // Calcola diff per la storia
+                    const diffParts = [];
                     const toDelete = existingIds.filter(id => !currentIds.includes(id));
                     if (toDelete.length > 0) {
+                        toDelete.forEach(delId => {
+                            const old = existingItems.find(i => i.id === delId);
+                            if (old) diffParts.push(`Eliminato: ${old.descrizione}`);
+                        });
                         await window.supabase
                             .from('richieste_preventivo_items')
                             .delete()
@@ -1625,6 +1639,10 @@
                     }
 
                     for (const item of currentItems.filter(i => i.id)) {
+                        const old = existingItems?.find(i => i.id === item.id);
+                        if (old && parseFloat(old.quantita) !== parseFloat(item.quantita)) {
+                            diffParts.push(`Quantità ${item.descrizione}: ${old.quantita} ${old.um} → ${item.quantita} ${item.um}`);
+                        }
                         await window.supabase
                             .from('richieste_preventivo_items')
                             .update({
@@ -1641,21 +1659,26 @@
                     // Inserisci solo i nuovi item (senza id)
                     const newItems = currentItems
                         .filter(i => !i.id)
-                        .map(item => ({
-                            richiesta_id: savedRichiestaId,
-                            prodotto_id: item.prodotto_id || null,
-                            codice: item.codice || null,
-                            descrizione: item.descrizione,
-                            um: item.um,
-                            quantita: item.quantita,
-                            note: item.note || null,
+                        .map(item => {
+                            diffParts.push(`Aggiunto: ${item.descrizione} (${item.quantita} ${item.um})`);
+                            return {
+                                richiesta_id: savedRichiestaId,
+                                prodotto_id: item.prodotto_id || null,
+                                codice: item.codice || null,
+                                descrizione: item.descrizione,
+                                um: item.um,
+                                quantita: item.quantita,
+                                note: item.note || null,
                             destinazione_id: item.destinazione_id || null
-                        }));
+                        };
+                        });
                     if (newItems.length > 0) {
                         await window.supabase
                             .from('richieste_preventivo_items')
                             .insert(newItems);
                     }
+                    // Log modifica con diff
+                    await logStoria(savedRichiestaId, 'modifica', diffParts.length ? diffParts.join('; ') : 'Richiesta aggiornata');
                 } else {
                     // Insert - genera numero
                     const { data: numeroData, error: numeroError } = await window.supabase
@@ -1691,6 +1714,9 @@
                         .insert(items);
 
                     if (itemsError) throw itemsError;
+                    // Log creazione
+                    await logStoria(savedRichiestaId, 'creazione',
+                        `Creata con ${items.length} articolo/i`);
                 }
 
                 // Se era una modifica approvata → rimanda in approvazione
@@ -1893,6 +1919,8 @@
             }
 
             showToast(`✅ Richiesta di modifica inviata a ${sent} approvatore/i`, 'success');
+            await logStoria(id, 'richiesta_modifica',
+                `Inviata a ${sent} approvatore/i: ${selezionati.map(a => a.nome).join(', ')}`);
             } catch(e) {
                 console.error('richiediModifica error:', e);
                 showToast('⚠️ Errore nella richiesta di modifica', 'error');
@@ -2240,6 +2268,61 @@
             destinazioni = [];
         }
 
+        // ── Storia / Audit trail ────────────────────────────────────
+        async function logStoria(richiestaId, tipo, note) {
+            try {
+                await window.supabase.from('richieste_preventivo_storia').insert({
+                    richiesta_id: richiestaId,
+                    tipo,
+                    autore_nome: currentUser ? `${currentUser.nome} ${currentUser.cognome}` : 'Sistema',
+                    autore_id:   currentUser?.id || null,
+                    note: note || null
+                });
+            } catch(e) { console.warn('logStoria error:', e); }
+        }
+
+        const _storiaLabels = {
+            creazione:          { icon: 'fa-plus-circle',       color: '#10b981', label: 'Creazione' },
+            modifica:           { icon: 'fa-edit',              color: '#3b82f6', label: 'Modifica' },
+            richiesta_modifica: { icon: 'fa-unlock-alt',        color: '#f59e0b', label: 'Richiesta modifica' },
+            approvazione:       { icon: 'fa-check-circle',      color: '#059669', label: 'Approvato' },
+            rifiuto:            { icon: 'fa-times-circle',      color: '#ef4444', label: 'Rifiutato' },
+            presa_visione:      { icon: 'fa-eye',               color: '#0891b2', label: 'Presa visione' },
+            invio_email:        { icon: 'fa-paper-plane',       color: '#6366f1', label: 'Email inviata' }
+        };
+
+        async function loadAndRenderStoria(richiestaId) {
+            const container = document.getElementById('riepilogoStoriaList');
+            if (!container) return;
+            const { data, error } = await window.supabase
+                .from('richieste_preventivo_storia')
+                .select('*')
+                .eq('richiesta_id', richiestaId)
+                .order('created_at', { ascending: false });
+
+            if (error || !data?.length) {
+                container.innerHTML = '<p class="text-gray-400 text-sm italic">Nessuna azione registrata</p>';
+                return;
+            }
+            container.innerHTML = data.map(entry => {
+                const cfg = _storiaLabels[entry.tipo] || { icon: 'fa-circle', color: '#9ca3af', label: entry.tipo };
+                const dt  = new Date(entry.created_at).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                return `<div class="flex gap-3 items-start bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style="background:${cfg.color}20">
+                        <i class="fas ${cfg.icon} text-sm" style="color:${cfg.color}"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-sm" style="color:${cfg.color}">${cfg.label}</span>
+                            ${entry.autore_nome ? `<span class="text-gray-600 text-sm">— ${entry.autore_nome}</span>` : ''}
+                            <span class="text-gray-400 text-xs ml-auto">${dt}</span>
+                        </div>
+                        ${entry.note ? `<p class="text-gray-600 text-xs mt-1 leading-relaxed">${entry.note}</p>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
         function closeRiepilogoModal() {
             document.getElementById('riepilogoModal').classList.add('hidden');
         }
@@ -2440,6 +2523,9 @@ ${hasNote ? `<div class="note-box"><div class="label">Note</div><div class="text
                 }
                 document.getElementById('riepilogoItems').innerHTML = html || '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-400">Nessun articolo</td></tr>';
             }
+
+            // Carica storia / audit trail
+            loadAndRenderStoria(richiestaId);
         }
 
         function closeProdottoModal() {
