@@ -608,6 +608,9 @@
             </div>
             <div class="px-6 pb-6 flex justify-end gap-3">
                 <button onclick="closeRiepilogoModal()" class="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">Chiudi</button>
+                <button id="riepilogoBtnStampa" onclick="stampaOrdineRiepilogo()" class="px-6 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-800 text-sm">
+                    <i class="fas fa-print mr-2"></i>Stampa
+                </button>
                 <button id="riepilogoBtnRicevi" class="hidden px-6 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm">
                     <i class="fas fa-truck-loading mr-2"></i>Ricevi Merce
                 </button>
@@ -1617,11 +1620,126 @@
 
         function closeRiepilogoModal() {
             document.getElementById('riepilogoModal').classList.add('hidden');
+            _riepilogoOrdineId = null;
+            _riepilogoItemsCache = [];
         }
+
+        function stampaOrdineRiepilogo() {
+            const ordine = ordini.find(o => o.id === _riepilogoOrdineId);
+            if (!ordine) return;
+            const items = _riepilogoItemsCache;
+            const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
+
+            const righe = items.map(i => `
+                <tr>
+                    <td style="padding:8px 10px;font-family:monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb">${i.codice || '—'}</td>
+                    <td style="padding:8px 10px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb">${i.descrizione || '—'}</td>
+                    <td style="padding:8px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">${parseFloat(i.quantita_ordinata||0).toFixed(2)} ${i.um||'pz'}</td>
+                    <td style="padding:8px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.prezzo_acquisto||0).toFixed(2)}</td>
+                    <td style="padding:8px 10px;text-align:right;font-size:13px;font-weight:700;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.importo||0).toFixed(2)}</td>
+                </tr>`).join('');
+
+            const totale = parseFloat(ordine.totale_ordine || 0).toFixed(2);
+            const fornitoreNome = ordine.fornitore?.ragione_sociale || ordine.fornitore_nome || '—';
+
+            const html = `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>Ordine ${ordine.numero}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 32px 40px; color: #111827; font-size: 13px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #ea580c; padding-bottom: 20px; margin-bottom: 24px; }
+  .company-name { font-size: 22px; font-weight: 900; color: #ea580c; }
+  .company-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .doc-type { text-align: right; }
+  .doc-type h1 { font-size: 18px; font-weight: 800; color: #1f2937; }
+  .doc-type p { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; }
+  .info-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .info-value { font-size: 14px; font-weight: 700; color: #1f2937; }
+  .info-value.orange { color: #ea580c; }
+  .oggetto-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
+  .oggetto-label { font-size: 10px; font-weight: 700; color: #9a3412; text-transform: uppercase; margin-bottom: 4px; }
+  .oggetto-value { font-size: 14px; font-weight: 600; color: #1f2937; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead tr { background: #ea580c; color: white; }
+  thead th { padding: 10px 10px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  thead th:nth-child(3), thead th:nth-child(4), thead th:nth-child(5) { text-align: right; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .total-row td { padding: 10px 10px; font-weight: 900; font-size: 14px; border-top: 2px solid #ea580c; }
+  .note-box { background: #f9fafb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
+  .footer { text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; }
+  @media print { body { padding: 16px 24px; } }
+</style></head><body>
+  <div class="header">
+    <div>
+      <div class="company-name">ZG Impianti Srl</div>
+      <div class="company-sub">Ufficio Acquisti · ordini@zgimpianti.it · zgimpianti.it</div>
+    </div>
+    <div class="doc-type">
+      <h1>Ordine Fornitore</h1>
+      <p>${ordine.numero} · ${fmt(ordine.data_ordine)}</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Fornitore</div>
+      <div class="info-value">${fornitoreNome}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Numero Ordine</div>
+      <div class="info-value orange">${ordine.numero}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Data Ordine</div>
+      <div class="info-value">${fmt(ordine.data_ordine)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Consegna Prevista</div>
+      <div class="info-value">${fmt(ordine.data_consegna_prevista)}</div>
+    </div>
+  </div>
+
+  ${ordine.oggetto ? `<div class="oggetto-box"><div class="oggetto-label">Oggetto</div><div class="oggetto-value">${ordine.oggetto}</div></div>` : ''}
+
+  <table>
+    <thead><tr>
+      <th>Codice</th>
+      <th>Descrizione</th>
+      <th style="text-align:right">Q.tà</th>
+      <th style="text-align:right">Prezzo</th>
+      <th style="text-align:right">Importo</th>
+    </tr></thead>
+    <tbody>
+      ${righe}
+      <tr class="total-row">
+        <td colspan="4" style="text-align:right;padding-right:10px">TOTALE ORDINE</td>
+        <td style="text-align:right;color:#ea580c">€ ${totale}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  ${ordine.note_interne ? `<div class="note-box"><strong style="font-size:11px;text-transform:uppercase;color:#92400e">Note</strong><p style="margin-top:6px;color:#374151">${ordine.note_interne}</p></div>` : ''}
+
+  <div class="footer">Documento generato il ${new Date().toLocaleDateString('it-IT')} · ZG Impianti Srl · ordini@zgimpianti.it</div>
+
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+            const w = window.open('', '_blank', 'width=900,height=700');
+            w.document.write(html);
+            w.document.close();
+        }
+
+        let _riepilogoOrdineId = null;
+        let _riepilogoItemsCache = [];
 
         async function apriRiepilogo(ordineId) {
             const ordine = ordini.find(o => o.id === ordineId);
             if (!ordine) return;
+
+            _riepilogoOrdineId = ordineId;
 
             // Titolo e sottotitolo
             document.getElementById('riepilogoTitolo').textContent = `📋 Ordine ${ordine.numero}`;
@@ -1693,6 +1811,8 @@
                 'parzialmente_ricevuto': '<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">Parz. ricevuto</span>',
                 'ricevuto': '<span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">Ricevuto</span>'
             };
+
+            _riepilogoItemsCache = items;
 
             document.getElementById('riepilogoItems').innerHTML = items.map(item => `
                 <tr class="hover:bg-gray-50">

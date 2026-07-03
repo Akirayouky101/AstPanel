@@ -38,11 +38,12 @@ function buildOrdineHtml(p: Record<string, unknown>): string {
 <body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif">
 <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
   <div style="background:linear-gradient(135deg,#ea580c,#f59e0b);padding:32px 40px">
-    <div style="display:flex;align-items:center;gap:12px">
+    <div style="display:flex;align-items:center;gap:16px">
       <div style="font-size:36px">📦</div>
       <div>
+        <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">ZG Impianti Srl</p>
         <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff">Ordine Fornitore</h1>
-        <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:14px">${FROM_NAME}</p>
+        <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:13px">Ufficio Acquisti · ordini@zgimpianti.it</p>
       </div>
     </div>
   </div>
@@ -76,14 +77,11 @@ function buildOrdineHtml(p: Record<string, unknown>): string {
     </div>
     ${note ? '<div style="margin-top:24px;background:#f9fafb;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:0 10px 10px 0"><p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase">Note</p><p style="margin:0;font-size:14px;color:#374151">' + note + '</p></div>' : ''}
   </div>
-  <div style="background:#f3f4f6;padding:20px 40px;text-align:center">
-    <p style="margin:0;font-size:12px;color:#9ca3af">Questo messaggio è stato generato automaticamente da <strong>ZG Impianti Panel</strong>.<br>Per qualsiasi chiarimento risponda a questa email oppure contatti il nostro ufficio acquisti.</p>
+  <div style="background:#f3f4f6;padding:24px 40px;text-align:center;border-top:2px solid #e5e7eb">
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#374151">ZG Impianti Srl</p>
+    <p style="margin:0 0 4px;font-size:12px;color:#6b7280">📧 ordini@zgimpianti.it &nbsp;|&nbsp; 🌐 zgimpianti.it</p>
+    <p style="margin:12px 0 0;font-size:11px;color:#9ca3af">Questo messaggio è stato generato automaticamente dal gestionale ZG Impianti.<br>Per qualsiasi chiarimento risponda a questa email oppure contatti il nostro ufficio acquisti.</p>
   </div>
-</div>
-</body></html>`;
-}
-
-// ── Richiesta Preventivo ──────────────────────────────────────────────────────
 function buildPreventivoHtml(p: Record<string, unknown>): string {
   const { toName, fornitoreNome, numeroRichiesta, oggetto, dataRichiesta, dataRispostaEntro, articoli, note } = p as {
     toName?: string; fornitoreNome: string; numeroRichiesta: string; oggetto: string;
@@ -104,10 +102,12 @@ function buildPreventivoHtml(p: Record<string, unknown>): string {
 <body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif">
 <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
   <div style="background:linear-gradient(135deg,#0d9488,#0891b2);padding:32px 40px">
-    <div style="display:flex;align-items:center;gap:12px">
+    <div style="display:flex;align-items:center;gap:16px">
       <div style="font-size:40px">📋</div>
       <div>
-        <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff">Richiesta di Preventivo</h1>
+        <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">ZG Impianti Srl</p>
+        <h1 style="margin:0;font-size:24px;font-weight:800;color:#fff">Richiesta di Preventivo</h1>
+        <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:13px">Ufficio Acquisti · ordini@zgimpianti.it</p>
       </div>
     </div>
   </div>
@@ -141,8 +141,10 @@ function buildPreventivoHtml(p: Record<string, unknown>): string {
     </div>
     ${note ? '<div style="margin-top:24px;background:#f9fafb;border-left:4px solid #0d9488;padding:14px 18px;border-radius:0 10px 10px 0"><p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#0f766e;text-transform:uppercase">Note</p><p style="margin:0;font-size:14px;color:#374151">' + note + '</p></div>' : ''}
   </div>
-  <div style="background:#f3f4f6;padding:20px 40px;text-align:center">
-    <p style="margin:0;font-size:12px;color:#9ca3af">Questo messaggio è stato generato automaticamente da <strong>ZG Impianti Panel</strong>.<br>Per rispondere o per chiarimenti, risponda a questa email.</p>
+  <div style="background:#f3f4f6;padding:24px 40px;text-align:center;border-top:2px solid #e5e7eb">
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#374151">ZG Impianti Srl</p>
+    <p style="margin:0 0 4px;font-size:12px;color:#6b7280">📧 ordini@zgimpianti.it &nbsp;|&nbsp; 🌐 zgimpianti.it</p>
+    <p style="margin:12px 0 0;font-size:11px;color:#9ca3af">Questo messaggio è stato generato automaticamente dal gestionale ZG Impianti.<br>Per rispondere o per chiarimenti, risponda a questa email.</p>
   </div>
 </div>
 </body></html>`;
