@@ -233,7 +233,8 @@
         .badge-in-attesa   { background:#fff7ed;color:#c2410c;border:1px solid #fed7aa; }
         .badge-approvato   { background:#f0fdf4;color:#166534;border:1px solid #bbf7d0; }
         .badge-da-evadere  { background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
-        .badge-evaso       { background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe; }
+        .badge-evaso       { background:#fdf4ff;color:#7e22ce;border:1px solid #e9d5ff; }
+        .badge-chiuso      { background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0; }
         .badge-annullato   { background:#fef2f2;color:#991b1b;border:1px solid #fecaca; }
     </style>
 </head>
@@ -365,17 +366,11 @@
         <!-- Tab bar ordini interni -->
         <div class="bg-white shadow mb-6 no-print overflow-x-auto" style="border-radius:8px;border:1px solid #f3f4f6">
             <div class="flex" style="border-bottom:2px solid #f3f4f6;padding:0 16px">
-                <button id="tabInt-attesa" onclick="setTabInterni('attesa')"
+                <button id="tabInt-da_approvare" onclick="setTabInterni('da_approvare')"
                         class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
                         style="border-bottom:2px solid #ea580c;color:#ea580c;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-clock mr-1"></i>In Attesa
-                    <span id="cnt-int-attesa" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fff7ed;color:#c2410c">0</span>
-                </button>
-                <button id="tabInt-approvati" onclick="setTabInterni('approvati')"
-                        class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
-                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-check-circle mr-1"></i>Approvati
-                    <span id="cnt-int-approvati" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#dcfce7;color:#15803d">0</span>
+                    <i class="fas fa-user-clock mr-1"></i>Da Approvare
+                    <span id="cnt-int-da_approvare" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fff7ed;color:#c2410c">0</span>
                 </button>
                 <button id="tabInt-da_evadere" onclick="setTabInterni('da_evadere')"
                         class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
@@ -383,11 +378,17 @@
                     <i class="fas fa-box-open mr-1"></i>Da Evadere
                     <span id="cnt-int-da_evadere" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#dbeafe;color:#1d4ed8">0</span>
                 </button>
-                <button id="tabInt-evasi" onclick="setTabInterni('evasi')"
+                <button id="tabInt-attesa_merce" onclick="setTabInterni('attesa_merce')"
                         class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
                         style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-check-double mr-1"></i>Evasi
-                    <span id="cnt-int-evasi" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#ede9fe;color:#6d28d9">0</span>
+                    <i class="fas fa-shipping-fast mr-1"></i>In Attesa Merce
+                    <span id="cnt-int-attesa_merce" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#ede9fe;color:#6d28d9">0</span>
+                </button>
+                <button id="tabInt-chiusi" onclick="setTabInterni('chiusi')"
+                        class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-lock mr-1"></i>Chiusi
+                    <span id="cnt-int-chiusi" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#d1fae5;color:#065f46">0</span>
                 </button>
                 <button id="tabInt-annullati" onclick="setTabInterni('annullati')"
                         class="int-tab px-5 py-3 text-sm font-semibold whitespace-nowrap"
@@ -1034,33 +1035,34 @@
                 in_attesa:  { cls: 'badge-in-attesa',   label: '⏸ In Attesa' },
                 approvato:  { cls: 'badge-approvato',   label: '✅ Approvato' },
                 da_evadere: { cls: 'badge-da-evadere',  label: '📦 Da Evadere' },
-                evaso:      { cls: 'badge-evaso',       label: '✔✔ Evaso' },
+                evaso:      { cls: 'badge-evaso',       label: '🚚 In Attesa Merce' },
+                chiuso:     { cls: 'badge-chiuso',      label: '🔒 Chiuso' },
                 annullato:  { cls: 'badge-annullato',   label: '❌ Annullato' }
             };
             const s = statoMap[o.stato] || { cls: 'badge-bozza', label: o.stato };
 
             const approvaLabel = o.tipo === 'da_approvare' ? 'Approva' : 'Ratifica';
-            const needsApproval = !['approvato','da_evadere','evaso','annullato'].includes(o.stato);
-            const approvaCls   = needsApproval
+            const needsApproval = !['approvato','da_evadere','evaso','chiuso','annullato'].includes(o.stato);
+            const approvaCls = needsApproval
                 ? `<button onclick="openApprovaModal('${o.id}')" title="${approvaLabel}" style="color:#16a34a;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-check-circle"></i></button>`
                 : '';
 
-            // Pulsante "Segna da evadere" (da approvato → da_evadere)
-            const segnaDaEvaBtn = o.stato === 'approvato'
-                ? `<button onclick="segnaPerEvasione('${o.id}')" title="Segna da evadere" style="color:#1d4ed8;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-box-open"></i></button>`
-                : '';
-
-            // Pulsante truck (ODF): visibile se approvato o da_evadere
+            // Pulsante truck (ODF): crea Ordine Fornitore da questo ordine
             const truckBtn = ['approvato','da_evadere'].includes(o.stato)
-                ? `<button onclick="evadisciOrdine('${o.id}')" title="Evadi come Ordine Fornitore" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-truck"></i></button>`
+                ? `<button onclick="evadisciOrdine('${o.id}')" title="Crea Ordine Fornitore" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-truck"></i></button>`
                 : '';
 
-            // Pulsante "Segna Evaso" manuale (Amazon/verbale, senza ODF)
+            // Pulsante "In Transito" manuale (Amazon/verbale senza ODF formale)
             const segnaEvasoBtn = ['approvato','da_evadere'].includes(o.stato)
-                ? `<button onclick="segnaEvaso('${o.id}')" title="Segna come Evaso (manuale)" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-check-double"></i></button>`
+                ? `<button onclick="segnaEvaso('${o.id}')" title="Segna In Attesa Merce (senza ODF)" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-shipping-fast"></i></button>`
                 : '';
 
-            const approvataInfo = ['approvato','da_evadere','evaso'].includes(o.stato) && o.approvato_da_nome
+            // Pulsante "Chiudi" manuale (merce ricevuta, chiudi senza ODF)
+            const chiudiBtn = o.stato === 'evaso'
+                ? `<button onclick="segnaChiuso('${o.id}')" title="Merce ricevuta — Chiudi ordine" style="color:#059669;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-check-double"></i></button>`
+                : '';
+
+            const approvataInfo = ['approvato','da_evadere','evaso','chiuso'].includes(o.stato) && o.approvato_da_nome
                 ? `<div style="font-size:10px;color:#6b7280;margin-top:2px"><i class="fas fa-user-check" style="color:#16a34a"></i> ${o.approvato_da_nome}</div>`
                 : '';
 
@@ -1095,9 +1097,9 @@
                     <td class="px-5 py-4">
                         <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
                             ${approvaCls}
-                            ${segnaDaEvaBtn}
                             ${truckBtn}
                             ${segnaEvasoBtn}
+                            ${chiudiBtn}
                             <button onclick="modificaOrdine('${o.id}')" title="Modifica" style="color:#3b82f6;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-edit"></i></button>
                             <button onclick="stampaOrdine('${o.id}')" title="Stampa" style="color:#16a34a;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-print"></i></button>
                             <button onclick="duplicaOrdine('${o.id}')" title="Duplica" style="color:#ea580c;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-copy"></i></button>
@@ -1118,26 +1120,26 @@
             document.getElementById('statValore').textContent = '€ ' + valore.toFixed(2);
 
             // Badge tab
-            const cntAtt = ordini.filter(o => ['bozza','in_attesa'].includes(o.stato)).length;
-            const cntApp = ordini.filter(o => o.stato === 'approvato').length;
-            const cntDaEv = ordini.filter(o => o.stato === 'da_evadere').length;
-            const cntEvas = ordini.filter(o => o.stato === 'evaso').length;
-            const cntAnn = ordini.filter(o => o.stato === 'annullato').length;
-            if (document.getElementById('cnt-int-attesa'))    document.getElementById('cnt-int-attesa').textContent    = cntAtt;
-            if (document.getElementById('cnt-int-approvati')) document.getElementById('cnt-int-approvati').textContent = cntApp;
-            if (document.getElementById('cnt-int-da_evadere'))document.getElementById('cnt-int-da_evadere').textContent= cntDaEv;
-            if (document.getElementById('cnt-int-evasi'))     document.getElementById('cnt-int-evasi').textContent     = cntEvas;
-            if (document.getElementById('cnt-int-annullati')) document.getElementById('cnt-int-annullati').textContent = cntAnn;
+            const cntDaApp = ordini.filter(o => ['bozza','in_attesa'].includes(o.stato)).length;
+            const cntDaEv  = ordini.filter(o => ['approvato','da_evadere'].includes(o.stato)).length;
+            const cntAttM  = ordini.filter(o => o.stato === 'evaso').length;
+            const cntChius = ordini.filter(o => o.stato === 'chiuso').length;
+            const cntAnn   = ordini.filter(o => o.stato === 'annullato').length;
+            if (document.getElementById('cnt-int-da_approvare')) document.getElementById('cnt-int-da_approvare').textContent = cntDaApp;
+            if (document.getElementById('cnt-int-da_evadere'))   document.getElementById('cnt-int-da_evadere').textContent   = cntDaEv;
+            if (document.getElementById('cnt-int-attesa_merce')) document.getElementById('cnt-int-attesa_merce').textContent = cntAttM;
+            if (document.getElementById('cnt-int-chiusi'))       document.getElementById('cnt-int-chiusi').textContent       = cntChius;
+            if (document.getElementById('cnt-int-annullati'))    document.getElementById('cnt-int-annullati').textContent    = cntAnn;
         }
 
-        let currentTabInterni = 'attesa';
+        let currentTabInterni = 'da_approvare';
 
         const TAB_STATI_INTERNI = {
-            'attesa':      ['bozza', 'in_attesa'],
-            'approvati':   ['approvato'],
-            'da_evadere':  ['da_evadere'],
-            'evasi':       ['evaso'],
-            'annullati':   ['annullato']
+            'da_approvare':  ['bozza', 'in_attesa'],
+            'da_evadere':    ['approvato', 'da_evadere'],
+            'attesa_merce':  ['evaso'],
+            'chiusi':        ['chiuso'],
+            'annullati':     ['annullato']
         };
 
         function setTabInterni(tab) {
@@ -2211,29 +2213,29 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         }
 
         // ── EVADI COME ORDINE FORNITORE ─────────────────────────────────────
-        async function segnaPerEvasione(id) {
+        async function segnaEvaso(id) {
             const ordine = ordini.find(o => o.id === id);
             if (!ordine) return;
-            if (!confirm(`Segna ordine ${ordine.numero} come "Da Evadere"?`)) return;
+            if (!confirm(`Segna ordine ${ordine.numero} come "In Attesa Merce"?\n(Per Amazon/ordini verbali senza ODF formale)`)) return;
             try {
-                const { error } = await db.from('ordini_interni').update({ stato: 'da_evadere' }).eq('id', id);
+                const { error } = await db.from('ordini_interni').update({ stato: 'evaso' }).eq('id', id);
                 if (error) throw error;
                 await loadOrdini();
-                showToast('📦 Ordine marcato come Da Evadere', 'success');
+                showToast('🚚 Ordine in attesa merce', 'success');
             } catch (err) {
                 showToast('❌ Errore: ' + err.message, 'error');
             }
         }
 
-        async function segnaEvaso(id) {
+        async function segnaChiuso(id) {
             const ordine = ordini.find(o => o.id === id);
             if (!ordine) return;
-            if (!confirm(`Segna ordine ${ordine.numero} come "Evaso"?\n(Usa questa opzione per Amazon o ordini verbali senza ODF)`)) return;
+            if (!confirm(`Chiudi ordine ${ordine.numero}?\nConferma che la merce è stata ricevuta.`)) return;
             try {
-                const { error } = await db.from('ordini_interni').update({ stato: 'evaso' }).eq('id', id);
+                const { error } = await db.from('ordini_interni').update({ stato: 'chiuso' }).eq('id', id);
                 if (error) throw error;
                 await loadOrdini();
-                showToast('✔✔ Ordine marcato come Evaso', 'success');
+                showToast('🔒 Ordine chiuso — merce ricevuta', 'success');
             } catch (err) {
                 showToast('❌ Errore: ' + err.message, 'error');
             }
@@ -2295,7 +2297,8 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                     stato: 'da_ordinare',
                     note_interne: document.getElementById('evadiNote').value.trim() || null,
                     totale_ordine: (items || []).reduce((s, i) => s + (parseFloat(i.importo) || 0), 0),
-                    created_by: currentUser.dbId || null
+                    created_by: currentUser.dbId || null,
+                    ordine_interno_id: id   // ← collega l'ODF all'ordine interno
                 }]).select().single();
                 if (oe) throw oe;
 
@@ -2320,7 +2323,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
 
                 closeEvadiModal();
                 await loadOrdini();
-                showToast(`✅ Ordine fornitore ${numero} creato! Vai su Ordini Fornitori per inviarlo.`, 'success');
+                showToast(`✅ ODF ${numero} creato! L'ordine è ora "In Attesa Merce".`, 'success');
             } catch (err) {
                 console.error(err);
                 showToast('❌ Errore: ' + err.message, 'error');

@@ -207,23 +207,29 @@
         <!-- Tab bar -->
         <div class="bg-white shadow mb-6 overflow-x-auto" style="border-radius:8px;border:1px solid #f3f4f6">
             <div class="flex" style="border-bottom:2px solid #f3f4f6;padding:0 16px">
-                <button id="tabRich-attive" onclick="setTabRichieste('attive')"
+                <button id="tabRich-da_lavorare" onclick="setTabRichieste('da_lavorare')"
                         class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
                         style="border-bottom:2px solid #0d9488;color:#0d9488;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-tasks mr-1"></i>Attive
-                    <span id="cnt-rich-attive" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#ccfbf1;color:#0f766e">0</span>
+                    <i class="fas fa-tasks mr-1"></i>Da Lavorare
+                    <span id="cnt-rich-da_lavorare" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#ccfbf1;color:#0f766e">0</span>
                 </button>
-                <button id="tabRich-convertite" onclick="setTabRichieste('convertite')"
+                <button id="tabRich-attesa_merce" onclick="setTabRichieste('attesa_merce')"
                         class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
                         style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-shopping-cart mr-1"></i>Convertite in Ordine
-                    <span id="cnt-rich-convertite" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fed7aa;color:#c2410c">0</span>
+                    <i class="fas fa-shipping-fast mr-1"></i>In Attesa Merce
+                    <span id="cnt-rich-attesa_merce" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#fed7aa;color:#c2410c">0</span>
                 </button>
                 <button id="tabRich-chiuse" onclick="setTabRichieste('chiuse')"
+                        class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap mr-1"
+                        style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
+                    <i class="fas fa-lock mr-1"></i>Chiuse
+                    <span id="cnt-rich-chiuse" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#d1fae5;color:#065f46">0</span>
+                </button>
+                <button id="tabRich-annullate" onclick="setTabRichieste('annullate')"
                         class="rich-tab px-5 py-3 text-sm font-semibold whitespace-nowrap"
                         style="border-bottom:2px solid transparent;color:#6b7280;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer">
-                    <i class="fas fa-archive mr-1"></i>Chiuse
-                    <span id="cnt-rich-chiuse" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#f3f4f6;color:#4b5563">0</span>
+                    <i class="fas fa-times-circle mr-1"></i>Annullate
+                    <span id="cnt-rich-annullate" class="ml-1 px-2 py-0.5 rounded-full text-xs font-bold" style="background:#f3f4f6;color:#4b5563">0</span>
                 </button>
             </div>
         </div>
@@ -859,12 +865,13 @@
     <script>
         let currentUser = null;
         let richieste = [];
-        let currentTabRichieste = 'attive';
+        let currentTabRichieste = 'da_lavorare';
 
         const RICHIESTE_TAB_STATI = {
-            'attive':     ['da_inviare', 'inviato', 'risposto', 'accettato'],
-            'convertite': ['convertito'],
-            'chiuse':     ['rifiutato', 'annullato']
+            'da_lavorare':  ['da_inviare', 'inviato', 'risposto', 'accettato'],
+            'attesa_merce': ['convertito'],
+            'chiuse':       ['chiuso'],
+            'annullate':    ['rifiutato', 'annullato']
         };
 
         function setTabRichieste(tab) {
@@ -1344,7 +1351,7 @@
                         <button onclick="inviaEmailRichiesta('${richiesta.id}')" class="text-blue-600 hover:text-blue-900" title="Invia richiesta preventivo">
                             <i class="fas fa-envelope"></i>
                         </button>
-                        ${richiesta.stato !== 'annullato' && richiesta.stato !== 'convertito' ? `
+                        ${!['annullato','convertito','chiuso'].includes(richiesta.stato) ? `
                         <button onclick="annullaRichiesta('${richiesta.id}')" class="text-orange-500 hover:text-orange-700" title="Annulla preventivo">
                             <i class="fas fa-ban"></i>
                         </button>` : ''}
@@ -1381,7 +1388,8 @@
                 'accettato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Accettato</span>',
                 'rifiutato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times mr-1"></i>Rifiutato</span>',
                 'annullato':   '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800"><i class="fas fa-times-circle mr-1"></i>Annullato</span>',
-                'convertito':  '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800"><i class="fas fa-shopping-cart mr-1"></i>Convertito</span>'
+                'convertito':  '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800"><i class="fas fa-shipping-fast mr-1"></i>In Attesa Merce</span>',
+                'chiuso':      '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-lock mr-1"></i>Chiuso</span>'
             };
             return badges[stato] || stato;
         }
@@ -1420,8 +1428,9 @@
             const inviate     = richieste.filter(o => o.stato === 'inviato' || o.stato === 'risposto').length;
             const accettate   = richieste.filter(o => o.stato === 'accettato').length;
             const rifiutate   = richieste.filter(o => o.stato === 'rifiutato').length;
-            const convertite  = richieste.filter(o => o.stato === 'convertito').length;
-            const chiuse      = rifiutate + richieste.filter(o => o.stato === 'annullato').length;
+            const attMerce   = richieste.filter(o => o.stato === 'convertito').length;
+            const chiuse      = richieste.filter(o => o.stato === 'chiuso').length;
+            const annullate   = richieste.filter(o => ['rifiutato','annullato'].includes(o.stato)).length;
 
             document.getElementById('statTotal').textContent     = richieste.length;
             document.getElementById('statDaInviare').textContent = daInviare;
@@ -1430,10 +1439,11 @@
             document.getElementById('statRifiutate').textContent = rifiutate;
 
             // Badge nelle tab
-            const attive = richieste.filter(o => RICHIESTE_TAB_STATI['attive'].includes(o.stato)).length;
-            if (document.getElementById('cnt-rich-attive'))     document.getElementById('cnt-rich-attive').textContent     = attive;
-            if (document.getElementById('cnt-rich-convertite')) document.getElementById('cnt-rich-convertite').textContent = convertite;
-            if (document.getElementById('cnt-rich-chiuse'))     document.getElementById('cnt-rich-chiuse').textContent     = chiuse;
+            const daLavorare = richieste.filter(o => RICHIESTE_TAB_STATI['da_lavorare'].includes(o.stato)).length;
+            if (document.getElementById('cnt-rich-da_lavorare'))  document.getElementById('cnt-rich-da_lavorare').textContent  = daLavorare;
+            if (document.getElementById('cnt-rich-attesa_merce')) document.getElementById('cnt-rich-attesa_merce').textContent = attMerce;
+            if (document.getElementById('cnt-rich-chiuse'))       document.getElementById('cnt-rich-chiuse').textContent       = chiuse;
+            if (document.getElementById('cnt-rich-annullate'))    document.getElementById('cnt-rich-annullate').textContent    = annullate;
         }
 
         function nuovaRichiesta() {

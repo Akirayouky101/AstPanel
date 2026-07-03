@@ -786,7 +786,7 @@
 
                 let query = window.supabase
                     .from('ordini_fornitore')
-                    .select('*, fornitore:fornitori(ragione_sociale)')
+                    .select('*, fornitore:fornitori(ragione_sociale), richiesta_id, ordine_interno_id')
                     .order('data_ordine', { ascending: false });
 
                 if (filterFornitore) query = query.eq('fornitore_id', filterFornitore);
@@ -1445,6 +1445,26 @@
                     .from('ordini_fornitore')
                     .update({ stato: nuovoStatoOrdine })
                     .eq('id', ordineId);
+
+                // ── Cascade chiusura ──────────────────────────────────────
+                // Se l'ODF è completamente ricevuto, chiudi le pratiche collegate
+                if (tuttiRicevuti) {
+                    // Chiudi la richiesta preventivo collegata
+                    if (ordine?.richiesta_id) {
+                        await window.supabase
+                            .from('richieste_preventivo_fornitori')
+                            .update({ stato: 'chiuso' })
+                            .eq('id', ordine.richiesta_id);
+                    }
+                    // Chiudi l'ordine interno collegato
+                    if (ordine?.ordine_interno_id) {
+                        await window.supabase
+                            .from('ordini_interni')
+                            .update({ stato: 'chiuso' })
+                            .eq('id', ordine.ordine_interno_id);
+                    }
+                }
+                // ─────────────────────────────────────────────────────────
 
                 showSuccessModal(`Merce ricevuta! ${caricati} prodott${caricati === 1 ? 'o caricato' : 'i caricati'} in magazzino.`);
                 closeRicezioneModal();
