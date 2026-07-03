@@ -1050,9 +1050,14 @@
                 ? `<button onclick="segnaPerEvasione('${o.id}')" title="Segna da evadere" style="color:#1d4ed8;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-box-open"></i></button>`
                 : '';
 
-            // Pulsante truck: visibile se approvato o da_evadere
+            // Pulsante truck (ODF): visibile se approvato o da_evadere
             const truckBtn = ['approvato','da_evadere'].includes(o.stato)
                 ? `<button onclick="evadisciOrdine('${o.id}')" title="Evadi come Ordine Fornitore" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-truck"></i></button>`
+                : '';
+
+            // Pulsante "Segna Evaso" manuale (Amazon/verbale, senza ODF)
+            const segnaEvasoBtn = ['approvato','da_evadere'].includes(o.stato)
+                ? `<button onclick="segnaEvaso('${o.id}')" title="Segna come Evaso (manuale)" style="color:#7c3aed;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-check-double"></i></button>`
                 : '';
 
             const approvataInfo = ['approvato','da_evadere','evaso'].includes(o.stato) && o.approvato_da_nome
@@ -1092,6 +1097,7 @@
                             ${approvaCls}
                             ${segnaDaEvaBtn}
                             ${truckBtn}
+                            ${segnaEvasoBtn}
                             <button onclick="modificaOrdine('${o.id}')" title="Modifica" style="color:#3b82f6;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-edit"></i></button>
                             <button onclick="stampaOrdine('${o.id}')" title="Stampa" style="color:#16a34a;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-print"></i></button>
                             <button onclick="duplicaOrdine('${o.id}')" title="Duplica" style="color:#ea580c;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-copy"></i></button>
@@ -2214,6 +2220,20 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                 if (error) throw error;
                 await loadOrdini();
                 showToast('📦 Ordine marcato come Da Evadere', 'success');
+            } catch (err) {
+                showToast('❌ Errore: ' + err.message, 'error');
+            }
+        }
+
+        async function segnaEvaso(id) {
+            const ordine = ordini.find(o => o.id === id);
+            if (!ordine) return;
+            if (!confirm(`Segna ordine ${ordine.numero} come "Evaso"?\n(Usa questa opzione per Amazon o ordini verbali senza ODF)`)) return;
+            try {
+                const { error } = await db.from('ordini_interni').update({ stato: 'evaso' }).eq('id', id);
+                if (error) throw error;
+                await loadOrdini();
+                showToast('✔✔ Ordine marcato come Evaso', 'success');
             } catch (err) {
                 showToast('❌ Errore: ' + err.message, 'error');
             }
