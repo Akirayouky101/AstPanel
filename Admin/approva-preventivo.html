@@ -82,6 +82,7 @@
 const db = window.supabaseClient;
 const session = new URLSearchParams(window.location.search).get('s');
 let pendingCount = 0;
+const preventiviMap = {}; // id → { numero, fornitore_nome, approvatore_nome }
 
 const fmtD = d => {
     if (!d) return '—';
@@ -230,6 +231,10 @@ async function load() {
         document.getElementById('headerSub').textContent = 'Ciao, ' + data.approvatore_nome + '! — ZG Impianti';
     }
     if (preventivi.length === 0) { setState('Empty'); return; }
+    // Memorizza dati preventivi per push notification
+    preventivi.forEach(p => {
+        preventiviMap[p.id] = { numero: p.numero || p.id, fornitore_nome: p.fornitore_nome || '', approvatore_nome: data.approvatore_nome || 'Approvatore' };
+    });
     document.getElementById('cardsList').innerHTML = preventivi.map(buildCard).join('');
     updateBadge();
     setState('Cards');
@@ -271,6 +276,25 @@ async function agisci(preventivoId, azione) {
             note: tipoLog === 'rifiuto' ? 'Richiesta rifiutata dall\'approvatore' : null
         });
     } catch(e) { console.warn('storia log error', e); }
+
+    // Invia notifica push all'admin
+    try {
+        const pm = preventiviMap[preventivoId] || {};
+        await fetch('https://hrqhckksrunniqnzqogk.supabase.co/functions/v1/send-push', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhrY2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3OTkwNjcsImV4cCI6MjA2MjM3NTA2N30.T1gL9a5LKl1yvF2J2XnBHT9pBTbcDQKg2VVZiJeERPQ'
+            },
+            body: JSON.stringify({
+                type: 'APPROVAL',
+                numero:      pm.numero,
+                fornitore:   pm.fornitore_nome,
+                azione:      azione,
+                approvatore: pm.approvatore_nome
+            })
+        });
+    } catch(e) { console.warn('push notification error', e); }
     foot.innerHTML = `<div class="result-overlay">
         <i class="fas fa-${icon}-circle fa-lg" style="color:${color}"></i>
         <span style="color:${color};font-size:15px;font-weight:700">${label}</span>

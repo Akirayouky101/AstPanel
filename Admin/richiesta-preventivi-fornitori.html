@@ -161,9 +161,18 @@
         <!-- Actions Bar -->
         <div class="bg-white rounded-lg shadow p-4 mb-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <button onclick="nuovaRichiesta()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-medium">
-                    <i class="fas fa-plus mr-2"></i>Nuovo Ordine
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="nuovaRichiesta()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-medium">
+                        <i class="fas fa-plus mr-2"></i>Nuovo Ordine
+                    </button>
+                    <!-- Pulsante notifiche push -->
+                    <button id="btnPush" onclick="togglePushNotifications()"
+                            title="Attiva notifiche push per ricevere un avviso quando viene approvato un preventivo"
+                            class="flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm border-2 transition-all bg-gray-50 border-gray-300 text-gray-600 hover:border-teal-400">
+                        <i class="fas fa-bell"></i>
+                        <span id="btnPushLabel">Notifiche</span>
+                    </button>
+                </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <select id="filterStato" onchange="applyFilters()"
                             class="appearance-none pl-3 pr-8 py-2.5 rounded-xl text-sm font-semibold border-2 cursor-pointer outline-none transition-all bg-gray-50 border-gray-200 text-gray-600 hover:border-teal-400">
@@ -847,7 +856,111 @@
                 if (modal && !modal.classList.contains('hidden')) return;
                 loadRichieste();
             });
+
+            // Inizializza stato pulsante notifiche push
+            initPushBtn();
         });
+
+        // ========== PUSH NOTIFICATIONS ==========
+        const PUSH_VAPID = 'BCsyrTqzG2BhGSXfxefMSTttkYgrwlObrgP0UlXWijqhg59qdUIR4hmZOOzHB8PrsAYYKvejEliCvR4fvKgFz0E';
+        const SUPABASE_URL_PUSH = 'https://hrqhckksrunniqnzqogk.supabase.co';
+        const SUPABASE_ANON_KEY_PUSH = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhrY2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3OTkwNjcsImV4cCI6MjA2MjM3NTA2N30.T1gL9a5LKl1yvF2J2XnBHT9pBTbcDQKg2VVZiJeERPQ';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+        }
+
+        async function initPushBtn() {
+            const btn = document.getElementById('btnPush');
+            const lbl = document.getElementById('btnPushLabel');
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+            const permission = Notification.permission;
+            if (permission === 'granted') {
+                // Controlla se c'è già una subscription attiva per questo utente
+                const sw = await navigator.serviceWorker.getRegistration('/Admin/sw.js');
+                if (sw) {
+                    const sub = await sw.pushManager.getSubscription();
+                    if (sub && lbl) {
+                        lbl.textContent = '🔔 Attive';
+                        if (btn) btn.className = btn.className.replace(/bg-gray-50.*?text-gray-600/, 'bg-teal-50 border-teal-500 text-teal-700');
+                    }
+                }
+            }
+        }
+
+        async function togglePushNotifications() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                showToast('Il tuo browser non supporta le notifiche push', 'error'); return;
+            }
+
+            const lbl = document.getElementById('btnPushLabel');
+            const btn = document.getElementById('btnPush');
+
+            // Se già attive → disattiva
+            const sw = await navigator.serviceWorker.getRegistration('/Admin/sw.js');
+            if (sw) {
+                const sub = await sw.pushManager.getSubscription();
+                if (sub) {
+                    await sub.unsubscribe();
+                    // Rimuovi dal DB
+                    if (currentUser) {
+                        await window.supabase.from('push_subscriptions').delete().eq('dipendente_id', currentUser.id);
+                    }
+                    if (lbl) lbl.textContent = 'Notifiche';
+                    if (btn) btn.className = btn.className.replace(/bg-teal-50.*?text-teal-700/, 'bg-gray-50 border-gray-300 text-gray-600');
+                    showToast('Notifiche push disattivate', 'info');
+                    return;
+                }
+            }
+
+            // Altrimenti → attiva
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                showToast('Permesso notifiche negato. Abilitalo nelle impostazioni del browser.', 'error');
+                return;
+            }
+
+            try {
+                // Registra service worker admin (usa quello già esistente)
+                const swReg = await navigator.serviceWorker.register('/Admin/sw.js', { scope: '/Admin/' });
+                await swReg.update();
+
+                const subscription = await swReg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(PUSH_VAPID)
+                });
+
+                const subJson = subscription.toJSON();
+                const userId = currentUser?.id;
+                if (!userId) { showToast('Utente non autenticato', 'error'); return; }
+
+                // Salva in Supabase (upsert)
+                const { error } = await window.supabase.from('push_subscriptions').upsert({
+                    dipendente_id: userId,
+                    endpoint:    subJson.endpoint,
+                    key_p256dh:  subJson.keys.p256dh,
+                    key_auth:    subJson.keys.auth
+                }, { onConflict: 'dipendente_id' });
+
+                if (error) throw error;
+
+                if (lbl) lbl.textContent = '🔔 Attive';
+                if (btn) {
+                    btn.classList.remove('bg-gray-50', 'border-gray-300', 'text-gray-600', 'hover:border-teal-400');
+                    btn.classList.add('bg-teal-50', 'border-teal-500', 'text-teal-700');
+                }
+                showToast('Notifiche push attivate! Riceverai un avviso quando viene approvato un preventivo.', 'success');
+            } catch (err) {
+                console.error('Push subscription error:', err);
+                showToast('Errore attivazione notifiche: ' + err.message, 'error');
+            }
+        }
 
         async function loadFornitori() {
             try {

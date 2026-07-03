@@ -40,7 +40,49 @@ serve(async (req: Request) => {
     try {
         const body = await req.json();
 
-        // Supabase Webhook invia: { type: 'INSERT'|'UPDATE', table, schema, record, old_record }
+        // ── Caso 1: chiamata diretta per notifica approvazione ────────────────────
+        // Body: { type: 'APPROVAL', numero, fornitore, azione, approvatore }
+        if (body.type === 'APPROVAL') {
+            const { numero, fornitore, azione, approvatore } = body;
+
+            const azioneLabel: Record<string, string> = {
+                approva:         '✅ Approvata',
+                approva_modifica:'✅ Modifica approvata',
+                rifiuta:         '❌ Rifiutata',
+                prendi_visione:  '👁️ Presa visione',
+            };
+            const label = azioneLabel[azione] || azione;
+
+            const payload = JSON.stringify({
+                title: `${label} – ${numero}`,
+                body:  `Fornitore: ${fornitore || '—'} · da ${approvatore || 'Approvatore'}`,
+                tag:   `approvazione-${numero}`,
+                requireInteraction: true,
+                data:  { url: '/Admin/richiesta-preventivi-fornitori.html' },
+            });
+
+            // Invia a TUTTE le push subscription (tutti i dispositivi registrati degli admin)
+            const { data: subs, error: subErr } = await supabase
+                .from('push_subscriptions')
+                .select('endpoint, key_p256dh, key_auth');
+
+            if (subErr || !subs?.length) return new Response('No subscriptions', { status: 200 });
+
+            let sent = 0;
+            for (const sub of subs) {
+                try {
+                    await webpush.sendNotification(
+                        { endpoint: sub.endpoint, keys: { p256dh: sub.key_p256dh, auth: sub.key_auth } },
+                        payload
+                    );
+                    sent++;
+                } catch (_) { /* subscription scaduta/invalida: ignora */ }
+            }
+            console.log(`✅ Push approvazione inviata a ${sent}/${subs.length} dispositivi`);
+            return new Response(JSON.stringify({ ok: true, sent }), { status: 200 });
+        }
+
+        // ── Caso 2: Webhook Supabase per task (comportamento originale) ───────────
         const eventType: string  = body.type;
         const record: Record<string, unknown> = body.record;
 
