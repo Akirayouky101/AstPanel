@@ -713,6 +713,28 @@
                 loadFornitori(),
                 loadProdotti()
             ]);
+
+            // Gestisci parametro ?id= (link da richiesta-preventivi-fornitori)
+            const _urlParams = new URLSearchParams(window.location.search);
+            const _targetId  = _urlParams.get('id');
+            if (_targetId) {
+                const _o = ordini.find(o => o.id === _targetId);
+                if (_o) {
+                    // Trova il tab corretto in base allo stato dell'ordine
+                    const _tabName = Object.entries(TAB_STATI)
+                        .find(([, stati]) => stati.includes(_o.stato))?.[0] || 'da_evadere';
+                    setTab(_tabName);
+                    // Attendi il render poi scrolla + highlight
+                    setTimeout(() => {
+                        const row = document.getElementById('row-' + _targetId);
+                        if (row) {
+                            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            row.style.background = '#fef3c7';
+                            setTimeout(() => { row.style.background = ''; }, 2500);
+                        }
+                    }, 150);
+                }
+            }
         });
 
         async function loadFornitori() {
@@ -808,7 +830,7 @@
             }
 
             tbody.innerHTML = filtered.map(o => `
-                <tr class="hover:bg-orange-50 cursor-pointer transition-colors" onclick="apriRiepilogo('${o.id}')">
+                <tr id="row-${o.id}" class="hover:bg-orange-50 cursor-pointer transition-colors" onclick="apriRiepilogo('${o.id}')" style="transition:background .4s">
                     <td class="px-6 py-4">
                         <div class="font-medium text-gray-900">${o.numero}</div>
                         ${o.preventivo_id ? '<div class="text-xs text-blue-600"><i class="fas fa-link mr-1"></i>Da preventivo</div>' : ''}
