@@ -35,7 +35,11 @@
                     </h1>
                     <p class="text-gray-600 mt-2">Riepilogo presenze e approvazioni</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex gap-3 flex-wrap justify-end">
+                    <button onclick="openStampaResoconto()" class="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                        Stampa Resoconto
+                    </button>
                     <button onclick="openEmailModal()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2">
                         <i data-lucide="mail" class="w-5 h-5"></i>
                         Email Commercialista
@@ -654,6 +658,122 @@
             
             <div class="p-6" id="dayModalContent">
                 <!-- Contenuto popolato dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         MODAL STAMPA RESOCONTO
+    ===================================================== -->
+    <div id="stampaResocontoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl my-6">
+
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-teal-600 to-emerald-700 p-6 text-white rounded-t-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="printer" class="w-8 h-8"></i>
+                    <div>
+                        <h3 class="text-2xl font-bold">Stampa Resoconto Orari</h3>
+                        <p class="text-teal-100 text-sm mt-0.5">Genera resoconti giornalieri, settimanali e mensili</p>
+                    </div>
+                </div>
+                <button onclick="closeStampaResoconto()" class="hover:bg-white/20 p-2 rounded-xl transition-all text-2xl font-light">✕</button>
+            </div>
+
+            <!-- Controlli -->
+            <div class="p-6 bg-gray-50 border-b border-gray-200">
+                <div class="flex flex-wrap gap-4 items-end">
+
+                    <!-- Tipo -->
+                    <div class="min-w-48">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo Resoconto</label>
+                        <select id="resocontoTipo" onchange="onResocontoTipoChange()"
+                                class="w-full px-4 py-2.5 bg-white border-2 border-teal-300 text-teal-800 rounded-xl text-sm font-semibold focus:outline-none focus:border-teal-500 cursor-pointer">
+                            <option value="mensile">📅 Mensile</option>
+                            <option value="settimanale">📆 Settimanale</option>
+                            <option value="giornaliero">🗓️ Giornaliero</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Mensile -->
+                    <div id="resocontoDateMensile" class="flex gap-3 items-end">
+                        <div class="min-w-36">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mese</label>
+                            <select id="resocontoMese" class="w-full px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400">
+                                <option value="1">Gennaio</option><option value="2">Febbraio</option>
+                                <option value="3">Marzo</option><option value="4">Aprile</option>
+                                <option value="5">Maggio</option><option value="6">Giugno</option>
+                                <option value="7">Luglio</option><option value="8">Agosto</option>
+                                <option value="9">Settembre</option><option value="10">Ottobre</option>
+                                <option value="11">Novembre</option><option value="12">Dicembre</option>
+                            </select>
+                        </div>
+                        <div class="min-w-24">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Anno</label>
+                            <input type="number" id="resocontoAnno" min="2020" max="2035"
+                                   class="w-full px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400">
+                        </div>
+                    </div>
+
+                    <!-- Date Settimanale -->
+                    <div id="resocontoDateSettim" class="hidden flex gap-3 items-end">
+                        <div class="min-w-48">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Settimana (Lunedì)</label>
+                            <input type="date" id="resocontoSettimStart"
+                                   class="w-full px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400">
+                        </div>
+                    </div>
+
+                    <!-- Date Giornaliero -->
+                    <div id="resocontoDateGiorn" class="hidden">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Giorno</label>
+                        <input type="date" id="resocontoGiorno"
+                               class="w-full px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400">
+                    </div>
+
+                    <!-- Dipendente -->
+                    <div class="min-w-52">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Dipendente</label>
+                        <select id="resocontoEmp"
+                                class="w-full px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400">
+                            <option value="">Tutti i dipendenti</option>
+                        </select>
+                    </div>
+
+                    <!-- Bottone -->
+                    <div>
+                        <label class="block text-xs font-bold text-transparent mb-1.5">.</label>
+                        <button onclick="generaResocontoPreview()"
+                                class="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all flex items-center gap-2">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                            Genera Anteprima
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area anteprima -->
+            <div id="resocontoPreviewArea" class="p-6 min-h-64">
+                <div class="flex flex-col items-center justify-center h-48 text-gray-400">
+                    <i data-lucide="file-text" class="w-14 h-14 mb-3 opacity-30"></i>
+                    <p class="text-lg font-medium">Seleziona il periodo e clicca "Genera Anteprima"</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex justify-between items-center">
+                <p class="text-xs text-gray-400">I dati mostrati includono solo le timbrature <strong>approvate</strong></p>
+                <div class="flex gap-3">
+                    <button onclick="closeStampaResoconto()"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl transition-all">
+                        Chiudi
+                    </button>
+                    <button onclick="stampaResoconto()"
+                            class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all flex items-center gap-2">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        Stampa / PDF
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -2602,6 +2722,484 @@
         setInterval(() => {
             loadLiveStatus();
         }, 60000);
+
+        // ══════════════════════════════════════════════════════════════
+        //  STAMPA RESOCONTO
+        // ══════════════════════════════════════════════════════════════
+
+        function openStampaResoconto() {
+            const sel = document.getElementById('resocontoEmp');
+            sel.innerHTML = '<option value="">Tutti i dipendenti</option>';
+            allEmployees.forEach(e => {
+                const o = document.createElement('option');
+                o.value = e.id;
+                o.textContent = `${e.nome} ${e.cognome}`;
+                sel.appendChild(o);
+            });
+            onResocontoTipoChange();
+            document.getElementById('resocontoPreviewArea').innerHTML = `
+                <div class="flex flex-col items-center justify-center h-48 text-gray-400">
+                    <i data-lucide="file-text" class="w-14 h-14 mb-3 opacity-30"></i>
+                    <p class="text-lg font-medium">Seleziona il periodo e clicca "Genera Anteprima"</p>
+                </div>`;
+            document.getElementById('stampaResocontoModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeStampaResoconto() {
+            document.getElementById('stampaResocontoModal').classList.add('hidden');
+        }
+
+        function onResocontoTipoChange() {
+            const tipo = document.getElementById('resocontoTipo').value;
+            const now = new Date();
+            document.getElementById('resocontoDateMensile').classList.add('hidden');
+            document.getElementById('resocontoDateSettim').classList.add('hidden');
+            document.getElementById('resocontoDateGiorn').classList.add('hidden');
+
+            if (tipo === 'mensile') {
+                document.getElementById('resocontoDateMensile').classList.remove('hidden');
+                document.getElementById('resocontoMese').value = now.getMonth() + 1;
+                document.getElementById('resocontoAnno').value = now.getFullYear();
+            } else if (tipo === 'settimanale') {
+                document.getElementById('resocontoDateSettim').classList.remove('hidden');
+                const monday = new Date(now);
+                const diff = (monday.getDay() + 6) % 7;
+                monday.setDate(monday.getDate() - diff);
+                document.getElementById('resocontoSettimStart').value = monday.toISOString().split('T')[0];
+            } else {
+                document.getElementById('resocontoDateGiorn').classList.remove('hidden');
+                document.getElementById('resocontoGiorno').value = now.toISOString().split('T')[0];
+            }
+        }
+
+        async function generaResocontoPreview() {
+            const tipo = document.getElementById('resocontoTipo').value;
+            const empId = document.getElementById('resocontoEmp').value;
+            let startDate, endDate;
+
+            if (tipo === 'mensile') {
+                const m = parseInt(document.getElementById('resocontoMese').value);
+                const y = parseInt(document.getElementById('resocontoAnno').value);
+                startDate = `${y}-${String(m).padStart(2,'0')}-01`;
+                const last = new Date(y, m, 0).getDate();
+                endDate = `${y}-${String(m).padStart(2,'0')}-${last}`;
+            } else if (tipo === 'settimanale') {
+                startDate = document.getElementById('resocontoSettimStart').value;
+                const d = new Date(startDate + 'T00:00:00');
+                d.setDate(d.getDate() + 6);
+                endDate = d.toISOString().split('T')[0];
+            } else {
+                startDate = endDate = document.getElementById('resocontoGiorno').value;
+            }
+
+            const area = document.getElementById('resocontoPreviewArea');
+            area.innerHTML = `<div class="flex items-center justify-center h-32 text-teal-600 gap-3"><svg class="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg><span class="text-lg font-semibold">Caricamento dati...</span></div>`;
+
+            let query = window.supabaseClient
+                .from('timbrature')
+                .select('*, user:users!user_id(nome, cognome, ruolo)')
+                .gte('data', startDate)
+                .lte('data', endDate)
+                .order('data', { ascending: true });
+
+            if (empId) query = query.eq('user_id', empId);
+
+            const { data, error } = await query;
+            if (error) { showNotification('❌ Errore caricamento dati', 'error'); return; }
+
+            if (!data || data.length === 0) {
+                area.innerHTML = `<div class="flex flex-col items-center justify-center h-48 text-gray-400"><i data-lucide="inbox" class="w-12 h-12 mb-3 opacity-30"></i><p class="text-lg">Nessuna timbratura trovata per il periodo selezionato</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            if (tipo === 'mensile') {
+                area.innerHTML = buildResocontoMensile(data, startDate, endDate);
+            } else if (tipo === 'settimanale') {
+                area.innerHTML = buildResocontoSettimanale(data, startDate, endDate);
+            } else {
+                area.innerHTML = buildResocontoGiornaliero(data, startDate);
+            }
+            lucide.createIcons();
+        }
+
+        // ── Helper ore ──────────────────────────────────────────────
+        function _fmtOre(ore) {
+            if (!ore) return '—';
+            const h = Math.floor(ore);
+            const m = Math.round((ore - h) * 60);
+            return m > 0 ? `${h}h ${m}m` : `${h}h`;
+        }
+        function _fmtData(isoDate) {
+            return new Date(isoDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+        }
+        function _fmtDataShort(isoDate) {
+            return new Date(isoDate + 'T00:00:00').toLocaleDateString('it-IT', { day:'2-digit', month:'short' });
+        }
+        const _tipoEmoji = { normale:'💼', straordinario:'🕐', permesso:'🚪', ferie:'🏖️', malattia:'🤒', trasferta:'🚗' };
+        const _tipoLabel = { normale:'Normale', straordinario:'Straordinario', permesso:'Permesso', ferie:'Ferie', malattia:'Malattia', trasferta:'Trasferta' };
+
+        // ── MENSILE ─────────────────────────────────────────────────
+        function buildResocontoMensile(data, startDate, endDate) {
+            const nomeMese = new Date(startDate + 'T00:00:00').toLocaleDateString('it-IT', { month:'long', year:'numeric' });
+            // Raggruppa per dipendente
+            const emp = {};
+            data.forEach(t => {
+                if (t.stato !== 'approved' && t.stato !== 'approvato') return;
+                const k = t.user_id;
+                if (!emp[k]) emp[k] = { nome: `${t.user.nome} ${t.user.cognome}`, ruolo: t.user.ruolo,
+                    oreOrdinarie:0, oreStraord:0, permessi:0, ferie:0, malattia:0, trasferta:0, totaleOre:0, giorni:0, rows:[] };
+                const ore = t.ore_lavorate || 0;
+                emp[k].totaleOre += ore;
+                emp[k].giorni++;
+                emp[k].rows.push(t);
+                if (t.tipo==='normale') emp[k].oreOrdinarie += ore;
+                else if (t.tipo==='straordinario') emp[k].oreStraord += ore;
+                else if (t.tipo==='permesso') emp[k].permessi++;
+                else if (t.tipo==='ferie') emp[k].ferie++;
+                else if (t.tipo==='malattia') emp[k].malattia++;
+                else if (t.tipo==='trasferta') emp[k].trasferta++;
+            });
+
+            const list = Object.values(emp).sort((a,b) => a.nome.localeCompare(b.nome));
+            if (list.length === 0) return `<div class="text-center py-12 text-gray-400">Nessuna timbratura approvata nel periodo.</div>`;
+
+            const now = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+            let html = `
+            <div id="resocontoDoc" class="font-sans text-gray-800">
+                <!-- Intestazione documento -->
+                <div class="flex justify-between items-start mb-6 pb-4 border-b-2 border-teal-500">
+                    <div>
+                        <h1 class="text-3xl font-black text-teal-700 tracking-tight">AST Panel</h1>
+                        <h2 class="text-xl font-bold text-gray-700 mt-1">Resoconto Mensile Orari Dipendenti</h2>
+                        <p class="text-gray-500 mt-0.5 capitalize font-semibold text-lg">${nomeMese}</p>
+                    </div>
+                    <div class="text-right text-xs text-gray-400">
+                        <p>Generato il ${now}</p>
+                        <p class="mt-1">Solo timbrature <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">approvate</span></p>
+                    </div>
+                </div>
+
+                <!-- Tabella riepilogo -->
+                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">Riepilogo per Dipendente</h3>
+                <div class="overflow-x-auto rounded-xl shadow-sm border border-gray-200 mb-8">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white">
+                                <th class="px-4 py-3 text-left font-semibold">Dipendente</th>
+                                <th class="px-4 py-3 text-center font-semibold">Giorni Lav.</th>
+                                <th class="px-4 py-3 text-center font-semibold">Ore Ord.</th>
+                                <th class="px-4 py-3 text-center font-semibold">Straord.</th>
+                                <th class="px-4 py-3 text-center font-semibold">Ferie</th>
+                                <th class="px-4 py-3 text-center font-semibold">Permessi</th>
+                                <th class="px-4 py-3 text-center font-semibold">Malattia</th>
+                                <th class="px-4 py-3 text-center font-semibold">Trasferta</th>
+                                <th class="px-4 py-3 text-center font-semibold bg-teal-800">Totale Ore</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            let totGiorni=0,totOrd=0,totStr=0,totFerie=0,totPerm=0,totMal=0,totTrasf=0,totTot=0;
+            list.forEach((e,i) => {
+                const bg = i%2===0 ? 'bg-white' : 'bg-gray-50';
+                html += `<tr class="${bg} hover:bg-teal-50 transition-colors">
+                    <td class="px-4 py-3 font-semibold"><div class="font-bold">${e.nome}</div><div class="text-xs text-gray-400">${e.ruolo}</div></td>
+                    <td class="px-4 py-3 text-center font-medium">${e.giorni}</td>
+                    <td class="px-4 py-3 text-center text-blue-700 font-medium">${_fmtOre(e.oreOrdinarie)}</td>
+                    <td class="px-4 py-3 text-center text-orange-600 font-medium">${e.oreStraord>0?_fmtOre(e.oreStraord):'—'}</td>
+                    <td class="px-4 py-3 text-center">${e.ferie>0?`<span class="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-semibold text-xs">${e.ferie}gg</span>`:'—'}</td>
+                    <td class="px-4 py-3 text-center">${e.permessi>0?`<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold text-xs">${e.permessi}gg</span>`:'—'}</td>
+                    <td class="px-4 py-3 text-center">${e.malattia>0?`<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold text-xs">${e.malattia}gg</span>`:'—'}</td>
+                    <td class="px-4 py-3 text-center">${e.trasferta>0?`<span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold text-xs">${e.trasferta}gg</span>`:'—'}</td>
+                    <td class="px-4 py-3 text-center font-black text-teal-700 text-base bg-teal-50">${_fmtOre(e.totaleOre)}</td>
+                </tr>`;
+                totGiorni+=e.giorni; totOrd+=e.oreOrdinarie; totStr+=e.oreStraord;
+                totFerie+=e.ferie; totPerm+=e.permessi; totMal+=e.malattia; totTrasf+=e.trasferta; totTot+=e.totaleOre;
+            });
+
+            html += `<tr class="bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold">
+                    <td class="px-4 py-3">TOTALE AZIENDA</td>
+                    <td class="px-4 py-3 text-center">${totGiorni}</td>
+                    <td class="px-4 py-3 text-center">${_fmtOre(totOrd)}</td>
+                    <td class="px-4 py-3 text-center">${totStr>0?_fmtOre(totStr):'—'}</td>
+                    <td class="px-4 py-3 text-center">${totFerie>0?totFerie+'gg':'—'}</td>
+                    <td class="px-4 py-3 text-center">${totPerm>0?totPerm+'gg':'—'}</td>
+                    <td class="px-4 py-3 text-center">${totMal>0?totMal+'gg':'—'}</td>
+                    <td class="px-4 py-3 text-center">${totTrasf>0?totTrasf+'gg':'—'}</td>
+                    <td class="px-4 py-3 text-center text-xl bg-gray-900">${_fmtOre(totTot)}</td>
+                </tr></tbody></table></div>`;
+
+            // Dettaglio per dipendente
+            html += `<h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Dettaglio Giornaliero per Dipendente</h3>
+                     <div class="space-y-6">`;
+
+            list.forEach(e => {
+                html += `<div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 flex justify-between items-center">
+                        <div class="font-bold text-lg">${e.nome}</div>
+                        <div class="text-indigo-200 text-sm">${e.ruolo} &nbsp;·&nbsp; ${e.giorni} giorni &nbsp;·&nbsp; ${_fmtOre(e.totaleOre)} totali</div>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-semibold">Data</th>
+                                <th class="px-4 py-2 text-center font-semibold">Tipo</th>
+                                <th class="px-4 py-2 text-center font-semibold">Ingresso</th>
+                                <th class="px-4 py-2 text-center font-semibold">Uscita</th>
+                                <th class="px-4 py-2 text-center font-semibold">Pausa</th>
+                                <th class="px-4 py-2 text-center font-semibold">Ore</th>
+                                <th class="px-4 py-2 text-center font-semibold">Stato</th>
+                            </tr>
+                        </thead><tbody>`;
+                e.rows.sort((a,b) => a.data.localeCompare(b.data)).forEach((t,i) => {
+                    const bg = i%2===0 ? 'bg-white' : 'bg-gray-50';
+                    const statoEl = (t.stato==='approved'||t.stato==='approvato')
+                        ? '<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold">✓ Approv.</span>'
+                        : '<span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-bold">In att.</span>';
+                    let pausa = '—';
+                    if (t.pausa_inizio && t.pausa_fine) {
+                        const pm = Math.round((new Date('1970-01-01T'+t.pausa_fine) - new Date('1970-01-01T'+t.pausa_inizio))/60000);
+                        pausa = `${pm}m`;
+                    }
+                    html += `<tr class="${bg}">
+                        <td class="px-4 py-2 font-medium">${_fmtData(t.data)}</td>
+                        <td class="px-4 py-2 text-center">${_tipoEmoji[t.tipo]||''} ${_tipoLabel[t.tipo]||t.tipo}</td>
+                        <td class="px-4 py-2 text-center font-mono">${t.ora_ingresso||'—'}</td>
+                        <td class="px-4 py-2 text-center font-mono">${t.ora_uscita||'—'}</td>
+                        <td class="px-4 py-2 text-center text-xs text-gray-500">${pausa}</td>
+                        <td class="px-4 py-2 text-center font-bold text-blue-700">${_fmtOre(t.ore_lavorate)}</td>
+                        <td class="px-4 py-2 text-center">${statoEl}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            });
+
+            html += `</div></div>`;
+            return html;
+        }
+
+        // ── SETTIMANALE ──────────────────────────────────────────────
+        function buildResocontoSettimanale(data, startDate, endDate) {
+            // Calcola i 7 giorni della settimana
+            const days = [];
+            for (let i=0; i<7; i++) {
+                const d = new Date(startDate + 'T00:00:00');
+                d.setDate(d.getDate() + i);
+                days.push(d.toISOString().split('T')[0]);
+            }
+            const dayLabels = days.map(d => {
+                const dt = new Date(d + 'T00:00:00');
+                return dt.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short' });
+            });
+
+            // Raggruppa per dipendente → giorno
+            const emp = {};
+            data.forEach(t => {
+                const k = t.user_id;
+                if (!emp[k]) emp[k] = { nome:`${t.user.nome} ${t.user.cognome}`, ruolo:t.user.ruolo, days:{} };
+                if (!emp[k].days[t.data]) emp[k].days[t.data] = [];
+                emp[k].days[t.data].push(t);
+            });
+
+            const list = Object.values(emp).sort((a,b) => a.nome.localeCompare(b.nome));
+            if (list.length===0) return `<div class="text-center py-12 text-gray-400">Nessuna timbratura nel periodo.</div>`;
+
+            const weekLabel = `${_fmtDataShort(startDate)} — ${_fmtDataShort(endDate)} ${new Date(endDate+'T00:00:00').getFullYear()}`;
+            const now = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+            let html = `<div id="resocontoDoc" class="font-sans text-gray-800">
+                <div class="flex justify-between items-start mb-6 pb-4 border-b-2 border-indigo-500">
+                    <div>
+                        <h1 class="text-3xl font-black text-indigo-700 tracking-tight">AST Panel</h1>
+                        <h2 class="text-xl font-bold text-gray-700 mt-1">Resoconto Settimanale Orari Dipendenti</h2>
+                        <p class="text-gray-500 font-semibold text-lg mt-0.5">${weekLabel}</p>
+                    </div>
+                    <div class="text-right text-xs text-gray-400"><p>Generato il ${now}</p></div>
+                </div>
+                <div class="overflow-x-auto rounded-xl shadow-sm border border-gray-200">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-indigo-600 to-purple-700 text-white">
+                            <th class="px-4 py-3 text-left font-semibold">Dipendente</th>`;
+
+            days.forEach((d,i) => {
+                const isWeekend = new Date(d+'T00:00:00').getDay() === 0 || new Date(d+'T00:00:00').getDay() === 6;
+                html += `<th class="px-3 py-3 text-center font-semibold text-xs ${isWeekend?'bg-indigo-900/50':''}">${dayLabels[i]}</th>`;
+            });
+            html += `<th class="px-4 py-3 text-center font-bold bg-indigo-900">Totale</th></tr></thead><tbody>`;
+
+            let totByDay = days.map(()=>0), grandTotal = 0;
+            list.forEach((e,ri) => {
+                const bg = ri%2===0 ? 'bg-white' : 'bg-gray-50';
+                let rowTotal = 0;
+                html += `<tr class="${bg} hover:bg-indigo-50 transition-colors">
+                    <td class="px-4 py-3"><div class="font-bold">${e.nome}</div><div class="text-xs text-gray-400">${e.ruolo}</div></td>`;
+                days.forEach((d,di) => {
+                    const timbr = e.days[d] || [];
+                    const isWeekend = new Date(d+'T00:00:00').getDay() === 0 || new Date(d+'T00:00:00').getDay() === 6;
+                    const bg2 = isWeekend ? 'bg-gray-50' : '';
+                    if (timbr.length===0) {
+                        html += `<td class="px-3 py-3 text-center text-gray-300 ${bg2}">—</td>`;
+                    } else {
+                        const ore = timbr.reduce((s,t)=>s+(t.ore_lavorate||0),0);
+                        rowTotal += ore;
+                        totByDay[di] += ore;
+                        const allApproved = timbr.every(t=>t.stato==='approved'||t.stato==='approvato');
+                        const types = [...new Set(timbr.map(t=>_tipoEmoji[t.tipo]))].join('');
+                        html += `<td class="px-3 py-3 text-center ${bg2}">
+                            <div class="font-bold ${allApproved?'text-teal-700':'text-yellow-600'}">${_fmtOre(ore)}</div>
+                            <div class="text-xs text-gray-400">${types} ${t&&t.ora_ingresso?timbr[0].ora_ingresso+'-'+(timbr[0].ora_uscita||'?'):''}</div>
+                        </td>`;
+                    }
+                });
+                grandTotal += rowTotal;
+                html += `<td class="px-4 py-3 text-center font-black text-indigo-700 bg-indigo-50 text-base">${_fmtOre(rowTotal)}</td></tr>`;
+            });
+
+            // Riga totali
+            html += `<tr class="bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold">
+                <td class="px-4 py-3">TOTALE</td>`;
+            totByDay.forEach(ore => {
+                html += `<td class="px-3 py-3 text-center">${ore>0?_fmtOre(ore):'—'}</td>`;
+            });
+            html += `<td class="px-4 py-3 text-center text-xl bg-gray-900">${_fmtOre(grandTotal)}</td></tr>`;
+            html += `</tbody></table></div></div>`;
+            return html;
+        }
+
+        // ── GIORNALIERO ──────────────────────────────────────────────
+        function buildResocontoGiornaliero(data, date) {
+            const dataLabel = new Date(date+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+            const now = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+            let totOre = 0;
+            const sorted = [...data].sort((a,b)=>a.user.cognome.localeCompare(b.user.cognome));
+
+            let html = `<div id="resocontoDoc" class="font-sans text-gray-800">
+                <div class="flex justify-between items-start mb-6 pb-4 border-b-2 border-rose-500">
+                    <div>
+                        <h1 class="text-3xl font-black text-rose-700 tracking-tight">AST Panel</h1>
+                        <h2 class="text-xl font-bold text-gray-700 mt-1">Resoconto Giornaliero Orari Dipendenti</h2>
+                        <p class="text-gray-600 font-semibold text-lg mt-0.5 capitalize">${dataLabel}</p>
+                    </div>
+                    <div class="text-right text-xs text-gray-400"><p>Generato il ${now}</p></div>
+                </div>
+
+                <!-- Stats veloci -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-blue-700">${sorted.length}</div>
+                        <div class="text-xs text-blue-500 font-semibold mt-1 uppercase">Presenti</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-teal-700">${_fmtOre(sorted.reduce((s,t)=>s+(t.ore_lavorate||0),0))}</div>
+                        <div class="text-xs text-teal-500 font-semibold mt-1 uppercase">Ore Totali</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-green-700">${sorted.filter(t=>t.stato==='approved'||t.stato==='approvato').length}</div>
+                        <div class="text-xs text-green-500 font-semibold mt-1 uppercase">Approvate</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-orange-600">${sorted.filter(t=>t.stato==='pending'||t.stato==='in_attesa').length}</div>
+                        <div class="text-xs text-orange-500 font-semibold mt-1 uppercase">In Attesa</div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl shadow-sm border border-gray-200">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-rose-600 to-pink-600 text-white">
+                            <th class="px-4 py-3 text-left font-semibold">Dipendente</th>
+                            <th class="px-4 py-3 text-center font-semibold">Tipo</th>
+                            <th class="px-4 py-3 text-center font-semibold">Ingresso</th>
+                            <th class="px-4 py-3 text-center font-semibold">Inizio Pausa</th>
+                            <th class="px-4 py-3 text-center font-semibold">Fine Pausa</th>
+                            <th class="px-4 py-3 text-center font-semibold">Uscita</th>
+                            <th class="px-4 py-3 text-center font-semibold bg-rose-800">Ore Lavorate</th>
+                            <th class="px-4 py-3 text-center font-semibold">Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            sorted.forEach((t,i) => {
+                const bg = i%2===0?'bg-white':'bg-gray-50';
+                const statoEl = (t.stato==='approved'||t.stato==='approvato')
+                    ? '<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold">✓ Approvato</span>'
+                    : (t.stato==='pending'||t.stato==='in_attesa')
+                        ? '<span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-bold">⏳ In attesa</span>'
+                        : '<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">✗ Rifiutato</span>';
+                totOre += t.ore_lavorate||0;
+                html += `<tr class="${bg} hover:bg-rose-50 transition-colors">
+                    <td class="px-4 py-3"><div class="font-bold">${t.user.nome} ${t.user.cognome}</div><div class="text-xs text-gray-400">${t.user.ruolo}</div></td>
+                    <td class="px-4 py-3 text-center">${_tipoEmoji[t.tipo]||''} ${_tipoLabel[t.tipo]||t.tipo}</td>
+                    <td class="px-4 py-3 text-center font-mono font-semibold text-green-700">${t.ora_ingresso||'—'}</td>
+                    <td class="px-4 py-3 text-center font-mono text-gray-500 text-xs">${t.pausa_inizio||'—'}</td>
+                    <td class="px-4 py-3 text-center font-mono text-gray-500 text-xs">${t.pausa_fine||'—'}</td>
+                    <td class="px-4 py-3 text-center font-mono font-semibold text-red-600">${t.ora_uscita||'—'}</td>
+                    <td class="px-4 py-3 text-center font-black text-rose-700 text-base bg-rose-50">${_fmtOre(t.ore_lavorate)}</td>
+                    <td class="px-4 py-3 text-center">${statoEl}</td>
+                </tr>`;
+            });
+
+            html += `<tr class="bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold">
+                <td class="px-4 py-3" colspan="6">TOTALE GIORNATA</td>
+                <td class="px-4 py-3 text-center text-xl bg-gray-900">${_fmtOre(totOre)}</td>
+                <td class="px-4 py-3"></td>
+            </tr></tbody></table></div>`;
+
+            if (sorted.some(t => t.note)) {
+                html += `<div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <h4 class="font-bold text-amber-800 mb-3 flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4"></i> Note</h4>
+                    <div class="space-y-1">`;
+                sorted.filter(t=>t.note).forEach(t=>{
+                    html += `<p class="text-sm text-amber-700"><strong>${t.user.nome} ${t.user.cognome}:</strong> ${t.note}</p>`;
+                });
+                html += `</div></div>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        // ── STAMPA ───────────────────────────────────────────────────
+        function stampaResoconto() {
+            const doc = document.getElementById('resocontoDoc');
+            if (!doc) { showNotification('⚠️ Genera prima un\'anteprima', 'error'); return; }
+
+            const win = window.open('', '_blank', 'width=1100,height=800');
+            const tipo = document.getElementById('resocontoTipo').value;
+            const accent = tipo==='mensile'?'#0d9488': tipo==='settimanale'?'#4f46e5':'#e11d48';
+
+            win.document.write(`<!DOCTYPE html>
+<html lang="it"><head>
+<meta charset="UTF-8">
+<title>Resoconto Orari — AST Panel</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<style>
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+  }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f8fafc; padding: 32px; }
+  @page { size: A4 landscape; margin: 15mm; }
+</style>
+</head><body>
+<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;gap:8px;">
+  <button onclick="window.print()" style="background:${accent};color:white;border:none;padding:10px 22px;border-radius:8px;font-weight:bold;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)">🖨️ Stampa / Salva PDF</button>
+  <button onclick="window.close()" style="background:#64748b;color:white;border:none;padding:10px 16px;border-radius:8px;font-weight:bold;cursor:pointer">✕ Chiudi</button>
+</div>
+<div style="max-width:1100px;margin:0 auto;">
+${doc.innerHTML}
+</div>
+</body></html>`);
+            win.document.close();
+            setTimeout(() => { try { win.focus(); } catch(e){} }, 400);
+        }
+
     </script>
 </body>
 </html>
