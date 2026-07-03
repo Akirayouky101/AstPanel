@@ -988,6 +988,66 @@
             await loadRichieste();
         }
 
+        async function duplicaRichiesta(id) {
+            const orig = richieste.find(o => o.id === id);
+            if (!orig) return;
+
+            try {
+                // Genera nuovo numero
+                const { data: nuovoNumero, error: numErr } = await window.supabase
+                    .rpc('generate_richiesta_preventivo_numero');
+                if (numErr) throw numErr;
+
+                // Inserisci copia con stati azzerati
+                const { data: newRow, error: insErr } = await window.supabase
+                    .from('richieste_preventivo_fornitori')
+                    .insert([{
+                        numero:               nuovoNumero,
+                        fornitore_id:         orig.fornitore_id,
+                        fornitore_nome:       orig.fornitore_nome,
+                        oggetto:              orig.oggetto ? `[COPIA] ${orig.oggetto}` : null,
+                        data_richiesta:       new Date().toISOString().split('T')[0],
+                        data_risposta_entro:  orig.data_risposta_entro || null,
+                        note_interne:         orig.note_interne || null,
+                        destinazioni:         orig.destinazioni || null,
+                        stato:                'da_inviare',
+                        approvazione_stato:   'non_richiesta'
+                    }])
+                    .select()
+                    .single();
+                if (insErr) throw insErr;
+
+                // Copia gli articoli
+                const { data: items, error: itemsReadErr } = await window.supabase
+                    .from('richieste_preventivo_items')
+                    .select('*')
+                    .eq('richiesta_id', id);
+                if (itemsReadErr) throw itemsReadErr;
+
+                if (items?.length) {
+                    const { error: itemsInsErr } = await window.supabase
+                        .from('richieste_preventivo_items')
+                        .insert(items.map(i => ({
+                            richiesta_id:   newRow.id,
+                            prodotto_id:    i.prodotto_id || null,
+                            codice:         i.codice || null,
+                            descrizione:    i.descrizione,
+                            um:             i.um,
+                            quantita:       i.quantita,
+                            note:           i.note || null,
+                            destinazione_id: i.destinazione_id || null
+                        })));
+                    if (itemsInsErr) throw itemsInsErr;
+                }
+
+                showToast(`✅ Duplicato come ${nuovoNumero} — ora puoi modificarlo e annullare il precedente`, 'success');
+                await loadRichieste();
+            } catch(e) {
+                console.error(e);
+                showToast('Errore durante la duplicazione: ' + e.message, 'error');
+            }
+        }
+
         function renderRichieste() {
             const tbody = document.getElementById('richiesteTable');
             
@@ -1055,6 +1115,9 @@
                         <button onclick="annullaRichiesta('${richiesta.id}')" class="text-orange-500 hover:text-orange-700" title="Annulla preventivo">
                             <i class="fas fa-ban"></i>
                         </button>` : ''}
+                        <button onclick="duplicaRichiesta('${richiesta.id}')" class="text-indigo-500 hover:text-indigo-700" title="Duplica (copia con stati azzerati)">
+                            <i class="fas fa-copy"></i>
+                        </button>
                         <button onclick="eliminaRichiesta('${richiesta.id}', '${richiesta.numero}', '${richiesta.stato}')" class="text-red-600 hover:text-red-900" title="Elimina">
                             <i class="fas fa-trash"></i>
                         </button>
