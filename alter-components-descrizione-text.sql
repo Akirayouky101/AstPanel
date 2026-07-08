@@ -12,6 +12,8 @@ DROP VIEW IF EXISTS v_giacenze_complete CASCADE;
 DROP VIEW IF EXISTS movimenti_recenti CASCADE;
 DROP VIEW IF EXISTS v_movimenti_operatore_pending CASCADE;
 DROP VIEW IF EXISTS v_cronologia_movimenti_operatore CASCADE;
+DROP VIEW IF EXISTS v_kit_storico CASCADE;
+DROP VIEW IF EXISTS v_kits_storico CASCADE;
 
 -- 2. Altera le colonne
 ALTER TABLE components
@@ -163,7 +165,40 @@ LEFT JOIN users u_adm ON u_adm.id = mo.approvato_da
 LEFT JOIN movimenti_operatore ref ON ref.id = mo.prelievo_ref_id
 ORDER BY mo.created_at DESC;
 
--- 9. Verifica
+-- 9. Ricrea v_kit_storico
+CREATE OR REPLACE VIEW v_kit_storico AS
+SELECT 
+    ki.id, ki.kit_id, k.codice_kit, k.nome_kit, k.stato AS kit_stato,
+    ki.prodotto_id, c.codice AS codice_componente, c.nome AS prodotto_nome,
+    ki.quantita, ki.aggiunto_il, ki.aggiunto_da,
+    u_add.nome || ' ' || u_add.cognome AS aggiunto_da_nome,
+    ki.deleted_at, ki.deleted_by,
+    u_del.nome || ' ' || u_del.cognome AS eliminato_da_nome,
+    CASE WHEN ki.deleted_at IS NOT NULL THEN 'eliminato' ELSE 'attivo' END AS stato_componente
+FROM kit_items ki
+JOIN kits k ON ki.kit_id = k.id
+JOIN components c ON ki.prodotto_id = c.id
+LEFT JOIN users u_add ON ki.aggiunto_da = u_add.id
+LEFT JOIN users u_del ON ki.deleted_by = u_del.id
+ORDER BY ki.aggiunto_il DESC;
+
+-- 10. Ricrea v_kits_storico
+CREATE OR REPLACE VIEW v_kits_storico AS
+SELECT 
+    k.id, k.codice_kit, k.nome_kit, k.cliente_id,
+    cl.nome AS cliente_nome, k.stato, k.created_at, k.created_by,
+    u_create.nome || ' ' || u_create.cognome AS creato_da_nome,
+    k.deleted_at, k.deleted_by,
+    u_del.nome || ' ' || u_del.cognome AS eliminato_da_nome,
+    (SELECT COUNT(*) FROM kit_items ki WHERE ki.kit_id = k.id AND ki.deleted_at IS NULL) AS componenti_attivi,
+    (SELECT COUNT(*) FROM kit_items ki WHERE ki.kit_id = k.id AND ki.deleted_at IS NOT NULL) AS componenti_eliminati
+FROM kits k
+LEFT JOIN clients cl ON k.cliente_id = cl.id
+LEFT JOIN users u_create ON k.created_by = u_create.id
+LEFT JOIN users u_del ON k.deleted_by = u_del.id
+ORDER BY k.created_at DESC;
+
+-- 11. Verifica
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'components'
