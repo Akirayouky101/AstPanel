@@ -1345,23 +1345,63 @@
         // ── Preview ordine (modale riepilogo + QR) ──
         let _previewOrdineId = null;
 
-        // ── Aggrega item uguali per preview/stampa interna ──
-        function _aggregaItemsPreview(items) {
-            const map = new Map();
-            (items || []).forEach(it => {
-                const key = it.prodotto_id || `${(it.codice||'').trim()}__${(it.descrizione||'').trim()}`;
-                if (map.has(key)) {
-                    const e = map.get(key);
-                    e.quantita  = parseFloat(e.quantita) + parseFloat(it.quantita || 0);
-                    e.importo   = parseFloat(e.importo)  + parseFloat(it.importo  || 0);
-                } else {
-                    map.set(key, { ...it,
-                        quantita: parseFloat(it.quantita || 0),
-                        importo:  parseFloat(it.importo  || 0)
-                    });
-                }
+        // ── Raggruppa item per cliente per preview/stampa interna ──
+        function _buildRigheHTML(items, fmt, isStampa = false) {
+            const all = items || [];
+            const hasClients = all.some(it => it.cliente_id);
+
+            const rowStyle = isStampa ? '' : 'border-bottom:1px solid #f3f4f6';
+            const cellPad  = isStampa ? '' : 'padding:7px 8px;';
+
+            const makeRow = (it, i) => isStampa
+                ? `<tr>
+                    <td>${i+1}</td>
+                    <td>${it.codice?`<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>`:''}
+                        ${it.descrizione}</td>
+                    <td class="c">${it.um||'pz'}</td>
+                    <td class="c">${it.quantita}</td>
+                    <td class="r">${fmt(it.prezzo_unitario)}</td>
+                    <td class="c">${parseFloat(it.sconto_percentuale||0)>0?it.sconto_percentuale+'%':'—'}</td>
+                    <td class="r"><b>${fmt(it.importo)}</b></td>
+                </tr>`
+                : `<tr style="${rowStyle}">
+                    <td style="${cellPad}color:#6b7280;font-size:12px">${i+1}</td>
+                    <td style="${cellPad}font-size:13px">${it.codice?`<span style="font-size:10px;color:#9ca3af;display:block">${it.codice}</span>`:''}
+                        ${it.descrizione}</td>
+                    <td style="${cellPad}text-align:center;font-size:12px">${it.um||'pz'}</td>
+                    <td style="${cellPad}text-align:center;font-size:12px">${it.quantita}</td>
+                    <td style="${cellPad}text-align:right;font-size:12px">${fmt(it.prezzo_unitario)}</td>
+                    <td style="${cellPad}text-align:center;font-size:12px">${parseFloat(it.sconto_percentuale||0)>0?it.sconto_percentuale+'%':'—'}</td>
+                    <td style="${cellPad}text-align:right;font-size:13px;font-weight:700">${fmt(it.importo)}</td>
+                </tr>`;
+
+            if (!hasClients) {
+                // Nessun cliente: lista piatta
+                return all.map((it, i) => makeRow(it, i)).join('');
+            }
+
+            // Raggruppa per cliente
+            const groups = new Map();
+            all.forEach(it => {
+                const key = it.cliente_id || '__none__';
+                if (!groups.has(key)) groups.set(key, { nome: it.cliente_id ? (it.cliente_nome_cache || 'Cliente') : '— Senza cliente —', items: [] });
+                groups.get(key).items.push(it);
             });
-            return Array.from(map.values());
+
+            let html = '';
+            let rowNum = 0;
+            groups.forEach((group, key) => {
+                const hdrBg    = isStampa ? '#eafaf6' : '#f0fdfa';
+                const hdrColor = '#0f766e';
+                const hdrBdr   = isStampa ? '' : 'border-top:2px solid #99f6e4;border-bottom:1px solid #99f6e4';
+                if (key === '__none__') {
+                    html += `<tr><td colspan="7" style="padding:6px 10px;background:#f9fafb;border-top:2px solid #e5e7eb;border-bottom:1px solid #e5e7eb;font-size:12px;font-weight:700;color:#6b7280">📦 Senza cliente</td></tr>`;
+                } else {
+                    html += `<tr><td colspan="7" style="padding:7px 12px;background:${hdrBg};${hdrBdr};font-size:12px;font-weight:700;color:${hdrColor}"><i class="fas fa-user" style="margin-right:6px"></i>${group.nome}</td></tr>`;
+                }
+                group.items.forEach(it => { html += makeRow(it, ++rowNum); });
+            });
+            return html;
         }
 
         async function apriPreviewOrdine(id) {
@@ -1387,16 +1427,7 @@
                 const canaleMap = { telefono:'📞 Telefono', email:'✉️ Email/Fax', web:'🌐 Web', commerciale:'🤝 Tramite Commerciale', fisicamente:'🏪 Di persona', magazzini_persona:'📦 Magazzini ZG – persona', magazzini_web:'🖥️ Magazzini ZG – web' };
                 const canaleLabel = o.canale_ordine ? (canaleMap[o.canale_ordine] || o.canale_ordine) : '—';
 
-                const righeHtml = _aggregaItemsPreview(items||[]).map((it,i) => `
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                        <td style="padding:7px 8px;color:#6b7280;font-size:12px">${i+1}</td>
-                        <td style="padding:7px 8px;font-size:13px">${it.codice?`<span style="font-size:10px;color:#9ca3af;display:block">${it.codice}</span>`:''}${it.descrizione}</td>
-                        <td style="padding:7px 8px;text-align:center;font-size:12px">${it.um||'pz'}</td>
-                        <td style="padding:7px 8px;text-align:center;font-size:12px">${it.quantita}</td>
-                        <td style="padding:7px 8px;text-align:right;font-size:12px">${fmt(it.prezzo_unitario)}</td>
-                        <td style="padding:7px 8px;text-align:center;font-size:12px">${parseFloat(it.sconto_percentuale||0)>0?it.sconto_percentuale+'%':'—'}</td>
-                        <td style="padding:7px 8px;text-align:right;font-size:13px;font-weight:700">${fmt(it.importo)}</td>
-                    </tr>`).join('');
+                const righeHtml = _buildRigheHTML(items, fmt);
 
                 const body = document.getElementById('previewBody');
                 body.innerHTML = `
@@ -1523,16 +1554,7 @@
             const totaleIva    = parseFloat(o.totale_iva||0);
             const totale       = parseFloat(o.totale||0);
 
-            const righe = _aggregaItemsPreview(items).map((it,i) => `
-                <tr>
-                    <td>${i+1}</td>
-                    <td>${it.codice?`<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>`:''}${it.descrizione}</td>
-                    <td class="c">${it.um||'pz'}</td>
-                    <td class="c">${it.quantita}</td>
-                    <td class="r">${fmt(it.prezzo_unitario)}</td>
-                    <td class="c">${parseFloat(it.sconto_percentuale||0)>0?it.sconto_percentuale+'%':'—'}</td>
-                    <td class="r"><b>${fmt(it.importo)}</b></td>
-                </tr>`).join('');
+            const righe = _buildRigheHTML(items, fmt, true);
 
             const today = new Date().toLocaleDateString('it-IT');
             let qrDataUrl = '';
