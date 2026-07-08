@@ -971,7 +971,10 @@
             } catch(err) { clienti = []; }
         }
 
-        function openClientePickerModal() {
+        let _clientePickerTarget = null; // null = ordine, numero = indice item
+
+        function openClientePickerModal(itemIndex) {
+            _clientePickerTarget = (itemIndex !== undefined) ? itemIndex : null;
             const m = document.getElementById('clientePickerModal');
             m.style.display = 'flex';
             document.getElementById('searchClientePicker').value = '';
@@ -981,6 +984,7 @@
 
         function closeClientePickerModal() {
             document.getElementById('clientePickerModal').style.display = 'none';
+            _clientePickerTarget = null;
         }
 
         function renderClientePicker(lista) {
@@ -1012,9 +1016,24 @@
         }
 
         function selezionaClienteOrdine(id, nome) {
-            document.getElementById('clienteId').value = id;
-            document.getElementById('clienteSelezionato').value = nome;
-            closeClientePickerModal();
+            if (_clientePickerTarget !== null) {
+                // Assegna cliente a singola riga articolo
+                currentItems[_clientePickerTarget].cliente_id = id;
+                currentItems[_clientePickerTarget].cliente_nome_cache = nome;
+                closeClientePickerModal();
+                renderArticoliTable();
+            } else {
+                // Assegna cliente all'intero ordine
+                document.getElementById('clienteId').value = id;
+                document.getElementById('clienteSelezionato').value = nome;
+                closeClientePickerModal();
+            }
+        }
+
+        function clearItemCliente(i) {
+            currentItems[i].cliente_id = null;
+            currentItems[i].cliente_nome_cache = '';
+            renderArticoliTable();
         }
 
         function clearClienteSelezionato() {
@@ -1335,7 +1354,9 @@
                     prezzo_unitario: parseFloat(item.prezzo_unitario),
                     sconto_percentuale: parseFloat(item.sconto_percentuale || 0),
                     importo: parseFloat(item.importo),
-                    note: item.note || ''
+                    note: item.note || '',
+                    cliente_id: item.cliente_id || null,
+                    cliente_nome_cache: item.cliente_nome_cache || ''
                 }));
 
                 renderArticoliTable();
@@ -1827,7 +1848,9 @@
                         sconto_percentuale: item.sconto_percentuale || 0,
                         importo: item.importo,
                         note: item.note || null,
-                        posizione: idx
+                        posizione: idx,
+                        cliente_id: item.cliente_id || null,
+                        cliente_nome_cache: item.cliente_nome_cache || null
                     }));
                     const { error: ve } = await db.from('ordini_interni_items').insert(voci);
                     if (ve) throw ve;
@@ -2043,7 +2066,18 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle">
                         <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
-                        ${item.prodotto_id ? `<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>` : ''}
+                        <div style="margin-top:3px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+                            ${item.cliente_nome_cache
+                                ? `<span onclick="openClientePickerModal(${i})" style="font-size:11px;background:#ccfbf1;color:#0f766e;padding:2px 8px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-weight:600">
+                                       <i class="fas fa-user"></i> ${item.cliente_nome_cache}
+                                       <i class="fas fa-times" style="font-size:9px;opacity:.7" onclick="event.stopPropagation();clearItemCliente(${i})"></i>
+                                   </span>`
+                                : `<span onclick="openClientePickerModal(${i})" style="font-size:11px;color:#6b7280;cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border:1px dashed #d1d5db;border-radius:20px">
+                                       <i class="fas fa-user-plus" style="font-size:9px"></i> cliente
+                                   </span>`
+                            }
+                            ${item.prodotto_id ? `<span style="font-size:10px;color:#9ca3af;display:inline-flex;align-items:center;gap:2px"><i class="fas fa-warehouse"></i> mag.</span>` : ''}
+                        </div>
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle;width:62px">
                         <input type="text" value="${item.um || 'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
@@ -2090,7 +2124,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         }
 
         function aggiungiRigaManuale() {
-            currentItems.push({ prodotto_id: null, codice: '', descrizione: '', um: 'pz', quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0, importo: 0, note: '' });
+            currentItems.push({ prodotto_id: null, codice: '', descrizione: '', um: 'pz', quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0, importo: 0, note: '', cliente_id: null, cliente_nome_cache: '' });
             renderArticoliTable();
             calcolaTotali();
             // Focalizza ultima riga descrizione
