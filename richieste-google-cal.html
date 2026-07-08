@@ -167,6 +167,35 @@
     </div>
 </div>
 
+<!-- Modal Blocco Orario Pietro -->
+<div id="bloccoModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg fade-up">
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+            <div><h2 class="text-lg font-bold"><i class="fas fa-calendar-times mr-2"></i>Blocco Orario Pietro</h2>
+            <p class="text-blue-100 text-xs mt-0.5" id="bloccoSubtitle">dall'evento Google Calendar</p></div>
+            <button onclick="closeBlocco()" class="hover:bg-white/20 p-2 rounded-full transition"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="px-6 py-5 space-y-4">
+            <input type="hidden" id="bloccoEventId">
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Motivo</label>
+                <input type="text" id="bl_motivo" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-400 outline-none transition font-semibold"></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data inizio</label>
+                    <input type="date" id="bl_inizio" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-400 outline-none transition"></div>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data fine</label>
+                    <input type="date" id="bl_fine" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-400 outline-none transition"></div>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+                <i class="fas fa-info-circle mr-1"></i>Il blocco sarà visibile nel calendario di Pietro come indisponibilità.
+            </div>
+        </div>
+        <div class="px-6 pb-5 flex gap-3">
+            <button onclick="closeBlocco()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm">Annulla</button>
+            <button onclick="salvaBlocco()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition"><i class="fas fa-calendar-times mr-1"></i>Crea Blocco</button>
+        </div>
+    </div>
+</div>
+
 <div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;min-width:240px;max-width:360px;border-radius:14px;padding:12px 16px;box-shadow:0 8px 32px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;color:#fff">
     <span id="toastIcon" style="font-size:16px;flex-shrink:0"></span>
     <span id="toastMsg" style="flex:1;line-height:1.4"></span>
@@ -405,12 +434,17 @@ function cardNuova(e,i){
                 ${e.location?`<p class="text-xs text-gray-500 truncate"><i class="fas fa-map-marker-alt text-violet-400 mr-1"></i>${e.location}</p>`:''}
                 ${desc?`<p class="text-xs text-gray-400 mt-1 leading-relaxed">${desc}${stripHtml(e.description||'').length>100?'…':''}</p>`:''}
             </div>
-            <button onclick="openConvert('${e.id}')" class="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-b from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm">
-                <i class="fas fa-tools"></i><span>Inserisci</span>
-            </button>
-            <button onclick="ignoraEvento('${e.id}')" title="Ignora — non mostrerlo più" class="flex-shrink-0 flex flex-col items-center gap-1 px-2 py-2 text-gray-300 hover:text-gray-500 rounded-xl text-xs transition" style="background:none;border:none;cursor:pointer">
-                <i class="fas fa-eye-slash text-base"></i><span>Ignora</span>
-            </button>
+            <div class="flex flex-col gap-1.5 flex-shrink-0">
+                <button onclick="openConvert('${e.id}')" class="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
+                    <i class="fas fa-tools"></i>Lavorazione
+                </button>
+                <button onclick="openBlocco('${e.id}')" class="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
+                    <i class="fas fa-calendar-times"></i>Blocco Pietro
+                </button>
+                <button onclick="ignoraEvento('${e.id}')" class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-400 rounded-xl text-xs font-semibold transition whitespace-nowrap">
+                    <i class="fas fa-eye-slash"></i>Ignora
+                </button>
+            </div>
         </div>
     </div>`;
 }
@@ -437,7 +471,8 @@ function cardGiaFatta(e,i){
             </div>
             <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
                 ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-0.5"></i>Apri</a>`:''}
-                <button onclick="undoConversione('${e.id}')" title="Rimuovi" class="text-gray-300 hover:text-red-400 transition text-xs p-0.5"><i class="fas fa-undo"></i></button>
+                <button onclick="undoConversione('${e.id}')" title="Rimetti in Da lavorare" class="text-xs text-gray-400 hover:text-orange-500 transition"><i class="fas fa-undo mr-0.5"></i>Riporta</button>
+                <button onclick="ignoraEvento('${e.id}')" title="Ignora definitivamente" class="text-xs text-gray-300 hover:text-gray-500 transition"><i class="fas fa-eye-slash mr-0.5"></i>Ignora</button>
             </div>
         </div>
     </div>`;
@@ -455,6 +490,44 @@ function showConfigHint(){
     document.getElementById('colGrid').classList.add('hidden');
 }
 function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=html}
+
+function openBlocco(eventId){
+    const e=allEvents.find(x=>x.id===eventId); if(!e) return;
+    const{isoDate}=parseDates(e);
+    document.getElementById('bloccoEventId').value=eventId;
+    document.getElementById('bloccoSubtitle').textContent=e.summary||'(senza titolo)';
+    document.getElementById('bl_motivo').value=e.summary||'';
+    document.getElementById('bl_inizio').value=isoDate||'';
+    document.getElementById('bl_fine').value=isoDate||'';
+    document.getElementById('bloccoModal').classList.remove('hidden');
+}
+function closeBlocco(){document.getElementById('bloccoModal').classList.add('hidden');}
+
+async function salvaBlocco(){
+    const eventId=document.getElementById('bloccoEventId').value;
+    const motivo =document.getElementById('bl_motivo').value.trim();
+    const inizio =document.getElementById('bl_inizio').value;
+    const fine   =document.getElementById('bl_fine').value;
+    if(!inizio||!fine){showToast('⚠️ Inserisci le date','warning');return;}
+    if(!pietroId){showToast('⚠️ Pietro non trovato nel sistema','warning');return;}
+    try{
+        const{error}=await db.from('giorni_bloccati').insert({
+            data_inizio:  inizio,
+            data_fine:    fine,
+            user_ids:     JSON.stringify([pietroId]),
+            motivo:       motivo||'Blocco da Google Calendar',
+            colore:       '#3b82f6',
+            created_by:   currentUser.id||null
+        });
+        if(error) throw error;
+        // Segna anche come ignorato per non mostrarlo più in 'Da lavorare'
+        await db.from('gcal_conversioni').upsert({event_id:eventId,task_id:null,titolo:motivo,data_evento:inizio,convertito_da:currentUser.id||null},{onConflict:'event_id'});
+        closeBlocco();
+        await loadConvertedFromDB();
+        renderAll();
+        showToast(`📅 Blocco orario creato per Pietro (${inizio === fine ? inizio : inizio+' → '+fine})`,'success');
+    }catch(err){showToast('❌ '+err.message,'error');}
+}
 
 function renderNuove(){
     const q=document.getElementById('searchQ').value.toLowerCase().trim();
