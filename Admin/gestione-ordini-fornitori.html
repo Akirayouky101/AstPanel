@@ -1309,30 +1309,35 @@
                 document.getElementById('ricezioneOrdineId').value = ordineId;
                 
                 const container = document.getElementById('ricezioneItems');
-                container.innerHTML = items.map(item => `
-                    <div class="border rounded-lg p-4 bg-gray-50">
+                container.innerHTML = items.map(item => {
+                    const daRicevere = Math.max(0, parseFloat(item.quantita_ordinata||0) - parseFloat(item.quantita_ricevuta||0));
+                    const um = item.um || 'pz';
+                    return `
+                    <div class="border-2 border-gray-200 rounded-xl p-4 bg-white">
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex-1">
-                                <p class="font-medium text-gray-900">${item.codice} - ${item.descrizione}</p>
-                                <p class="text-sm text-gray-600 mt-1">
-                                    Ordinati: <span class="font-medium">${item.quantita_ordinata} ${item.um}</span> | 
-                                    Già ricevuti: <span class="font-medium">${item.quantita_ricevuta || 0} ${item.um}</span>
-                                </p>
+                                <p class="font-bold text-gray-900">${item.codice||''} ${item.descrizione||''}</p>
+                                <div class="flex gap-4 text-sm text-gray-500 mt-1">
+                                    <span>Ordinati: <strong>${parseFloat(item.quantita_ordinata||0)} ${um}</strong></span>
+                                    <span>Già ricevuti: <strong class="text-green-600">${parseFloat(item.quantita_ricevuta||0)} ${um}</strong></span>
+                                    <span>Da ricevere: <strong class="text-orange-600">${daRicevere} ${um}</strong></span>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <label class="text-sm font-medium text-gray-700">Quantità da ricevere:</label>
-                            <input type="number" 
-                                id="qta_${item.id}" 
-                                value="${item.quantita_ordinata - (item.quantita_ricevuta || 0)}" 
-                                min="0" 
-                                max="${item.quantita_ordinata - (item.quantita_ricevuta || 0)}"
+                        <div class="flex items-center gap-3">
+                            <label class="text-sm font-bold text-gray-700 whitespace-nowrap">Quantità ricevuta ora:</label>
+                            <input type="number"
+                                id="qta_${item.id}"
+                                value="${daRicevere}"
+                                min="0"
                                 step="0.01"
-                                class="w-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500">
-                            <span class="text-sm text-gray-600">${item.um}</span>
+                                class="w-36 px-3 py-2 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 text-lg font-bold text-center"
+                                onchange="this.style.borderColor=parseFloat(this.value)>0?'#16a34a':'#ef4444'">
+                            <span class="text-base font-semibold text-gray-600">${um}</span>
+                            <span class="text-xs text-gray-400 ml-2">(modifica se diverso)</span>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
 
                 document.getElementById('ricezioneModal').classList.remove('hidden');
             } catch (error) {
@@ -1345,6 +1350,15 @@
 
         async function confermaRicezione() {
             if (_ricezioneInCorso) return;
+
+            // Validazione: almeno una quantità > 0
+            const ordineId = document.getElementById('ricezioneOrdineId').value;
+            const allInputs = document.querySelectorAll('#ricezioneItems input[type="number"]');
+            const hasSomeQty = Array.from(allInputs).some(inp => parseFloat(inp.value||0) > 0);
+            if (!hasSomeQty) {
+                showErrorModal('Quantità mancante', 'Inserisci almeno una quantità maggiore di 0 prima di confermare la ricezione.');
+                return;
+            }
             _ricezioneInCorso = true;
             const btnConferma = document.querySelector('#ricezioneModal button[onclick="confermaRicezione()"]');
             if (btnConferma) { btnConferma.disabled = true; btnConferma.textContent = 'Caricamento...'; }
