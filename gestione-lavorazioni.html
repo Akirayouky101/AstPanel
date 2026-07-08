@@ -5346,7 +5346,7 @@
 
                         <!-- Bottone Scanner Rapido -->
                         <button type="button"
-                                onclick="componentScanner?.open([])"
+                                onclick="openWizardComponentSelector(true)"
                                 class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
                             <i class="fas fa-qrcode"></i>
                             Solo Scanner (doppia colonna)
@@ -5441,14 +5441,14 @@
         }
 
         // NUOVO: Apri selettore componenti dal wizard
-        async function openWizardComponentSelector() {
+        async function openWizardComponentSelector(fresh = false) {
             if (!componentScanner) {
                 console.error('ComponentMultiScanner non inizializzato');
                 return;
             }
             
-            // Ottieni componenti dal wizard (se esistono)
-            const wizardComponents = window.taskWizard?.wizardData?.componenti || [];
+            // fresh=true → parte da zero (Solo Scanner), false → mantiene selezione corrente (Selezione Rapida)
+            const wizardComponents = (!fresh && window.taskWizard?.wizardData?.componenti) || [];
             const formattedComponents = wizardComponents.map(c => ({
                 id: c.prodotto_id || c.id,
                 quantita: c.quantita || 1
