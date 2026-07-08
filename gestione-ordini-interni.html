@@ -1346,6 +1346,25 @@
         // ── Preview ordine (modale riepilogo + QR) ──
         let _previewOrdineId = null;
 
+        // ── Aggrega item uguali per preview/stampa interna ──
+        function _aggregaItemsPreview(items) {
+            const map = new Map();
+            (items || []).forEach(it => {
+                const key = it.prodotto_id || `${(it.codice||'').trim()}__${(it.descrizione||'').trim()}`;
+                if (map.has(key)) {
+                    const e = map.get(key);
+                    e.quantita  = parseFloat(e.quantita) + parseFloat(it.quantita || 0);
+                    e.importo   = parseFloat(e.importo)  + parseFloat(it.importo  || 0);
+                } else {
+                    map.set(key, { ...it,
+                        quantita: parseFloat(it.quantita || 0),
+                        importo:  parseFloat(it.importo  || 0)
+                    });
+                }
+            });
+            return Array.from(map.values());
+        }
+
         async function apriPreviewOrdine(id) {
             try {
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
@@ -1369,7 +1388,7 @@
                 const canaleMap = { telefono:'📞 Telefono', email:'✉️ Email/Fax', web:'🌐 Web', commerciale:'🤝 Tramite Commerciale', fisicamente:'🏪 Di persona', magazzini_persona:'📦 Magazzini ZG – persona', magazzini_web:'🖥️ Magazzini ZG – web' };
                 const canaleLabel = o.canale_ordine ? (canaleMap[o.canale_ordine] || o.canale_ordine) : '—';
 
-                const righeHtml = (items||[]).map((it,i) => `
+                const righeHtml = _aggregaItemsPreview(items||[]).map((it,i) => `
                     <tr style="border-bottom:1px solid #f3f4f6">
                         <td style="padding:7px 8px;color:#6b7280;font-size:12px">${i+1}</td>
                         <td style="padding:7px 8px;font-size:13px">${it.codice?`<span style="font-size:10px;color:#9ca3af;display:block">${it.codice}</span>`:''}${it.descrizione}</td>
@@ -1505,7 +1524,7 @@
             const totaleIva    = parseFloat(o.totale_iva||0);
             const totale       = parseFloat(o.totale||0);
 
-            const righe = items.map((it,i) => `
+            const righe = _aggregaItemsPreview(items).map((it,i) => `
                 <tr>
                     <td>${i+1}</td>
                     <td>${it.codice?`<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>`:''}${it.descrizione}</td>
@@ -2495,8 +2514,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             const cNome = _maggClienteTarget ? (currentClients.find(c => c.id === _maggClienteTarget)?.nome || '') : '';
             currentItems.push({
                 prodotto_id: p.id,
-                // In modalità 'tutti' (fornitore diverso): niente codice
-                codice: magazzinoPickerMode === 'fornitore' ? (p.codice || '') : '',
+                codice: p.codice || '',  // sempre il codice, in qualsiasi modalità
                 descrizione: p.descrizione || '',
                 um: p.um || 'pz',
                 quantita: 1,
