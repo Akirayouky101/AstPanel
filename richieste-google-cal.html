@@ -167,8 +167,76 @@
     </div>
 </div>
 
+<!-- ════ Modal Riepilogo Evento ════ -->
+<div id="eventDetailModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg fade-up max-h-[92vh] flex flex-col">
+        <!-- Header colorato dinamico -->
+        <div id="edm_header" class="text-white px-6 py-5 rounded-t-2xl flex items-start justify-between flex-shrink-0">
+            <div class="flex-1 min-w-0">
+                <p id="edm_date" class="text-sm opacity-80 mb-1"></p>
+                <h2 id="edm_title" class="text-xl font-black leading-snug"></h2>
+            </div>
+            <button onclick="closeEventDetail()" class="hover:bg-white/20 p-2 rounded-full transition flex-shrink-0 ml-3"><i class="fas fa-times"></i></button>
+        </div>
+        <!-- Body scrollabile -->
+        <div class="px-6 py-5 space-y-3 overflow-y-auto flex-1">
+            <div id="edm_location" class="hidden flex items-center gap-2 text-gray-600 text-sm">
+                <i class="fas fa-map-marker-alt text-violet-500 flex-shrink-0"></i>
+                <span id="edm_location_text"></span>
+            </div>
+            <div id="edm_time" class="hidden flex items-center gap-2 text-gray-600 text-sm">
+                <i class="fas fa-clock text-violet-500 flex-shrink-0"></i>
+                <span id="edm_time_text"></span>
+            </div>
+            <div id="edm_desc_box" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <p class="text-xs font-bold text-gray-400 uppercase mb-2">Descrizione</p>
+                <p id="edm_desc" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"></p>
+            </div>
+            <!-- Badge stato già inserito -->
+            <div id="edm_inserted_box" class="hidden bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2">
+                <i class="fas fa-check-circle text-green-600"></i>
+                <div>
+                    <p class="text-sm font-bold text-green-800">Già inserita come lavorazione</p>
+                    <a id="edm_open_link" href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-semibold hover:underline">
+                        <i class="fas fa-external-link-alt mr-1"></i>Apri in Gestione Lavorazioni
+                    </a>
+                </div>
+            </div>
+        </div>
+        <!-- Footer azioni -->
+        <div id="edm_actions_new" class="px-6 pb-6 pt-3 border-t border-gray-100 space-y-2 flex-shrink-0">
+            <button onclick="openConvertFromDetail()" class="w-full flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+                <i class="fas fa-tools text-lg"></i>
+                <div class="text-left">
+                    <p class="text-sm font-black">Crea Lavorazione</p>
+                    <p class="text-xs opacity-80">Assegnata a Pietro · da completare in Gestione Lavorazioni</p>
+                </div>
+            </button>
+            <button onclick="openBloccoFromDetail()" class="w-full flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+                <i class="fas fa-calendar-times text-lg"></i>
+                <div class="text-left">
+                    <p class="text-sm font-black">Blocco Orario Pietro</p>
+                    <p class="text-xs opacity-80">Aggiunge l'indisponibilità al suo calendario</p>
+                </div>
+            </button>
+            <button onclick="ignoraFromDetail()" class="w-full flex items-center gap-3 px-4 py-2.5 border-2 border-gray-200 text-gray-500 rounded-xl font-semibold hover:bg-gray-50 transition text-sm">
+                <i class="fas fa-eye-slash"></i> Ignora — non mostrare più questo evento
+            </button>
+        </div>
+        <!-- Footer azioni per eventi già inseriti -->
+        <div id="edm_actions_done" class="hidden px-6 pb-6 pt-3 border-t border-gray-100 space-y-2 flex-shrink-0">
+            <button onclick="undoConversioneFromDetail()" class="w-full flex items-center gap-3 px-4 py-2.5 border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 transition text-sm">
+                <i class="fas fa-undo"></i> Rimetti in "Da lavorare"
+            </button>
+            <button onclick="ignoraFromDetail()" class="w-full flex items-center gap-3 px-4 py-2.5 border-2 border-gray-200 text-gray-500 rounded-xl font-semibold hover:bg-gray-50 transition text-sm">
+                <i class="fas fa-eye-slash"></i> Ignora definitivamente
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Blocco Orario Pietro -->
-<div id="bloccoModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+<div id="bloccoModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[55] p-4 backdrop-blur-sm">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg fade-up">
         <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
             <div><h2 class="text-lg font-bold"><i class="fas fa-calendar-times mr-2"></i>Blocco Orario Pietro</h2>
@@ -423,8 +491,8 @@ function cardNuova(e,i){
         :'';
     const newBadge=isNuovo?'<span class="text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">★ Nuovo</span>':'';
     const modBadge=isModificato&&!isNuovo?'<span class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">✎ Modif.</span>':'';
-    return `<div class="bg-white rounded-2xl border-l-4 border-violet-400 border border-gray-100 shadow-sm p-4 fade-up" style="animation-delay:${i*.04}s">
-        <div class="flex items-start justify-between gap-2">
+    return `<div class="bg-white rounded-2xl border-l-4 border-violet-400 border border-gray-100 shadow-sm p-4 fade-up cursor-pointer hover:shadow-md hover:border-violet-300 transition" style="animation-delay:${i*.04}s" onclick="openEventDetail('${e.id}')">
+        <div class="flex items-start gap-3">
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
                     <span class="text-xs text-gray-400"><i class="fas fa-calendar text-violet-400 mr-0.5"></i>${dateFmt}${timeFmt?' '+timeFmt:''}</span>
@@ -434,17 +502,7 @@ function cardNuova(e,i){
                 ${e.location?`<p class="text-xs text-gray-500 truncate"><i class="fas fa-map-marker-alt text-violet-400 mr-1"></i>${e.location}</p>`:''}
                 ${desc?`<p class="text-xs text-gray-400 mt-1 leading-relaxed">${desc}${stripHtml(e.description||'').length>100?'…':''}</p>`:''}
             </div>
-            <div class="flex flex-col gap-1.5 flex-shrink-0">
-                <button onclick="openConvert('${e.id}')" class="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
-                    <i class="fas fa-tools"></i>Lavorazione
-                </button>
-                <button onclick="openBlocco('${e.id}')" class="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
-                    <i class="fas fa-calendar-times"></i>Blocco Pietro
-                </button>
-                <button onclick="ignoraEvento('${e.id}')" class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-400 rounded-xl text-xs font-semibold transition whitespace-nowrap">
-                    <i class="fas fa-eye-slash"></i>Ignora
-                </button>
-            </div>
+            <i class="fas fa-chevron-right text-gray-300 flex-shrink-0 mt-1"></i>
         </div>
     </div>`;
 }
@@ -458,8 +516,8 @@ function cardGiaFatta(e,i){
     const statoLabel={da_fare:'Da fare',in_corso:'In corso',completato:'Completato',annullato:'Annullato',revisione:'In revisione'};
     const stato=task?.stato||'da_fare';
     const prioritaIcon={alta:'🔴',media:'⚡',bassa:'🟢'}[task?.priorita||'media'];
-    return `<div class="bg-white rounded-2xl border-l-4 border-green-400 border border-gray-100 shadow-sm p-4 fade-up" style="animation-delay:${i*.03}s">
-        <div class="flex items-start justify-between gap-2">
+    return `<div class="bg-white rounded-2xl border-l-4 border-green-400 border border-gray-100 shadow-sm p-4 fade-up cursor-pointer hover:shadow-md transition" style="animation-delay:${i*.03}s" onclick="openEventDetail('${e.id}')">
+        <div class="flex items-start gap-3">
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
                     <span class="text-xs font-bold ${statoColors[stato]} px-2 py-0.5 rounded-full">${statoLabel[stato]}</span>
@@ -469,11 +527,7 @@ function cardGiaFatta(e,i){
                 ${assegnatoA?`<p class="text-xs text-gray-400"><i class="fas fa-user text-green-400 mr-1"></i>${assegnatoA}</p>`:''}
                 ${(task?.indirizzo_lavoro||e.location)?`<p class="text-xs text-gray-400 truncate mt-0.5"><i class="fas fa-map-marker-alt text-gray-300 mr-1"></i>${task?.indirizzo_lavoro||e.location}</p>`:''}
             </div>
-            <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
-                ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-0.5"></i>Apri</a>`:''}
-                <button onclick="undoConversione('${e.id}')" title="Rimetti in Da lavorare" class="text-xs text-gray-400 hover:text-orange-500 transition"><i class="fas fa-undo mr-0.5"></i>Riporta</button>
-                <button onclick="ignoraEvento('${e.id}')" title="Ignora definitivamente" class="text-xs text-gray-300 hover:text-gray-500 transition"><i class="fas fa-eye-slash mr-0.5"></i>Ignora</button>
-            </div>
+            <i class="fas fa-chevron-right text-gray-300 flex-shrink-0 mt-1"></i>
         </div>
     </div>`;
 }
@@ -490,6 +544,58 @@ function showConfigHint(){
     document.getElementById('colGrid').classList.add('hidden');
 }
 function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=html}
+
+// ── Modal Riepilogo Evento ──────────────────────────────────────────
+let _detailEventId = null;
+
+function openEventDetail(eventId){
+    const e = allEvents.find(x=>x.id===eventId); if(!e) return;
+    _detailEventId = eventId;
+    const{dateFmt,timeFmt,isoDate} = parseDates(e);
+    const isDone = isConverted(e);
+    const conv   = convertedMap[e.id];
+
+    // Header colore
+    const hdr = document.getElementById('edm_header');
+    hdr.style.background = isDone
+        ? 'linear-gradient(135deg,#16a34a,#059669)'
+        : 'linear-gradient(135deg,#7c3aed,#6d28d9)';
+
+    // Dati
+    document.getElementById('edm_date').textContent  = dateFmt + (timeFmt ? ' · ' + timeFmt : '');
+    document.getElementById('edm_title').textContent = e.summary || '(senza titolo)';
+
+    const locBox = document.getElementById('edm_location');
+    if(e.location){ locBox.classList.remove('hidden'); document.getElementById('edm_location_text').textContent=e.location; }
+    else           { locBox.classList.add('hidden'); }
+
+    const timeBox = document.getElementById('edm_time');
+    if(timeFmt){ timeBox.classList.remove('hidden'); document.getElementById('edm_time_text').textContent=`${dateFmt} ${timeFmt}`; }
+    else        { timeBox.classList.add('hidden'); }
+
+    const desc = stripHtml(e.description||'').trim();
+    const descBox = document.getElementById('edm_desc_box');
+    if(desc){ descBox.classList.remove('hidden'); document.getElementById('edm_desc').textContent=desc; }
+    else    { descBox.classList.add('hidden'); }
+
+    // Stato inserito
+    const insBox = document.getElementById('edm_inserted_box');
+    if(isDone){ insBox.classList.remove('hidden'); }
+    else      { insBox.classList.add('hidden'); }
+
+    // Bottoni azioni
+    document.getElementById('edm_actions_new').classList.toggle('hidden', isDone);
+    document.getElementById('edm_actions_done').classList.toggle('hidden', !isDone);
+
+    document.getElementById('eventDetailModal').classList.remove('hidden');
+}
+
+function closeEventDetail(){ document.getElementById('eventDetailModal').classList.add('hidden'); _detailEventId=null; }
+
+function openConvertFromDetail(){ closeEventDetail(); openConvert(_detailEventId); }
+function openBloccoFromDetail() { closeEventDetail(); openBlocco(_detailEventId); }
+function ignoraFromDetail()     { closeEventDetail(); ignoraEvento(_detailEventId); }
+function undoConversioneFromDetail(){ closeEventDetail(); undoConversione(_detailEventId); }
 
 function openBlocco(eventId){
     const e=allEvents.find(x=>x.id===eventId); if(!e) return;
