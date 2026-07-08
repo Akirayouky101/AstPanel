@@ -594,6 +594,18 @@
                             <input type="text" id="oggetto" class="inp" required placeholder="Es: Fornitura cavi elettrici 100m">
                         </div>
 
+                        <div class="mb10">
+                            <span class="field-label" style="color:#0f766e"><i class="fas fa-user-tie" style="color:#0f766e;margin-right:4px"></i> Cliente di riferimento <span style="font-weight:400;font-size:10px;color:#6b7280">(uso interno — non va al fornitore)</span></span>
+                            <div style="display:flex;gap:8px;">
+                                <div class="sel-wrap" style="flex:1">
+                                    <select id="clienteId" onchange="onClienteSelect(this.value)" style="border-color:#99f6e4">
+                                        <option value="">— Nessun cliente collegato —</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down sel-arrow"></i>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="g2 mb10">
                             <div>
                                 <span class="field-label">Data ordine</span>
@@ -844,6 +856,7 @@
         let ordini = [];
         let fornitori = [];
         let prodotti = [];
+        let clienti = [];
         let currentItems = [];
 
         // ── Supabase shorthand (rinominato db per evitare conflitto con globale CDN) ──
@@ -881,7 +894,7 @@
                 }
 
                 // Carica dati
-                await Promise.all([loadFornitori(), loadProdotti(), loadOrdini()]);
+                await Promise.all([loadFornitori(), loadProdotti(), loadClienti(), loadOrdini()]);
 
                 // ── Realtime: aggiornamenti istantanei quando qualcuno approva/rifiuta ──
                 db.channel('ordini-realtime')
@@ -939,6 +952,27 @@
                 console.warn('Fornitori non caricati (tabella assente?):', err.message);
                 fornitori = [];
             }
+        }
+
+        // ── Carica clienti (per riferimento interno) ──
+        async function loadClienti() {
+            try {
+                const { data } = await db.from('clients')
+                    .select('id, ragione_sociale, nome, cognome, tipo_cliente')
+                    .order('ragione_sociale');
+                clienti = data || [];
+                const sel = document.getElementById('clienteId');
+                if (!sel) return;
+                sel.innerHTML = '<option value="">— Nessun cliente collegato —</option>';
+                clienti.forEach(c => {
+                    const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
+                    sel.innerHTML += `<option value="${c.id}">${nome}</option>`;
+                });
+            } catch(err) { clienti = []; }
+        }
+
+        function onClienteSelect(id) {
+            // nessuna azione aggiuntiva necessaria — il select salva già l'id
         }
 
         // ── Carica prodotti magazzino ──
@@ -1083,6 +1117,7 @@
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-800 max-w-xs">
                         <div class="truncate" title="${o.oggetto || ''}">${o.oggetto || '—'}</div>
+                        ${o.cliente_nome_cache ? `<div class="text-xs text-teal-600 mt-0.5"><i class="fas fa-user-tie mr-1"></i>${o.cliente_nome_cache}</div>` : ''}
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-500 whitespace-nowrap">
                         ${o.data_ordine ? new Date(o.data_ordine).toLocaleDateString('it-IT') : '—'}
@@ -1229,6 +1264,10 @@
                 document.getElementById('fornitoreRiferimento').value = o.fornitore_riferimento || '';
                 document.getElementById('tipoOrdine').value = o.tipo || 'da_approvare';
                 document.getElementById('oggetto').value = o.oggetto || '';
+                // Cliente di riferimento (interno)
+                if (document.getElementById('clienteId')) {
+                    document.getElementById('clienteId').value = o.cliente_id || '';
+                }
                 document.getElementById('dataOrdine').value = o.data_ordine || '';
                 document.getElementById('dataConsegna').value = o.data_consegna_prevista || '';
                 document.getElementById('stato').value = o.stato || 'bozza';
@@ -1687,6 +1726,14 @@
                     fornitore_riferimento: document.getElementById('fornitoreRiferimento').value || null,
                     tipo: document.getElementById('tipoOrdine').value,
                     oggetto: document.getElementById('oggetto').value.trim(),
+                    // Riferimento cliente (solo uso interno)
+                    cliente_id: document.getElementById('clienteId')?.value || null,
+                    cliente_nome_cache: (() => {
+                        const cid = document.getElementById('clienteId')?.value;
+                        if (!cid) return null;
+                        const c = clienti.find(x => x.id === cid);
+                        return c ? (c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim()) : null;
+                    })(),
                     data_ordine: document.getElementById('dataOrdine').value,
                     data_consegna_prevista: document.getElementById('dataConsegna').value || null,
                     stato: statoVal,
