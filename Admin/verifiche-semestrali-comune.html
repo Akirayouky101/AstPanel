@@ -6,6 +6,9 @@
     <title>Verifiche Semestrali – Comune · AST Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-client.js"></script>
     <script src="auth-helper.js"></script>
@@ -23,6 +26,41 @@
             background:#fff;
         }
         .form-input:focus { border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+
+        /* ── Flatpickr green theme ── */
+        .flatpickr-calendar {
+            border-radius:16px !important;
+            border:2px solid #bbf7d0 !important;
+            box-shadow:0 12px 40px rgba(22,163,74,.18) !important;
+            font-family:inherit !important;
+            padding:6px !important;
+        }
+        .flatpickr-day.selected, .flatpickr-day.selected:hover {
+            background:#16a34a !important;
+            border-color:#16a34a !important;
+        }
+        .flatpickr-day:hover { background:#dcfce7 !important; color:#166534 !important; }
+        .flatpickr-day.today { border-color:#16a34a !important; color:#16a34a !important; font-weight:700; }
+        .flatpickr-day.today.selected { color:#fff !important; }
+        .flatpickr-months .flatpickr-month,
+        .flatpickr-weekdays,
+        span.flatpickr-weekday {
+            background:#16a34a !important;
+            color:#fff !important;
+            fill:#fff !important;
+            border-radius:12px 12px 0 0 !important;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .flatpickr-current-month input.cur-year {
+            color:#fff !important;
+            font-weight:700 !important;
+        }
+        .flatpickr-prev-month, .flatpickr-next-month {
+            fill:#fff !important;
+            color:#fff !important;
+        }
+        .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill:#d1fae5 !important; }
+        .flatpickr-input { cursor:pointer !important; }
         .form-label { display:block; font-size:12px; font-weight:700; color:#6b7280;
                       text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
     </style>
@@ -203,7 +241,10 @@
                     <label class="form-label" for="f_data">
                         <i class="fas fa-calendar mr-1 text-green-600"></i>Data Verifica *
                     </label>
-                    <input type="date" id="f_data" class="form-input" required>
+                    <div class="relative">
+                        <input type="text" id="f_data" class="form-input" placeholder="gg/mm/aaaa" readonly>
+                        <i class="fas fa-calendar-alt absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none"></i>
+                    </div>
                 </div>
             </div>
 
@@ -291,7 +332,13 @@
                     <label class="form-label" for="f_prossima">
                         <i class="fas fa-calendar-plus mr-1 text-green-600"></i>Prossima Verifica
                     </label>
-                    <input type="date" id="f_prossima" class="form-input">
+                    <div class="relative">
+                        <input type="text" id="f_prossima" class="form-input" placeholder="gg/mm/aaaa (opzionale)" readonly>
+                        <button type="button" onclick="fpProssima.clear()" title="Rimuovi data"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-400 transition text-sm">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label class="form-label" for="f_note">
@@ -330,13 +377,30 @@
     let verifiche = [];
     let comuni = [];
     let currentTipo = 'semestrale';
+    let fpData, fpProssima;
 
     // ── Init ──
     document.addEventListener('DOMContentLoaded', async () => {
         if (!await window.AuthHelper.requireLogin()) return;
         currentUser = window.AuthHelper.getCurrentUser();
         document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
-        document.getElementById('f_data').value = new Date().toISOString().split('T')[0];
+
+        // Flatpickr options
+        const fpOpts = {
+            locale: 'it',
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd/m/Y',
+            disableMobile: true,
+            onReady(_, __, fp) {
+                fp.altInput.className = fp.element.className;
+                fp.altInput.placeholder = 'gg/mm/aaaa';
+                fp.altInput.readOnly = false;
+            }
+        };
+        fpData     = flatpickr('#f_data',     { ...fpOpts, defaultDate: 'today' });
+        fpProssima = flatpickr('#f_prossima', { ...fpOpts });
+
         await Promise.all([loadComuni(), loadVerifiche()]);
         populateAnnoFilter();
     });
@@ -513,12 +577,12 @@
         document.getElementById('verificaId').value = '';
         document.getElementById('modalTitle').textContent = 'Nuova Verifica';
         document.getElementById('f_comune').value     = '';
-        document.getElementById('f_data').value       = new Date().toISOString().split('T')[0];
+        fpData.setDate('today', true);
+        fpProssima.clear();
         document.getElementById('f_piano').value      = '';
         document.getElementById('f_ubicazione').value = '';
         document.getElementById('f_marca').value      = '';
         document.getElementById('f_codice').value     = '';
-        document.getElementById('f_prossima').value   = '';
         document.getElementById('f_note').value       = '';
         document.querySelector('input[name="esitoRad"][value="conforme"]').checked = true;
         updateEsitoStyle('conforme');
@@ -537,12 +601,12 @@
         document.getElementById('tipoVerifica').value  = v.tipo_verifica || 'semestrale';
         document.querySelector(`input[name="tipoVer"][value="${v.tipo_verifica||'semestrale'}"]`).checked = true;
         document.getElementById('f_comune').value      = v.cliente_id || '';
-        document.getElementById('f_data').value        = v.data_verifica || '';
+        fpData.setDate(v.data_verifica || '', true);
+        fpProssima.setDate(v.data_prossima || '', true);
         document.getElementById('f_piano').value       = v.piano || '';
         document.getElementById('f_ubicazione').value  = v.ubicazione || '';
         document.getElementById('f_marca').value       = v.marca_n_poli || '';
         document.getElementById('f_codice').value      = v.codice || '';
-        document.getElementById('f_prossima').value    = v.data_prossima || '';
         document.getElementById('f_note').value        = v.note || '';
         const esitoVal = v.esito || 'conforme';
         document.querySelector(`input[name="esitoRad"][value="${esitoVal}"]`).checked = true;
@@ -553,7 +617,13 @@
     // ── Salva ──
     async function salvaVerifica() {
         const comuneId  = document.getElementById('f_comune').value;
-        const data      = document.getElementById('f_data').value;
+        const data      = fpData.selectedDates[0]
+            ? fpData.formatDate(fpData.selectedDates[0], 'Y-m-d')
+            : '';
+        const prossima  = fpProssima.selectedDates[0]
+            ? fpProssima.formatDate(fpProssima.selectedDates[0], 'Y-m-d')
+            : null;
+
         const esito     = document.querySelector('input[name="esitoRad"]:checked')?.value || 'conforme';
         const tipo      = document.getElementById('tipoVerifica').value || currentTipo;
 
@@ -574,7 +644,7 @@
             marca_n_poli:  document.getElementById('f_marca').value.trim() || null,
             codice:        document.getElementById('f_codice').value.trim() || null,
             esito,
-            data_prossima: document.getElementById('f_prossima').value || null,
+            data_prossima: prossima,
             note:          document.getElementById('f_note').value.trim() || null,
             updated_at:    new Date().toISOString(),
         };
