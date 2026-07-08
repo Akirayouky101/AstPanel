@@ -1397,24 +1397,26 @@
                         if (updCompErr) throw updCompErr;
                     }
 
-                    // 3. Inserisci movimento magazzino
-                    const { error: movErr } = await window.supabase
-                        .from('movimenti_magazzino')
-                        .insert({
-                            prodotto_id: item.prodotto_id || null,
-                            ordine_fornitore_id: ordineId,
-                            codice: item.codice || '',
-                            descrizione: item.descrizione || '',
-                            tipo_movimento: 'carico',
-                            quantita: qtaRicevuta,
-                            giacenza_prima: giacenzaPrima,
-                            giacenza_dopo: giacenzaDopo,
-                            causale: `Carico da ordine fornitore ${numeroOrdine}`,
-                            data_movimento: new Date().toISOString().split('T')[0],
-                            created_by: currentUser.id,
-                            note: `Ordine: ${numeroOrdine}`
-                        });
-                    if (movErr) throw movErr;
+                    // 3. Inserisci movimento magazzino SOLO se l'articolo è collegato a un componente
+                    if (item.prodotto_id) {
+                        const { error: movErr } = await window.supabase
+                            .from('movimenti_magazzino')
+                            .insert({
+                                prodotto_id: item.prodotto_id,
+                                ordine_fornitore_id: ordineId,
+                                codice: item.codice || '',
+                                descrizione: item.descrizione || '',
+                                tipo_movimento: 'carico',
+                                quantita: qtaRicevuta,
+                                giacenza_prima: giacenzaPrima,
+                                giacenza_dopo: giacenzaDopo,
+                                causale: `Carico da ordine fornitore ${numeroOrdine}`,
+                                data_movimento: new Date().toISOString().split('T')[0],
+                                created_by: currentUser.id,
+                                note: `Ordine: ${numeroOrdine}`
+                            });
+                        if (movErr) throw movErr;
+                    }
 
                     // 4. Aggiorna quantita_ricevuta e stato item
                     const nuovaQtaRicevuta = parseFloat(item.quantita_ricevuta || 0) + qtaRicevuta;
