@@ -1240,6 +1240,31 @@
 
                 showSuccessModal('Ordine salvato con successo!');
                 closeModal();
+
+                // Se l'ordine viene salvato con stato 'ricevuto', chiudi le pratiche collegate
+                const statoSalvato = ordine.stato;
+                if (statoSalvato === 'ricevuto') {
+                    // Recupera dati ordine aggiornati (incluso ordine_interno_id)
+                    const { data: ordAgg } = await window.supabase
+                        .from('ordini_fornitore')
+                        .select('numero, richiesta_id, ordine_interno_id')
+                        .eq('id', savedOrdineId)
+                        .single();
+                    if (ordAgg?.richiesta_id) {
+                        await window.supabase.from('richieste_preventivo_fornitori')
+                            .update({ stato: 'chiuso' }).eq('id', ordAgg.richiesta_id);
+                    }
+                    if (ordAgg?.ordine_interno_id) {
+                        await window.supabase.from('ordini_interni')
+                            .update({ stato: 'chiuso' }).eq('id', ordAgg.ordine_interno_id);
+                    } else if (ordAgg?.numero) {
+                        await window.supabase.from('ordini_interni')
+                            .update({ stato: 'chiuso' })
+                            .eq('numero_ordine_fornitore', ordAgg.numero)
+                            .in('stato', ['evaso', 'approvato', 'da_evadere']);
+                    }
+                }
+
                 await loadOrdini();
             } catch (error) {
                 console.error('Errore:', error);
