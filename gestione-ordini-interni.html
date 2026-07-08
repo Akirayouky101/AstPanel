@@ -596,7 +596,11 @@
 
                         <div class="mb10">
                             <span class="field-label" style="color:#0f766e"><i class="fas fa-user-tie" style="color:#0f766e;margin-right:4px"></i> Cliente di riferimento <span style="font-weight:400;font-size:10px;color:#6b7280">(uso interno — non va al fornitore)</span></span>
-                            <div style="display:flex;gap:8px;">
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                                <input type="text" id="clienteSearch" placeholder="🔍 Cerca cliente per nome..."
+                                    oninput="filtraClienti(this.value)"
+                                    style="width:100%;padding:9px 13px;border:1.5px solid #99f6e4;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box"
+                                    onfocus="this.style.borderColor='#0d9488'" onblur="this.style.borderColor='#99f6e4'">
                                 <div class="sel-wrap" style="flex:1">
                                     <select id="clienteId" onchange="onClienteSelect(this.value)" style="border-color:#99f6e4">
                                         <option value="">— Nessun cliente collegato —</option>
@@ -972,7 +976,30 @@
         }
 
         function onClienteSelect(id) {
-            // nessuna azione aggiuntiva necessaria — il select salva già l'id
+            // aggiorna il campo di ricerca col nome selezionato
+            const sel = document.getElementById('clienteId');
+            const search = document.getElementById('clienteSearch');
+            if (search && sel && sel.selectedIndex > 0) {
+                search.value = sel.options[sel.selectedIndex].text;
+            }
+        }
+
+        function filtraClienti(q) {
+            const sel = document.getElementById('clienteId');
+            if (!sel) return;
+            const val = q.toLowerCase().trim();
+            sel.innerHTML = '<option value="">— Nessun cliente collegato —</option>';
+            const filtered = val
+                ? clienti.filter(c => {
+                    const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
+                    return nome.toLowerCase().includes(val);
+                  })
+                : clienti;
+            filtered.forEach(c => {
+                const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
+                sel.innerHTML += `<option value="${c.id}">${nome}</option>`;
+            });
+            sel.size = filtered.length > 0 && val ? Math.min(filtered.length + 1, 8) : 1;
         }
 
         // ── Carica prodotti magazzino ──
@@ -1267,6 +1294,9 @@
                 // Cliente di riferimento (interno)
                 if (document.getElementById('clienteId')) {
                     document.getElementById('clienteId').value = o.cliente_id || '';
+                    // Mostra il nome nel campo di ricerca
+                    const search = document.getElementById('clienteSearch');
+                    if (search) search.value = o.cliente_nome_cache || '';
                 }
                 document.getElementById('dataOrdine').value = o.data_ordine || '';
                 document.getElementById('dataConsegna').value = o.data_consegna_prevista || '';
