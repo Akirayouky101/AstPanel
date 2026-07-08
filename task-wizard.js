@@ -894,6 +894,31 @@ class TaskWizard {
 
     populateStep3Form() {
         document.getElementById('wizard-ore-stimate').value = this.wizardData.ore_stimate || '';
+
+        // Ripristina lista componenti selezionati (potrebbero essere già in wizardData da selezione o da edit)
+        const container = document.getElementById('wizard-componenti-selezionati');
+        if (!container) return;
+        const componenti = this.wizardData.componenti || [];
+        if (componenti.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-gray-400 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <p class="text-sm">Nessun componente selezionato</p>
+                    <p class="text-xs mt-1">Usa il sistema scanner multiplo per aggiungere componenti</p>
+                </div>`;
+        } else {
+            container.innerHTML = `
+                <div class="space-y-2">
+                    ${componenti.map(c => `
+                        <div class="flex items-center justify-between p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-900">${c.nome || c.codice || 'Componente'}</p>
+                                <p class="text-sm text-gray-600">${c.codice || ''}</p>
+                            </div>
+                            <span class="px-3 py-1 bg-purple-600 text-white rounded-lg font-bold">${c.quantita || 1} pz</span>
+                        </div>`).join('')}
+                </div>
+                <p class="text-xs text-gray-400 mt-2 text-center">Clicca "Selezione Rapida" per modificare i componenti</p>`;
+        }
     }
 
     // ===================================
