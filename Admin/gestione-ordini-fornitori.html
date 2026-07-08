@@ -1310,33 +1310,29 @@
                 
                 const container = document.getElementById('ricezioneItems');
                 container.innerHTML = items.map(item => {
-                    const daRicevere = Math.max(0, parseFloat(item.quantita_ordinata||0) - parseFloat(item.quantita_ricevuta||0));
+                    const totOrd = parseFloat(item.quantita_ordinata||0);
+                    const giàRic = parseFloat(item.quantita_ricevuta||0);
+                    const daRic  = Math.max(0, totOrd - giàRic);
                     const um = item.um || 'pz';
                     return `
-                    <div class="border-2 border-gray-200 rounded-xl p-4 bg-white">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="flex-1">
-                                <p class="font-bold text-gray-900">${item.codice||''} ${item.descrizione||''}</p>
-                                <div class="flex gap-4 text-sm text-gray-500 mt-1">
-                                    <span>Ordinati: <strong>${parseFloat(item.quantita_ordinata||0)} ${um}</strong></span>
-                                    <span>Già ricevuti: <strong class="text-green-600">${parseFloat(item.quantita_ricevuta||0)} ${um}</strong></span>
-                                    <span>Da ricevere: <strong class="text-orange-600">${daRicevere} ${um}</strong></span>
-                                </div>
-                            </div>
+                    <div class="flex items-center gap-3 p-4 border-2 border-gray-100 rounded-2xl bg-white">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-900 truncate">${item.descrizione||''}</p>
+                            ${item.codice ? `<p class="text-xs text-gray-400 font-mono">${item.codice}</p>` : ''}
                         </div>
-                        <div class="flex items-center gap-3">
-                            <label class="text-sm font-bold text-gray-700 whitespace-nowrap">Quantità ricevuta ora:</label>
+                        <div class="flex items-center gap-2 flex-shrink-0">
                             <input type="number"
                                 id="qta_${item.id}"
-                                value="${daRicevere}"
-                                min="0"
-                                step="0.01"
-                                class="w-36 px-3 py-2 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 text-lg font-bold text-center"
-                                onchange="this.style.borderColor=parseFloat(this.value)>0?'#16a34a':'#ef4444'">
-                            <span class="text-base font-semibold text-gray-600">${um}</span>
-                            <span class="text-xs text-gray-400 ml-2">(modifica se diverso)</span>
+                                value="${daRic}"
+                                min="0" step="0.01"
+                                class="w-24 px-3 py-2.5 border-2 border-green-400 rounded-xl text-lg font-black text-center focus:border-green-600 focus:ring-2 focus:ring-green-200 outline-none"
+                                onchange="this.style.borderColor=parseFloat(this.value||0)>0?'#16a34a':'#ef4444'">
+                            <span class="text-gray-500 font-semibold">/ ${totOrd} ${um}</span>
                         </div>
                     </div>`;
+                }).join('');
+
+                document.getElementById('ricezioneModal').classList.remove('hidden');
                 }).join('');
 
                 document.getElementById('ricezioneModal').classList.remove('hidden');
