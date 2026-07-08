@@ -11,594 +11,341 @@
     <script src="Admin/auth-helper.js"></script>
     <style>
         body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        .fade-up { animation: fadeUp .3s ease-out both; }
-        .card-hover { transition: all .2s; }
-        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.10); }
-        .badge { padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px; }
-        .pulse-dot { width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .fade-up { animation: fadeUp .25s ease-out both; }
+        .card-new  { border-left: 4px solid #7c3aed; }
+        .card-done { border-left: 4px solid #22c55e; opacity:.75; }
+        .tab-active   { background:#7c3aed; color:#fff; }
+        .tab-inactive { background:#f3f4f6; color:#6b7280; }
+        .tab-inactive:hover { background:#ede9fe; color:#7c3aed; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
-<!-- ── Header ── -->
-<div class="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <button onclick="window.location.href='admin-functional.html'"
-                    class="hover:bg-white/20 p-2 rounded-lg transition">
-                <i class="fas fa-arrow-left"></i>
-            </button>
+<div class="bg-gradient-to-r from-violet-700 to-indigo-600 text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button onclick="window.location.href='admin-functional.html'" class="hover:bg-white/20 p-2 rounded-lg transition"><i class="fas fa-arrow-left"></i></button>
             <div>
-                <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fab fa-google mr-1"></i>
-                    Richieste dal Titolare
-                </h1>
-                <div class="flex items-center gap-2 mt-0.5">
-                    <div class="pulse-dot" id="syncDot" style="display:none"></div>
-                    <p class="text-violet-100 text-sm" id="syncStatus">Google Calendar → AST Panel</p>
-                </div>
+                <h1 class="text-lg font-bold flex items-center gap-2"><i class="fab fa-google"></i> Richieste dal Titolare</h1>
+                <p class="text-violet-200 text-xs" id="syncStatus">Caricamento…</p>
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="refreshEvents()"
-                    class="hover:bg-white/20 p-2 rounded-lg transition" title="Aggiorna ora" id="btnRefresh">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-            <button onclick="openConfig()"
-                    class="hover:bg-white/20 p-2 rounded-lg transition" title="Configurazione">
-                <i class="fas fa-cog"></i>
-            </button>
-            <span class="text-violet-100 text-sm hidden md:block" id="userName"></span>
+            <button onclick="refreshAll()" id="btnRefresh" class="hover:bg-white/20 p-2 rounded-lg transition" title="Aggiorna"><i class="fas fa-sync-alt text-sm"></i></button>
+            <button onclick="openConfig()" class="hover:bg-white/20 p-2 rounded-lg transition" title="Impostazioni"><i class="fas fa-cog text-sm"></i></button>
         </div>
     </div>
 </div>
 
-<!-- ── Filtri ── -->
-<div class="max-w-5xl mx-auto px-4 py-4">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 flex flex-wrap gap-3 items-center">
-        <div class="flex items-center gap-2 flex-1 min-w-40">
+<div class="max-w-4xl mx-auto px-4 pt-5 pb-3">
+    <div class="flex gap-3 items-center flex-wrap">
+        <button id="tabNuove" onclick="setTab('nuove')" class="tab-active flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition">
+            <i class="fas fa-inbox"></i> Da lavorare
+            <span id="cntNuove" class="bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full">0</span>
+        </button>
+        <button id="tabGiaFatte" onclick="setTab('giaFatte')" class="tab-inactive flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition">
+            <i class="fas fa-check-circle"></i> Già inserite
+            <span id="cntGiaFatte" class="bg-gray-300 text-gray-600 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+        </button>
+        <div class="ml-auto flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 flex-1 max-w-xs">
             <i class="fas fa-search text-gray-400 text-sm"></i>
-            <input type="text" id="searchQ" placeholder="Cerca per titolo, luogo, descrizione…"
-                   oninput="renderEvents()"
-                   class="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400">
-        </div>
-        <select id="filterPeriod" onchange="renderEvents()"
-                class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none">
-            <option value="upcoming">Prossimi eventi</option>
-            <option value="all">Tutti</option>
-            <option value="past">Passati</option>
-        </select>
-        <select id="filterState" onchange="renderEvents()"
-                class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none">
-            <option value="all">Tutti gli stati</option>
-            <option value="new">🆕 Nuovi</option>
-            <option value="converted">✅ Convertiti</option>
-        </select>
-        <!-- Auto-refresh toggle -->
-        <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-            <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()"
-                   class="w-4 h-4 accent-violet-600">
-            Auto-sync
-        </label>
-    </div>
-</div>
-
-<!-- ── Stats ── -->
-<div class="max-w-5xl mx-auto px-4 pb-4 grid grid-cols-3 gap-4">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-4 text-center">
-        <p class="text-2xl font-black text-violet-700" id="statTotale">—</p>
-        <p class="text-xs font-bold text-gray-500 uppercase mt-1">Totale eventi</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-blue-100 px-4 py-4 text-center">
-        <p class="text-2xl font-black text-blue-700" id="statNuovi">—</p>
-        <p class="text-xs font-bold text-blue-500 uppercase mt-1">Da lavorare</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-green-100 px-4 py-4 text-center">
-        <p class="text-2xl font-black text-green-700" id="statConvertiti">—</p>
-        <p class="text-xs font-bold text-green-500 uppercase mt-1">Convertiti</p>
-    </div>
-</div>
-
-<!-- ── Event List ── -->
-<div class="max-w-5xl mx-auto px-4 pb-10">
-    <div id="eventList" class="space-y-4">
-        <!-- loading placeholder -->
-        <div id="loadingPlaceholder" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400">
-            <i class="fas fa-calendar-alt text-5xl mb-4 opacity-20 block"></i>
-            <p class="font-semibold">Configura la connessione a Google Calendar</p>
-            <p class="text-sm mt-1">Clicca ⚙️ in alto a destra per iniziare</p>
-            <button onclick="openConfig()"
-                    class="mt-4 px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold text-sm hover:bg-violet-700 transition">
-                <i class="fas fa-cog mr-2"></i>Configura ora
-            </button>
+            <input type="text" id="searchQ" placeholder="Cerca…" oninput="renderCurrent()" class="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400">
         </div>
     </div>
 </div>
 
-<!-- ════ MODAL Configurazione ════ -->
+<div id="panelNuove" class="max-w-4xl mx-auto px-4 pb-10">
+    <div id="nuovePlaceholder" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up">
+        <i class="fas fa-spinner fa-spin text-3xl mb-3 block opacity-30"></i><p>Caricamento…</p>
+    </div>
+    <div id="nuoveList" class="space-y-3 hidden"></div>
+</div>
+
+<div id="panelGiaFatte" class="max-w-4xl mx-auto px-4 pb-10 hidden">
+    <div id="giaFatteList" class="space-y-3"></div>
+</div>
+
+<!-- Modal Config -->
 <div id="configModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg fade-up">
-        <div class="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-6 py-5 rounded-t-2xl">
-            <h2 class="text-lg font-bold"><i class="fab fa-google mr-2"></i>Configurazione Google Calendar</h2>
-            <p class="text-violet-100 text-xs mt-1">Connetti il calendario del titolare all'AST Panel</p>
+        <div class="bg-gradient-to-r from-violet-700 to-indigo-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+            <h2 class="text-lg font-bold"><i class="fab fa-google mr-2"></i>Configurazione</h2>
+            <button onclick="closeConfig()" class="hover:bg-white/20 p-2 rounded-full transition"><i class="fas fa-times"></i></button>
         </div>
-        <div class="px-6 py-6 space-y-5">
-
-            <!-- Step 1 info -->
-            <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                <p class="text-sm font-bold text-violet-800 mb-2">📋 Come configurare (una volta sola):</p>
-                <ol class="text-xs text-violet-700 space-y-1 list-decimal list-inside">
-                    <li>Vai su <strong>calendar.google.com</strong> → crea un nuovo calendario dedicato (es: "Richieste AST")</li>
-                    <li>Impostazioni calendario → <strong>"Rendi pubblico"</strong> (spunta la casella)</li>
-                    <li>Copia l'<strong>ID Calendario</strong> (es: xxxx@group.calendar.google.com)</li>
-                    <li>Vai su <strong>console.cloud.google.com</strong> → crea un progetto → abilita <strong>Google Calendar API</strong> → crea una <strong>API Key</strong></li>
-                </ol>
+        <div class="px-6 py-5 space-y-4">
+            <div class="bg-violet-50 border border-violet-200 rounded-xl p-4 text-xs text-violet-700 space-y-1">
+                <p class="font-bold text-violet-800 mb-1">ℹ️ Cosa inserire:</p>
+                <p>• <strong>API Key</strong>: Google Cloud Console → Credenziali → Chiave API</p>
+                <p>• <strong>Calendar ID</strong>: email Google del titolare (es: nome@gmail.com)</p>
+                <p>• Il calendario deve essere impostato come <strong>pubblico</strong></p>
             </div>
-
             <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
-                    <i class="fas fa-key mr-1 text-yellow-500"></i>Google API Key
-                </label>
-                <input type="password" id="cfg_apiKey" placeholder="AIzaSy..."
-                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-mono focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none transition">
-                <p class="text-xs text-gray-400 mt-1">Salvata solo in questo browser (localStorage)</p>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">🔑 API Key Google</label>
+                <input type="password" id="cfg_apiKey" placeholder="AIzaSy..." class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-mono focus:border-violet-400 outline-none transition">
             </div>
-
             <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
-                    <i class="fas fa-calendar mr-1 text-blue-500"></i>Calendar ID
-                </label>
-                <input type="text" id="cfg_calId" placeholder="xxxx@group.calendar.google.com"
-                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-mono focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none transition">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">📅 Calendar ID</label>
+                <input type="text" id="cfg_calId" placeholder="nome@gmail.com" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-mono focus:border-violet-400 outline-none transition">
+                <p class="text-xs text-gray-400 mt-1">Solo l'email, non l'URL intero</p>
             </div>
-
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
-                    <i class="fas fa-clock mr-1 text-green-500"></i>Mostra eventi degli ultimi / prossimi
-                </label>
-                <select id="cfg_days" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-400 outline-none">
-                    <option value="30">30 giorni</option>
-                    <option value="60">60 giorni</option>
-                    <option value="90" selected>90 giorni</option>
-                    <option value="180">180 giorni</option>
-                </select>
-            </div>
-
-            <!-- Test connection -->
             <div id="testResult" class="hidden"></div>
         </div>
-        <div class="px-6 pb-6 flex gap-3">
-            <button onclick="testConnection()"
-                    class="flex-1 px-4 py-2.5 border-2 border-violet-300 text-violet-700 rounded-xl font-semibold text-sm hover:bg-violet-50 transition">
-                <i class="fas fa-plug mr-1"></i>Testa connessione
-            </button>
-            <button onclick="closeConfig()"
-                    class="px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">
-                Annulla
-            </button>
-            <button onclick="saveConfig()"
-                    class="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition">
-                <i class="fas fa-save mr-1"></i>Salva
-            </button>
+        <div class="px-6 pb-5 flex gap-2">
+            <button onclick="testConnection()" class="flex-1 px-4 py-2.5 border-2 border-violet-300 text-violet-700 rounded-xl font-semibold text-sm hover:bg-violet-50 transition"><i class="fas fa-plug mr-1"></i>Testa</button>
+            <button onclick="closeConfig()" class="px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm">Annulla</button>
+            <button onclick="saveConfig()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-700 to-indigo-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition"><i class="fas fa-save mr-1"></i>Salva</button>
         </div>
     </div>
 </div>
 
-<!-- ════ MODAL Converti in Lavorazione ════ -->
+<!-- Modal Converti -->
 <div id="convertModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg fade-up">
-        <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-5 rounded-t-2xl">
-            <h2 class="text-lg font-bold"><i class="fas fa-tools mr-2"></i>Converti in Lavorazione</h2>
-            <p class="text-orange-100 text-xs mt-1" id="convertSubtitle">Crea una lavorazione da questo evento</p>
+        <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+            <div><h2 class="text-lg font-bold"><i class="fas fa-tools mr-2"></i>Crea Lavorazione</h2>
+            <p class="text-orange-100 text-xs mt-0.5" id="convertSubtitle">dall'evento Google Calendar</p></div>
+            <button onclick="closeConvert()" class="hover:bg-white/20 p-2 rounded-full transition"><i class="fas fa-times"></i></button>
         </div>
         <div class="px-6 py-5 space-y-4">
             <input type="hidden" id="convertEventId">
-
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Oggetto lavorazione</label>
-                <input type="text" id="cv_oggetto"
-                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition font-semibold text-gray-800">
-            </div>
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Oggetto *</label>
+                <input type="text" id="cv_oggetto" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition font-semibold"></div>
             <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Data prevista</label>
-                    <input type="date" id="cv_data"
-                           class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Priorità</label>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data</label>
+                    <input type="date" id="cv_data" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition"></div>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Priorità</label>
                     <select id="cv_priorita" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none">
-                        <option value="media">⚡ Media</option>
-                        <option value="alta">🔴 Alta</option>
-                        <option value="bassa">🟢 Bassa</option>
-                    </select>
-                </div>
+                        <option value="media">⚡ Media</option><option value="alta">🔴 Alta</option><option value="bassa">🟢 Bassa</option></select></div>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Indirizzo / Cantiere</label>
-                <input type="text" id="cv_indirizzo"
-                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Note</label>
-                <textarea id="cv_note" rows="3"
-                          class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition resize-none"></textarea>
-            </div>
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Indirizzo</label>
+                <input type="text" id="cv_indirizzo" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition"></div>
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Note</label>
+                <textarea id="cv_note" rows="3" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition resize-none"></textarea></div>
         </div>
-        <div class="px-6 pb-6 flex gap-3">
-            <button onclick="closeConvert()"
-                    class="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">
-                Annulla
-            </button>
-            <button onclick="eseguiConversione()"
-                    class="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold text-sm hover:opacity-90 transition">
-                <i class="fas fa-tools mr-2"></i>Crea Lavorazione
-            </button>
+        <div class="px-6 pb-5 flex gap-3">
+            <button onclick="closeConvert()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm">Annulla</button>
+            <button onclick="eseguiConversione()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold text-sm hover:opacity-90 transition"><i class="fas fa-tools mr-1"></i>Crea Lavorazione</button>
         </div>
     </div>
 </div>
 
-<!-- ── Toast ── -->
-<div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;min-width:260px;max-width:380px;
-     border-radius:14px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,.22);
-     display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;color:#fff">
-    <span id="toastIcon" style="font-size:18px;flex-shrink:0"></span>
+<div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;min-width:240px;max-width:360px;border-radius:14px;padding:12px 16px;box-shadow:0 8px 32px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;color:#fff">
+    <span id="toastIcon" style="font-size:16px;flex-shrink:0"></span>
     <span id="toastMsg" style="flex:1;line-height:1.4"></span>
 </div>
 
 <script>
-    const db = window.supabase;
-    let currentUser = null;
-    let allEvents   = [];        // Raw Google Calendar events
-    let convertedIds = new Set(); // IDs già convertiti (salvati in localStorage)
-    let _autoRefreshTimer = null;
-    const STORAGE_KEY   = 'ast_gcal_config';
-    const CONVERTED_KEY = 'ast_gcal_converted';
+const db = window.supabase;
+let currentUser=null, allEvents=[], convertedMap={}, currentTab='nuove';
+const CFG_KEY='ast_gcal_cfg';
 
-    // ── Init ──
-    document.addEventListener('DOMContentLoaded', async () => {
-        if (!await window.AuthHelper.requireLogin()) return;
-        currentUser = window.AuthHelper.getCurrentUser();
-        document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+document.addEventListener('DOMContentLoaded', async()=>{
+    if(!await window.AuthHelper.requireLogin()) return;
+    currentUser=window.AuthHelper.getCurrentUser();
+    const cfg=getConfig();
+    if(!cfg.apiKey||!cfg.calId){ setSyncStatus('⚙️ Non configurato'); showConfigHint(); return; }
+    await refreshAll();
+    setInterval(refreshAll,5*60*1000);
+});
 
-        // Load converted IDs from localStorage
-        try { convertedIds = new Set(JSON.parse(localStorage.getItem(CONVERTED_KEY) || '[]')); } catch(e) {}
+function getConfig(){ try{return JSON.parse(localStorage.getItem(CFG_KEY)||'{}')}catch(e){return{}} }
+function openConfig(){ const c=getConfig(); document.getElementById('cfg_apiKey').value=c.apiKey||''; document.getElementById('cfg_calId').value=c.calId||''; document.getElementById('testResult').classList.add('hidden'); document.getElementById('configModal').classList.remove('hidden'); }
+function closeConfig(){ document.getElementById('configModal').classList.add('hidden'); }
+function saveConfig(){
+    const k=document.getElementById('cfg_apiKey').value.trim(), c=document.getElementById('cfg_calId').value.trim();
+    if(!k||!c){showToast('⚠️ Inserisci entrambi i campi','warning');return;}
+    localStorage.setItem(CFG_KEY,JSON.stringify({apiKey:k,calId:c}));
+    closeConfig(); showToast('✅ Salvato','success'); refreshAll();
+}
+async function testConnection(){
+    const k=document.getElementById('cfg_apiKey').value.trim(), c=document.getElementById('cfg_calId').value.trim();
+    const res=document.getElementById('testResult');
+    res.innerHTML='<p class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Test…</p>'; res.classList.remove('hidden');
+    try{
+        const r=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(c)}/events?key=${k}&maxResults=1&singleEvents=true`);
+        if(r.ok){ res.innerHTML='<div class="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 text-sm font-semibold"><i class="fas fa-check-circle mr-2 text-green-600"></i>Connessione riuscita!</div>'; }
+        else{ const e=await r.json(); res.innerHTML=`<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm"><i class="fas fa-times-circle mr-2 text-red-600"></i>${e.error?.message||'Errore. Verifica API Key e che il calendario sia pubblico.'}</div>`; }
+    }catch(e){ res.innerHTML='<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">Errore di rete</div>'; }
+}
 
-        const cfg = getConfig();
-        if (cfg.apiKey && cfg.calId) {
-            await fetchEvents();
-            startAutoRefresh();
-        } else {
-            // Show config hint
-        }
-    });
+async function refreshAll(){
+    const cfg=getConfig(); if(!cfg.apiKey||!cfg.calId) return;
+    document.getElementById('btnRefresh').querySelector('i').classList.add('fa-spin');
+    setSyncStatus('<i class="fas fa-sync-alt fa-spin mr-1"></i>Aggiornamento…');
+    await Promise.all([fetchGCalEvents(cfg), loadConvertedFromDB()]);
+    renderCurrent();
+    document.getElementById('btnRefresh').querySelector('i').classList.remove('fa-spin');
+    setSyncStatus(`<i class="fas fa-circle text-green-400 text-xs mr-1"></i>Aggiornato alle ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`);
+}
 
-    // ── Config helpers ──
-    function getConfig() {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+async function fetchGCalEvents(cfg){
+    try{
+        const past=new Date(); past.setMonth(past.getMonth()-1);
+        const future=new Date(); future.setMonth(future.getMonth()+3);
+        const url=`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calId)}/events?key=${cfg.apiKey}&singleEvents=true&orderBy=startTime&timeMin=${past.toISOString()}&timeMax=${future.toISOString()}&maxResults=250`;
+        const res=await fetch(url);
+        if(!res.ok){const e=await res.json(); setSyncStatus(`<i class="fas fa-exclamation-circle text-red-400 mr-1"></i>${e.error?.message||'Errore API'}`); return;}
+        const data=await res.json();
+        allEvents=(data.items||[]).filter(e=>e.status!=='cancelled');
+    }catch(e){ setSyncStatus('<i class="fas fa-exclamation-circle text-red-400 mr-1"></i>Errore di rete'); }
+}
+
+async function loadConvertedFromDB(){
+    try{ const{data}=await db.from('gcal_conversioni').select('event_id,task_id,titolo'); convertedMap={}; (data||[]).forEach(r=>{convertedMap[r.event_id]=r;}); }
+    catch(e){}
+}
+
+function setTab(tab){
+    currentTab=tab;
+    document.getElementById('panelNuove').classList.toggle('hidden',tab!=='nuove');
+    document.getElementById('panelGiaFatte').classList.toggle('hidden',tab!=='giaFatte');
+    const aN=tab==='nuove'; const aG=tab==='giaFatte';
+    document.getElementById('tabNuove').className=`${aN?'tab-active':'tab-inactive'} flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition`;
+    document.getElementById('tabGiaFatte').className=`${aG?'tab-active':'tab-inactive'} flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition`;
+    document.getElementById('cntNuove').className=aN?'bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full':'bg-violet-200 text-violet-800 text-xs font-black px-2 py-0.5 rounded-full';
+    document.getElementById('cntGiaFatte').className=aG?'bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full':'bg-gray-300 text-gray-600 text-xs font-black px-2 py-0.5 rounded-full';
+    renderCurrent();
+}
+function renderCurrent(){ currentTab==='nuove'?renderNuove():renderGiaFatte(); }
+
+function renderNuove(){
+    const q=document.getElementById('searchQ').value.toLowerCase().trim();
+    const nuove=allEvents.filter(e=>!convertedMap[e.id]);
+    const list=nuove.filter(e=>matchQ(e,q));
+    document.getElementById('cntNuove').textContent=nuove.length;
+    document.getElementById('nuovePlaceholder').classList.add('hidden');
+    const el=document.getElementById('nuoveList'); el.classList.remove('hidden');
+    if(!getConfig().apiKey){showConfigHint();return;}
+    if(list.length===0){
+        el.innerHTML=`<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up"><i class="fas fa-calendar-check text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Tutto in ordine! Nessun nuovo evento da lavorare.</p></div>`;
+        return;
     }
+    el.innerHTML=list.map((e,i)=>cardNuova(e,i)).join('');
+}
 
-    function openConfig() {
-        const cfg = getConfig();
-        document.getElementById('cfg_apiKey').value = cfg.apiKey || '';
-        document.getElementById('cfg_calId').value  = cfg.calId  || '';
-        document.getElementById('cfg_days').value   = cfg.days   || '90';
-        document.getElementById('testResult').classList.add('hidden');
-        document.getElementById('configModal').classList.remove('hidden');
-    }
-
-    function closeConfig() {
-        document.getElementById('configModal').classList.add('hidden');
-    }
-
-    function saveConfig() {
-        const apiKey = document.getElementById('cfg_apiKey').value.trim();
-        const calId  = document.getElementById('cfg_calId').value.trim();
-        const days   = document.getElementById('cfg_days').value;
-        if (!apiKey || !calId) { showToast('⚠️ Inserisci API Key e Calendar ID', 'warning'); return; }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ apiKey, calId, days }));
-        closeConfig();
-        showToast('✅ Configurazione salvata', 'success');
-        fetchEvents();
-        startAutoRefresh();
-    }
-
-    async function testConnection() {
-        const apiKey = document.getElementById('cfg_apiKey').value.trim();
-        const calId  = document.getElementById('cfg_calId').value.trim();
-        if (!apiKey || !calId) { showToast('⚠️ Inserisci entrambi i campi', 'warning'); return; }
-
-        const resEl = document.getElementById('testResult');
-        resEl.innerHTML = '<p class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Test in corso…</p>';
-        resEl.classList.remove('hidden');
-
-        try {
-            const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&maxResults=1&singleEvents=true`;
-            const res = await fetch(url);
-            if (res.ok) {
-                resEl.innerHTML = '<div class="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 text-sm font-semibold"><i class="fas fa-check-circle mr-2 text-green-600"></i>Connessione riuscita! Calendario trovato.</div>';
-            } else {
-                const err = await res.json();
-                resEl.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm"><i class="fas fa-times-circle mr-2 text-red-600"></i><strong>Errore:</strong> ${err.error?.message || 'Connessione fallita. Verifica API Key e Calendar ID.'}</div>`;
-            }
-        } catch(e) {
-            resEl.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm"><i class="fas fa-times-circle mr-2 text-red-600"></i>Errore di rete: ${e.message}</div>`;
-        }
-    }
-
-    // ── Fetch events from Google Calendar API ──
-    async function fetchEvents() {
-        const cfg = getConfig();
-        if (!cfg.apiKey || !cfg.calId) return;
-
-        setSyncStatus('sync');
-        document.getElementById('btnRefresh').querySelector('i').classList.add('fa-spin');
-
-        try {
-            const days  = parseInt(cfg.days || 90);
-            const past  = new Date(); past.setDate(past.getDate() - Math.floor(days / 2));
-            const future= new Date(); future.setDate(future.getDate() + days);
-            const tMin  = past.toISOString();
-            const tMax  = future.toISOString();
-
-            const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calId)}/events?key=${cfg.apiKey}&singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(tMin)}&timeMax=${encodeURIComponent(tMax)}&maxResults=250`;
-
-            const res = await fetch(url);
-            if (!res.ok) {
-                const err = await res.json();
-                if (err.error?.code === 403 || err.error?.code === 401) {
-                    setSyncStatus('error', 'Errore API Key — controlla configurazione');
-                } else {
-                    setSyncStatus('error', err.error?.message || 'Errore fetch');
-                }
-                return;
-            }
-            const data = await res.json();
-            allEvents = (data.items || []).filter(e => e.status !== 'cancelled');
-            renderEvents();
-            updateStats();
-            setSyncStatus('ok', `Aggiornato ${new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'})}`);
-        } catch(e) {
-            setSyncStatus('error', 'Errore di rete');
-        } finally {
-            document.getElementById('btnRefresh').querySelector('i').classList.remove('fa-spin');
-        }
-    }
-
-    async function refreshEvents() {
-        await fetchEvents();
-    }
-
-    // ── Render event cards ──
-    function renderEvents() {
-        const q       = document.getElementById('searchQ').value.toLowerCase().trim();
-        const period  = document.getElementById('filterPeriod').value;
-        const state   = document.getElementById('filterState').value;
-        const now     = new Date();
-
-        let list = [...allEvents];
-
-        // Period filter
-        if (period === 'upcoming') list = list.filter(e => new Date(e.start?.dateTime || e.start?.date) >= now);
-        if (period === 'past')     list = list.filter(e => new Date(e.start?.dateTime || e.start?.date) < now);
-
-        // State filter
-        if (state === 'new')       list = list.filter(e => !convertedIds.has(e.id));
-        if (state === 'converted') list = list.filter(e => convertedIds.has(e.id));
-
-        // Search
-        if (q) list = list.filter(e =>
-            (e.summary||'').toLowerCase().includes(q) ||
-            (e.description||'').toLowerCase().includes(q) ||
-            (e.location||'').toLowerCase().includes(q)
-        );
-
-        const el = document.getElementById('eventList');
-
-        if (!getConfig().apiKey) {
-            el.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400 fade-up">
-                    <i class="fab fa-google text-5xl mb-4 opacity-20 block"></i>
-                    <p class="font-semibold">Google Calendar non configurato</p>
-                    <p class="text-sm mt-1">Clicca ⚙️ in alto a destra per connettere il calendario</p>
-                    <button onclick="openConfig()" class="mt-4 px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold text-sm hover:bg-violet-700 transition">
-                        <i class="fas fa-cog mr-2"></i>Configura ora
-                    </button>
-                </div>`;
-            return;
-        }
-
-        if (list.length === 0) {
-            el.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400 fade-up">
-                    <i class="fas fa-calendar-check text-4xl mb-3 opacity-20 block"></i>
-                    <p class="font-semibold">Nessun evento trovato</p>
-                    <p class="text-sm mt-1">Aggiungi eventi nel calendario Google del titolare</p>
-                </div>`;
-            return;
-        }
-
-        el.innerHTML = list.map((e, i) => renderEventCard(e, i)).join('');
-    }
-
-    function renderEventCard(e, idx) {
-        const isConverted = convertedIds.has(e.id);
-        const startRaw    = e.start?.dateTime || e.start?.date;
-        const endRaw      = e.end?.dateTime   || e.end?.date;
-        const startDate   = new Date(startRaw);
-        const isPast      = startDate < new Date();
-        const isToday     = startDate.toDateString() === new Date().toDateString();
-
-        const dateFmt = startDate.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
-        const timeFmt = e.start?.dateTime ? startDate.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'}) : 'Tutto il giorno';
-        const endFmt  = e.end?.dateTime   ? new Date(endRaw).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}) : '';
-
-        const statusBadge = isConverted
-            ? `<span class="badge bg-green-100 text-green-700"><i class="fas fa-check-circle"></i>Convertito</span>`
-            : isPast
-            ? `<span class="badge bg-gray-100 text-gray-500"><i class="fas fa-history"></i>Passato</span>`
-            : isToday
-            ? `<span class="badge bg-yellow-100 text-yellow-700"><i class="fas fa-star"></i>Oggi</span>`
-            : `<span class="badge bg-blue-100 text-blue-700"><i class="fas fa-calendar"></i>Prossimo</span>`;
-
-        const desc = e.description ? e.description.replace(/<[^>]*>/g, '').slice(0, 150) : '';
-        const loc  = e.location || '';
-
-        return `
-        <div class="bg-white rounded-2xl shadow-sm border ${isConverted ? 'border-green-200 opacity-75' : isPast ? 'border-gray-100' : 'border-violet-100'} p-5 card-hover fade-up" style="animation-delay:${idx * 0.04}s">
-            <div class="flex items-start justify-between gap-3">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap mb-2">
-                        ${statusBadge}
-                        <span class="text-xs text-gray-400">${dateFmt} · ${timeFmt}${endFmt ? ' → ' + endFmt : ''}</span>
-                    </div>
-                    <h3 class="font-bold text-gray-900 text-base mb-1 truncate" title="${e.summary||''}">${e.summary || '(senza titolo)'}</h3>
-                    ${loc ? `<div class="flex items-center gap-1.5 text-sm text-gray-600 mb-1"><i class="fas fa-map-marker-alt text-violet-500 text-xs flex-shrink-0"></i><span class="truncate">${loc}</span></div>` : ''}
-                    ${desc ? `<p class="text-sm text-gray-500 mt-1 leading-relaxed">${desc}${e.description && e.description.replace(/<[^>]*>/g,'').length > 150 ? '…' : ''}</p>` : ''}
-                    ${e.attendees?.length ? `<div class="mt-2 flex items-center gap-1 text-xs text-gray-400"><i class="fas fa-users mr-1"></i>${e.attendees.map(a => a.displayName || a.email).join(', ')}</div>` : ''}
+function cardNuova(e,i){
+    const{dateFmt,timeFmt,isToday,isThisWeek}=parseDates(e);
+    const desc=stripHtml(e.description||'').slice(0,120);
+    const badge=isToday
+        ?'<span class="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"><i class="fas fa-exclamation mr-1"></i>Oggi</span>'
+        :isThisWeek
+        ?'<span class="text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full"><i class="fas fa-clock mr-1"></i>Questa settimana</span>'
+        :'';
+    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-new p-5 fade-up" style="animation-delay:${i*.04}s">
+        <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <span class="text-xs text-gray-400"><i class="fas fa-calendar text-violet-500 mr-1"></i>${dateFmt}${timeFmt?' · '+timeFmt:''}</span>
+                    ${badge}
                 </div>
-                <div class="flex flex-col gap-2 flex-shrink-0">
-                    ${!isConverted
-                        ? `<button onclick="openConvert('${e.id}')"
-                                   class="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition whitespace-nowrap">
-                               <i class="fas fa-tools mr-1"></i>Crea Lavorazione
-                           </button>`
-                        : `<button disabled class="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-xs font-bold cursor-default whitespace-nowrap">
-                               <i class="fas fa-check mr-1"></i>Già convertito
-                           </button>`
-                    }
-                    <a href="${e.htmlLink}" target="_blank"
-                       class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50 transition text-center whitespace-nowrap">
-                        <i class="fab fa-google mr-1 text-violet-500"></i>Apri in Google
-                    </a>
-                </div>
+                <h3 class="font-bold text-gray-900 text-base mb-1">${e.summary||'(senza titolo)'}</h3>
+                ${e.location?`<p class="text-sm text-gray-500 flex items-center gap-1.5 mb-1"><i class="fas fa-map-marker-alt text-violet-400 text-xs"></i>${e.location}</p>`:''}
+                ${desc?`<p class="text-sm text-gray-400 mt-1 leading-relaxed">${desc}${(e.description||'').replace(/<[^>]*>/g,'').length>120?'…':''}</p>`:''}
             </div>
-        </div>`;
+            <button onclick="openConvert('${e.id}')" class="flex-shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 bg-gradient-to-b from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-md">
+                <i class="fas fa-tools text-base"></i><span>Inserisci</span>
+            </button>
+        </div>
+    </div>`;
+}
+
+function renderGiaFatte(){
+    const q=document.getElementById('searchQ').value.toLowerCase().trim();
+    const fatte=allEvents.filter(e=>convertedMap[e.id]);
+    const list=fatte.filter(e=>matchQ(e,q));
+    document.getElementById('cntGiaFatte').textContent=Object.keys(convertedMap).length;
+    const el=document.getElementById('giaFatteList');
+    if(list.length===0){
+        el.innerHTML=`<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up"><i class="fas fa-check-circle text-4xl mb-3 block opacity-20"></i><p class="font-semibold">Nessun evento ancora convertito</p></div>`;
+        return;
     }
+    el.innerHTML=list.map((e,i)=>cardGiaFatta(e,i)).join('');
+}
 
-    // ── Stats ──
-    function updateStats() {
-        document.getElementById('statTotale').textContent     = allEvents.length;
-        document.getElementById('statNuovi').textContent      = allEvents.filter(e => !convertedIds.has(e.id)).length;
-        document.getElementById('statConvertiti').textContent = allEvents.filter(e => convertedIds.has(e.id)).length;
-    }
+function cardGiaFatta(e,i){
+    const{dateFmt}=parseDates(e);
+    const conv=convertedMap[e.id];
+    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-done p-4 fade-up" style="animation-delay:${i*.03}s">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Lavorazione creata</span>
+                    <span class="text-xs text-gray-400">${dateFmt}</span>
+                </div>
+                <h3 class="font-semibold text-gray-600 text-sm truncate">${e.summary||'(senza titolo)'}</h3>
+                ${e.location?`<p class="text-xs text-gray-400 mt-0.5">${e.location}</p>`:''}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-1"></i>Apri</a>`:''}
+                <button onclick="undoConversione('${e.id}')" title="Rimuovi dal registro" class="text-gray-300 hover:text-red-400 transition text-sm p-1"><i class="fas fa-undo"></i></button>
+            </div>
+        </div>
+    </div>`;
+}
 
-    // ── Sync status ──
-    function setSyncStatus(type, msg) {
-        const dot  = document.getElementById('syncDot');
-        const text = document.getElementById('syncStatus');
-        if (type === 'sync') {
-            dot.style.display = 'block'; dot.style.background = '#a78bfa';
-            text.textContent = 'Sincronizzazione…';
-        } else if (type === 'ok') {
-            dot.style.display = 'block'; dot.style.background = '#22c55e';
-            text.textContent = msg || 'Sincronizzato';
-        } else {
-            dot.style.display = 'block'; dot.style.background = '#ef4444';
-            text.textContent = msg || 'Errore connessione';
-        }
-    }
+function parseDates(e){
+    const s=e.start?.dateTime||e.start?.date, d=new Date(s), now=new Date(), we=new Date(); we.setDate(we.getDate()+7);
+    return { dateFmt:d.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}), timeFmt:e.start?.dateTime?d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):'', isToday:d.toDateString()===now.toDateString(), isThisWeek:d>=now&&d<=we, isoDate:(s||'').split('T')[0] };
+}
+function stripHtml(h){return h.replace(/<[^>]*>/g,'')}
+function matchQ(e,q){if(!q)return true;return (e.summary||'').toLowerCase().includes(q)||(e.description||'').toLowerCase().includes(q)||(e.location||'').toLowerCase().includes(q)}
+function showConfigHint(){
+    document.getElementById('nuovePlaceholder').classList.remove('hidden');
+    document.getElementById('nuovePlaceholder').innerHTML=`<i class="fab fa-google text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Google Calendar non configurato</p><button onclick="openConfig()" class="mt-4 px-5 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm">Configura ora</button>`;
+}
+function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=html}
 
-    // ── Auto-refresh ogni 5 min ──
-    function startAutoRefresh() {
-        stopAutoRefresh();
-        if (!document.getElementById('autoRefresh').checked) return;
-        _autoRefreshTimer = setInterval(() => fetchEvents(), 5 * 60 * 1000);
-    }
-    function stopAutoRefresh() {
-        if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
-    }
-    function toggleAutoRefresh() {
-        document.getElementById('autoRefresh').checked ? startAutoRefresh() : stopAutoRefresh();
-    }
+function openConvert(eventId){
+    const e=allEvents.find(x=>x.id===eventId); if(!e) return;
+    const{isoDate}=parseDates(e);
+    document.getElementById('convertEventId').value=eventId;
+    document.getElementById('convertSubtitle').textContent=e.summary||'(senza titolo)';
+    document.getElementById('cv_oggetto').value=e.summary||'';
+    document.getElementById('cv_data').value=isoDate;
+    document.getElementById('cv_indirizzo').value=e.location||'';
+    document.getElementById('cv_note').value=stripHtml(e.description||'');
+    document.getElementById('cv_priorita').value='media';
+    document.getElementById('convertModal').classList.remove('hidden');
+}
+function closeConvert(){document.getElementById('convertModal').classList.add('hidden')}
 
-    // ── Converti in Lavorazione ──
-    function openConvert(eventId) {
-        const e = allEvents.find(x => x.id === eventId);
-        if (!e) return;
-        document.getElementById('convertEventId').value = eventId;
-        document.getElementById('convertSubtitle').textContent = e.summary || '(senza titolo)';
-        document.getElementById('cv_oggetto').value = e.summary || '';
-        const startRaw = e.start?.dateTime || e.start?.date;
-        document.getElementById('cv_data').value = startRaw ? startRaw.split('T')[0] : new Date().toISOString().split('T')[0];
-        document.getElementById('cv_indirizzo').value = e.location || '';
-        // Strip HTML from description
-        const descClean = (e.description || '').replace(/<[^>]*>/g, '').trim();
-        document.getElementById('cv_note').value = descClean;
-        document.getElementById('convertModal').classList.remove('hidden');
-    }
+async function eseguiConversione(){
+    const eventId=document.getElementById('convertEventId').value;
+    const oggetto=document.getElementById('cv_oggetto').value.trim();
+    const data=document.getElementById('cv_data').value;
+    const priorita=document.getElementById('cv_priorita').value;
+    const indirizzo=document.getElementById('cv_indirizzo').value.trim();
+    const note=document.getElementById('cv_note').value.trim();
+    if(!oggetto){showToast('⚠️ Inserisci un oggetto','warning');return;}
+    try{
+        const{data:task,error:te}=await db.from('tasks').insert({titolo:oggetto,descrizione:note||null,indirizzo:indirizzo||null,data_inizio:data||null,priorita,stato:'in_attesa',tipo:'lavorazione',note_interne:`📅 Da Google Calendar\nEvento: ${eventId}`,created_by:currentUser.dbId||null}).select().single();
+        if(te) throw te;
+        await db.from('gcal_conversioni').upsert({event_id:eventId,task_id:task.id,titolo:oggetto,data_evento:data||null,convertito_da:currentUser.dbId||null},{onConflict:'event_id'});
+        closeConvert();
+        await loadConvertedFromDB();
+        renderCurrent();
+        showToast(`✅ Lavorazione "${oggetto}" creata`,'success');
+        setTimeout(()=>{ if(confirm('Aprire Gestione Lavorazioni per assegnarla?')) window.location.href='gestione-lavorazioni.html'; },400);
+    }catch(err){showToast('❌ '+err.message,'error');}
+}
 
-    function closeConvert() {
-        document.getElementById('convertModal').classList.add('hidden');
-    }
+async function undoConversione(eventId){
+    if(!confirm('Rimuovere dal registro?\nL\'evento tornerà in "Da lavorare". La lavorazione già creata non viene eliminata.')) return;
+    await db.from('gcal_conversioni').delete().eq('event_id',eventId);
+    await loadConvertedFromDB(); renderCurrent(); showToast('↩️ Rimosso dal registro','info');
+}
 
-    async function eseguiConversione() {
-        const eventId  = document.getElementById('convertEventId').value;
-        const oggetto  = document.getElementById('cv_oggetto').value.trim();
-        const data     = document.getElementById('cv_data').value;
-        const priorita = document.getElementById('cv_priorita').value;
-        const indirizzo= document.getElementById('cv_indirizzo').value.trim();
-        const note     = document.getElementById('cv_note').value.trim();
-
-        if (!oggetto) { showToast('⚠️ Inserisci un oggetto', 'warning'); return; }
-
-        try {
-            // Inserisci nella tabella tasks come bozza
-            const { data: task, error } = await db.from('tasks').insert({
-                titolo:            oggetto,
-                descrizione:       note || null,
-                indirizzo:         indirizzo || null,
-                data_inizio:       data || null,
-                priorita:          priorita,
-                stato:             'in_attesa',
-                tipo:              'lavorazione',
-                note_interne:      `📅 Importato da Google Calendar\nEvento ID: ${eventId}`,
-                created_by:        currentUser.dbId || null,
-            }).select().single();
-
-            if (error) throw error;
-
-            // Segna come convertito in localStorage
-            convertedIds.add(eventId);
-            localStorage.setItem(CONVERTED_KEY, JSON.stringify([...convertedIds]));
-
-            closeConvert();
-            renderEvents();
-            updateStats();
-
-            showToast(`✅ Lavorazione "${oggetto}" creata! Aprila in Gestione Lavorazioni per assegnarla.`, 'success');
-
-            // Offer to open in gestione-lavorazioni
-            setTimeout(() => {
-                if (confirm(`Vuoi aprire "Gestione Lavorazioni" per completare la lavorazione e assegnarla a un dipendente?`)) {
-                    window.location.href = 'gestione-lavorazioni.html';
-                }
-            }, 500);
-
-        } catch(err) {
-            console.error(err);
-            showToast('❌ Errore: ' + err.message, 'error');
-        }
-    }
-
-    // ── Toast ──
-    let _toastTimer;
-    function showToast(msg, type = 'info') {
-        const colors = { success:'#16a34a', error:'#dc2626', warning:'#d97706', info:'#7c3aed' };
-        const el = document.getElementById('toast');
-        document.getElementById('toastIcon').textContent = {success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'}[type]||'•';
-        document.getElementById('toastMsg').textContent  = msg;
-        el.style.background = colors[type] || colors.info;
-        el.style.opacity = '1';
-        el.style.display = 'flex';
-        clearTimeout(_toastTimer);
-        _toastTimer = setTimeout(() => {
-            el.style.opacity = '0';
-            setTimeout(() => { el.style.display = 'none'; }, 300);
-        }, 4000);
-    }
+let _tt;
+function showToast(msg,type='info'){
+    const colors={success:'#16a34a',error:'#dc2626',warning:'#d97706',info:'#7c3aed'};
+    const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+    const el=document.getElementById('toast');
+    document.getElementById('toastIcon').textContent=icons[type]||'•';
+    document.getElementById('toastMsg').textContent=msg;
+    el.style.background=colors[type]||colors.info; el.style.opacity='1'; el.style.display='flex';
+    clearTimeout(_tt); _tt=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>{el.style.display='none';},300);},4000);
+}
 </script>
 </body>
 </html>
