@@ -9,6 +9,7 @@
 DROP VIEW IF EXISTS v_kit_items_dettaglio CASCADE;
 DROP VIEW IF EXISTS componenti_sotto_scorta CASCADE;
 DROP VIEW IF EXISTS v_giacenze_complete CASCADE;
+DROP VIEW IF EXISTS movimenti_recenti CASCADE;
 
 -- 2. Altera le colonne
 ALTER TABLE components
@@ -92,7 +93,28 @@ ORDER BY ki.aggiunto_il DESC;
 
 COMMENT ON VIEW v_kit_items_dettaglio IS 'Vista dettagliata componenti kit con info eliminazione';
 
--- 6. Verifica
+-- 6. Ricrea movimenti_recenti
+CREATE OR REPLACE VIEW movimenti_recenti AS
+SELECT 
+    im.id,
+    im.tipo,
+    im.quantita,
+    im.quantita_precedente,
+    im.quantita_attuale,
+    c.nome AS componente,
+    c.categoria,
+    t.titolo AS task,
+    u.nome || ' ' || u.cognome AS utente,
+    im.motivo,
+    im.created_at
+FROM inventory_movements im
+LEFT JOIN components c ON c.id = im.component_id
+LEFT JOIN tasks t ON t.id = im.task_id
+LEFT JOIN users u ON u.id = im.user_id
+ORDER BY im.created_at DESC
+LIMIT 100;
+
+-- 7. Verifica
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'components'
