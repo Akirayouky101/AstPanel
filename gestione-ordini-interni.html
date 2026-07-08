@@ -942,14 +942,18 @@
             } catch(err) { clienti = []; }
         }
 
-        let _clientePickerTarget = null; // null = ordine, numero = indice item
+        let _clientePickerTarget = null;
 
-        function openClientePickerModal(itemIndex) {
-            _clientePickerTarget = (itemIndex !== undefined) ? itemIndex : null;
+        function openClientePickerModal(target) {
+            _clientePickerTarget = (target !== undefined) ? target : null;
             const m = document.getElementById('clientePickerModal');
             m.style.display = 'flex';
             document.getElementById('searchClientePicker').value = '';
-            renderClientePicker(clienti);
+            // Per 'section': mostra solo clienti non ancora aggiunti
+            const base = (_clientePickerTarget === 'section')
+                ? clienti.filter(c => !currentClients.find(sc => sc.id === c.id))
+                : clienti;
+            renderClientePicker(base);
             setTimeout(() => document.getElementById('searchClientePicker').focus(), 80);
         }
 
@@ -979,18 +983,14 @@
 
         function filterClientePicker() {
             const q = document.getElementById('searchClientePicker').value.toLowerCase().trim();
-            const filtered = q ? clienti.filter(c => {
+            const base = (_clientePickerTarget === 'section')
+                ? clienti.filter(c => !currentClients.find(sc => sc.id === c.id))
+                : clienti;
+            const filtered = q ? base.filter(c => {
                 const nome = (c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim()).toLowerCase();
                 return nome.includes(q) || (c.email||'').toLowerCase().includes(q) || (c.telefono||'').includes(q);
-            }) : clienti;
+            }) : base;
             renderClientePicker(filtered);
-        }
-
-        function updateItemCliente(i, clienteId) {
-            currentItems[i].cliente_id = clienteId || null;
-            const c = currentClients.find(x => x.id === clienteId);
-            currentItems[i].cliente_nome_cache = c ? c.nome : '';
-            renderArticoliSections();
         }
 
         function selezionaClienteOrdine(id, nome) {
@@ -2042,19 +2042,13 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         }
 
         function addClienteSection(id, nome) {
-            if (currentClients.find(c => c.id === id)) {
-                showToast('Cliente già aggiunto', 'warning'); return;
-            }
             currentClients.push({ id, nome });
             renderArticoliSections();
         }
 
         function removeClienteSection(clienteId) {
             currentClients = currentClients.filter(c => c.id !== clienteId);
-            // Sposta articoli del cliente rimosso in "senza cliente"
-            currentItems.forEach(it => {
-                if (it.cliente_id === clienteId) { it.cliente_id = null; it.cliente_nome_cache = ''; }
-            });
+            currentItems.forEach(it => { if (it.cliente_id === clienteId) { it.cliente_id = null; it.cliente_nome_cache = ''; } });
             renderArticoliSections();
         }
 
@@ -2062,19 +2056,173 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             renderClientiChips();
             const container = document.getElementById('articoliSections');
             if (!container) return;
-            container.innerHTML = _buildSingleTable();
+
+            if (currentClients.length === 0) {
+                container.innerHTML = _buildFlatSection();
+                return;
+            }
+
+            // Una sezione per ogni cliente
+            let html = currentClients.map(c => _buildClientSectionHTML(c.id, c.nome)).join('');
+
+            // Sezione "Senza cliente" solo se ci sono articoli non assegnati
+            if (currentItems.some(it => !it.cliente_id)) {
+                html += _buildClientSectionHTML(null, '\u2014 Senza cliente \u2014');
+            }
+
+            container.innerHTML = html;
         }
 
-        function _buildSingleTable() {
+        function _buildClientSectionHTML(clienteId, clienteNome) {
             const inp   = `padding:7px 9px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;background:#f9fafb;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s`;
             const focus = `onfocus="this.style.borderColor='#ea580c';this.style.background='#fff'" onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'"`;
-            const hasCli = currentClients.length > 0;
-            const cols   = hasCli ? 9 : 8;
+            const col    = clienteId ? '#0f766e' : '#6b7280';
+            const bg     = clienteId ? '#f0fdfa' : '#f9fafb';
+            const border = clienteId ? '#99f6e4' : '#e5e7eb';
+            const cIdArg = clienteId ? `'${clienteId}'` : 'null';
 
-            const addBtns = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-                <button onclick="aggiungiDalMagazzino()" style="padding:9px 16px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="fas fa-warehouse"></i> Aggiungi dal Magazzino</button>
-                <button onclick="aggiungiRigaManuale()" style="padding:9px 16px;background:#fff;color:#374151;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="fas fa-pencil-alt" style="color:#ea580c"></i> Aggiungi Riga Manuale</button>
+            const indices = currentItems
+                .map((item, i) => ({ item, i }))
+                .filter(({ item }) => clienteId ? item.cliente_id === clienteId : !item.cliente_id)
+                .map(({ i }) => i);
+
+            let tableHTML = '';
+            if (indices.length === 0) {
+                tableHTML = `<div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px">
+                    <i class="fas fa-inbox" style="font-size:20px;display:block;margin-bottom:6px;opacity:.4"></i>Nessun articolo — usa i bottoni qui sopra
+                </div>`;
+            } else {
+                const rows = indices.map(i => {
+                    const item = currentItems[i];
+                    return `<tr style="border-bottom:1px solid #f3f4f6">
+                        <td style="padding:6px 6px;vertical-align:middle;width:90px">
+                            <input type="text" value="${item.codice||''}" placeholder="—" onchange="currentItems[${i}].codice=this.value" ${focus} style="${inp};text-align:center">
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle">
+                            <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
+                            ${item.prodotto_id?`<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>`:''}
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle;width:62px">
+                            <input type="text" value="${item.um||'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle;width:96px">
+                            <input type="number" value="${item.quantita}" min="1" step="1" onchange="updateArticolo(${i},'quantita',Math.max(1,parseInt(this.value)||1))" ${focus} style="${inp};text-align:right">
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle;width:150px">
+                            <div style="display:flex;align-items:center;gap:4px">
+                                <span style="font-size:12px;color:#6b7280;font-weight:600;flex-shrink:0">€</span>
+                                <input type="number" value="${item.prezzo_unitario.toFixed(2)}" min="0" step="0.01" onchange="updateArticolo(${i},'prezzo_unitario',parseFloat(this.value))" ${focus} style="${inp};text-align:right;min-width:0">
+                            </div>
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle;width:96px">
+                            <div style="display:flex;align-items:center;gap:4px">
+                                <input type="number" value="${item.sconto_percentuale}" min="0" max="100" step="0.1" onchange="updateArticolo(${i},'sconto_percentuale',parseFloat(this.value))" ${focus} style="${inp};text-align:center;color:#dc2626;min-width:0">
+                                <span style="font-size:12px;color:#9ca3af;flex-shrink:0">%</span>
+                            </div>
+                        </td>
+                        <td style="padding:6px 10px;vertical-align:middle;text-align:right;white-space:nowrap">
+                            <strong style="color:#ea580c;font-size:14px">€ ${item.importo.toFixed(2)}</strong>
+                        </td>
+                        <td style="padding:6px 6px;vertical-align:middle;text-align:center;width:36px">
+                            <button onclick="rimuoviArticolo(${i})" style="width:28px;height:28px;border-radius:7px;border:1.5px solid #fecaca;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center"><i class="fas fa-trash-alt"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+                tableHTML = `<div style="overflow-x:auto">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px">
+                        <thead><tr style="border-bottom:2px solid #fed7aa">
+                            <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px">Codice</th>
+                            <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px">Descrizione</th>
+                            <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:62px">UM</th>
+                            <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:96px">Qtà</th>
+                            <th style="text-align:right;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:150px">Prezzo Unit.</th>
+                            <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:96px">Sc.%</th>
+                            <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Totale</th>
+                            <th style="padding:8px 8px;width:36px"></th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+            }
+
+            return `<div style="margin-bottom:16px;border:1.5px solid ${border};border-radius:12px;overflow:hidden">
+                <div style="background:${bg};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${border}">
+                    <span style="font-weight:700;font-size:14px;color:${col}">
+                        <i class="fas fa-${clienteId?'user':'box'}" style="margin-right:7px"></i>${clienteNome}
+                    </span>
+                    <div style="display:flex;gap:8px">
+                        <button type="button" onclick="aggiungiDalMagazzino(${cIdArg})" style="padding:6px 13px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
+                            <i class="fas fa-warehouse" style="margin-right:4px"></i>Magazzino
+                        </button>
+                        <button type="button" onclick="aggiungiRigaManuale(${cIdArg})" style="padding:6px 13px;background:#fff;color:#374151;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+                            <i class="fas fa-pencil-alt" style="margin-right:4px;color:#ea580c"></i>Manuale
+                        </button>
+                    </div>
+                </div>
+                ${tableHTML}
             </div>`;
+        }
+
+        function _buildFlatSection() {
+            const inp   = `padding:7px 9px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;background:#f9fafb;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s`;
+            const focus = `onfocus="this.style.borderColor='#ea580c';this.style.background='#fff'" onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'"`;
+            const addBtns = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+                <button onclick="aggiungiDalMagazzino(null)" style="padding:9px 16px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="fas fa-warehouse"></i> Aggiungi dal Magazzino</button>
+                <button onclick="aggiungiRigaManuale(null)" style="padding:9px 16px;background:#fff;color:#374151;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="fas fa-pencil-alt" style="color:#ea580c"></i> Aggiungi Riga Manuale</button>
+            </div>`;
+            if (currentItems.length === 0) {
+                return `<div style="padding:28px 16px;text-align:center;color:#9ca3af;font-size:13px"><div style="margin-bottom:6px;font-size:24px">📦</div>Nessuna voce aggiunta.</div>${addBtns}`;
+            }
+            const rows = currentItems.map((item, i) => `<tr style="border-bottom:1px solid #f3f4f6">
+                <td style="padding:6px 6px;vertical-align:middle;width:90px">
+                    <input type="text" value="${item.codice||''}" placeholder="—" onchange="currentItems[${i}].codice=this.value" ${focus} style="${inp};text-align:center">
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle">
+                    <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
+                    ${item.prodotto_id?`<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>`:''}
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle;width:62px">
+                    <input type="text" value="${item.um||'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle;width:96px">
+                    <input type="number" value="${item.quantita}" min="1" step="1" onchange="updateArticolo(${i},'quantita',Math.max(1,parseInt(this.value)||1))" ${focus} style="${inp};text-align:right">
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle;width:150px">
+                    <div style="display:flex;align-items:center;gap:4px">
+                        <span style="font-size:12px;color:#6b7280;font-weight:600;flex-shrink:0">€</span>
+                        <input type="number" value="${item.prezzo_unitario.toFixed(2)}" min="0" step="0.01" onchange="updateArticolo(${i},'prezzo_unitario',parseFloat(this.value))" ${focus} style="${inp};text-align:right;min-width:0">
+                    </div>
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle;width:96px">
+                    <div style="display:flex;align-items:center;gap:4px">
+                        <input type="number" value="${item.sconto_percentuale}" min="0" max="100" step="0.1" onchange="updateArticolo(${i},'sconto_percentuale',parseFloat(this.value))" ${focus} style="${inp};text-align:center;color:#dc2626;min-width:0">
+                        <span style="font-size:12px;color:#9ca3af;flex-shrink:0">%</span>
+                    </div>
+                </td>
+                <td style="padding:6px 10px;vertical-align:middle;text-align:right;white-space:nowrap">
+                    <strong style="color:#ea580c;font-size:14px">€ ${item.importo.toFixed(2)}</strong>
+                </td>
+                <td style="padding:6px 6px;vertical-align:middle;text-align:center;width:36px">
+                    <button onclick="rimuoviArticolo(${i})" style="width:28px;height:28px;border-radius:7px;border:1.5px solid #fecaca;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center"><i class="fas fa-trash-alt"></i></button>
+                </td>
+            </tr>`).join('');
+            return `<div style="overflow-x:auto;margin-bottom:12px"><table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead><tr style="border-bottom:2px solid #fed7aa">
+                    <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px">Codice</th>
+                    <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px">Descrizione</th>
+                    <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:62px">UM</th>
+                    <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:96px">Qtà</th>
+                    <th style="text-align:right;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:150px">Prezzo Unit.</th>
+                    <th style="text-align:center;padding:8px 8px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;width:96px">Sc.%</th>
+                    <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Totale</th>
+                    <th style="padding:8px 8px;width:36px"></th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>${addBtns}`;
+        }
+
+        function updateArticolo(index, field, value) {
+            currentItems[index][field] = value;
 
             if (currentItems.length === 0) {
                 return `<div style="padding:28px 16px;text-align:center;color:#9ca3af;font-size:13px">
@@ -2199,8 +2347,9 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             calcolaTotali();
         }
 
-        function aggiungiRigaManuale() {
-            currentItems.push({ prodotto_id: null, codice: '', descrizione: '', um: 'pz', quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0, importo: 0, note: '', cliente_id: null, cliente_nome_cache: '' });
+        function aggiungiRigaManuale(clienteId) {
+            const nome = clienteId ? (currentClients.find(c => c.id === clienteId)?.nome || '') : '';
+            currentItems.push({ prodotto_id: null, codice: '', descrizione: '', um: 'pz', quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0, importo: 0, note: '', cliente_id: clienteId || null, cliente_nome_cache: nome });
             renderArticoliTable();
             calcolaTotali();
             // Focalizza ultima riga descrizione
@@ -2232,8 +2381,8 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
 
         let magazzinoPickerMode = 'fornitore'; // 'fornitore' | 'tutti'
 
-        function aggiungiDalMagazzino() {
-            _maggClienteTarget = null;
+        function aggiungiDalMagazzino(clienteId) {
+            _maggClienteTarget = clienteId || null;
             document.getElementById('searchMagazzino').value = '';
 
             // Aggiorna tabs: visibili solo se c'è un fornitore selezionato
@@ -2343,6 +2492,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         function selezionaDalMagazzino(prodottoId) {
             const p = prodotti.find(x => x.id === prodottoId);
             if (!p) return;
+            const cNome = _maggClienteTarget ? (currentClients.find(c => c.id === _maggClienteTarget)?.nome || '') : '';
             currentItems.push({
                 prodotto_id: p.id,
                 // In modalità 'tutti' (fornitore diverso): niente codice
@@ -2354,8 +2504,8 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                 sconto_percentuale: 0,
                 importo: parseFloat(p.prezzo_acquisto || 0),
                 note: '',
-                cliente_id: null,
-                cliente_nome_cache: ''
+                cliente_id: _maggClienteTarget || null,
+                cliente_nome_cache: cNome
             });
             renderArticoliTable();
             calcolaTotali();
@@ -2519,18 +2669,30 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                 if (oe) throw oe;
 
                 if (items && items.length > 0) {
-                    const righe = items.map(i => ({
-                        ordine_id: nuovoOrdine.id,
-                        prodotto_id: i.prodotto_id || null,
-                        codice: i.codice || null,
-                        descrizione: i.descrizione,
-                        um: i.um || 'pz',
-                        quantita_ordinata: i.quantita || 0,
-                        quantita_ricevuta: 0,
-                        prezzo_acquisto: i.prezzo_unitario || 0,
-                        importo: i.importo || 0,
-                        stato: 'da_ricevere'
-                    }));
+                    // Aggrega prodotti uguali (stesso prodotto_id o stessa descrizione+codice) per il fornitore
+                    const aggMap = new Map();
+                    items.forEach(item => {
+                        const key = item.prodotto_id || `${(item.codice||'').trim()}_${(item.descrizione||'').trim()}`;
+                        if (aggMap.has(key)) {
+                            const existing = aggMap.get(key);
+                            existing.quantita_ordinata += parseFloat(item.quantita || 0);
+                            existing.importo += parseFloat(item.importo || 0);
+                        } else {
+                            aggMap.set(key, {
+                                ordine_id: nuovoOrdine.id,
+                                prodotto_id: item.prodotto_id || null,
+                                codice: item.codice || null,
+                                descrizione: item.descrizione,
+                                um: item.um || 'pz',
+                                quantita_ordinata: parseFloat(item.quantita || 0),
+                                quantita_ricevuta: 0,
+                                prezzo_acquisto: parseFloat(item.prezzo_unitario || 0),
+                                importo: parseFloat(item.importo || 0),
+                                stato: 'da_ricevere'
+                            });
+                        }
+                    });
+                    const righe = Array.from(aggMap.values());
                     const { error: re } = await db.from('ordini_fornitore_items').insert(righe);
                     if (re) throw re;
                 }
