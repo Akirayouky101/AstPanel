@@ -596,17 +596,20 @@
 
                         <div class="mb10">
                             <span class="field-label" style="color:#0f766e"><i class="fas fa-user-tie" style="color:#0f766e;margin-right:4px"></i> Cliente di riferimento <span style="font-weight:400;font-size:10px;color:#6b7280">(uso interno — non va al fornitore)</span></span>
-                            <div style="display:flex;flex-direction:column;gap:6px;">
-                                <input type="text" id="clienteSearch" placeholder="🔍 Cerca cliente per nome..."
-                                    oninput="filtraClienti(this.value)"
-                                    style="width:100%;padding:9px 13px;border:1.5px solid #99f6e4;border-radius:10px;font-size:13px;background:#fff;outline:none;box-sizing:border-box"
-                                    onfocus="this.style.borderColor='#0d9488'" onblur="this.style.borderColor='#99f6e4'">
-                                <div class="sel-wrap" style="flex:1">
-                                    <select id="clienteId" onchange="onClienteSelect(this.value)" style="border-color:#99f6e4">
-                                        <option value="">— Nessun cliente collegato —</option>
-                                    </select>
-                                    <i class="fas fa-chevron-down sel-arrow"></i>
-                                </div>
+                            <input type="hidden" id="clienteId">
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="text" id="clienteSelezionato" readonly placeholder="Nessun cliente selezionato"
+                                    onclick="openClientePickerModal()"
+                                    style="flex:1;padding:9px 13px;border:1.5px solid #99f6e4;border-radius:10px;font-size:13px;background:#f9fafb;cursor:pointer;outline:none;box-sizing:border-box">
+                                <button type="button" onclick="openClientePickerModal()"
+                                    style="padding:9px 14px;background:#0d9488;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer;white-space:nowrap;">
+                                    <i class="fas fa-search" style="margin-right:5px"></i> Sfoglia
+                                </button>
+                                <button type="button" onclick="clearClienteSelezionato()"
+                                    title="Rimuovi cliente"
+                                    style="padding:9px 11px;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;border-radius:10px;font-size:13px;cursor:pointer;">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -962,44 +965,60 @@
         async function loadClienti() {
             try {
                 const { data } = await db.from('clients')
-                    .select('id, ragione_sociale, nome, cognome, tipo_cliente')
+                    .select('id, ragione_sociale, nome, cognome, tipo_cliente, email, telefono')
                     .order('ragione_sociale');
                 clienti = data || [];
-                const sel = document.getElementById('clienteId');
-                if (!sel) return;
-                sel.innerHTML = '<option value="">— Nessun cliente collegato —</option>';
-                clienti.forEach(c => {
-                    const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
-                    sel.innerHTML += `<option value="${c.id}">${nome}</option>`;
-                });
             } catch(err) { clienti = []; }
         }
 
-        function onClienteSelect(id) {
-            // aggiorna il campo di ricerca col nome selezionato
-            const sel = document.getElementById('clienteId');
-            const search = document.getElementById('clienteSearch');
-            if (search && sel && sel.selectedIndex > 0) {
-                search.value = sel.options[sel.selectedIndex].text;
-            }
+        function openClientePickerModal() {
+            document.getElementById('clientePickerModal').classList.remove('hidden');
+            document.getElementById('searchClientePicker').value = '';
+            renderClientePicker(clienti);
+            setTimeout(() => document.getElementById('searchClientePicker').focus(), 80);
         }
 
-        function filtraClienti(q) {
-            const sel = document.getElementById('clienteId');
-            if (!sel) return;
-            const val = q.toLowerCase().trim();
-            sel.innerHTML = '<option value="">— Nessun cliente collegato —</option>';
-            const filtered = val
-                ? clienti.filter(c => {
-                    const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
-                    return nome.toLowerCase().includes(val);
-                  })
-                : clienti;
-            filtered.forEach(c => {
+        function closeClientePickerModal() {
+            document.getElementById('clientePickerModal').classList.add('hidden');
+        }
+
+        function renderClientePicker(lista) {
+            const div = document.getElementById('listaClientiPicker');
+            if (!lista.length) {
+                div.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:32px 0">Nessun cliente trovato</p>';
+                return;
+            }
+            div.innerHTML = lista.map(c => {
                 const nome = c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim();
-                sel.innerHTML += `<option value="${c.id}">${nome}</option>`;
-            });
-            sel.size = filtered.length > 0 && val ? Math.min(filtered.length + 1, 8) : 1;
+                const sub = [c.email, c.telefono].filter(Boolean).join(' • ');
+                return `<div onclick="selezionaClienteOrdine('${c.id}', '${nome.replace(/'/g, "\\'")}')"
+                             style="padding:14px 16px;border:2px solid #e5e7eb;border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:8px"
+                             onmouseover="this.style.borderColor='#0d9488';this.style.background='#f0fdfa'"
+                             onmouseout="this.style.borderColor='#e5e7eb';this.style.background=''">
+                            <p style="font-weight:700;font-size:15px;margin:0 0 2px">${nome}</p>
+                            ${sub ? `<p style="font-size:12px;color:#6b7280;margin:0">${sub}</p>` : ''}
+                        </div>`;
+            }).join('');
+        }
+
+        function filterClientePicker() {
+            const q = document.getElementById('searchClientePicker').value.toLowerCase().trim();
+            const filtered = q ? clienti.filter(c => {
+                const nome = (c.ragione_sociale || `${c.nome||''} ${c.cognome||''}`.trim()).toLowerCase();
+                return nome.includes(q) || (c.email||'').toLowerCase().includes(q) || (c.telefono||'').includes(q);
+            }) : clienti;
+            renderClientePicker(filtered);
+        }
+
+        function selezionaClienteOrdine(id, nome) {
+            document.getElementById('clienteId').value = id;
+            document.getElementById('clienteSelezionato').value = nome;
+            closeClientePickerModal();
+        }
+
+        function clearClienteSelezionato() {
+            document.getElementById('clienteId').value = '';
+            document.getElementById('clienteSelezionato').value = '';
         }
 
         // ── Carica prodotti magazzino ──
@@ -1292,12 +1311,8 @@
                 document.getElementById('tipoOrdine').value = o.tipo || 'da_approvare';
                 document.getElementById('oggetto').value = o.oggetto || '';
                 // Cliente di riferimento (interno)
-                if (document.getElementById('clienteId')) {
-                    document.getElementById('clienteId').value = o.cliente_id || '';
-                    // Mostra il nome nel campo di ricerca
-                    const search = document.getElementById('clienteSearch');
-                    if (search) search.value = o.cliente_nome_cache || '';
-                }
+                document.getElementById('clienteId').value = o.cliente_id || '';
+                document.getElementById('clienteSelezionato').value = o.cliente_nome_cache || '';
                 document.getElementById('dataOrdine').value = o.data_ordine || '';
                 document.getElementById('dataConsegna').value = o.data_consegna_prevista || '';
                 document.getElementById('stato').value = o.stato || 'bozza';
@@ -2517,6 +2532,26 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             });
         }
     </script>
+
+    <!-- ════ MODAL PICKER CLIENTE ════ -->
+    <div id="clientePickerModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
+        <div style="background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,.3);max-width:620px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+            <div style="background:linear-gradient(to right,#0d9488,#0891b2);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+                <h2 style="margin:0;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px">
+                    <i class="fas fa-users"></i> Seleziona Cliente
+                </h2>
+                <button onclick="closeClientePickerModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:8px 11px;border-radius:8px;cursor:pointer;font-size:16px"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="padding:16px 20px 8px;flex-shrink:0">
+                <input type="text" id="searchClientePicker"
+                    placeholder="🔍 Cerca per nome, email, telefono..."
+                    oninput="filterClientePicker()"
+                    style="width:100%;padding:11px 15px;border:2px solid #99f6e4;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+                    onfocus="this.style.borderColor='#0d9488'" onblur="this.style.borderColor='#99f6e4'">
+            </div>
+            <div id="listaClientiPicker" style="overflow-y:auto;padding:8px 20px 20px;flex:1"></div>
+        </div>
+    </div>
 
     <!-- ════ MODAL NUOVO FORNITORE (da ordine) ════ -->
     <div id="nfModal" style="display:none;position:fixed;inset:0;z-index:10100;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:16px;">
