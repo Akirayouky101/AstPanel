@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifiche Semestrali – Comune · AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-client.js"></script>
+    <script src="auth-helper.js"></script>
+    <style>
+        body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+        .badge-conforme     { background:#d1fae5;color:#065f46;border:1px solid #a7f3d0; }
+        .badge-non_conforme { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
+        .badge-condizionato { background:#fef3c7;color:#92400e;border:1px solid #fde68a; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .fade-in { animation: fadeIn .25s ease-out; }
+        tr.hover-row:hover { background: #f0fdf4; }
+        .form-input {
+            width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px;
+            font-size:14px; font-weight:500; color:#1f2937; outline:none; transition:.15s;
+            background:#fff;
+        }
+        .form-input:focus { border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+        .form-label { display:block; font-size:12px; font-weight:700; color:#6b7280;
+                      text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- ── Header ── -->
+<div class="bg-gradient-to-r from-green-700 to-emerald-600 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <button onclick="window.location.href='/admin-functional.html'"
+                    class="hover:bg-white/20 p-2 rounded-lg transition">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-clipboard-check"></i>
+                    Verifiche Semestrali — Comuni
+                </h1>
+                <p class="text-green-100 text-sm mt-0.5">Registro delle verifiche periodiche presso enti comunali</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-green-100 text-sm" id="userName"></span>
+            <button onclick="openModal()"
+                    class="bg-white text-green-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-green-50 transition flex items-center gap-2">
+                <i class="fas fa-plus"></i> Nuova Verifica
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tab: Semestrali / Annuali ── -->
+<div class="bg-white shadow-sm border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 flex gap-1 py-2">
+        <button id="tabSemestrale" onclick="setTipo('semestrale')"
+                class="px-5 py-2 rounded-lg text-sm font-semibold transition"
+                style="background:#d1fae5;color:#065f46">
+            <i class="fas fa-sync-alt mr-1"></i>Semestrali
+        </button>
+        <button id="tabAnnuale" onclick="setTipo('annuale')"
+                class="px-5 py-2 rounded-lg text-sm font-semibold transition text-gray-500 hover:bg-gray-100">
+            <i class="fas fa-calendar-alt mr-1"></i>Annuali
+        </button>
+    </div>
+</div>
+
+<!-- ── Filters ── -->
+<div class="max-w-7xl mx-auto px-4 py-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 flex flex-wrap gap-3 items-center">
+        <div class="flex items-center gap-2 flex-1 min-w-48">
+            <i class="fas fa-search text-gray-400"></i>
+            <input type="text" id="searchQuery" placeholder="Cerca per comune, ubicazione, codice…"
+                   oninput="applyFilters()"
+                   class="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400">
+        </div>
+        <select id="filterComune" onchange="applyFilters()"
+                class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white outline-none min-w-40">
+            <option value="">Tutti i Comuni</option>
+        </select>
+        <select id="filterEsito" onchange="applyFilters()"
+                class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white outline-none">
+            <option value="">Tutti gli esiti</option>
+            <option value="conforme">✅ Conforme</option>
+            <option value="non_conforme">❌ Non Conforme</option>
+            <option value="condizionato">⚠️ Condizionato</option>
+        </select>
+        <select id="filterAnno" onchange="applyFilters()"
+                class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white outline-none">
+            <option value="">Tutti gli anni</option>
+        </select>
+        <button onclick="exportCSV()"
+                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition flex items-center gap-2">
+            <i class="fas fa-file-csv"></i> Esporta
+        </button>
+    </div>
+</div>
+
+<!-- ── Stats ── -->
+<div class="max-w-7xl mx-auto px-4 pb-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4">
+            <p class="text-xs font-bold text-gray-500 uppercase">Totale</p>
+            <p class="text-2xl font-black text-gray-800 mt-1" id="statTotal">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-green-100 px-5 py-4">
+            <p class="text-xs font-bold text-green-600 uppercase">Conformi</p>
+            <p class="text-2xl font-black text-green-700 mt-1" id="statConformi">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-red-100 px-5 py-4">
+            <p class="text-xs font-bold text-red-600 uppercase">Non Conformi</p>
+            <p class="text-2xl font-black text-red-700 mt-1" id="statNonConformi">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-yellow-100 px-5 py-4">
+            <p class="text-xs font-bold text-yellow-600 uppercase">Condizionati</p>
+            <p class="text-2xl font-black text-yellow-700 mt-1" id="statCondizionati">0</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Table ── -->
+<div class="max-w-7xl mx-auto px-4 pb-10">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="bg-gradient-to-r from-green-700 to-emerald-600 text-white text-xs font-bold uppercase tracking-wide">
+                        <th class="px-4 py-3 text-left">Data</th>
+                        <th class="px-4 py-3 text-left">Comune</th>
+                        <th class="px-4 py-3 text-left">Piano</th>
+                        <th class="px-4 py-3 text-left">Ubicazione</th>
+                        <th class="px-4 py-3 text-left">Marca / N° Poli</th>
+                        <th class="px-4 py-3 text-left">Codice</th>
+                        <th class="px-4 py-3 text-center">Esito</th>
+                        <th class="px-4 py-3 text-center">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="verificheTable">
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                            <i class="fas fa-spinner fa-spin text-3xl mb-3 block opacity-40"></i>
+                            Caricamento…
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ════ MODAL Nuova/Modifica Verifica ════ -->
+<div id="verificaModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto fade-in">
+        <!-- Header modal -->
+        <div class="bg-gradient-to-r from-green-700 to-emerald-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
+            <div>
+                <h2 class="text-lg font-bold" id="modalTitle">Nuova Verifica</h2>
+                <p class="text-green-100 text-xs mt-0.5">Verifiche Semestrali – Comune</p>
+            </div>
+            <button onclick="closeModal()" class="hover:bg-white/20 p-2 rounded-full transition">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-6 space-y-5">
+            <input type="hidden" id="verificaId">
+            <input type="hidden" id="tipoVerifica" value="semestrale">
+
+            <!-- Tipo -->
+            <div>
+                <label class="form-label">Tipo Verifica</label>
+                <div class="flex gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer px-4 py-2.5 rounded-xl border-2 border-green-200 bg-green-50 flex-1 justify-center font-semibold text-green-800">
+                        <input type="radio" name="tipoVer" value="semestrale" checked
+                               onchange="document.getElementById('tipoVerifica').value='semestrale'">
+                        <i class="fas fa-sync-alt"></i> Semestrale
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer px-4 py-2.5 rounded-xl border-2 border-gray-200 flex-1 justify-center font-semibold text-gray-600">
+                        <input type="radio" name="tipoVer" value="annuale"
+                               onchange="document.getElementById('tipoVerifica').value='annuale'">
+                        <i class="fas fa-calendar-alt"></i> Annuale
+                    </label>
+                </div>
+            </div>
+
+            <!-- Riga: Comune + Data -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="f_comune">
+                        <i class="fas fa-landmark mr-1 text-green-600"></i>Comune *
+                    </label>
+                    <select id="f_comune" class="form-input" required>
+                        <option value="">— Seleziona Comune —</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f_data">
+                        <i class="fas fa-calendar mr-1 text-green-600"></i>Data Verifica *
+                    </label>
+                    <input type="date" id="f_data" class="form-input" required>
+                </div>
+            </div>
+
+            <!-- Riga: Piano + Ubicazione -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="f_piano">
+                        <i class="fas fa-layer-group mr-1 text-green-600"></i>Piano
+                    </label>
+                    <select id="f_piano" class="form-input">
+                        <option value="">— Seleziona —</option>
+                        <option value="Interrato">Interrato (P-1)</option>
+                        <option value="Piano Terra">Piano Terra (PT)</option>
+                        <option value="P1">Primo Piano (P1)</option>
+                        <option value="P2">Secondo Piano (P2)</option>
+                        <option value="P3">Terzo Piano (P3)</option>
+                        <option value="P4">Quarto Piano (P4)</option>
+                        <option value="P5">Quinto Piano (P5)</option>
+                        <option value="Sottotetto">Sottotetto</option>
+                        <option value="Esterno">Esterno / Cortile</option>
+                        <option value="Locale Tecnico">Locale Tecnico</option>
+                        <option value="Cantina">Cantina</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f_ubicazione">
+                        <i class="fas fa-map-pin mr-1 text-green-600"></i>Ubicazione
+                    </label>
+                    <input type="text" id="f_ubicazione" class="form-input"
+                           placeholder="es: Corridoio nord, Sala server, Locale caldaia…">
+                </div>
+            </div>
+
+            <!-- Riga: Marca N° Poli + Codice -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="f_marca">
+                        <i class="fas fa-plug mr-1 text-green-600"></i>Marca / N° Poli
+                    </label>
+                    <input type="text" id="f_marca" class="form-input"
+                           placeholder="es: ABB 4P, Schneider 2P, Legrand 6P…">
+                </div>
+                <div>
+                    <label class="form-label" for="f_codice">
+                        <i class="fas fa-barcode mr-1 text-green-600"></i>Codice
+                    </label>
+                    <input type="text" id="f_codice" class="form-input"
+                           placeholder="es: QE-01, CEP-123…">
+                </div>
+            </div>
+
+            <!-- Esito -->
+            <div>
+                <label class="form-label">
+                    <i class="fas fa-clipboard-check mr-1 text-green-600"></i>Esito *
+                </label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label id="lbl_conforme"
+                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-green-400 bg-green-50 text-green-800 font-bold text-sm">
+                        <input type="radio" name="esitoRad" value="conforme" checked class="sr-only"
+                               onchange="updateEsitoStyle('conforme')">
+                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
+                        Conforme
+                    </label>
+                    <label id="lbl_non_conforme"
+                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold text-sm">
+                        <input type="radio" name="esitoRad" value="non_conforme" class="sr-only"
+                               onchange="updateEsitoStyle('non_conforme')">
+                        <i class="fas fa-times-circle text-2xl"></i>
+                        Non Conforme
+                    </label>
+                    <label id="lbl_condizionato"
+                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold text-sm">
+                        <input type="radio" name="esitoRad" value="condizionato" class="sr-only"
+                               onchange="updateEsitoStyle('condizionato')">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                        Condizionato
+                    </label>
+                </div>
+            </div>
+
+            <!-- Riga: Data Prossima + Note -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="f_prossima">
+                        <i class="fas fa-calendar-plus mr-1 text-green-600"></i>Prossima Verifica
+                    </label>
+                    <input type="date" id="f_prossima" class="form-input">
+                </div>
+                <div>
+                    <label class="form-label" for="f_note">
+                        <i class="fas fa-sticky-note mr-1 text-green-600"></i>Note
+                    </label>
+                    <input type="text" id="f_note" class="form-input" placeholder="Annotazioni…">
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 pb-6 flex justify-end gap-3">
+            <button onclick="closeModal()"
+                    class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition">
+                Annulla
+            </button>
+            <button onclick="salvaVerifica()"
+                    class="px-6 py-2.5 bg-gradient-to-r from-green-700 to-emerald-600 text-white rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2">
+                <i class="fas fa-save"></i> Salva Verifica
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast" style="display:none;position:fixed;bottom:28px;right:28px;z-index:9999;min-width:260px;max-width:380px;
+     background:#1f2937;color:#fff;border-radius:14px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,.22);
+     display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s">
+    <span id="toastIcon" style="font-size:18px;flex-shrink:0"></span>
+    <span id="toastMsg" style="flex:1;line-height:1.4"></span>
+</div>
+
+<script>
+    const db = window.supabase;
+    let currentUser = null;
+    let verifiche = [];
+    let comuni = [];
+    let currentTipo = 'semestrale';
+
+    // ── Init ──
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!await window.AuthHelper.requireLogin()) return;
+        currentUser = window.AuthHelper.getCurrentUser();
+        document.getElementById('userName').textContent = `${currentUser.nome} ${currentUser.cognome}`;
+        document.getElementById('f_data').value = new Date().toISOString().split('T')[0];
+        await Promise.all([loadComuni(), loadVerifiche()]);
+        populateAnnoFilter();
+    });
+
+    // ── Carica comuni ──
+    async function loadComuni() {
+        const { data } = await db.from('clients')
+            .select('id, nome, cognome, ragione_sociale, tipo_cliente')
+            .eq('tipo_cliente', 'comune')
+            .order('ragione_sociale');
+        comuni = data || [];
+
+        // Popola dropdown modale
+        const sel = document.getElementById('f_comune');
+        sel.innerHTML = '<option value="">— Seleziona Comune —</option>';
+        comuni.forEach(c => {
+            const nome = c.ragione_sociale || `${c.nome || ''} ${c.cognome || ''}`.trim();
+            sel.innerHTML += `<option value="${c.id}" data-nome="${nome}">${nome}</option>`;
+        });
+
+        // Popola filtro
+        const fc = document.getElementById('filterComune');
+        fc.innerHTML = '<option value="">Tutti i Comuni</option>';
+        comuni.forEach(c => {
+            const nome = c.ragione_sociale || `${c.nome || ''} ${c.cognome || ''}`.trim();
+            fc.innerHTML += `<option value="${c.id}">${nome}</option>`;
+        });
+    }
+
+    // ── Carica verifiche ──
+    async function loadVerifiche() {
+        const { data, error } = await db.from('verifiche')
+            .select('*, cliente:clients(ragione_sociale, nome, cognome)')
+            .eq('settore', 'comune')
+            .order('data_verifica', { ascending: false });
+        if (error) { showToast('❌ Errore caricamento: ' + error.message, 'error'); return; }
+        verifiche = data || [];
+        applyFilters();
+        updateStats();
+    }
+
+    // ── Filtri ──
+    function applyFilters() {
+        const q      = document.getElementById('searchQuery').value.toLowerCase().trim();
+        const comune = document.getElementById('filterComune').value;
+        const esito  = document.getElementById('filterEsito').value;
+        const anno   = document.getElementById('filterAnno').value;
+
+        let list = verifiche.filter(v => v.tipo_verifica === currentTipo);
+
+        if (comune) list = list.filter(v => v.cliente_id === comune);
+        if (esito)  list = list.filter(v => v.esito === esito);
+        if (anno)   list = list.filter(v => v.data_verifica?.startsWith(anno));
+        if (q)      list = list.filter(v =>
+            (v.luogo_nome||'').toLowerCase().includes(q) ||
+            (v.ubicazione||'').toLowerCase().includes(q) ||
+            (v.codice||'').toLowerCase().includes(q) ||
+            (v.marca_n_poli||'').toLowerCase().includes(q) ||
+            (v.piano||'').toLowerCase().includes(q)
+        );
+
+        renderTable(list);
+    }
+
+    // ── Render tabella ──
+    function renderTable(list) {
+        const tbody = document.getElementById('verificheTable');
+        if (!list.length) {
+            tbody.innerHTML = `
+                <tr><td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                    <i class="fas fa-clipboard text-4xl mb-3 block opacity-30"></i>
+                    Nessuna verifica trovata
+                </td></tr>`;
+            return;
+        }
+        tbody.innerHTML = list.map(v => {
+            const nomeComune = v.cliente?.ragione_sociale || v.luogo_nome || '—';
+            const data = v.data_verifica ? new Date(v.data_verifica).toLocaleDateString('it-IT') : '—';
+            const prossima = v.data_prossima ? new Date(v.data_prossima).toLocaleDateString('it-IT') : '';
+            const esitoBadge = {
+                conforme:     `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-conforme"><i class="fas fa-check mr-1"></i>Conforme</span>`,
+                non_conforme: `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-non_conforme"><i class="fas fa-times mr-1"></i>Non Conforme</span>`,
+                condizionato: `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-condizionato"><i class="fas fa-exclamation mr-1"></i>Condizionato</span>`,
+            }[v.esito] || v.esito;
+
+            return `
+            <tr class="border-b border-gray-100 hover-row transition-colors">
+                <td class="px-4 py-3 text-gray-700 whitespace-nowrap">
+                    <div class="font-semibold">${data}</div>
+                    ${prossima ? `<div class="text-xs text-gray-400 mt-0.5"><i class="fas fa-arrow-right mr-1"></i>${prossima}</div>` : ''}
+                </td>
+                <td class="px-4 py-3">
+                    <div class="font-semibold text-gray-800 flex items-center gap-1.5">
+                        <i class="fas fa-landmark text-green-600 text-xs"></i>${nomeComune}
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-gray-600">${v.piano || '—'}</td>
+                <td class="px-4 py-3 text-gray-700 max-w-xs">
+                    <div class="truncate" title="${v.ubicazione || ''}">${v.ubicazione || '—'}</div>
+                </td>
+                <td class="px-4 py-3 text-gray-700 font-mono text-xs">${v.marca_n_poli || '—'}</td>
+                <td class="px-4 py-3">
+                    ${v.codice ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-mono">${v.codice}</span>` : '—'}
+                </td>
+                <td class="px-4 py-3 text-center">${esitoBadge}</td>
+                <td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button onclick="modificaVerifica('${v.id}')" title="Modifica"
+                                class="text-blue-500 hover:text-blue-700 text-sm p-1"><i class="fas fa-edit"></i></button>
+                        <button onclick="stampaVerifica('${v.id}')" title="Stampa"
+                                class="text-green-600 hover:text-green-800 text-sm p-1"><i class="fas fa-print"></i></button>
+                        <button onclick="eliminaVerifica('${v.id}')" title="Elimina"
+                                class="text-red-400 hover:text-red-600 text-sm p-1"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ── Stats ──
+    function updateStats() {
+        const filtered = verifiche.filter(v => v.tipo_verifica === currentTipo);
+        document.getElementById('statTotal').textContent       = filtered.length;
+        document.getElementById('statConformi').textContent    = filtered.filter(v => v.esito === 'conforme').length;
+        document.getElementById('statNonConformi').textContent = filtered.filter(v => v.esito === 'non_conforme').length;
+        document.getElementById('statCondizionati').textContent= filtered.filter(v => v.esito === 'condizionato').length;
+    }
+
+    // ── Anno filter ──
+    function populateAnnoFilter() {
+        const anni = [...new Set(verifiche.map(v => v.data_verifica?.slice(0,4)).filter(Boolean))].sort().reverse();
+        const sel = document.getElementById('filterAnno');
+        anni.forEach(a => sel.innerHTML += `<option value="${a}">${a}</option>`);
+    }
+
+    // ── Tab tipo ──
+    function setTipo(tipo) {
+        currentTipo = tipo;
+        document.getElementById('tipoVerifica').value = tipo;
+        document.querySelector(`input[name="tipoVer"][value="${tipo}"]`).checked = true;
+        ['semestrale','annuale'].forEach(t => {
+            const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+            btn.style.background = t === tipo ? '#d1fae5' : '';
+            btn.style.color      = t === tipo ? '#065f46' : '';
+            btn.className = btn.className.replace(/text-\S+/g,'') + (t === tipo ? ' text-green-800' : ' text-gray-500 hover:bg-gray-100');
+        });
+        applyFilters();
+        updateStats();
+    }
+
+    // ── Esito radio style ──
+    function updateEsitoStyle(val) {
+        const cfg = {
+            conforme:     { border:'#16a34a', bg:'#f0fdf4', text:'#166534' },
+            non_conforme: { border:'#dc2626', bg:'#fef2f2', text:'#991b1b' },
+            condizionato: { border:'#d97706', bg:'#fffbeb', text:'#92400e' },
+        };
+        ['conforme','non_conforme','condizionato'].forEach(k => {
+            const lbl = document.getElementById('lbl_' + k);
+            if (k === val) {
+                lbl.style.borderColor = cfg[k].border;
+                lbl.style.background  = cfg[k].bg;
+                lbl.style.color       = cfg[k].text;
+            } else {
+                lbl.style.borderColor = '#e5e7eb';
+                lbl.style.background  = '';
+                lbl.style.color       = '#6b7280';
+            }
+        });
+    }
+
+    // ── Modal ──
+    function openModal() {
+        document.getElementById('verificaId').value = '';
+        document.getElementById('modalTitle').textContent = 'Nuova Verifica';
+        document.getElementById('f_comune').value     = '';
+        document.getElementById('f_data').value       = new Date().toISOString().split('T')[0];
+        document.getElementById('f_piano').value      = '';
+        document.getElementById('f_ubicazione').value = '';
+        document.getElementById('f_marca').value      = '';
+        document.getElementById('f_codice').value     = '';
+        document.getElementById('f_prossima').value   = '';
+        document.getElementById('f_note').value       = '';
+        document.querySelector('input[name="esitoRad"][value="conforme"]').checked = true;
+        updateEsitoStyle('conforme');
+        document.getElementById('verificaModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('verificaModal').classList.add('hidden');
+    }
+
+    function modificaVerifica(id) {
+        const v = verifiche.find(x => x.id === id);
+        if (!v) return;
+        document.getElementById('verificaId').value    = v.id;
+        document.getElementById('modalTitle').textContent = `Modifica Verifica`;
+        document.getElementById('tipoVerifica').value  = v.tipo_verifica || 'semestrale';
+        document.querySelector(`input[name="tipoVer"][value="${v.tipo_verifica||'semestrale'}"]`).checked = true;
+        document.getElementById('f_comune').value      = v.cliente_id || '';
+        document.getElementById('f_data').value        = v.data_verifica || '';
+        document.getElementById('f_piano').value       = v.piano || '';
+        document.getElementById('f_ubicazione').value  = v.ubicazione || '';
+        document.getElementById('f_marca').value       = v.marca_n_poli || '';
+        document.getElementById('f_codice').value      = v.codice || '';
+        document.getElementById('f_prossima').value    = v.data_prossima || '';
+        document.getElementById('f_note').value        = v.note || '';
+        const esitoVal = v.esito || 'conforme';
+        document.querySelector(`input[name="esitoRad"][value="${esitoVal}"]`).checked = true;
+        updateEsitoStyle(esitoVal);
+        document.getElementById('verificaModal').classList.remove('hidden');
+    }
+
+    // ── Salva ──
+    async function salvaVerifica() {
+        const comuneId  = document.getElementById('f_comune').value;
+        const data      = document.getElementById('f_data').value;
+        const esito     = document.querySelector('input[name="esitoRad"]:checked')?.value || 'conforme';
+        const tipo      = document.getElementById('tipoVerifica').value || currentTipo;
+
+        if (!comuneId) { showToast('⚠️ Seleziona un Comune', 'warning'); return; }
+        if (!data)     { showToast('⚠️ Inserisci la data della verifica', 'warning'); return; }
+
+        const sel       = document.getElementById('f_comune');
+        const luogoNome = sel.options[sel.selectedIndex]?.dataset.nome || '';
+
+        const payload = {
+            tipo_verifica: tipo,
+            settore:       'comune',
+            cliente_id:    comuneId,
+            luogo_nome:    luogoNome,
+            data_verifica: data,
+            piano:         document.getElementById('f_piano').value || null,
+            ubicazione:    document.getElementById('f_ubicazione').value.trim() || null,
+            marca_n_poli:  document.getElementById('f_marca').value.trim() || null,
+            codice:        document.getElementById('f_codice').value.trim() || null,
+            esito,
+            data_prossima: document.getElementById('f_prossima').value || null,
+            note:          document.getElementById('f_note').value.trim() || null,
+            updated_at:    new Date().toISOString(),
+        };
+
+        const id = document.getElementById('verificaId').value;
+        let error;
+        if (id) {
+            ({ error } = await db.from('verifiche').update(payload).eq('id', id));
+        } else {
+            payload.created_by = currentUser.dbId || null;
+            ({ error } = await db.from('verifiche').insert(payload));
+        }
+
+        if (error) { showToast('❌ Errore: ' + error.message, 'error'); return; }
+        closeModal();
+        await loadVerifiche();
+        showToast(id ? '✅ Verifica aggiornata' : '✅ Verifica salvata', 'success');
+    }
+
+    // ── Elimina ──
+    async function eliminaVerifica(id) {
+        const v = verifiche.find(x => x.id === id);
+        if (!confirm(`Eliminare la verifica del ${v?.data_verifica ? new Date(v.data_verifica).toLocaleDateString('it-IT') : id}?`)) return;
+        const { error } = await db.from('verifiche').delete().eq('id', id);
+        if (error) { showToast('❌ Errore: ' + error.message, 'error'); return; }
+        await loadVerifiche();
+        showToast('🗑️ Verifica eliminata', 'success');
+    }
+
+    // ── Stampa ──
+    function stampaVerifica(id) {
+        const v = verifiche.find(x => x.id === id);
+        if (!v) return;
+        const nomeComune = v.cliente?.ragione_sociale || v.luogo_nome || '—';
+        const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
+        const esitoLabel = { conforme:'✅ Conforme', non_conforme:'❌ Non Conforme', condizionato:'⚠️ Condizionato' }[v.esito] || v.esito;
+        const esitoColor = { conforme:'#16a34a', non_conforme:'#dc2626', condizionato:'#d97706' }[v.esito] || '#374151';
+        const tipoLabel  = v.tipo_verifica === 'annuale' ? 'Verifica Annuale' : 'Verifica Semestrale';
+
+        const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Verifica ${nomeComune} – ${fmt(v.data_verifica)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;padding:32px 40px;color:#111827;font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:18px;margin-bottom:24px}
+  .company{font-size:20px;font-weight:900;color:#16a34a}
+  .company-sub{font-size:11px;color:#6b7280;margin-top:2px}
+  .doc-type{text-align:right}
+  .doc-type h1{font-size:16px;font-weight:800;color:#1f2937}
+  .doc-type p{font-size:12px;color:#6b7280;margin-top:2px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+  .box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px}
+  .label{font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .value{font-size:14px;font-weight:700;color:#1f2937}
+  .esito-box{border:2px solid ${esitoColor};border-radius:10px;padding:16px;text-align:center;margin-bottom:22px}
+  .esito-val{font-size:22px;font-weight:900;color:${esitoColor}}
+  .note-box{background:#f9fafb;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:22px}
+  .footer{text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;margin-top:24px}
+  .firma-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:24px}
+  .firma-box{border-top:1px solid #374151;padding-top:6px;font-size:11px;color:#6b7280;text-align:center}
+  @media print{body{padding:16px 24px}}
+</style></head><body>
+<div class="header">
+  <div><div class="company">ZG Impianti Srl</div><div class="company-sub">Ufficio Verifiche · verifiche@zgimpianti.it · zgimpianti.it</div></div>
+  <div class="doc-type"><h1>${tipoLabel} – Comune</h1><p>Data: ${fmt(v.data_verifica)}</p></div>
+</div>
+
+<div class="grid">
+  <div class="box"><div class="label">Comune</div><div class="value">${nomeComune}</div></div>
+  <div class="box"><div class="label">Data Verifica</div><div class="value">${fmt(v.data_verifica)}</div></div>
+  <div class="box"><div class="label">Piano</div><div class="value">${v.piano || '—'}</div></div>
+  <div class="box"><div class="label">Ubicazione</div><div class="value">${v.ubicazione || '—'}</div></div>
+  <div class="box"><div class="label">Marca / N° Poli</div><div class="value">${v.marca_n_poli || '—'}</div></div>
+  <div class="box"><div class="label">Codice</div><div class="value">${v.codice || '—'}</div></div>
+</div>
+
+<div class="esito-box">
+  <div class="label" style="color:${esitoColor}">Esito Verifica</div>
+  <div class="esito-val">${esitoLabel}</div>
+</div>
+
+${v.note ? `<div class="note-box"><strong style="font-size:11px;text-transform:uppercase;color:#166534">Note</strong><p style="margin-top:6px;color:#374151">${v.note}</p></div>` : ''}
+
+${v.data_prossima ? `<p style="text-align:center;font-size:12px;color:#6b7280;margin-bottom:20px">📅 Prossima verifica prevista: <strong>${fmt(v.data_prossima)}</strong></p>` : ''}
+
+<div class="firma-grid">
+  <div class="firma-box">Tecnico verificatore</div>
+  <div class="firma-box">Responsabile struttura</div>
+</div>
+
+<div class="footer">ZG Impianti Srl · Documento generato il ${new Date().toLocaleDateString('it-IT')}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+        const w = window.open('', '_blank', 'width=800,height=700');
+        w.document.write(html);
+        w.document.close();
+    }
+
+    // ── Export CSV ──
+    function exportCSV() {
+        const filtered = verifiche.filter(v => v.tipo_verifica === currentTipo);
+        const rows = [
+            ['Data','Comune','Piano','Ubicazione','Marca N° Poli','Codice','Esito','Prossima Verifica','Note'],
+            ...filtered.map(v => [
+                v.data_verifica || '',
+                v.cliente?.ragione_sociale || v.luogo_nome || '',
+                v.piano || '',
+                v.ubicazione || '',
+                v.marca_n_poli || '',
+                v.codice || '',
+                v.esito || '',
+                v.data_prossima || '',
+                v.note || ''
+            ])
+        ];
+        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+        const a = document.createElement('a');
+        a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+        a.download = `verifiche-semestrali-comune-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+    }
+
+    // ── Toast ──
+    let _toastTimer;
+    function showToast(msg, type = 'info') {
+        const colors = { success:'#16a34a', error:'#dc2626', warning:'#d97706', info:'#2563eb' };
+        const icons  = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+        const el = document.getElementById('toast');
+        document.getElementById('toastIcon').textContent = icons[type] || '•';
+        document.getElementById('toastMsg').textContent  = msg;
+        el.style.background = colors[type] || colors.info;
+        el.style.opacity = '1';
+        el.style.display = 'flex';
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>{ el.style.display='none'; },300); }, 3500);
+    }
+</script>
+</body>
+</html>
