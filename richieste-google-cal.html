@@ -313,11 +313,16 @@ function renderAll(){
     // Categorizza
     // convertedMap[id] con task_id != null → convertito in lavorazione → Già inserite
     // convertedMap[id] con task_id == null → ignorato → nascosto ovunque
-    const isIgnored   = id => convertedMap[id] && !convertedMap[id].task_id;
-    const isConverted = id => convertedMap[id] &&  convertedMap[id].task_id;
+    // Anche: se l'evento ha recurringEventId e QUELLO è ignorato, lo nascondiamo
+    const isIgnored   = e => {
+        if(convertedMap[e.id] && !convertedMap[e.id].task_id) return true;
+        if(e.recurringEventId && convertedMap[e.recurringEventId] && !convertedMap[e.recurringEventId].task_id) return true;
+        return false;
+    };
+    const isConverted = e => convertedMap[e.id] && convertedMap[e.id].task_id;
 
-    const notConverted = allEvents.filter(e=>!convertedMap[e.id] && matchQ(e,q));
-    const converted    = allEvents.filter(e=> isConverted(e.id)  && matchQ(e,q))
+    const notConverted = allEvents.filter(e=>!convertedMap[e.id] && !isIgnored(e) && matchQ(e,q));
+    const converted    = allEvents.filter(e=> isConverted(e)  && matchQ(e,q))
         .sort((a,b)=>new Date(b.updated||b.created||0)-new Date(a.updated||a.created||0));
 
     // Col 1: Oggi (start = today, non convertiti)
@@ -344,7 +349,7 @@ function renderAll(){
     document.getElementById('cntGiaIns').textContent      = converted.length;
 
     // Ignorati (task_id null) → piccola sezione in fondo a Già Inserite
-    const ignorati = allEvents.filter(e=>isIgnored(e.id) && matchQ(e,q));
+    const ignorati = allEvents.filter(e=>isIgnored(e) && matchQ(e,q));
 
     // Render colonne
     const renderCol = (colId, list, type) => {
@@ -621,18 +626,41 @@ async function eseguiConversione(){
         closeConvert();
         await loadConvertedFromDB();
         renderAll();
-        showToast(`✅ Lavorazione “${oggetto}” creata — vai in Gestione Lavorazioni per assegnarla`,'success');
+
+        // Genera link "Aggiungi a Google Calendar" per Pietro
+        const gcalLink = buildGCalLink({ titolo:oggetto, data, indirizzo, note });
+
+        showToast(`✅ Lavorazione "${oggetto}" creata`,'success');
         setTimeout(()=>{
-            showConfirm({
-                icon:'🛠️',
-                title:'Lavorazione creata!',
-                msg:'Vuoi aprire Gestione Lavorazioni per assegnarla a un dipendente?',
-                okLabel:'Apri Lavorazioni',
-                okColor:'linear-gradient(135deg,#ea580c,#c2410c)',
-                onOk:()=>{ window.location.href='gestione-lavorazioni.html'; }
-            });
+            // Modal con due azioni: Apri Lavorazioni + Aggiungi a GCal di Pietro
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmIcon').textContent = '🛠️';
+            document.getElementById('confirmTitle').textContent = 'Lavorazione creata!';
+            document.getElementById('confirmMsg').innerHTML =
+                `Assegnata a Pietro.<br><br>` +
+                `<a href="${gcalLink}" target="_blank" ` +
+                `style="display:inline-flex;align-items:center;gap:6px;background:#4285f4;color:#fff;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:4px">` +
+                `<i class="fab fa-google" style="font-size:14px"></i> Aggiungi al Google Calendar di Pietro` +
+                `</a>`;
+            document.getElementById('confirmOkBtn').textContent = 'Apri Lavorazioni';
+            document.getElementById('confirmOkBtn').style.background = 'linear-gradient(135deg,#ea580c,#c2410c)';
+            document.getElementById('confirmCancelBtn').textContent = 'Chiudi';
+            document.getElementById('confirmOkBtn').onclick  = ()=>{ modal.classList.add('hidden'); window.location.href='gestione-lavorazioni.html'; };
+            document.getElementById('confirmCancelBtn').onclick = ()=>{ modal.classList.add('hidden'); };
+            modal.classList.remove('hidden');
         },400);
     }catch(err){showToast('❌ '+err.message,'error');}
+}
+
+function buildGCalLink({titolo='',data='',indirizzo='',note=''}={}){
+    // Genera URL "Aggiungi a Google Calendar" (funziona senza API/OAuth)
+    const title   = encodeURIComponent(titolo);
+    const loc     = encodeURIComponent(indirizzo);
+    const details = encodeURIComponent((note||'').slice(0,500));
+    // Data in formato YYYYMMDD (tutto il giorno se non c'è orario)
+    const dateStr = data ? data.replace(/-/g,'') : '';
+    const dates   = dateStr ? `${dateStr}/${dateStr}` : '';
+    return `https://calendar.google.com/calendar/r/eventedit?text=${title}&dates=${dates}&location=${loc}&details=${details}`;
 }
 
 function cardIgnorato(e,i){
@@ -651,17 +679,28 @@ function cardIgnorato(e,i){
 
 async function ignoraEvento(eventId){
     const e=allEvents.find(x=>x.id===eventId); if(!e) return;
+    // Se è un evento ricorrente, ignora il padre (recurringEventId) per nascondere tutte le occorrenze
+    const idDaIgnorare = e.recurringEventId || eventId;
+    const isRecurring  = !!e.recurringEventId;
     try{
         await db.from('gcal_conversioni').upsert({
-            event_id:        eventId,
-            task_id:         null,          // null = ignorato (non convertito)
+            event_id:        idDaIgnorare,
+            task_id:         null,
             titolo:          e.summary||'',
-            data_evento:     (e.start?.date||e.start?.dateTime||'').split('T')[0]||null,
+            data_evento:     null,
             convertito_da:   currentUser.id||null,
         },{onConflict:'event_id'});
+        // Se l'evento stesso ha un ID diverso, ignoralo anche direttamente
+        if(isRecurring && eventId !== idDaIgnorare){
+            await db.from('gcal_conversioni').upsert({
+                event_id: eventId, task_id: null, titolo: e.summary||'', data_evento: null,
+                convertito_da: currentUser.id||null,
+            },{onConflict:'event_id'});
+        }
         await loadConvertedFromDB();
         renderAll();
-        showToast('\ud83d\udc41\ufe0f\u200d\ud83d\udde8\ufe0f Evento ignorato — non apparir\u00e0 pi\u00f9 nelle colonne','info');
+        const msg = isRecurring ? '🚫 Evento ricorrente ignorato — tutte le occorrenze nascoste' : '🚫 Evento ignorato';
+        showToast(msg,'info');
     }catch(err){ showToast('\u274c '+err.message,'error'); }
 }
 
