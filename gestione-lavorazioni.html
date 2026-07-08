@@ -3810,7 +3810,9 @@
                     ore_stimate: task.ore_stimate || 0,
                     stato: task.stato || 'da_fare',
                     assigned_users: assignedUsers,
-                    componenti: componenti
+                    componenti: componenti,
+                    indirizzo_lavoro: task.indirizzo_lavoro || '',
+                    note_interne: task.note_interne || ''
                 });
                 
                 // Pre-imposta date: data_inizio e scadenza
@@ -4430,13 +4432,14 @@
         }
 
         function formatDate(dateString, dataInizio) {
-            if (!dateString) return '—';
-            if (dataInizio && dataInizio !== dateString) {
+            const d1 = dateString || dataInizio;   // ← fallback a data_inizio se scadenza è vuota
+            if (!d1) return '—';
+            if (dataInizio && dateString && dataInizio !== dateString) {
                 const s = new Date(dataInizio + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const e = new Date(dateString + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 return s + ' → ' + e;
             }
-            return new Date(dateString + 'T12:00:00').toLocaleDateString('it-IT');
+            return new Date(d1 + 'T12:00:00').toLocaleDateString('it-IT');
         }
 
         function showNotification(message, type = 'info') {

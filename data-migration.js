@@ -188,7 +188,8 @@ window.dataManager = {
                 'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id',
                 'assigned_team_id', 'created_by', 'created_at', 'updated_at',
                 'ora_inizio', 'ora_fine', 'ore_stimate', 'costo_stimato',
-                'data_inizio', 'data_completamento', 'preventivo_id', 'parent_task_id'
+                'data_inizio', 'data_completamento', 'preventivo_id', 'parent_task_id',
+                'indirizzo_lavoro', 'note_interne', 'visibile', 'wizard_completed'
             ];
             
             const cleanedTask = {};
