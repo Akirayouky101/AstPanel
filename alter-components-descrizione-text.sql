@@ -10,6 +10,8 @@ DROP VIEW IF EXISTS v_kit_items_dettaglio CASCADE;
 DROP VIEW IF EXISTS componenti_sotto_scorta CASCADE;
 DROP VIEW IF EXISTS v_giacenze_complete CASCADE;
 DROP VIEW IF EXISTS movimenti_recenti CASCADE;
+DROP VIEW IF EXISTS v_movimenti_operatore_pending CASCADE;
+DROP VIEW IF EXISTS v_cronologia_movimenti_operatore CASCADE;
 
 -- 2. Altera le colonne
 ALTER TABLE components
@@ -114,7 +116,54 @@ LEFT JOIN users u ON u.id = im.user_id
 ORDER BY im.created_at DESC
 LIMIT 100;
 
--- 7. Verifica
+-- 7. Ricrea v_movimenti_operatore_pending
+CREATE OR REPLACE VIEW v_movimenti_operatore_pending AS
+SELECT
+    mo.*,
+    c.nome        AS prodotto_nome_live,
+    c.codice      AS prodotto_codice_live,
+    c.quantita_disponibile AS giacenza_attuale,
+    c.unita_misura,
+    u_op.nome     AS op_nome,
+    u_op.cognome  AS op_cognome,
+    u_op.email    AS op_email,
+    u_adm.nome    AS admin_nome,
+    u_adm.cognome AS admin_cognome
+FROM movimenti_operatore mo
+JOIN components c  ON c.id  = mo.prodotto_id
+JOIN users u_op    ON u_op.id = mo.operatore_id
+LEFT JOIN users u_adm ON u_adm.id = mo.approvato_da
+ORDER BY mo.created_at DESC;
+
+-- 8. Ricrea v_cronologia_movimenti_operatore
+CREATE OR REPLACE VIEW v_cronologia_movimenti_operatore AS
+SELECT
+    mo.id,
+    mo.created_at,
+    mo.tipo,
+    mo.stato,
+    mo.quantita_richiesta,
+    mo.quantita_effettiva,
+    mo.note_operatore,
+    mo.note_admin,
+    mo.approvato_at,
+    mo.giacenza_al_momento,
+    c.nome            AS prodotto_nome,
+    c.codice          AS prodotto_codice,
+    c.unita_misura,
+    CONCAT(u_op.nome, ' ', u_op.cognome) AS operatore_nome_completo,
+    u_op.email        AS operatore_email,
+    CONCAT(u_adm.nome, ' ', u_adm.cognome) AS approvato_da_nome,
+    ref.created_at    AS prelievo_originale_at,
+    ref.quantita_richiesta AS prelievo_originale_qty
+FROM movimenti_operatore mo
+JOIN components c   ON c.id   = mo.prodotto_id
+JOIN users u_op     ON u_op.id = mo.operatore_id
+LEFT JOIN users u_adm ON u_adm.id = mo.approvato_da
+LEFT JOIN movimenti_operatore ref ON ref.id = mo.prelievo_ref_id
+ORDER BY mo.created_at DESC;
+
+-- 9. Verifica
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'components'
