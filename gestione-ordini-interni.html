@@ -1166,7 +1166,6 @@
                             ${segnaEvasoBtn}
                             ${chiudiBtn}
                             <button onclick="modificaOrdine('${o.id}')" title="Modifica" style="color:#3b82f6;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-edit"></i></button>
-                            <button onclick="stampaOrdine('${o.id}')" title="Stampa" style="color:#16a34a;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-print"></i></button>
                             <button onclick="duplicaOrdine('${o.id}')" title="Duplica" style="color:#ea580c;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-copy"></i></button>
                             <button onclick="eliminaOrdine('${o.id}','${o.numero}')" title="Elimina" style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:15px"><i class="fas fa-trash"></i></button>
                         </div>
@@ -1409,14 +1408,6 @@
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
                 if (e1) throw e1;
                 const { data: items } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
-                // DEBUG temporaneo — verrà rimosso
-                if (items && items.length > 0) {
-                    const sample = items[0];
-                    const hasCid = 'cliente_id' in sample;
-                    const cidVal = sample.cliente_id;
-                    console.log('[DEBUG] items[0]:', JSON.stringify({codice: sample.codice, cliente_id: cidVal, colonna_presente: hasCid}));
-                    console.log('[DEBUG] tutti cliente_id:', items.map(i => i.cliente_id).join(', '));
-                }
 
                 _previewOrdineId = id;
 
