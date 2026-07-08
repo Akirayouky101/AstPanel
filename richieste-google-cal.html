@@ -127,6 +127,8 @@
         </div>
         <div class="px-6 py-5 space-y-4">
             <input type="hidden" id="convertEventId">
+            <!-- Evento origine (sola lettura) -->
+            <div id="cvEventeInfo" class="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 text-sm text-violet-800 font-semibold"></div>
             <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Oggetto *</label>
                 <input type="text" id="cv_oggetto" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-orange-400 outline-none transition font-semibold"></div>
             <div class="grid grid-cols-2 gap-3">
@@ -176,18 +178,30 @@
 
 <script>
 const db = window.supabase;
-let currentUser=null, allEvents=[], convertedMap={}, currentTab='nuove';
+let currentUser=null, allEvents=[], convertedMap={}, currentTab='nuove', users=[];
 let _cfg = { apiKey:'', calId:'' };  // cache in-memory
 
 document.addEventListener('DOMContentLoaded', async()=>{
     if(!await window.AuthHelper.requireLogin()) return;
     currentUser=window.AuthHelper.getCurrentUser();
     setSyncStatus('<i class="fas fa-sync-alt fa-spin mr-1"></i>Caricamento configurazione…');
-    await loadConfigFromDB();
+    await Promise.all([loadConfigFromDB(), loadUsers()]);
     if(!_cfg.apiKey||!_cfg.calId){ setSyncStatus('⚙️ Non configurato'); showConfigHint(); return; }
     await refreshAll();
     setInterval(refreshAll,5*60*1000);
 });
+
+// ── Carica dipendenti (trova Pietro per default) ──
+let pietroId = null;
+async function loadUsers(){
+    try{
+        const{data}=await db.from('users').select('id,nome,cognome').eq('stato','attivo').order('nome');
+        users=data||[];
+        // Trova Pietro (case-insensitive)
+        const pietro=users.find(u=>u.nome?.toLowerCase().includes('pietro'));
+        pietroId=pietro?.id||null;
+    }catch(e){}
+}
 
 // ── Config: legge da Supabase app_settings ──
 async function loadConfigFromDB(){
@@ -257,8 +271,12 @@ async function fetchGCalEvents(cfg){
 }
 
 async function loadConvertedFromDB(){
-    try{ const{data}=await db.from('gcal_conversioni').select('event_id,task_id,titolo'); convertedMap={}; (data||[]).forEach(r=>{convertedMap[r.event_id]=r;}); }
-    catch(e){}
+    try{
+        const{data}=await db.from('gcal_conversioni')
+            .select('event_id,task_id,titolo,task:tasks(id,titolo,stato,priorita,assigned_user_id,indirizzo_lavoro,data_inizio,users:assigned_user_id(nome,cognome))');
+        convertedMap={};
+        (data||[]).forEach(r=>{convertedMap[r.event_id]=r;});
+    }catch(e){}
 }
 
 function setTab(tab){
@@ -355,19 +373,30 @@ function renderGiaFatte(){
 function cardGiaFatta(e,i){
     const{dateFmt}=parseDates(e);
     const conv=convertedMap[e.id];
-    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-done p-4 fade-up" style="animation-delay:${i*.03}s">
-        <div class="flex items-center justify-between gap-3">
+    const task=conv?.task;
+    const assegnatoA=task?.users?`${task.users.nome} ${task.users.cognome}`:null;
+    const statoColors={da_fare:'bg-blue-100 text-blue-700',in_corso:'bg-orange-100 text-orange-700',completato:'bg-green-100 text-green-700',annullato:'bg-gray-100 text-gray-500',revisione:'bg-purple-100 text-purple-700'};
+    const statoLabel={da_fare:'Da fare',in_corso:'In corso',completato:'Completato',annullato:'Annullato',revisione:'In revisione'};
+    const stato=task?.stato||'da_fare';
+    const prioritaIcon={alta:'🔴',media:'⚡',bassa:'🟢'}[task?.priorita||'media'];
+    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-done p-5 fade-up" style="animation-delay:${i*.03}s">
+        <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Lavorazione creata</span>
-                    <span class="text-xs text-gray-400">${dateFmt}</span>
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <span class="text-xs font-bold ${statoColors[stato]||statoColors.da_fare} px-2 py-0.5 rounded-full">${statoLabel[stato]||stato}</span>
+                    ${prioritaIcon?`<span class="text-xs">${prioritaIcon}</span>`:''}
+                    <span class="text-xs text-gray-400"><i class="fas fa-calendar mr-1"></i>${dateFmt}</span>
                 </div>
-                <h3 class="font-semibold text-gray-600 text-sm truncate">${e.summary||'(senza titolo)'}</h3>
-                ${e.location?`<p class="text-xs text-gray-400 mt-0.5">${e.location}</p>`:''}
+                <h3 class="font-bold text-gray-800 text-base mb-1">${task?.titolo||e.summary||'(senza titolo)'}</h3>
+                ${task?.indirizzo_lavoro?`<p class="text-sm text-gray-500 flex items-center gap-1 mb-1"><i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>${task.indirizzo_lavoro}</p>`:e.location?`<p class="text-sm text-gray-500 flex items-center gap-1 mb-1"><i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>${e.location}</p>`:''}
+                ${assegnatoA?`<p class="text-xs text-gray-400 flex items-center gap-1"><i class="fas fa-user text-violet-400"></i>${assegnatoA}</p>`:''}
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-1"></i>Apri</a>`:''}
-                <button onclick="undoConversione('${e.id}')" title="Rimuovi dal registro" class="text-gray-300 hover:text-red-400 transition text-sm p-1"><i class="fas fa-undo"></i></button>
+            <div class="flex flex-col items-end gap-2 flex-shrink-0">
+                <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Inserita</span>
+                <div class="flex items-center gap-2">
+                    ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-1"></i>Apri</a>`:''}
+                    <button onclick="undoConversione('${e.id}')" title="Rimuovi dal registro" class="text-gray-300 hover:text-red-400 transition text-sm p-1"><i class="fas fa-undo"></i></button>
+                </div>
             </div>
         </div>
     </div>`;
@@ -387,14 +416,22 @@ function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=htm
 
 function openConvert(eventId){
     const e=allEvents.find(x=>x.id===eventId); if(!e) return;
-    const{isoDate}=parseDates(e);
+    const{isoDate,dateFmt,timeFmt}=parseDates(e);
+    const desc=stripHtml(e.description||'').slice(0,200);
     document.getElementById('convertEventId').value=eventId;
     document.getElementById('convertSubtitle').textContent=e.summary||'(senza titolo)';
-    document.getElementById('cv_oggetto').value=e.summary||'';
-    document.getElementById('cv_data').value=isoDate;
-    document.getElementById('cv_indirizzo').value=e.location||'';
-    document.getElementById('cv_note').value=stripHtml(e.description||'');
-    document.getElementById('cv_priorita').value='media';
+    // Info evento (sola lettura)
+    document.getElementById('cvEventeInfo').innerHTML=
+        `<i class="fab fa-google mr-2 text-violet-600"></i>`+
+        `<strong>${dateFmt}${timeFmt?' · '+timeFmt:''}</strong>`+
+        (e.location?` · <i class="fas fa-map-marker-alt mx-1"></i>${e.location}`:'');
+    // Precompila campi
+    document.getElementById('cv_oggetto').value  = e.summary||'';
+    document.getElementById('cv_data').value     = isoDate||'';
+    document.getElementById('cv_indirizzo').value= e.location||'';
+    document.getElementById('cv_note').value     = desc;
+    document.getElementById('cv_priorita').value = 'media';
+    // Nessun dropdown: viene assegnata automaticamente a Pietro
     document.getElementById('convertModal').classList.remove('hidden');
 }
 function closeConvert(){document.getElementById('convertModal').classList.add('hidden')}
@@ -406,6 +443,7 @@ async function eseguiConversione(){
     const priorita=document.getElementById('cv_priorita').value;
     const indirizzo=document.getElementById('cv_indirizzo').value.trim();
     const note=document.getElementById('cv_note').value.trim();
+    const assegnaId=pietroId||currentUser.id;
     if(!oggetto){showToast('⚠️ Inserisci un oggetto','warning');return;}
     try{
         const{data:task,error:te}=await db.from('tasks').insert({
@@ -416,7 +454,7 @@ async function eseguiConversione(){
             priorita,
             stato:           'da_fare',
             note_interne:    `📅 Da Google Calendar\nEvento: ${eventId}`,
-            assigned_user_id:currentUser.id||null,
+            assigned_user_id:assegnaId,
             created_by:      currentUser.id||null,
         }).select().single();
         if(te) throw te;
