@@ -1314,20 +1314,27 @@
                     const giàRic = parseFloat(item.quantita_ricevuta||0);
                     const daRic  = Math.max(0, totOrd - giàRic);
                     const um = item.um || 'pz';
+                    // Se ordinato=0 o daRic=0, lascia vuoto e bordo rosso
+                    const valDefault = daRic > 0 ? daRic : '';
+                    const borderColor = daRic > 0 ? '#16a34a' : '#ef4444';
+                    const totLabel = totOrd > 0 ? `/ ${totOrd} ${um}` : `${um} (quantità libera)`;
                     return `
                     <div class="flex items-center gap-3 p-4 border-2 border-gray-100 rounded-2xl bg-white">
                         <div class="flex-1 min-w-0">
                             <p class="font-bold text-gray-900 truncate">${item.descrizione||''}</p>
                             ${item.codice ? `<p class="text-xs text-gray-400 font-mono">${item.codice}</p>` : ''}
+                            ${daRic === 0 && totOrd === 0 ? `<p class="text-xs text-red-500 font-semibold mt-0.5">⚠️ Inserisci la quantità ricevuta</p>` : ''}
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             <input type="number"
                                 id="qta_${item.id}"
-                                value="${daRic}"
-                                min="0" step="0.01"
-                                class="w-24 px-3 py-2.5 border-2 border-green-400 rounded-xl text-lg font-black text-center focus:border-green-600 focus:ring-2 focus:ring-green-200 outline-none"
-                                onchange="this.style.borderColor=parseFloat(this.value||0)>0?'#16a34a':'#ef4444'">
-                            <span class="text-gray-500 font-semibold">/ ${totOrd} ${um}</span>
+                                value="${valDefault}"
+                                placeholder="0"
+                                min="0.01" step="0.01"
+                                style="border-color:${borderColor}"
+                                class="w-24 px-3 py-2.5 border-2 rounded-xl text-lg font-black text-center focus:ring-2 focus:ring-green-200 outline-none"
+                                oninput="this.style.borderColor=parseFloat(this.value||0)>0?'#16a34a':'#ef4444'">
+                            <span class="text-gray-500 font-semibold text-sm">${totLabel}</span>
                         </div>
                     </div>`;
                 }).join('');
