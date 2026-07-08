@@ -311,8 +311,13 @@ function renderAll(){
     document.getElementById('colGrid').classList.remove('hidden');
 
     // Categorizza
+    // convertedMap[id] con task_id != null → convertito in lavorazione → Già inserite
+    // convertedMap[id] con task_id == null → ignorato → nascosto ovunque
+    const isIgnored   = id => convertedMap[id] && !convertedMap[id].task_id;
+    const isConverted = id => convertedMap[id] &&  convertedMap[id].task_id;
+
     const notConverted = allEvents.filter(e=>!convertedMap[e.id] && matchQ(e,q));
-    const converted    = allEvents.filter(e=> convertedMap[e.id] && matchQ(e,q))
+    const converted    = allEvents.filter(e=> isConverted(e.id)  && matchQ(e,q))
         .sort((a,b)=>new Date(b.updated||b.created||0)-new Date(a.updated||a.created||0));
 
     // Col 1: Oggi (start = today, non convertiti)
@@ -336,7 +341,10 @@ function renderAll(){
 
     document.getElementById('cntOggi').textContent       = oggi.length;
     document.getElementById('cntModificate').textContent  = colModData.length;
-    document.getElementById('cntGiaIns').textContent      = Object.keys(convertedMap).length;
+    document.getElementById('cntGiaIns').textContent      = converted.length;
+
+    // Ignorati (task_id null) → piccola sezione in fondo a Già Inserite
+    const ignorati = allEvents.filter(e=>isIgnored(e.id) && matchQ(e,q));
 
     // Render colonne
     const renderCol = (colId, list, type) => {
@@ -351,7 +359,18 @@ function renderAll(){
     };
     renderCol('colOggi',oggi,'new');
     renderCol('colModificate',colModData,'new');
-    renderCol('colGiaIns',converted,'done');
+
+    // Già inserite = convertite + sezione ignorati in fondo
+    const elGI=document.getElementById('colGiaIns');
+    let htmlGI = converted.length>0 ? converted.map((e,i)=>cardGiaFatta(e,i)).join('')
+        : `<div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400 text-sm"><i class="fas fa-check-circle text-2xl mb-2 block opacity-20"></i>Nessuna ancora</div>`;
+    if(ignorati.length>0){
+        htmlGI += `<div class="mt-4 border-t border-dashed border-gray-200 pt-3">
+            <p class="text-xs font-bold text-gray-400 uppercase mb-2"><i class="fas fa-eye-slash mr-1"></i>Ignorati (${ignorati.length})</p>
+            ${ignorati.map((e,i)=>cardIgnorato(e,i)).join('')}
+        </div>`;
+    }
+    elGI.innerHTML=htmlGI;
 }
 
 // Alias per compatibilità con oninput
@@ -383,6 +402,9 @@ function cardNuova(e,i){
             </div>
             <button onclick="openConvert('${e.id}')" class="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-b from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm">
                 <i class="fas fa-tools"></i><span>Inserisci</span>
+            </button>
+            <button onclick="ignoraEvento('${e.id}')" title="Ignora — non mostrerlo più" class="flex-shrink-0 flex flex-col items-center gap-1 px-2 py-2 text-gray-300 hover:text-gray-500 rounded-xl text-xs transition" style="background:none;border:none;cursor:pointer">
+                <i class="fas fa-eye-slash text-base"></i><span>Ignora</span>
             </button>
         </div>
     </div>`;
@@ -613,7 +635,44 @@ async function eseguiConversione(){
     }catch(err){showToast('❌ '+err.message,'error');}
 }
 
-async function undoConversione(eventId){
+function cardIgnorato(e,i){
+    const{dateFmt}=parseDates(e);
+    return `<div class="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-3 fade-up flex items-center justify-between gap-2" style="animation-delay:${i*.03}s;opacity:.7">
+        <div class="flex-1 min-w-0">
+            <p class="text-xs text-gray-400"><i class="fas fa-calendar mr-1"></i>${dateFmt}</p>
+            <p class="text-sm font-semibold text-gray-500 truncate">${e.summary||'(senza titolo)'}</p>
+        </div>
+        <button onclick="ripristinaEvento('${e.id}')" title="Ripristina — rimettilo tra Da lavorare"
+                class="text-xs text-violet-500 font-bold hover:underline flex-shrink-0">
+            <i class="fas fa-undo mr-1"></i>Ripristina
+        </button>
+    </div>`;
+}
+
+async function ignoraEvento(eventId){
+    const e=allEvents.find(x=>x.id===eventId); if(!e) return;
+    try{
+        await db.from('gcal_conversioni').upsert({
+            event_id:        eventId,
+            task_id:         null,          // null = ignorato (non convertito)
+            titolo:          e.summary||'',
+            data_evento:     (e.start?.date||e.start?.dateTime||'').split('T')[0]||null,
+            convertito_da:   currentUser.id||null,
+        },{onConflict:'event_id'});
+        await loadConvertedFromDB();
+        renderAll();
+        showToast('\ud83d\udc41\ufe0f\u200d\ud83d\udde8\ufe0f Evento ignorato — non apparir\u00e0 pi\u00f9 nelle colonne','info');
+    }catch(err){ showToast('\u274c '+err.message,'error'); }
+}
+
+async function ripristinaEvento(eventId){
+    try{
+        await db.from('gcal_conversioni').delete().eq('event_id',eventId);
+        await loadConvertedFromDB();
+        renderAll();
+        showToast('\u2705 Evento ripristinato in Da lavorare','success');
+    }catch(err){ showToast('\u274c '+err.message,'error'); }
+}
     showConfirm({
         icon:'↩️',
         title:'Rimuovere dal registro?',
