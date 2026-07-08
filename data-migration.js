@@ -238,9 +238,11 @@ window.dataManager = {
                         await window.TasksAPI.removeComponent(existing.id);
                     }
                     
-                    // Add new components
+                    // Add new components — supporta sia comp.id che comp.prodotto_id
                     for (const comp of componenti) {
-                        await window.TasksAPI.addComponent(cleanedTask.id, comp.id, comp.quantita || 1, comp.note || null);
+                        const compId = comp.id || comp.prodotto_id || comp.component_id;
+                        if (!compId) continue;
+                        await window.TasksAPI.addComponent(cleanedTask.id, compId, comp.quantita || 1, comp.note || null);
                     }
                 }
 
@@ -251,10 +253,12 @@ window.dataManager = {
             } else {
                 savedTask = await window.TasksAPI.create(cleanedTask);
                 
-                // Add components if present
+                // Add components if present — supporta sia comp.id che comp.prodotto_id
                 if (componenti.length > 0) {
                     for (const comp of componenti) {
-                        await window.TasksAPI.addComponent(savedTask.id, comp.id, comp.quantita || 1, comp.note || null);
+                        const compId = comp.id || comp.prodotto_id || comp.component_id;
+                        if (!compId) continue;
+                        await window.TasksAPI.addComponent(savedTask.id, compId, comp.quantita || 1, comp.note || null);
                     }
                 }
 
