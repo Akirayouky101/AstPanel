@@ -1409,6 +1409,12 @@
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
                 if (e1) throw e1;
                 const { data: items } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
+                // DEBUG: verifica se cliente_id esiste negli item
+                if (items && items.length > 0) {
+                    const hasCidCol = 'cliente_id' in items[0];
+                    console.log('[DEBUG] items[0]:', JSON.stringify({codice: items[0].codice, cliente_id: items[0].cliente_id, has_col: hasCidCol}));
+                    if (!hasCidCol) console.warn('[DEBUG] ⚠️ Colonna cliente_id mancante in ordini_interni_items — eseguire add-cliente-to-ordini-interni-items.sql');
+                }
 
                 _previewOrdineId = id;
 
