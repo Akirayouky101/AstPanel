@@ -1473,12 +1473,19 @@
                             .update({ stato: 'chiuso' })
                             .eq('id', ordine.richiesta_id);
                     }
-                    // Chiudi l'ordine interno collegato
+                    // Chiudi l'ordine interno collegato (via FK diretta)
                     if (ordine?.ordine_interno_id) {
                         await window.supabase
                             .from('ordini_interni')
                             .update({ stato: 'chiuso' })
                             .eq('id', ordine.ordine_interno_id);
+                    } else if (ordine?.numero) {
+                        // Fallback: cerca l'ordine interno che ha questo numero ODF come riferimento
+                        await window.supabase
+                            .from('ordini_interni')
+                            .update({ stato: 'chiuso' })
+                            .eq('numero_ordine_fornitore', ordine.numero)
+                            .in('stato', ['evaso', 'approvato', 'da_evadere']);
                     }
                 }
                 // ─────────────────────────────────────────────────────────
