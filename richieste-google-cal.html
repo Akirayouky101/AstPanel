@@ -138,25 +138,51 @@
 <script>
 const db = window.supabase;
 let currentUser=null, allEvents=[], convertedMap={}, currentTab='nuove';
-const CFG_KEY='ast_gcal_cfg';
+let _cfg = { apiKey:'', calId:'' };  // cache in-memory
 
 document.addEventListener('DOMContentLoaded', async()=>{
     if(!await window.AuthHelper.requireLogin()) return;
     currentUser=window.AuthHelper.getCurrentUser();
-    const cfg=getConfig();
-    if(!cfg.apiKey||!cfg.calId){ setSyncStatus('⚙️ Non configurato'); showConfigHint(); return; }
+    setSyncStatus('<i class="fas fa-sync-alt fa-spin mr-1"></i>Caricamento configurazione…');
+    await loadConfigFromDB();
+    if(!_cfg.apiKey||!_cfg.calId){ setSyncStatus('⚙️ Non configurato'); showConfigHint(); return; }
     await refreshAll();
     setInterval(refreshAll,5*60*1000);
 });
 
-function getConfig(){ try{return JSON.parse(localStorage.getItem(CFG_KEY)||'{}')}catch(e){return{}} }
-function openConfig(){ const c=getConfig(); document.getElementById('cfg_apiKey').value=c.apiKey||''; document.getElementById('cfg_calId').value=c.calId||''; document.getElementById('testResult').classList.add('hidden'); document.getElementById('configModal').classList.remove('hidden'); }
+// ── Config: legge da Supabase app_settings ──
+async function loadConfigFromDB(){
+    try{
+        const{data}=await db.from('app_settings').select('key,value').in('key',['gcal_api_key','gcal_calendar_id']);
+        const map={}; (data||[]).forEach(r=>{map[r.key]=r.value;});
+        _cfg = { apiKey: map['gcal_api_key']||'', calId: map['gcal_calendar_id']||'' };
+    }catch(e){ console.warn('loadConfigFromDB',e); }
+}
+
+function getConfig(){ return _cfg; }
+
+function openConfig(){
+    document.getElementById('cfg_apiKey').value=_cfg.apiKey||'';
+    document.getElementById('cfg_calId').value=_cfg.calId||'';
+    document.getElementById('testResult').classList.add('hidden');
+    document.getElementById('configModal').classList.remove('hidden');
+}
 function closeConfig(){ document.getElementById('configModal').classList.add('hidden'); }
-function saveConfig(){
+
+async function saveConfig(){
     const k=document.getElementById('cfg_apiKey').value.trim(), c=document.getElementById('cfg_calId').value.trim();
     if(!k||!c){showToast('⚠️ Inserisci entrambi i campi','warning');return;}
-    localStorage.setItem(CFG_KEY,JSON.stringify({apiKey:k,calId:c}));
-    closeConfig(); showToast('✅ Salvato','success'); refreshAll();
+    try{
+        // Upsert in app_settings — salva nel DB, disponibile su tutti i device
+        await db.from('app_settings').upsert({key:'gcal_api_key', value:k},{onConflict:'key'});
+        await db.from('app_settings').upsert({key:'gcal_calendar_id', value:c},{onConflict:'key'});
+        _cfg = {apiKey:k, calId:c};
+        closeConfig();
+        showToast('✅ Configurazione salvata nel database','success');
+        refreshAll();
+    }catch(err){
+        showToast('❌ Errore nel salvataggio: '+err.message,'error');
+    }
 }
 async function testConnection(){
     const k=document.getElementById('cfg_apiKey').value.trim(), c=document.getElementById('cfg_calId').value.trim();
