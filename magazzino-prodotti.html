@@ -233,6 +233,30 @@
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-2 gap-4 mb-4">
+                    <!-- ── Foto prodotto ── -->
+                    <div class="col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2"><i class="fas fa-camera mr-1 text-purple-500"></i>Foto prodotto <span class="font-normal text-gray-400">(opzionale)</span></label>
+                        <div class="flex items-center gap-4">
+                            <!-- Preview -->
+                            <div id="nuovoFotoPreview"
+                                 onclick="document.getElementById('nuovoFotoFile').click()"
+                                 class="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition flex-shrink-0 overflow-hidden"
+                                 title="Clicca per caricare foto">
+                                <i class="fas fa-camera text-gray-300 text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" id="nuovoFotoFile" accept="image/jpeg,image/png,image/webp"
+                                       class="hidden" onchange="anteprimaFotoProdotto(this,'nuovoFotoPreview','nuovoFotoUrl')">
+                                <input type="hidden" id="nuovoFotoUrl" value="">
+                                <button type="button" onclick="document.getElementById('nuovoFotoFile').click()"
+                                        class="px-3 py-2 border-2 border-purple-300 text-purple-700 rounded-xl text-sm font-semibold hover:bg-purple-50 transition">
+                                    <i class="fas fa-upload mr-1"></i>Carica foto
+                                </button>
+                                <p class="text-xs text-gray-400 mt-1">JPG, PNG, WebP — max 5 MB</p>
+                                <button type="button" id="nuovoFotoReset" onclick="resetFotoProdotto('nuovoFotoPreview','nuovoFotoUrl','nuovoFotoFile')" class="hidden text-xs text-red-400 hover:text-red-600 mt-1"><i class="fas fa-times mr-1"></i>Rimuovi foto</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN *</label>
                         <div class="flex space-x-2">
@@ -1011,6 +1035,49 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         let prodotti = [];
+
+        // ── Foto prodotto: anteprima + upload ──
+        async function anteprimaFotoProdotto(input, previewId, urlInputId) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File troppo grande. Max 5 MB'); input.value=''; return;
+            }
+            // Anteprima locale immediata
+            const reader = new FileReader();
+            reader.onload = e => {
+                const el = document.getElementById(previewId);
+                el.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover" style="border-radius:inherit">`;
+            };
+            reader.readAsDataURL(file);
+            // Upload a Supabase Storage
+            try {
+                const ext  = file.name.split('.').pop();
+                const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                const { data, error } = await supabase.storage
+                    .from('product-photos').upload(path, file, { upsert: true });
+                if (error) throw error;
+                const { data:{ publicUrl } } = supabase.storage
+                    .from('product-photos').getPublicUrl(path);
+                document.getElementById(urlInputId).value = publicUrl;
+                // Mostra pulsante reset
+                const resetBtn = document.getElementById(previewId.replace('Preview','Reset'))||
+                                 document.getElementById('nuovoFotoReset');
+                if(resetBtn) resetBtn.classList.remove('hidden');
+            } catch(err) {
+                console.error('Upload foto:', err);
+                // Fallback: usa base64 locale
+                const reader2 = new FileReader();
+                reader2.onload = e2 => { document.getElementById(urlInputId).value = e2.target.result; };
+                reader2.readAsDataURL(file);
+            }
+        }
+
+        function resetFotoProdotto(previewId, urlInputId, fileInputId) {
+            document.getElementById(previewId).innerHTML = '<i class="fas fa-camera text-gray-300 text-2xl"></i>';
+            document.getElementById(urlInputId).value = '';
+            if(fileInputId) document.getElementById(fileInputId).value = '';
+        }
         let vistaCorrente = 'lista'; // 'lista' | 'fornitore'
         let currentUser = null;
         let currentUserId = null; // ID dalla tabella users
@@ -1433,6 +1500,19 @@
                 return `
                     <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-4 border-l-4 ${borderColor}">
                         <div class="flex items-start justify-between mb-3">
+                            <!-- Thumbnail foto prodotto -->
+                            ${p.foto_url
+                                ? `<div class="w-14 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 mr-3 cursor-pointer"
+                                        onclick="event.stopPropagation();apriEditorProdotto('${p.id}')" title="Clicca per modificare la foto">
+                                       <img src="${p.foto_url}" alt="${p.nome||''}"
+                                            class="w-full h-full object-cover"
+                                            onerror="this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gray-100\'><i class=\'fas fa-image text-gray-300\'></i></div>'">
+                                   </div>`
+                                : `<div class="w-14 h-14 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 mr-3 cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition"
+                                        onclick="event.stopPropagation();apriEditorProdotto('${p.id}')" title="Aggiungi foto">
+                                       <i class="fas fa-camera text-gray-300"></i>
+                                   </div>`
+                            }
                             <div class="flex-1">
                                 <h3 class="font-bold text-gray-900 mb-1">${p.nome || p.descrizione || 'Senza nome'}</h3>
                                 <div class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
@@ -2103,7 +2183,7 @@
                     codice: codiceValore,
                     quantita_disponibile: giacenzaValore,
                     unita_misura: umValore,
-                    prezzo_unitario: prezzoAcquisto, // Prezzo acquisto esente IVA
+                    prezzo_unitario: prezzoAcquisto,
                     fornitore: null,
                     note: null,
                     
@@ -2113,9 +2193,10 @@
                     giacenza: giacenzaValore,
                     giacenza_minima: parseFloat(document.getElementById('nuovoGiacenzaMin').value) || 0,
                     um: umValore,
-                    prezzo_acquisto: prezzoAcquisto, // Tutti i prezzi sono esente IVA
-                    fornitore_id: fornitoreId, // Fornitore predefinito
-                    stato: 'attivo' // Imposta stato attivo per soft delete
+                    prezzo_acquisto: prezzoAcquisto,
+                    fornitore_id: fornitoreId,
+                    stato: 'attivo',
+                    foto_url: document.getElementById('nuovoFotoUrl').value || null
                 };
 
                 const { error } = await supabase
