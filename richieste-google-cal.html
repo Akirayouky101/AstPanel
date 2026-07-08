@@ -38,50 +38,67 @@
     </div>
 </div>
 
-<div class="max-w-4xl mx-auto px-4 pt-5 pb-3">
-    <div class="flex gap-3 items-center flex-wrap">
-        <button id="tabNuove" onclick="setTab('nuove')" class="tab-active flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition">
-            <i class="fas fa-inbox"></i> Da lavorare
-            <span id="cntNuove" class="bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full">0</span>
-        </button>
-        <button id="tabGiaFatte" onclick="setTab('giaFatte')" class="tab-inactive flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition">
-            <i class="fas fa-check-circle"></i> Già inserite
-            <span id="cntGiaFatte" class="bg-gray-300 text-gray-600 text-xs font-black px-2 py-0.5 rounded-full">0</span>
-        </button>
-        <div class="ml-auto flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 flex-1 max-w-xs">
-            <i class="fas fa-search text-gray-400 text-sm"></i>
-            <input type="text" id="searchQ" placeholder="Cerca…" oninput="renderCurrent()" class="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400">
-        </div>
+<!-- ── Ricerca ── -->
+<div class="max-w-6xl mx-auto px-4 pt-4 pb-3">
+    <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 max-w-sm">
+        <i class="fas fa-search text-gray-400 text-sm"></i>
+        <input type="text" id="searchQ" placeholder="Cerca eventi…" oninput="renderAll()"
+               class="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400">
     </div>
 </div>
 
-<div id="panelNuove" class="max-w-4xl mx-auto px-4 pb-10">
-    <!-- Stats bar -->
-    <div id="statsBar" class="hidden grid grid-cols-3 gap-3 mb-5">
-        <div class="bg-white rounded-xl border border-violet-100 shadow-sm px-4 py-3 text-center">
-            <p class="text-xl font-black text-violet-700" id="statNuoveAgg">0</p>
-            <p class="text-xs font-bold text-gray-400 uppercase mt-0.5">Ultime aggiunte</p>
-            <p class="text-xs text-gray-400">(ultimi 7 gg)</p>
-        </div>
-        <div class="bg-white rounded-xl border border-blue-100 shadow-sm px-4 py-3 text-center">
-            <p class="text-xl font-black text-blue-700" id="statModificati">0</p>
-            <p class="text-xs font-bold text-gray-400 uppercase mt-0.5">Modificati</p>
-            <p class="text-xs text-gray-400">(aggiornati di recente)</p>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 text-center">
-            <p class="text-xl font-black text-gray-700" id="statTotaliNuove">0</p>
-            <p class="text-xs font-bold text-gray-400 uppercase mt-0.5">Totali</p>
-            <p class="text-xs text-gray-400">da lavorare</p>
-        </div>
-    </div>
-    <div id="nuovePlaceholder" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up">
+<!-- ── 3 colonne ── -->
+<div class="max-w-6xl mx-auto px-4 pb-10">
+    <!-- Placeholder loading -->
+    <div id="mainPlaceholder" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-400 fade-up">
         <i class="fas fa-spinner fa-spin text-3xl mb-3 block opacity-30"></i><p>Caricamento…</p>
     </div>
-    <div id="nuoveList" class="space-y-3 hidden"></div>
-</div>
 
-<div id="panelGiaFatte" class="max-w-4xl mx-auto px-4 pb-10 hidden">
-    <div id="giaFatteList" class="space-y-3"></div>
+    <div id="colGrid" class="hidden grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        <!-- COLONNA 1: OGGI -->
+        <div>
+            <div class="flex items-center gap-2 mb-3 px-1">
+                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                <h2 class="font-black text-gray-800 text-base uppercase tracking-wide">Oggi</h2>
+                <span id="cntOggi" class="ml-auto bg-red-100 text-red-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div id="colOggi" class="space-y-3">
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400 text-sm">
+                    <i class="fas fa-calendar-day text-2xl mb-2 block opacity-20"></i>Nessun evento oggi
+                </div>
+            </div>
+        </div>
+
+        <!-- COLONNA 2: MODIFICATE -->
+        <div>
+            <div class="flex items-center gap-2 mb-3 px-1">
+                <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                <h2 class="font-black text-gray-800 text-base uppercase tracking-wide">Modificate</h2>
+                <span id="cntModificate" class="ml-auto bg-blue-100 text-blue-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div id="colModificate" class="space-y-3">
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400 text-sm">
+                    <i class="fas fa-pen text-2xl mb-2 block opacity-20"></i>Nessuna modifica recente
+                </div>
+            </div>
+        </div>
+
+        <!-- COLONNA 3: GIÀ INSERITE -->
+        <div>
+            <div class="flex items-center gap-2 mb-3 px-1">
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                <h2 class="font-black text-gray-800 text-base uppercase tracking-wide">Già Inserite</h2>
+                <span id="cntGiaIns" class="ml-auto bg-green-100 text-green-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div id="colGiaIns" class="space-y-3">
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400 text-sm">
+                    <i class="fas fa-check-circle text-2xl mb-2 block opacity-20"></i>Nessuna ancora
+                </div>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <!-- Modal Config -->
@@ -253,7 +270,7 @@ async function refreshAll(){
     document.getElementById('btnRefresh').querySelector('i').classList.add('fa-spin');
     setSyncStatus('<i class="fas fa-sync-alt fa-spin mr-1"></i>Aggiornamento…');
     await Promise.all([fetchGCalEvents(cfg), loadConvertedFromDB()]);
-    renderCurrent();
+    renderAll();
     document.getElementById('btnRefresh').querySelector('i').classList.remove('fa-spin');
     setSyncStatus(`<i class="fas fa-circle text-green-400 text-xs mr-1"></i>Aggiornato alle ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`);
 }
@@ -279,18 +296,138 @@ async function loadConvertedFromDB(){
     }catch(e){}
 }
 
-function setTab(tab){
-    currentTab=tab;
-    document.getElementById('panelNuove').classList.toggle('hidden',tab!=='nuove');
-    document.getElementById('panelGiaFatte').classList.toggle('hidden',tab!=='giaFatte');
-    const aN=tab==='nuove'; const aG=tab==='giaFatte';
-    document.getElementById('tabNuove').className=`${aN?'tab-active':'tab-inactive'} flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition`;
-    document.getElementById('tabGiaFatte').className=`${aG?'tab-active':'tab-inactive'} flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition`;
-    document.getElementById('cntNuove').className=aN?'bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full':'bg-violet-200 text-violet-800 text-xs font-black px-2 py-0.5 rounded-full';
-    document.getElementById('cntGiaFatte').className=aG?'bg-white/30 text-white text-xs font-black px-2 py-0.5 rounded-full':'bg-gray-300 text-gray-600 text-xs font-black px-2 py-0.5 rounded-full';
-    renderCurrent();
+function renderAll(){
+    const q=document.getElementById('searchQ').value.toLowerCase().trim();
+    const now=new Date();
+    const todayStr=now.toDateString();
+
+    if(!getConfig().apiKey){
+        document.getElementById('mainPlaceholder').classList.remove('hidden');
+        document.getElementById('mainPlaceholder').innerHTML=`<i class="fab fa-google text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Google Calendar non configurato</p><button onclick="openConfig()" class="mt-4 px-5 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm">Configura ora</button>`;
+        document.getElementById('colGrid').classList.add('hidden');
+        return;
+    }
+    document.getElementById('mainPlaceholder').classList.add('hidden');
+    document.getElementById('colGrid').classList.remove('hidden');
+
+    // Categorizza
+    const notConverted = allEvents.filter(e=>!convertedMap[e.id] && matchQ(e,q));
+    const converted    = allEvents.filter(e=> convertedMap[e.id] && matchQ(e,q))
+        .sort((a,b)=>new Date(b.updated||b.created||0)-new Date(a.updated||a.created||0));
+
+    // Col 1: Oggi (start = today, non convertiti)
+    const oggi = notConverted
+        .filter(e=>{ const s=e.start?.dateTime||e.start?.date; return new Date(s).toDateString()===todayStr; })
+        .sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date));
+
+    // Col 2: Modificate (updated recente, non convertiti, NON oggi)
+    const modificate = notConverted
+        .filter(e=>{ const s=e.start?.dateTime||e.start?.date; return new Date(s).toDateString()!==todayStr; })
+        .filter(e=>e.updated&&e.created&&new Date(e.updated)-new Date(e.created)>60000)
+        .sort((a,b)=>new Date(b.updated)-new Date(a.updated));
+
+    // Se "modificate" è vuoto, mostra tutti gli altri non-oggi non-convertiti
+    const altreDaFare = notConverted
+        .filter(e=>{ const s=e.start?.dateTime||e.start?.date; return new Date(s).toDateString()!==todayStr; })
+        .filter(e=>!(e.updated&&e.created&&new Date(e.updated)-new Date(e.created)>60000))
+        .sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date));
+
+    const colModData = modificate.length>0 ? modificate : altreDaFare;
+
+    document.getElementById('cntOggi').textContent       = oggi.length;
+    document.getElementById('cntModificate').textContent  = colModData.length;
+    document.getElementById('cntGiaIns').textContent      = Object.keys(convertedMap).length;
+
+    // Render colonne
+    const renderCol = (colId, list, type) => {
+        const el=document.getElementById(colId);
+        if(list.length===0){
+            const emptyMsgs={colOggi:'Nessun evento oggi',colModificate:'Nessun evento da lavorare',colGiaIns:'Nessuna ancora'};
+            const emptyIcons={colOggi:'fa-calendar-day',colModificate:'fa-pen',colGiaIns:'fa-check-circle'};
+            el.innerHTML=`<div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400 text-sm"><i class="fas ${emptyIcons[colId]||'fa-calendar'} text-2xl mb-2 block opacity-20"></i>${emptyMsgs[colId]||'Nessun evento'}</div>`;
+        } else {
+            el.innerHTML=list.map((e,i)=>type==='done'?cardGiaFatta(e,i):cardNuova(e,i)).join('');
+        }
+    };
+    renderCol('colOggi',oggi,'new');
+    renderCol('colModificate',colModData,'new');
+    renderCol('colGiaIns',converted,'done');
 }
-function renderCurrent(){ currentTab==='nuove'?renderNuove():renderGiaFatte(); }
+
+// Alias per compatibilità con oninput
+function renderCurrent(){ renderAll(); }
+
+function cardNuova(e,i){
+    const{dateFmt,timeFmt,isToday,isThisWeek}=parseDates(e);
+    const desc=stripHtml(e.description||'').slice(0,100);
+    const weekAgo=new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+    const isNuovo = e.created && new Date(e.created)>=weekAgo;
+    const isModificato = e.updated && e.created && new Date(e.updated)-new Date(e.created)>60000;
+    const timeBadge=isToday
+        ?'<span class="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"><i class="fas fa-exclamation mr-1"></i>Oggi</span>'
+        :isThisWeek
+        ?'<span class="text-xs font-bold text-orange-500 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full"><i class="fas fa-clock mr-1"></i>Questa sett.</span>'
+        :'';
+    const newBadge=isNuovo?'<span class="text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">★ Nuovo</span>':'';
+    const modBadge=isModificato&&!isNuovo?'<span class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">✎ Modif.</span>':'';
+    return `<div class="bg-white rounded-2xl border-l-4 border-violet-400 border border-gray-100 shadow-sm p-4 fade-up" style="animation-delay:${i*.04}s">
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
+                    <span class="text-xs text-gray-400"><i class="fas fa-calendar text-violet-400 mr-0.5"></i>${dateFmt}${timeFmt?' '+timeFmt:''}</span>
+                    ${newBadge}${modBadge}${timeBadge}
+                </div>
+                <h3 class="font-bold text-gray-900 text-sm mb-1 leading-snug">${e.summary||'(senza titolo)'}</h3>
+                ${e.location?`<p class="text-xs text-gray-500 truncate"><i class="fas fa-map-marker-alt text-violet-400 mr-1"></i>${e.location}</p>`:''}
+                ${desc?`<p class="text-xs text-gray-400 mt-1 leading-relaxed">${desc}${stripHtml(e.description||'').length>100?'…':''}</p>`:''}
+            </div>
+            <button onclick="openConvert('${e.id}')" class="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 bg-gradient-to-b from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-sm">
+                <i class="fas fa-tools"></i><span>Inserisci</span>
+            </button>
+        </div>
+    </div>`;
+}
+
+function cardGiaFatta(e,i){
+    const{dateFmt}=parseDates(e);
+    const conv=convertedMap[e.id];
+    const task=conv?.task;
+    const assegnatoA=task?.users?`${task.users.nome} ${task.users.cognome}`:null;
+    const statoColors={da_fare:'bg-blue-100 text-blue-700',in_corso:'bg-orange-100 text-orange-700',completato:'bg-green-100 text-green-700',annullato:'bg-gray-100 text-gray-500',revisione:'bg-purple-100 text-purple-700'};
+    const statoLabel={da_fare:'Da fare',in_corso:'In corso',completato:'Completato',annullato:'Annullato',revisione:'In revisione'};
+    const stato=task?.stato||'da_fare';
+    const prioritaIcon={alta:'🔴',media:'⚡',bassa:'🟢'}[task?.priorita||'media'];
+    return `<div class="bg-white rounded-2xl border-l-4 border-green-400 border border-gray-100 shadow-sm p-4 fade-up" style="animation-delay:${i*.03}s">
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
+                    <span class="text-xs font-bold ${statoColors[stato]} px-2 py-0.5 rounded-full">${statoLabel[stato]}</span>
+                    ${prioritaIcon?`<span class="text-xs">${prioritaIcon}</span>`:''}
+                </div>
+                <h3 class="font-bold text-gray-800 text-sm mb-1 leading-snug">${task?.titolo||e.summary||'(senza titolo)'}</h3>
+                ${assegnatoA?`<p class="text-xs text-gray-400"><i class="fas fa-user text-green-400 mr-1"></i>${assegnatoA}</p>`:''}
+                ${(task?.indirizzo_lavoro||e.location)?`<p class="text-xs text-gray-400 truncate mt-0.5"><i class="fas fa-map-marker-alt text-gray-300 mr-1"></i>${task?.indirizzo_lavoro||e.location}</p>`:''}
+            </div>
+            <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+                ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-0.5"></i>Apri</a>`:''}
+                <button onclick="undoConversione('${e.id}')" title="Rimuovi" class="text-gray-300 hover:text-red-400 transition text-xs p-0.5"><i class="fas fa-undo"></i></button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function parseDates(e){
+    const s=e.start?.dateTime||e.start?.date, d=new Date(s), now=new Date(), we=new Date(); we.setDate(we.getDate()+7);
+    return { dateFmt:d.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}), timeFmt:e.start?.dateTime?d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):'', isToday:d.toDateString()===now.toDateString(), isThisWeek:d>=now&&d<=we, isoDate:(s||'').split('T')[0] };
+}
+function stripHtml(h){return h.replace(/<[^>]*>/g,'')}
+function matchQ(e,q){if(!q)return true;return (e.summary||'').toLowerCase().includes(q)||(e.description||'').toLowerCase().includes(q)||(e.location||'').toLowerCase().includes(q)}
+function showConfigHint(){
+    document.getElementById('mainPlaceholder').classList.remove('hidden');
+    document.getElementById('mainPlaceholder').innerHTML=`<i class="fab fa-google text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Google Calendar non configurato</p><button onclick="openConfig()" class="mt-4 px-5 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm">Configura ora</button>`;
+    document.getElementById('colGrid').classList.add('hidden');
+}
+function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=html}
 
 function renderNuove(){
     const q=document.getElementById('searchQ').value.toLowerCase().trim();
@@ -461,7 +598,7 @@ async function eseguiConversione(){
         await db.from('gcal_conversioni').upsert({event_id:eventId,task_id:task.id,titolo:oggetto,data_evento:data||null,convertito_da:currentUser.id||null},{onConflict:'event_id'});
         closeConvert();
         await loadConvertedFromDB();
-        renderCurrent();
+        renderAll();
         showToast(`✅ Lavorazione “${oggetto}” creata — vai in Gestione Lavorazioni per assegnarla`,'success');
         setTimeout(()=>{
             showConfirm({
