@@ -636,116 +636,6 @@ async function salvaBlocco(){
     }catch(err){showToast('❌ '+err.message,'error');}
 }
 
-function renderNuove(){
-    const q=document.getElementById('searchQ').value.toLowerCase().trim();
-    const nuove=allEvents
-        .filter(e=>!convertedMap[e.id])
-        .sort((a,b)=>new Date(b.updated||b.created||0)-new Date(a.updated||a.created||0)); // più recenti prima
-    const list=nuove.filter(e=>matchQ(e,q));
-    document.getElementById('cntNuove').textContent=nuove.length;
-    document.getElementById('nuovePlaceholder').classList.add('hidden');
-    const el=document.getElementById('nuoveList'); el.classList.remove('hidden');
-    if(!getConfig().apiKey){showConfigHint();return;}
-
-    // Stats
-    const now=new Date(), week=new Date(); week.setDate(week.getDate()-7);
-    const nUltimeAgg = nuove.filter(e=>new Date(e.created)>=week).length;
-    const nModificati= nuove.filter(e=>e.updated&&e.created&&new Date(e.updated)-new Date(e.created)>60000).length;
-    if(nuove.length>0){
-        document.getElementById('statsBar').classList.remove('hidden');
-        document.getElementById('statsBar').classList.add('grid');
-    } else { document.getElementById('statsBar').classList.add('hidden'); }
-    document.getElementById('statNuoveAgg').textContent  = nUltimeAgg;
-    document.getElementById('statModificati').textContent= nModificati;
-    document.getElementById('statTotaliNuove').textContent= nuove.length;
-
-    if(list.length===0){
-        el.innerHTML=`<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up"><i class="fas fa-calendar-check text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Tutto in ordine! Nessun nuovo evento da lavorare.</p></div>`;
-        return;
-    }
-    el.innerHTML=list.map((e,i)=>cardNuova(e,i)).join('');
-}
-
-function cardNuova(e,i){
-    const{dateFmt,timeFmt,isToday,isThisWeek}=parseDates(e);
-    const desc=stripHtml(e.description||'').slice(0,120);
-    const weekAgo=new Date(); weekAgo.setDate(weekAgo.getDate()-7);
-    const isNuovo = e.created && new Date(e.created)>=weekAgo;
-    const isModificato = e.updated && e.created && new Date(e.updated)-new Date(e.created)>60000;
-    const badge=isToday
-        ?'<span class="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"><i class="fas fa-exclamation mr-1"></i>Oggi</span>'
-        :isThisWeek
-        ?'<span class="text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full"><i class="fas fa-clock mr-1"></i>Questa settimana</span>'
-        :'';
-    const newBadge = isNuovo
-        ?'<span class="text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full"><i class="fas fa-star mr-1"></i>Nuovo</span>'
-        :'';
-    const modBadge = isModificato && !isNuovo
-        ?'<span class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full"><i class="fas fa-pen mr-1"></i>Modificato</span>'
-        :'';
-    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-new p-5 fade-up" style="animation-delay:${i*.04}s">
-        <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                    <span class="text-xs text-gray-400"><i class="fas fa-calendar text-violet-500 mr-1"></i>${dateFmt}${timeFmt?' · '+timeFmt:''}</span>
-                    ${newBadge}${modBadge}${badge}
-                </div>
-                <h3 class="font-bold text-gray-900 text-base mb-1">${e.summary||'(senza titolo)'}</h3>
-                ${e.location?`<p class="text-sm text-gray-500 flex items-center gap-1.5 mb-1"><i class="fas fa-map-marker-alt text-violet-400 text-xs"></i>${e.location}</p>`:''}
-                ${desc?`<p class="text-sm text-gray-400 mt-1 leading-relaxed">${desc}${(e.description||'').replace(/<[^>]*>/g,'').length>120?'…':''}</p>`:''}
-            </div>
-            <button onclick="openConvert('${e.id}')" class="flex-shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 bg-gradient-to-b from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition shadow-md">
-                <i class="fas fa-tools text-base"></i><span>Inserisci</span>
-            </button>
-        </div>
-    </div>`;
-}
-
-function renderGiaFatte(){
-    const q=document.getElementById('searchQ').value.toLowerCase().trim();
-    const fatte=allEvents.filter(e=>convertedMap[e.id]);
-    const list=fatte.filter(e=>matchQ(e,q));
-    document.getElementById('cntGiaFatte').textContent=Object.keys(convertedMap).length;
-    const el=document.getElementById('giaFatteList');
-    if(list.length===0){
-        el.innerHTML=`<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 fade-up"><i class="fas fa-check-circle text-4xl mb-3 block opacity-20"></i><p class="font-semibold">Nessun evento ancora convertito</p></div>`;
-        return;
-    }
-    el.innerHTML=list.map((e,i)=>cardGiaFatta(e,i)).join('');
-}
-
-function cardGiaFatta(e,i){
-    const{dateFmt}=parseDates(e);
-    const conv=convertedMap[e.id];
-    const task=conv?.task;
-    const assegnatoA=task?.users?`${task.users.nome} ${task.users.cognome}`:null;
-    const statoColors={da_fare:'bg-blue-100 text-blue-700',in_corso:'bg-orange-100 text-orange-700',completato:'bg-green-100 text-green-700',annullato:'bg-gray-100 text-gray-500',revisione:'bg-purple-100 text-purple-700'};
-    const statoLabel={da_fare:'Da fare',in_corso:'In corso',completato:'Completato',annullato:'Annullato',revisione:'In revisione'};
-    const stato=task?.stato||'da_fare';
-    const prioritaIcon={alta:'🔴',media:'⚡',bassa:'🟢'}[task?.priorita||'media'];
-    return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm card-done p-5 fade-up" style="animation-delay:${i*.03}s">
-        <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                    <span class="text-xs font-bold ${statoColors[stato]||statoColors.da_fare} px-2 py-0.5 rounded-full">${statoLabel[stato]||stato}</span>
-                    ${prioritaIcon?`<span class="text-xs">${prioritaIcon}</span>`:''}
-                    <span class="text-xs text-gray-400"><i class="fas fa-calendar mr-1"></i>${dateFmt}</span>
-                </div>
-                <h3 class="font-bold text-gray-800 text-base mb-1">${task?.titolo||e.summary||'(senza titolo)'}</h3>
-                ${task?.indirizzo_lavoro?`<p class="text-sm text-gray-500 flex items-center gap-1 mb-1"><i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>${task.indirizzo_lavoro}</p>`:e.location?`<p class="text-sm text-gray-500 flex items-center gap-1 mb-1"><i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>${e.location}</p>`:''}
-                ${assegnatoA?`<p class="text-xs text-gray-400 flex items-center gap-1"><i class="fas fa-user text-violet-400"></i>${assegnatoA}</p>`:''}
-            </div>
-            <div class="flex flex-col items-end gap-2 flex-shrink-0">
-                <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Inserita</span>
-                <div class="flex items-center gap-2">
-                    ${conv.task_id?`<a href="gestione-lavorazioni.html" class="text-xs text-violet-600 font-bold hover:underline"><i class="fas fa-external-link-alt mr-1"></i>Apri</a>`:''}
-                    <button onclick="undoConversione('${e.id}')" title="Rimuovi dal registro" class="text-gray-300 hover:text-red-400 transition text-sm p-1"><i class="fas fa-undo"></i></button>
-                </div>
-            </div>
-        </div>
-    </div>`;
-}
-
 function parseDates(e){
     const s=e.start?.dateTime||e.start?.date, d=new Date(s), now=new Date(), we=new Date(); we.setDate(we.getDate()+7);
     return { dateFmt:d.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}), timeFmt:e.start?.dateTime?d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):'', isToday:d.toDateString()===now.toDateString(), isThisWeek:d>=now&&d<=we, isoDate:(s||'').split('T')[0] };
@@ -753,8 +643,9 @@ function parseDates(e){
 function stripHtml(h){return h.replace(/<[^>]*>/g,'')}
 function matchQ(e,q){if(!q)return true;return (e.summary||'').toLowerCase().includes(q)||(e.description||'').toLowerCase().includes(q)||(e.location||'').toLowerCase().includes(q)}
 function showConfigHint(){
-    document.getElementById('nuovePlaceholder').classList.remove('hidden');
-    document.getElementById('nuovePlaceholder').innerHTML=`<i class="fab fa-google text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Google Calendar non configurato</p><button onclick="openConfig()" class="mt-4 px-5 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm">Configura ora</button>`;
+    document.getElementById('mainPlaceholder').classList.remove('hidden');
+    document.getElementById('mainPlaceholder').innerHTML=`<i class="fab fa-google text-4xl mb-3 block opacity-20"></i><p class="font-semibold text-gray-500">Google Calendar non configurato</p><button onclick="openConfig()" class="mt-4 px-5 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm">Configura ora</button>`;
+    document.getElementById('colGrid').classList.add('hidden');
 }
 function setSyncStatus(html){document.getElementById('syncStatus').innerHTML=html}
 
