@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timbratura Ufficio — AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-client.js"></script>
+    <script src="/Admin/auth-helper.js"></script>
+    <script src="/timbrature-service.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #1e3a5f 0%, #0f2749 100%); min-height: 100vh; }
+        .clock { font-size: 5rem; font-weight: 900; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+        .timbra-btn { transition: all .15s; }
+        .timbra-btn:hover { transform: translateY(-3px); }
+        .timbra-btn:active { transform: scale(.97); }
+        @keyframes pulse-ring { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.03)} }
+        .pulse { animation: pulse-ring 2s infinite; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-6">
+
+<div class="w-full max-w-3xl">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="flex items-center justify-center gap-3 mb-2">
+            <img src="/logo_zg.jpg" alt="ZG" class="h-10 rounded-lg" onerror="this.style.display='none'">
+            <span class="text-white/60 text-lg font-bold tracking-widest uppercase">ZG Impianti Srl</span>
+        </div>
+        <div id="oraCorrente" class="clock text-white drop-shadow-xl">00:00:00</div>
+        <div id="dataCorrente" class="text-white/70 text-xl mt-1 font-semibold"></div>
+    </div>
+
+    <!-- Card utente + stato -->
+    <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-black" id="avatarInitials">?</div>
+            <div>
+                <p class="text-white font-bold text-xl" id="nomeUtente">Caricamento…</p>
+                <p class="text-white/60 text-sm capitalize" id="ruoloUtente"></p>
+            </div>
+        </div>
+        <div id="statoTimbratura" class="text-right">
+            <span id="statoLabel" class="text-white/40 text-sm">Nessuna timbratura oggi</span>
+        </div>
+    </div>
+
+    <!-- 3 Bottoni principali -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <button id="btnIngresso" onclick="eseguiTimbrata('ingresso')"
+            class="timbra-btn flex flex-col items-center gap-3 py-8 rounded-2xl font-black text-white text-lg shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed"
+            style="background:linear-gradient(135deg,#16a34a,#15803d)">
+            <i class="fas fa-sign-in-alt text-4xl"></i>
+            TIMBRA<br>INGRESSO
+        </button>
+
+        <button id="btnPausa" onclick="eseguiTimbrata('pausa')"
+            class="timbra-btn flex flex-col items-center gap-3 py-8 rounded-2xl font-black text-white text-lg shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed"
+            style="background:linear-gradient(135deg,#d97706,#b45309)">
+            <i class="fas fa-coffee text-4xl"></i>
+            TIMBRA<br>PAUSA
+        </button>
+
+        <button id="btnUscita" onclick="eseguiTimbrata('uscita')"
+            class="timbra-btn flex flex-col items-center gap-3 py-8 rounded-2xl font-black text-white text-lg shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed"
+            style="background:linear-gradient(135deg,#dc2626,#b91c1c)">
+            <i class="fas fa-sign-out-alt text-4xl"></i>
+            TIMBRA<br>USCITA
+        </button>
+    </div>
+
+    <!-- Log giornaliero -->
+    <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-5">
+        <h3 class="text-white font-bold mb-3 flex items-center gap-2">
+            <i class="fas fa-history text-blue-300"></i> Timbrature di Oggi
+        </h3>
+        <div id="logGiornaliero" class="space-y-2 text-white/70 text-sm">
+            <p class="text-center py-4 italic">Nessuna timbratura oggi</p>
+        </div>
+    </div>
+
+    <!-- Feedback toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl font-bold text-white shadow-2xl opacity-0 transition-all duration-300 text-lg pointer-events-none z-50"></div>
+
+    <div class="text-center mt-6 space-y-2">
+        <p class="text-white/30 text-xs">Le timbrature sono visibili in <a href="/gestione-orari.html" class="text-white/50 hover:text-white/80 underline">Gestione Orari</a></p>
+        <a href="/admin-functional.html" class="text-white/30 hover:text-white/60 text-sm transition">← Torna al pannello</a>
+    </div>
+</div>
+
+<script>
+let currentUser = null;
+let timbratureOggi = [];
+
+// ── Orologio ──────────────────────────────────────────────────────────────────
+function aggiornaOrologio() {
+    const ora = new Date();
+    document.getElementById('oraCorrente').textContent = ora.toLocaleTimeString('it-IT');
+    document.getElementById('dataCorrente').textContent = ora.toLocaleDateString('it-IT', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+}
+setInterval(aggiornaOrologio, 1000);
+aggiornaOrologio();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        if (!await window.AuthHelper.requireLogin()) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data: u } = await supabase.from('users')
+            .select('id, nome, cognome, ruolo, foto_profilo')
+            .eq('auth_id', session.user.id).maybeSingle();
+
+        if (!u) return;
+        currentUser = { ...u, authId: session.user.id };
+
+        document.getElementById('nomeUtente').textContent = `${u.nome} ${u.cognome}`;
+        document.getElementById('ruoloUtente').textContent = u.ruolo || '';
+        const initials = `${u.nome?.[0]||''}${u.cognome?.[0]||''}`.toUpperCase();
+        document.getElementById('avatarInitials').textContent = initials;
+
+        await caricaTimbratureOggi();
+        aggiornaBottoni();
+    } catch(e) {
+        console.error(e);
+    }
+});
+
+// ── Carica timbrature odierne ─────────────────────────────────────────────────
+async function caricaTimbratureOggi() {
+    const oggi = new Date().toISOString().split('T')[0];
+    const { data } = await supabase.from('timbrature')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .eq('data', oggi)
+        .order('ora_ingresso', { ascending: false });
+    timbratureOggi = data || [];
+    renderLog();
+}
+
+// ── Render log ────────────────────────────────────────────────────────────────
+function renderLog() {
+    const el = document.getElementById('logGiornaliero');
+    if (!timbratureOggi.length) {
+        el.innerHTML = '<p class="text-center py-4 italic">Nessuna timbratura oggi</p>';
+        return;
+    }
+    const fmtTime = t => t ? t.substring(0, 5) : '—';
+    el.innerHTML = timbratureOggi.map(t => {
+        const ing = fmtTime(t.ora_ingresso);
+        const usc = t.ora_uscita ? fmtTime(t.ora_uscita) : '…';
+        const pausa = t.pausa_inizio ? `<i class="fas fa-coffee text-amber-400 ml-2"></i><span>${fmtTime(t.pausa_inizio)}</span>` : '';
+        return `<div class="flex items-center justify-between bg-white/10 rounded-xl px-4 py-2.5">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-sign-in-alt text-green-400"></i>
+                <span>${ing}</span>
+                ${pausa}
+            </div>
+            <div class="flex items-center gap-2 text-right">
+                <i class="fas fa-sign-out-alt text-red-400"></i>
+                <span>${usc}</span>
+                ${!t.ora_uscita ? '<span class="bg-green-500/30 text-green-300 px-2 py-0.5 rounded text-xs font-bold">ATTIVO</span>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Stato bottoni ─────────────────────────────────────────────────────────────
+function aggiornaBottoni() {
+    const aperta = timbratureOggi.find(t => !t.ora_uscita);
+    const chiusa = timbratureOggi.find(t => t.ora_uscita); // giornata già completata
+    const btnI = document.getElementById('btnIngresso');
+    const btnP = document.getElementById('btnPausa');
+    const btnU = document.getElementById('btnUscita');
+    const statoLabel = document.getElementById('statoLabel');
+
+    if (chiusa && !aperta) {
+        // Giornata già completata — tutto bloccato
+        btnI.disabled = true; btnI.style.opacity = '.3';
+        btnP.disabled = true; btnP.style.opacity = '.3';
+        btnU.disabled = true; btnU.style.opacity = '.3';
+        const uscita = chiusa.ora_uscita?.substring(0,5) || '—';
+        statoLabel.innerHTML = `<span class="text-blue-300 font-bold">✅ Giornata completata — Uscita: ${uscita}</span>`;
+        return;
+    }
+
+    if (!aperta) {
+        // Nessuna timbratura: solo ingresso
+        btnI.disabled = false; btnI.style.opacity = '1';
+        btnP.disabled = true;  btnP.style.opacity = '.4';
+        btnU.disabled = true;  btnU.style.opacity = '.4';
+        statoLabel.textContent = 'Pronto per timbrare';
+        statoLabel.className = 'text-white/60 text-sm';
+    } else if (aperta.pausa_inizio && !aperta.pausa_fine) {
+        // In pausa: mostra "Fine Pausa" + uscita
+        btnI.disabled = true;  btnI.style.opacity = '.4';
+        btnP.disabled = false; btnP.style.opacity = '1';
+        btnP.innerHTML = `<i class="fas fa-play text-4xl"></i>FINE<br>PAUSA`;
+        btnU.disabled = false; btnU.style.opacity = '1';
+        const da = aperta.pausa_inizio?.substring(0,5) || '—';
+        statoLabel.innerHTML = `<span class="text-amber-300 font-bold">☕ In pausa dalle ${da}</span>`;
+    } else {
+        // Timbratura attiva
+        btnI.disabled = true;  btnI.style.opacity = '.4';
+        btnP.disabled = false; btnP.style.opacity = '1';
+        btnP.innerHTML = `<i class="fas fa-coffee text-4xl"></i>TIMBRA<br>PAUSA`;
+        btnU.disabled = false; btnU.style.opacity = '1';
+        const da = aperta.ora_ingresso?.substring(0,5) || '—';
+        statoLabel.innerHTML = `<span class="text-green-300 font-bold pulse">● Al lavoro dalle ${da}</span>`;
+    }
+}
+
+// ── Esegui timbrata ───────────────────────────────────────────────────────────
+async function eseguiTimbrata(tipo) {
+    if (!currentUser) return;
+    const aperta = timbratureOggi.find(t => !t.ora_uscita);
+    const ora = new Date();
+    const oggi = ora.toISOString().split('T')[0];
+    const oraStr = ora.toTimeString().split(' ')[0]; // HH:MM:SS
+    const oraLabel = oraStr.substring(0, 5);
+
+    try {
+        if (tipo === 'ingresso') {
+            const { error } = await supabase.from('timbrature').insert({
+                user_id: currentUser.id,
+                data: oggi,
+                ora_ingresso: oraStr,
+                tipo: 'normale',
+                stato: 'approved',
+            });
+            if (error) throw error;
+            showToast('✅ Ingresso alle ' + oraLabel, '#16a34a');
+
+        } else if (tipo === 'pausa') {
+            if (!aperta) return;
+            if (aperta.pausa_inizio && !aperta.pausa_fine) {
+                const { error } = await supabase.from('timbrature')
+                    .update({ pausa_fine: oraStr }).eq('id', aperta.id);
+                if (error) throw error;
+                showToast('▶️ Fine pausa alle ' + oraLabel, '#d97706');
+            } else {
+                const { error } = await supabase.from('timbrature')
+                    .update({ pausa_inizio: oraStr }).eq('id', aperta.id);
+                if (error) throw error;
+                showToast('☕ Inizio pausa alle ' + oraLabel, '#d97706');
+            }
+
+        } else if (tipo === 'uscita') {
+            if (!aperta) return;
+            const { error } = await supabase.from('timbrature')
+                .update({ ora_uscita: oraStr }).eq('id', aperta.id);
+            if (error) throw error;
+            showToast('👋 Uscita alle ' + oraLabel, '#dc2626');
+        }
+
+        await caricaTimbratureOggi();
+        aggiornaBottoni();
+    } catch(err) {
+        showToast('❌ Errore: ' + (err.message || err), '#7f1d1d');
+        console.error(err);
+    }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, bg = '#1f2937') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.background = bg;
+    el.style.opacity = '1';
+    el.style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(-50%) translateY(10px)';
+    }, 3000);
+}
+</script>
+</body>
+</html>

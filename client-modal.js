@@ -24,7 +24,7 @@ window.ClientModal = {
                 pec: clientData.pec || '',
                 partitaIva: clientData.partita_iva || clientData.partitaIva || '',
                 codiceFiscale: clientData.codice_fiscale || clientData.codiceFiscale || '',
-                indirizzo: clientData.indirizzo || 'N/A',
+                indirizzo: clientData.indirizzo || '',
                 citta: clientData.citta || '',
                 cap: clientData.cap || '',
                 provincia: clientData.provincia || '',
@@ -231,17 +231,23 @@ window.ClientModal = {
                                 </div>
                                 <div class="flex-1">
                                     <p class="text-xs text-blue-700 font-medium">Ubicazione</p>
-                                    <p class="text-sm text-gray-900 font-bold break-words">${client.indirizzo}</p>
+                                    ${client.indirizzo
+                                        ? `<p class="text-sm text-gray-900 font-bold break-words">${client.indirizzo}</p>`
+                                        : `<p class="text-sm text-gray-400 italic">Non specificata</p>`
+                                    }
                                 </div>
                             </div>
                             
+                            ${(client.latitudine && client.longitudine) || client.indirizzo ? `
                             <!-- Pulsante Google Maps -->
-                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}" 
+                            <a href="${client.latitudine && client.longitudine
+                                ? `https://www.google.com/maps/search/?api=1&query=${client.latitudine},${client.longitudine}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.indirizzo)}`}" 
                                target="_blank"
                                class="w-full mt-2 py-2 px-3 bg-white border-2 border-blue-300 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 text-blue-700 font-medium text-sm">
                                 <i class="fas fa-map"></i>
                                 Visualizza su Mappa
-                            </a>
+                            </a>` : ''}
                         </div>
 
                         <!-- Notes - GIALLO CHIARO -->
@@ -287,11 +293,14 @@ window.ClientModal = {
                         <a href="tel:${client.telefono}" class="flex-1 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-center text-sm font-medium">
                             <i class="fas fa-phone mr-1"></i>Chiama
                         </a>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.indirizzo)}" 
+                            ${(client.latitudine && client.longitudine) || client.indirizzo ? `
+                            <a href="${client.latitudine && client.longitudine
+                                    ? `https://www.google.com/maps/dir/?api=1&destination=${client.latitudine},${client.longitudine}`
+                                    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.indirizzo)}`}"
                            target="_blank"
                            class="flex-1 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-center text-sm font-medium">
                             <i class="fas fa-route mr-1"></i>Indicazioni
-                        </a>
+                        </a>` : ''}
                         <button onclick="window.ClientModal.close()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 text-sm font-medium">
                             Chiudi
                         </button>

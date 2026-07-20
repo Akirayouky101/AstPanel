@@ -108,8 +108,43 @@
     </div>
 </div>
 
-<!-- ── Filters ── -->
-<div class="max-w-7xl mx-auto px-4 py-4">
+<!-- ── Breadcrumb Navigation ── -->
+<div id="navBreadcrumb" class="hidden max-w-7xl mx-auto px-4 pt-3">
+    <div class="flex items-center gap-2 text-sm">
+        <button onclick="setNavView('comuni')" class="text-green-700 hover:text-green-900 font-semibold flex items-center gap-1">
+            <i class="fas fa-landmark text-xs"></i> Comuni
+        </button>
+        <span id="breadComune" class="hidden items-center gap-2 text-gray-400">
+            <i class="fas fa-chevron-right text-xs"></i>
+            <button onclick="setNavView('luoghi')" class="text-green-700 hover:text-green-900 font-semibold" id="breadComuneNome"></button>
+        </span>
+        <span id="breadLuogo" class="hidden items-center gap-2 text-gray-400">
+            <i class="fas fa-chevron-right text-xs"></i>
+            <span class="text-gray-700 font-semibold" id="breadLuogoNome"></span>
+        </span>
+    </div>
+</div>
+
+<!-- ── Vista Comuni ── -->
+<div id="comuniView" class="max-w-7xl mx-auto px-4 py-4">
+    <div id="comuniGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="col-span-full text-center py-12 text-gray-400"><i class="fas fa-spinner fa-spin text-3xl"></i></div>
+    </div>
+</div>
+
+<!-- ── Vista Luoghi ── -->
+<div id="luoghiView" class="hidden max-w-7xl mx-auto px-4 py-4">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-800 text-lg" id="luoghiTitle">Luoghi</h3>
+        <button onclick="apriAggiungiLuogo()" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition">
+            <i class="fas fa-plus"></i> Aggiungi Luogo
+        </button>
+    </div>
+    <div id="luoghiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+</div>
+
+<!-- ── Filters (solo nella vista verifiche) ── -->
+<div id="verificheFilters" class="hidden max-w-7xl mx-auto px-4 py-4">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2 flex-1 min-w-48">
             <i class="fas fa-search text-gray-400"></i>
@@ -139,6 +174,8 @@
     </div>
 </div>
 
+<!-- ── Vista Verifiche (stats + table) ── -->
+<div id="verificheView" class="hidden">
 <!-- ── Stats ── -->
 <div class="max-w-7xl mx-auto px-4 pb-4">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -169,12 +206,10 @@
                 <thead>
                     <tr class="bg-gradient-to-r from-green-700 to-emerald-600 text-white text-xs font-bold uppercase tracking-wide">
                         <th class="px-4 py-3 text-left">Data</th>
-                        <th class="px-4 py-3 text-left">Comune</th>
-                        <th class="px-4 py-3 text-left">Piano</th>
-                        <th class="px-4 py-3 text-left">Ubicazione</th>
-                        <th class="px-4 py-3 text-left">Marca / N° Poli</th>
-                        <th class="px-4 py-3 text-left">Codice</th>
+                        <th class="px-4 py-3 text-left">Luogo</th>
+                        <th class="px-4 py-3 text-left">Quadro</th>
                         <th class="px-4 py-3 text-center">Esito</th>
+                        <th class="px-4 py-3 text-center">Note</th>
                         <th class="px-4 py-3 text-center">Azioni</th>
                     </tr>
                 </thead>
@@ -190,10 +225,136 @@
         </div>
     </div>
 </div>
+</div><!-- fine verificheView -->
 
+<!-- ╔════ MODAL Aggiungi Luogo ════╕ -->
+<div id="aggiungiLuogoModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="bg-gradient-to-r from-teal-600 to-green-600 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+            <h3 class="font-bold text-lg"><i class="fas fa-map-marker-alt mr-2"></i>Aggiungi Luogo</h3>
+            <button onclick="document.getElementById('aggiungiLuogoModal').classList.add('hidden')" class="text-white/70 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="form-label">Nome del Luogo *</label>
+                <input type="text" id="nuovoLuogoNome" class="form-input" placeholder="es: Piazza Valperga 2, Palazzo Municipale…">
+            </div>
+            <div>
+                <label class="form-label">Indirizzo</label>
+                <input type="text" id="nuovoLuogoIndirizzo" class="form-input" placeholder="es: Piazza Valperga 2, 10014 Caluso">
+            </div>
+            <div>
+                <label class="form-label">Note</label>
+                <input type="text" id="nuovoLuogoNote" class="form-input" placeholder="Descrizione facoltativa">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3 justify-end">
+            <button onclick="document.getElementById('aggiungiLuogoModal').classList.add('hidden')"
+                class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition">Annulla</button>
+            <button onclick="salvaLuogo()"
+                class="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-green-600 text-white rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2">
+                <i class="fas fa-save"></i> Salva Luogo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ╔════ MODAL Dettaglio Verifica ════╕ -->
+<div id="dettaglioVerificaModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" style="scrollbar-width:none">
+        <div class="bg-gradient-to-r from-green-700 to-emerald-600 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
+            <div>
+                <h3 class="font-bold text-lg" id="dettaglioTitolo">Dettaglio Verifica</h3>
+                <p class="text-green-200 text-xs mt-0.5" id="dettaglioSottotitolo"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="dettaglioBtnStampa" onclick="" class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fas fa-print text-xs"></i> Stampa
+                </button>
+                <button id="dettaglioBtnModifica" onclick="" class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fas fa-edit text-xs"></i> Modifica
+                </button>
+                <button onclick="document.getElementById('dettaglioVerificaModal').classList.add('hidden')" class="text-white/70 hover:text-white transition ml-1"><i class="fas fa-times text-xl"></i></button>
+            </div>
+        </div>
+        <div id="dettaglioBody" class="p-6 space-y-5"></div>
+    </div>
+</div>
+
+<!-- ╔════ MODAL Marca ════╕ -->
+<div id="marcaModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-5 py-4 flex items-center justify-between">
+            <h3 class="font-bold"><i class="fas fa-plug mr-2"></i>Seleziona Marca</h3>
+            <button onclick="chiudiMarcaModal()" class="text-white/70 hover:text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-3 border-b border-gray-100">
+            <input type="text" id="marcaModalSearch" placeholder="Cerca marca…" oninput="renderMarcaModalList()"
+                class="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none">
+        </div>
+        <div id="marcaModalList" class="overflow-y-auto p-2 space-y-0.5" style="max-height:280px;scrollbar-width:thin"></div>
+        <div class="p-3 border-t border-gray-100 flex gap-2">
+            <input type="text" id="marcaModalNuova" placeholder="Aggiungi nuova marca…"
+                class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 outline-none"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiMarcaModal();}">
+            <button type="button" onclick="aggiungiMarcaModal()"
+                class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition">+</button>
+        </div>
+    </div>
+</div>
+
+<!-- ╔════ MODAL Conferma Elimina ════╕ -->
+<div id="eliminaModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-red-600 to-rose-500 text-white px-6 py-5 text-center">
+            <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-trash-alt text-2xl"></i>
+            </div>
+            <h3 class="font-bold text-lg">Elimina Verifica</h3>
+        </div>
+        <div class="px-6 py-5 text-center">
+            <p class="text-gray-700 text-sm" id="eliminaMsg">Sei sicuro di voler eliminare questa verifica?</p>
+            <p class="text-red-500 text-xs mt-2 font-semibold">Questa azione non è reversibile.</p>
+        </div>
+        <div class="px-6 pb-5 flex gap-3">
+            <button onclick="chiudiEliminaModal()" class="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition">Annulla</button>
+            <button id="eliminaConfermaBtn" class="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-rose-500 text-white rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                <i class="fas fa-trash-alt text-sm"></i> Elimina
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ╔════ MODAL Note ════╕ -->
+<div id="noteModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+        <div class="bg-gradient-to-r from-red-600 to-rose-500 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <i class="fas fa-sticky-note"></i> Note / Annotazioni
+            </h3>
+            <button onclick="chiudiNoteModal()" class="text-white hover:bg-white/20 p-2 rounded-full transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <input type="hidden" id="noteVerificaId">
+            <textarea id="noteText" rows="7"
+                class="w-full border-2 border-gray-200 rounded-xl p-3 text-sm resize-none focus:ring-2 focus:ring-red-200 focus:border-red-400 outline-none"
+                placeholder="Inserisci annotazioni, osservazioni, prescrizioni..."></textarea>
+            <div class="flex gap-3 mt-4">
+                <button onclick="chiudiNoteModal()" class="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50">
+                    Annulla
+                </button>
+                <button onclick="salvaNoteModal()" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700">
+                    <i class="fas fa-save mr-2"></i>Salva Nota
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- ════ MODAL Nuova/Modifica Verifica ════ -->
 <div id="verificaModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto fade-in" style="scrollbar-width:none">
         <!-- Header modal -->
         <div class="bg-gradient-to-r from-green-700 to-emerald-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
             <div>
@@ -216,27 +377,48 @@
                 <div class="flex gap-3">
                     <label class="flex items-center gap-2 cursor-pointer px-4 py-2.5 rounded-xl border-2 border-green-200 bg-green-50 flex-1 justify-center font-semibold text-green-800">
                         <input type="radio" name="tipoVer" value="semestrale" checked
-                               onchange="document.getElementById('tipoVerifica').value='semestrale'">
+                               onchange="document.getElementById('tipoVerifica').value='semestrale';ricalcolaProssima()">
                         <i class="fas fa-sync-alt"></i> Semestrale
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer px-4 py-2.5 rounded-xl border-2 border-gray-200 flex-1 justify-center font-semibold text-gray-600">
                         <input type="radio" name="tipoVer" value="annuale"
-                               onchange="document.getElementById('tipoVerifica').value='annuale'">
+                               onchange="document.getElementById('tipoVerifica').value='annuale';ricalcolaProssima()">
                         <i class="fas fa-calendar-alt"></i> Annuale
                     </label>
                 </div>
             </div>
 
-            <!-- Riga: Comune + Data -->
+            <!-- Lotto -->
+            <div class="w-full md:w-1/2">
+                <label class="form-label" for="f_lotto">
+                    <i class="fas fa-layer-group mr-1 text-green-600"></i>Lotto <span class="text-gray-400 font-normal">(opzionale)</span>
+                </label>
+                <input type="text" id="f_lotto" class="form-input" placeholder="es: 1° Lotto, 2° Lotto…">
+            </div>
+
+            <!-- Riga: Comune + Luogo collegato -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="f_comune">
                         <i class="fas fa-landmark mr-1 text-green-600"></i>Comune *
                     </label>
-                    <select id="f_comune" class="form-input" required>
+                    <select id="f_comune" class="form-input" required onchange="onComuneChange(this.value)">
                         <option value="">— Seleziona Comune —</option>
                     </select>
                 </div>
+                <div>
+                    <label class="form-label" for="f_luogo">
+                        <i class="fas fa-school mr-1 text-green-600"></i>Struttura / Scuola collegata
+                    </label>
+                    <select id="f_luogo" class="form-input" onchange="onLuogoChange(this.value)">
+                        <option value="">— Prima seleziona un Comune —</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Seleziona dal comune scelto, oppure lascia vuoto per compilare manualmente l'ubicazione</p>
+                </div>
+            </div>
+
+            <!-- Riga: Data verifica + Prossima verifica -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="f_data">
                         <i class="fas fa-calendar mr-1 text-green-600"></i>Data Verifica *
@@ -246,88 +428,6 @@
                         <i class="fas fa-calendar-alt absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none"></i>
                     </div>
                 </div>
-            </div>
-
-            <!-- Riga: Piano + Ubicazione -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="form-label" for="f_piano">
-                        <i class="fas fa-layer-group mr-1 text-green-600"></i>Piano
-                    </label>
-                    <select id="f_piano" class="form-input">
-                        <option value="">— Seleziona —</option>
-                        <option value="Interrato">Interrato (P-1)</option>
-                        <option value="Piano Terra">Piano Terra (PT)</option>
-                        <option value="P1">Primo Piano (P1)</option>
-                        <option value="P2">Secondo Piano (P2)</option>
-                        <option value="P3">Terzo Piano (P3)</option>
-                        <option value="P4">Quarto Piano (P4)</option>
-                        <option value="P5">Quinto Piano (P5)</option>
-                        <option value="Sottotetto">Sottotetto</option>
-                        <option value="Esterno">Esterno / Cortile</option>
-                        <option value="Locale Tecnico">Locale Tecnico</option>
-                        <option value="Cantina">Cantina</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label" for="f_ubicazione">
-                        <i class="fas fa-map-pin mr-1 text-green-600"></i>Ubicazione
-                    </label>
-                    <input type="text" id="f_ubicazione" class="form-input"
-                           placeholder="es: Corridoio nord, Sala server, Locale caldaia…">
-                </div>
-            </div>
-
-            <!-- Riga: Marca N° Poli + Codice -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="form-label" for="f_marca">
-                        <i class="fas fa-plug mr-1 text-green-600"></i>Marca / N° Poli
-                    </label>
-                    <input type="text" id="f_marca" class="form-input"
-                           placeholder="es: ABB 4P, Schneider 2P, Legrand 6P…">
-                </div>
-                <div>
-                    <label class="form-label" for="f_codice">
-                        <i class="fas fa-barcode mr-1 text-green-600"></i>Codice
-                    </label>
-                    <input type="text" id="f_codice" class="form-input"
-                           placeholder="es: QE-01, CEP-123…">
-                </div>
-            </div>
-
-            <!-- Esito -->
-            <div>
-                <label class="form-label">
-                    <i class="fas fa-clipboard-check mr-1 text-green-600"></i>Esito *
-                </label>
-                <div class="grid grid-cols-3 gap-3">
-                    <label id="lbl_conforme"
-                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-green-400 bg-green-50 text-green-800 font-bold text-sm">
-                        <input type="radio" name="esitoRad" value="conforme" checked class="sr-only"
-                               onchange="updateEsitoStyle('conforme')">
-                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
-                        Conforme
-                    </label>
-                    <label id="lbl_non_conforme"
-                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold text-sm">
-                        <input type="radio" name="esitoRad" value="non_conforme" class="sr-only"
-                               onchange="updateEsitoStyle('non_conforme')">
-                        <i class="fas fa-times-circle text-2xl"></i>
-                        Non Conforme
-                    </label>
-                    <label id="lbl_condizionato"
-                           class="flex flex-col items-center gap-1.5 cursor-pointer px-3 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold text-sm">
-                        <input type="radio" name="esitoRad" value="condizionato" class="sr-only"
-                               onchange="updateEsitoStyle('condizionato')">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                        Condizionato
-                    </label>
-                </div>
-            </div>
-
-            <!-- Riga: Data Prossima + Note -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="f_prossima">
                         <i class="fas fa-calendar-plus mr-1 text-green-600"></i>Prossima Verifica
@@ -340,12 +440,70 @@
                         </button>
                     </div>
                 </div>
-                <div>
-                    <label class="form-label" for="f_note">
-                        <i class="fas fa-sticky-note mr-1 text-green-600"></i>Note
-                    </label>
-                    <input type="text" id="f_note" class="form-input" placeholder="Annotazioni…">
+            </div>
+
+            <!-- Indirizzo full width -->
+            <div>
+                <label class="form-label" for="f_indirizzo">
+                    <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>Indirizzo
+                </label>
+                <input type="text" id="f_indirizzo" class="form-input"
+                       placeholder="es: Pza Valperga 2, Caluso">
+            </div>
+
+            <!-- Quadro full width -->
+            <div>
+                <label class="form-label">
+                    <i class="fas fa-th-large mr-1 text-green-600"></i>Quadro / Pannello
+                </label>
+                <!-- Selezioni attive (chips) -->
+                <div id="quadroChips" class="flex flex-wrap gap-1.5 mb-2 min-h-[28px]"></div>
+                <!-- Input nascosto con il valore combinato -->
+                <input type="hidden" id="f_quadro">
+                <!-- Bottone per aprire il picker -->
+                <div class="relative">
+                    <button type="button" onclick="toggleQuadroPicker()" id="quadroPickerBtn"
+                        class="w-full text-left form-input flex items-center justify-between text-gray-500 hover:border-green-400 transition">
+                        <span id="quadroPickerLabel">Seleziona piani / zone…</span>
+                        <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                    </button>
+                    <!-- Dropdown picker -->
+                    <div id="quadroPicker" class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white border-2 border-green-200 rounded-xl shadow-xl overflow-hidden" style="max-height:320px">
+                        <div class="p-2 border-b border-gray-100">
+                            <input type="text" id="quadroSearch" placeholder="Cerca…" oninput="filtroQuadroPicker()"
+                                class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-300 outline-none">
+                        </div>
+                        <div id="quadroOpzioniList" class="overflow-y-auto" style="max-height:200px"></div>
+                        <div class="p-2 border-t border-gray-100 flex gap-2">
+                            <input type="text" id="quadroNuovaVoce" placeholder="Aggiungi voce personalizzata…"
+                                class="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-300 outline-none"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiVoceQuadro();}">
+                            <button type="button" onclick="aggiungiVoceQuadro()"
+                                class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Tabella righe componenti -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="form-label mb-0">
+                        <i class="fas fa-list-alt mr-1 text-green-600"></i>Componenti / Apparecchiature
+                    </label>
+                </div>
+                <div id="righeContainer" class="space-y-3"></div>
+                <p class="text-xs text-gray-400 mt-2">Clicca sull'esito per alternare OK / NON OK</p>
+            </div>
+
+            <!-- Note full width -->
+            <div>
+                <label class="form-label" for="f_note">
+                    <i class="fas fa-sticky-note mr-1 text-green-600"></i>Note
+                </label>
+                <input type="text" id="f_note" class="form-input" placeholder="Annotazioni…">
             </div>
         </div>
 
@@ -398,11 +556,25 @@
                 fp.altInput.readOnly = false;
             }
         };
-        fpData     = flatpickr('#f_data',     { ...fpOpts, defaultDate: 'today' });
+        fpData     = flatpickr('#f_data', {
+            ...fpOpts,
+            defaultDate: 'today',
+            onChange(selectedDates) {
+                if (!selectedDates[0]) return;
+                const tipo = document.getElementById('tipoVerifica').value || 'semestrale';
+                const mesi = tipo === 'annuale' ? 12 : 6;
+                const prossima = new Date(selectedDates[0]);
+                prossima.setMonth(prossima.getMonth() + mesi);
+                fpProssima.setDate(prossima, true);
+            }
+        });
         fpProssima = flatpickr('#f_prossima', { ...fpOpts });
+        initQuadroPicker();
+        initMarche();
 
         await Promise.all([loadComuni(), loadVerifiche()]);
         populateAnnoFilter();
+        setNavView('comuni'); // parte dalla vista comuni
     });
 
     // ── Carica comuni ──
@@ -430,6 +602,209 @@
         });
     }
 
+    // ── Carica strutture/scuole collegate al comune selezionato ──
+    let _comuneCorrente = null;
+    let _struttureMap = {};
+
+    // ── Quadro Picker ─────────────────────────────────────────────────────────
+    const QUADRO_DEFAULT = [
+        'Interrato (P-1)', 'Piano Terra (PT)', '1° Piano (P1)', '2° Piano (P2)',
+        '3° Piano (P3)', '4° Piano (P4)', '5° Piano (P5)', 'Sottotetto',
+        'Locale Tecnico', 'Esterno / Cortile', 'Cantina', 'Cabina Elettrica',
+    ];
+    let _quadroOpzioni = [];
+    let _quadroSelezionate = new Set();
+    let _pianoOrdine = []; // array ordinato dei piani selezionati
+
+    function initQuadroPicker() {
+        const saved = localStorage.getItem('quadro_opzioni_custom');
+        const custom = saved ? JSON.parse(saved) : [];
+        _quadroOpzioni = [...QUADRO_DEFAULT, ...custom.filter(c => !QUADRO_DEFAULT.includes(c))];
+        renderQuadroOpzioni();
+    }
+
+    function renderQuadroOpzioni(filter = '') {
+        const list = document.getElementById('quadroOpzioniList');
+        const filtrate = _quadroOpzioni.filter(o => !filter || o.toLowerCase().includes(filter.toLowerCase()));
+        list.innerHTML = filtrate.map(o => `
+            <label class="flex items-center gap-2 px-3 py-2 hover:bg-green-50 cursor-pointer text-sm">
+                <input type="checkbox" ${_quadroSelezionate.has(o) ? 'checked' : ''}
+                    onchange="toggleQuadroOpzione('${o.replace(/'/g, "\\'")}', this.checked)"
+                    class="accent-green-600 w-4 h-4">
+                <span class="text-gray-800">${o}</span>
+            </label>`).join('') || '<p class="text-center text-gray-400 text-xs py-4">Nessun risultato</p>';
+    }
+
+    function filtroQuadroPicker() {
+        renderQuadroOpzioni(document.getElementById('quadroSearch').value);
+    }
+
+    function toggleQuadroOpzione(voce, checked) {
+        if (checked) {
+            _quadroSelezionate.add(voce);
+            if (!_pianoOrdine.includes(voce)) _pianoOrdine.push(voce);
+        } else {
+            _quadroSelezionate.delete(voce);
+            _pianoOrdine = _pianoOrdine.filter(p => p !== voce);
+        }
+        aggiornaQuadroUI();
+    }
+
+    function rimuoviPianoSezione(piano) {
+        // Sposta le righe di quel piano in "senza piano"
+        _righe.forEach(r => { if (r.piano === piano) r.piano = ''; });
+        // Rimuovi il piano dal picker
+        toggleQuadroOpzione(piano, false);
+        renderQuadroOpzioni();
+        aggiornaQuadroUI();
+    }
+
+    function spostaPiano(piano, direzione) {
+        const idx = _pianoOrdine.indexOf(piano);
+        if (idx === -1) return;
+        const nuovo = idx + direzione;
+        if (nuovo < 0 || nuovo >= _pianoOrdine.length) return;
+        [_pianoOrdine[idx], _pianoOrdine[nuovo]] = [_pianoOrdine[nuovo], _pianoOrdine[idx]];
+        aggiornaQuadroUI(); // aggiorna f_quadro + chips + sezioni
+    }
+
+    function aggiornaQuadroUI() {
+        // Chips nell'ordine di _pianoOrdine
+        const chips = document.getElementById('quadroChips');
+        chips.innerHTML = _pianoOrdine.filter(v => _quadroSelezionate.has(v)).map(v => `
+            <span class="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                ${v}
+                <button type="button" onclick="toggleQuadroOpzione('${v.replace(/'/g, "\\'")}', false);renderQuadroOpzioni()" class="hover:text-red-600 transition ml-0.5">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </span>`).join('');
+        // Aggiorna hidden input con l'ordine corretto
+        const valore = _pianoOrdine.filter(v => _quadroSelezionate.has(v)).join(' + ');
+        document.getElementById('f_quadro').value = valore;
+        // Aggiorna label bottone
+        document.getElementById('quadroPickerLabel').textContent = valore || 'Seleziona piani / zone…';
+        document.getElementById('quadroPickerLabel').className = valore ? 'text-gray-800 text-sm' : 'text-gray-400 text-sm';
+        // Rigenera le sezioni per piano
+        renderRighe();
+    }
+
+    function toggleQuadroPicker() {
+        const picker = document.getElementById('quadroPicker');
+        const isHidden = picker.classList.contains('hidden');
+        picker.classList.toggle('hidden');
+        if (isHidden) {
+            document.getElementById('quadroSearch').value = '';
+            renderQuadroOpzioni();
+            document.getElementById('quadroSearch').focus();
+            // Chiudi cliccando fuori
+            setTimeout(() => document.addEventListener('click', closeQuadroPickerOutside), 0);
+        }
+    }
+
+    function closeQuadroPickerOutside(e) {
+        const picker = document.getElementById('quadroPicker');
+        const btn = document.getElementById('quadroPickerBtn');
+        if (!picker.contains(e.target) && !btn.contains(e.target)) {
+            picker.classList.add('hidden');
+            document.removeEventListener('click', closeQuadroPickerOutside);
+        }
+    }
+
+    function aggiungiVoceQuadro() {
+        const input = document.getElementById('quadroNuovaVoce');
+        const voce = input.value.trim();
+        if (!voce || _quadroOpzioni.includes(voce)) { input.value = ''; return; }
+        _quadroOpzioni.push(voce);
+        // Salva custom in localStorage
+        const custom = _quadroOpzioni.filter(o => !QUADRO_DEFAULT.includes(o));
+        localStorage.setItem('quadro_opzioni_custom', JSON.stringify(custom));
+        _quadroSelezionate.add(voce);
+        input.value = '';
+        renderQuadroOpzioni(document.getElementById('quadroSearch').value);
+        aggiornaQuadroUI();
+    }
+
+    function ricalcolaProssima() {
+        if (!fpData?.selectedDates[0]) return;
+        const tipo = document.getElementById('tipoVerifica').value || 'semestrale';
+        const mesi = tipo === 'annuale' ? 12 : 6;
+        const prossima = new Date(fpData.selectedDates[0]);
+        prossima.setMonth(prossima.getMonth() + mesi);
+        fpProssima.setDate(prossima, true);
+    }
+
+    function resetQuadroPicker(value = '') {
+        _quadroSelezionate = new Set();
+        _pianoOrdine = [];
+        if (value) {
+            value.split('+').map(v => v.trim()).filter(Boolean).forEach(v => {
+                _quadroSelezionate.add(v);
+                _pianoOrdine.push(v);
+            });
+        }
+        aggiornaQuadroUI();
+        renderQuadroOpzioni();
+    }
+
+    async function onComuneChange(comuneId) {
+        const luogoSel = document.getElementById('f_luogo');
+        luogoSel.innerHTML = '<option value="">— Nessuna (inserimento libero) —</option>';
+        _comuneCorrente = null;
+        _struttureMap = {};
+
+        if (!comuneId) {
+            luogoSel.innerHTML = '<option value="">— Prima seleziona un Comune —</option>';
+            return;
+        }
+
+        // Carica dati completi del comune (per auto-fill indirizzo)
+        const { data: comuneData } = await db.from('clients')
+            .select('id, ragione_sociale, indirizzo, citta, cap, provincia')
+            .eq('id', comuneId).maybeSingle();
+        _comuneCorrente = comuneData;
+
+        // Auto-fill indirizzo con quello del comune
+        if (comuneData) {
+            const addr = [comuneData.indirizzo, comuneData.citta ? comuneData.cap + ' ' + comuneData.citta + (comuneData.provincia ? ' (' + comuneData.provincia + ')' : '') : ''].filter(Boolean).join(', ');
+            document.getElementById('f_indirizzo').value = addr;
+        }
+
+        // Carica strutture collegate
+        const { data } = await db.from('clients')
+            .select('id, ragione_sociale, nome, cognome, tipo_cliente, indirizzo, citta, cap, provincia')
+            .eq('comune_id', comuneId)
+            .order('ragione_sociale');
+
+        const strutture = data || [];
+        strutture.forEach(s => {
+            _struttureMap[s.id] = s;
+            const nome = s.ragione_sociale || `${s.nome || ''} ${s.cognome || ''}`.trim();
+            const tipo = s.tipo_cliente || '';
+            const icon = tipo === 'scuola' ? '🏫' : tipo === 'struttura' ? '🏢' : tipo === 'condominio' ? '🏗️' : '📍';
+            luogoSel.innerHTML += `<option value="${s.id}" data-nome="${nome}">${icon} ${nome}</option>`;
+        });
+
+        if (strutture.length === 0) {
+            luogoSel.innerHTML += '<option value="" disabled>Nessuna struttura collegata</option>';
+        }
+    }
+
+    function onLuogoChange(strutturaId) {
+        if (!strutturaId) {
+            // Nessuna struttura: ripristina indirizzo del comune
+            if (_comuneCorrente) {
+                const addr = [_comuneCorrente.indirizzo, _comuneCorrente.citta ? _comuneCorrente.cap + ' ' + _comuneCorrente.citta + (_comuneCorrente.provincia ? ' (' + _comuneCorrente.provincia + ')' : '') : ''].filter(Boolean).join(', ');
+                document.getElementById('f_indirizzo').value = addr;
+            }
+            return;
+        }
+        const s = _struttureMap[strutturaId];
+        if (s) {
+            const addr = [s.indirizzo, s.citta ? (s.cap ? s.cap + ' ' : '') + s.citta + (s.provincia ? ' (' + s.provincia + ')' : '') : ''].filter(Boolean).join(', ');
+            document.getElementById('f_indirizzo').value = addr || document.getElementById('f_indirizzo').value;
+        }
+    }
+
     // ── Carica verifiche ──
     async function loadVerifiche() {
         const { data, error } = await db.from('verifiche')
@@ -454,7 +829,15 @@
         if (comune) list = list.filter(v => v.cliente_id === comune);
         if (esito)  list = list.filter(v => v.esito === esito);
         if (anno)   list = list.filter(v => v.data_verifica?.startsWith(anno));
-        if (q)      list = list.filter(v =>
+        // Filtro per luogo specifico quando siamo nella vista verifiche
+        if (navView === 'verifiche' && navLuogoNome) {
+            if (navLuogoNome === '(Verifiche generali comune)') {
+                list = list.filter(v => !v.luogo_nome);
+            } else {
+                list = list.filter(v => v.luogo_nome === navLuogoNome);
+            }
+        }
+        if (q) list = list.filter(v =>
             (v.luogo_nome||'').toLowerCase().includes(q) ||
             (v.ubicazione||'').toLowerCase().includes(q) ||
             (v.codice||'').toLowerCase().includes(q) ||
@@ -470,7 +853,7 @@
         const tbody = document.getElementById('verificheTable');
         if (!list.length) {
             tbody.innerHTML = `
-                <tr><td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                <tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">
                     <i class="fas fa-clipboard text-4xl mb-3 block opacity-30"></i>
                     Nessuna verifica trovata
                 </td></tr>`;
@@ -481,32 +864,33 @@
             const data = v.data_verifica ? new Date(v.data_verifica).toLocaleDateString('it-IT') : '—';
             const prossima = v.data_prossima ? new Date(v.data_prossima).toLocaleDateString('it-IT') : '';
             const esitoBadge = {
-                conforme:     `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-conforme"><i class="fas fa-check mr-1"></i>Conforme</span>`,
-                non_conforme: `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-non_conforme"><i class="fas fa-times mr-1"></i>Non Conforme</span>`,
-                condizionato: `<span class="px-2.5 py-1 rounded-full text-xs font-bold badge-condizionato"><i class="fas fa-exclamation mr-1"></i>Condizionato</span>`,
+                conforme:     `<div class="flex flex-col items-center gap-0.5"><i class="fas fa-check-circle text-green-500 text-lg"></i><span class="text-xs font-semibold text-green-700">Conforme</span></div>`,
+                non_conforme: `<div class="flex flex-col items-center gap-0.5"><i class="fas fa-times-circle text-red-500 text-lg"></i><span class="text-xs font-semibold text-red-700">Non Conforme</span></div>`,
+                condizionato: `<div class="flex flex-col items-center gap-0.5"><i class="fas fa-exclamation-circle text-amber-500 text-lg"></i><span class="text-xs font-semibold text-amber-700">Condizionato</span></div>`,
             }[v.esito] || v.esito;
 
             return `
-            <tr class="border-b border-gray-100 hover-row transition-colors">
+            <tr class="border-b border-gray-100 hover-row transition-colors cursor-pointer" onclick="apriDettaglioVerifica('${v.id}')">
                 <td class="px-4 py-3 text-gray-700 whitespace-nowrap">
                     <div class="font-semibold">${data}</div>
                     ${prossima ? `<div class="text-xs text-gray-400 mt-0.5"><i class="fas fa-arrow-right mr-1"></i>${prossima}</div>` : ''}
                 </td>
                 <td class="px-4 py-3">
+                    ${v.lotto ? `<div class="text-xs font-bold text-green-600 uppercase mb-0.5">${v.lotto}</div>` : ''}
                     <div class="font-semibold text-gray-800 flex items-center gap-1.5">
                         <i class="fas fa-landmark text-green-600 text-xs"></i>${nomeComune}
                     </div>
                 </td>
-                <td class="px-4 py-3 text-gray-600">${v.piano || '—'}</td>
-                <td class="px-4 py-3 text-gray-700 max-w-xs">
-                    <div class="truncate" title="${v.ubicazione || ''}">${v.ubicazione || '—'}</div>
-                </td>
-                <td class="px-4 py-3 text-gray-700 font-mono text-xs">${v.marca_n_poli || '—'}</td>
-                <td class="px-4 py-3">
-                    ${v.codice ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-mono">${v.codice}</span>` : '—'}
-                </td>
+                <td class="px-4 py-3 text-gray-600">${v.quadro_descrizione || v.piano || '—'}</td>
                 <td class="px-4 py-3 text-center">${esitoBadge}</td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-4 py-3 text-center" onclick="event.stopPropagation()">
+                    <button onclick="apriNoteModal('${v.id}')"
+                        class="text-xs font-bold px-2.5 py-1.5 rounded-lg transition
+                               ${v.note ? 'bg-red-50 text-red-700 border border-red-300 hover:bg-red-100' : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100'}">
+                        ${v.note ? '<i class="fas fa-sticky-note mr-1"></i>CI SONO NOTE' : '<i class="fas fa-sticky-note mr-1"></i>NESSUNA NOTA'}
+                    </button>
+                </td>
+                <td class="px-4 py-3 text-center" onclick="event.stopPropagation()">
                     <div class="flex items-center justify-center gap-2">
                         <button onclick="modificaVerifica('${v.id}')" title="Modifica"
                                 class="text-blue-500 hover:text-blue-700 text-sm p-1"><i class="fas fa-edit"></i></button>
@@ -518,6 +902,145 @@
                 </td>
             </tr>`;
         }).join('');
+    }
+
+    // ── Modal Dettaglio Verifica ──
+    function apriDettaglioVerifica(id) {
+        const v = verifiche.find(x => x.id === id);
+        if (!v) return;
+        const nomeComune = v.cliente?.ragione_sociale || v.luogo_nome || '—';
+        const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
+        const esitoColor = { conforme:'#16a34a', non_conforme:'#dc2626', condizionato:'#d97706' }[v.esito] || '#374151';
+        const esitoLabel = { conforme:'✓ Conforme', non_conforme:'✗ Non Conforme', condizionato:'⚠ Condizionato' }[v.esito] || v.esito;
+        const tipoLabel = v.tipo_verifica === 'annuale' ? 'Annuale' : 'Semestrale';
+
+        document.getElementById('dettaglioTitolo').textContent = `Verifica ${tipoLabel} — ${nomeComune}`;
+        document.getElementById('dettaglioSottotitolo').textContent = `${v.lotto ? v.lotto + ' · ' : ''}${fmt(v.data_verifica)}${v.data_prossima ? ' · Prossima: ' + fmt(v.data_prossima) : ''}`;
+        document.getElementById('dettaglioBtnStampa').onclick = () => stampaVerifica(id);
+        document.getElementById('dettaglioBtnModifica').onclick = () => { document.getElementById('dettaglioVerificaModal').classList.add('hidden'); modificaVerifica(id); };
+
+        // Righe: usa righe JSONB se presenti, altrimenti legacy
+        const righe = (v.righe && v.righe.length > 0)
+            ? v.righe
+            : [{ piano:'', zona:'', ubicazione: v.ubicazione||'', marca: v.marca_n_poli||'', n_poli:'', codice: v.codice||'', esito: v.esito==='conforme'?'OK':'NON OK' }];
+
+        // Ordine piani da quadro_descrizione (rispetta l'ordine salvato)
+        const pianiOrdinati = (v.quadro_descrizione || v.piano || '')
+            .split('+')
+            .map(p => p.trim())
+            .filter(Boolean);
+        const pianiDaRighe = [...new Set(righe.map(r => r.piano||'').filter(Boolean))];
+        // Unisci: prima quelli in ordine da quadro, poi eventuali extra nelle righe
+        const piani = [
+            ...pianiOrdinati,
+            ...pianiDaRighe.filter(p => !pianiOrdinati.includes(p))
+        ];
+        const hasPiani = piani.some(p => p !== '');
+        let righeHtml = '';
+        if (!hasPiani) {
+            righeHtml = `<table class="w-full text-sm border-collapse">
+                <thead class="bg-green-50"><tr>
+                    <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                    <th class="px-3 py-2 text-left text-xs font-bold text-blue-600">Zona</th>
+                    <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Marca</th>
+                    <th class="px-3 py-2 text-center text-xs font-bold text-green-800 w-14">N° Poli</th>
+                    <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Codice</th>
+                    <th class="px-3 py-2 text-center text-xs font-bold text-green-800 w-20">Esito</th>
+                </tr></thead>
+                <tbody>${righe.map(r => `<tr class="border-t border-gray-100">
+                    <td class="px-3 py-2 text-gray-800">${r.ubicazione||'—'}</td>
+                    <td class="px-3 py-2 text-blue-600 text-xs">${r.zona||''}</td>
+                    <td class="px-3 py-2 text-gray-700">${r.marca||'—'}</td>
+                    <td class="px-3 py-2 text-center text-gray-700">${r.n_poli||'—'}</td>
+                    <td class="px-3 py-2 font-mono text-xs text-gray-700">${r.codice||'—'}</td>
+                    <td class="px-3 py-2 text-center text-xs font-bold ${r.esito==='NON OK'?'text-red-600':'text-green-700'}">${r.esito||'OK'}</td>
+                </tr>`).join('')}</tbody>
+            </table>`;
+        } else {
+            const _tableRows = group => group.map(r => `<tr class="border-t border-gray-100">
+                        <td class="px-3 py-2 text-gray-800">${r.ubicazione||'—'}</td>
+                        <td class="px-3 py-2 text-blue-600 text-xs">${r.zona||''}</td>
+                        <td class="px-3 py-2 text-gray-700">${r.marca||'—'}</td>
+                        <td class="px-3 py-2 text-center text-gray-700">${r.n_poli||'—'}</td>
+                        <td class="px-3 py-2 font-mono text-xs text-gray-700">${r.codice||'—'}</td>
+                        <td class="px-3 py-2 text-center text-xs font-bold ${r.esito==='NON OK'?'text-red-600':'text-green-700'}">${r.esito||'OK'}</td>
+                    </tr>`).join('');
+            const _tableHead = `<thead class="bg-green-50"><tr>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-blue-600">Zona</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Marca</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-green-800 w-14">N° Poli</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-green-800">Codice</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-green-800 w-20">Esito</th>
+                    </tr></thead>`;
+            righeHtml = piani.map(piano => {
+                const group = righe.filter(r => (r.piano||'') === piano);
+                if (!group.length) return '';
+                return `
+                <div class="bg-green-600 text-white text-xs font-bold px-4 py-1.5 rounded-t-lg">📋 ${piano}</div>
+                <table class="w-full text-sm border-collapse border border-green-100 rounded-b-lg overflow-hidden mb-3">
+                    ${_tableHead}<tbody>${_tableRows(group)}</tbody>
+                </table>`;
+            }).join('');
+            // Righe senza sezione
+            const senzaSezione = righe.filter(r => !r.piano || !piani.includes(r.piano));
+            if (senzaSezione.length) {
+                righeHtml += `
+                <div class="bg-green-600 text-white text-xs font-bold px-4 py-1.5 rounded-t-lg">📋 Senza sezione</div>
+                <table class="w-full text-sm border-collapse border border-green-100 rounded-b-lg overflow-hidden mb-3">
+                    ${_tableHead}<tbody>${_tableRows(senzaSezione)}</tbody>
+                </table>`;
+            }
+        }
+
+        document.getElementById('dettaglioBody').innerHTML = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100"><p class="text-xs text-gray-400 font-semibold uppercase mb-1">Data verifica</p><p class="font-bold text-gray-900">${fmt(v.data_verifica)}</p></div>
+                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100"><p class="text-xs text-gray-400 font-semibold uppercase mb-1">Prossima</p><p class="font-bold text-gray-900">${fmt(v.data_prossima)}</p></div>
+                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100"><p class="text-xs text-gray-400 font-semibold uppercase mb-1">Tipo</p><p class="font-bold text-gray-900">${tipoLabel}</p></div>
+                <div class="rounded-xl p-3 border-2" style="border-color:${esitoColor}20;background:${esitoColor}08"><p class="text-xs font-semibold uppercase mb-1" style="color:${esitoColor}">Esito</p><p class="font-black" style="color:${esitoColor}">${esitoLabel}</p></div>
+            </div>
+            ${v.indirizzo || v.quadro_descrizione || v.piano ? `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                ${v.indirizzo ? `<div class="bg-gray-50 rounded-xl p-3 border border-gray-100"><p class="text-xs text-gray-400 font-semibold uppercase mb-1">Indirizzo</p><p class="font-semibold text-gray-900">${v.indirizzo}</p></div>` : ''}
+                ${(v.quadro_descrizione||v.piano) ? `<div class="bg-gray-50 rounded-xl p-3 border border-gray-100"><p class="text-xs text-gray-400 font-semibold uppercase mb-1">Quadro / Pannello</p><p class="font-semibold text-gray-900">${v.quadro_descrizione||v.piano}</p></div>` : ''}
+            </div>` : ''}
+            <div>
+                <h4 class="font-bold text-gray-700 mb-2 flex items-center gap-2"><i class="fas fa-list text-green-600 text-xs"></i>Componenti</h4>
+                <div class="overflow-x-auto rounded-xl border border-gray-200">${righeHtml}</div>
+            </div>
+            ${v.note ? `<div class="bg-amber-50 border-l-4 border-amber-400 px-4 py-3 rounded-r-xl"><p class="text-xs font-bold text-amber-700 uppercase mb-1">Note</p><p class="text-gray-700 text-sm">${v.note}</p></div>` : ''}
+        `;
+        document.getElementById('dettaglioVerificaModal').classList.remove('hidden');
+    }
+
+    // ── Modal Note ──
+    function apriNoteModal(id) {
+        const v = verifiche.find(x => x.id === id);
+        if (!v) return;
+        document.getElementById('noteVerificaId').value = id;
+        document.getElementById('noteText').value = v.note || '';
+        document.getElementById('noteModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('noteText').focus(), 100);
+    }
+
+    function chiudiNoteModal() {
+        document.getElementById('noteModal').classList.add('hidden');
+    }
+
+    async function salvaNoteModal() {
+        const id   = document.getElementById('noteVerificaId').value;
+        const note = document.getElementById('noteText').value.trim() || null;
+        const { error } = await db.from('verifiche')
+            .update({ note, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) { showToast('❌ Errore: ' + error.message, 'error'); return; }
+        // Aggiorna localmente senza ricaricare tutto
+        const v = verifiche.find(x => x.id === id);
+        if (v) v.note = note;
+        applyFilters();
+        chiudiNoteModal();
+        showToast(note ? '✅ Nota salvata' : '✅ Nota rimossa', 'success');
     }
 
     // ── Stats ──
@@ -547,8 +1070,9 @@
             btn.style.color      = t === tipo ? '#065f46' : '';
             btn.className = btn.className.replace(/text-\S+/g,'') + (t === tipo ? ' text-green-800' : ' text-gray-500 hover:bg-gray-100');
         });
-        applyFilters();
-        updateStats();
+        if (navView === 'comuni') renderComuni();
+        else if (navView === 'luoghi') renderLuoghi();
+        else { applyFilters(); updateStats(); }
     }
 
     // ── Esito radio style ──
@@ -572,20 +1096,382 @@
         });
     }
 
+    // ── Gestione righe dinamiche con sezioni per piano ──
+    let _righe = [];
+
+    function _buildRigaHtml(r, globalIdx, piani = []) {
+        // Zone options 1-10
+        const zoneOpts = ['', ...Array.from({length:10}, (_,i) => `Zona ${i+1}`)]
+            .map(z => `<option value="${z}" ${r.zona===z?'selected':''}>${z||'—'}</option>`).join('');
+        return `<tr class="border-t border-gray-100" id="riga-${globalIdx}">
+            <td class="px-1 py-1"><input type="text" value="${r.ubicazione||''}" oninput="_righe[${globalIdx}].ubicazione=this.value"
+                class="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-green-300 outline-none" placeholder="es: Generale F.M."></td>
+            <td class="px-1 py-1">
+                <select onchange="_righe[${globalIdx}].zona=this.value" title="Zona (opzionale)"
+                    class="w-full px-1 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-200 outline-none bg-white text-gray-600">
+                    ${zoneOpts}
+                </select>
+            </td>
+            <td class="px-1 py-1">
+                <button type="button" onclick="apriMarcaModal(${globalIdx})"
+                    class="w-full px-2 py-1 border border-gray-200 rounded text-xs text-left focus:ring-1 focus:ring-green-300 bg-white hover:border-green-400 transition"
+                    id="marcaBtn-${globalIdx}">
+                    ${r.marca || '<span class="text-gray-300">marca…</span>'}
+                </button>
+            </td>
+            <td class="px-1 py-1"><input type="number" min="1" max="6" value="${r.n_poli||''}" oninput="_righe[${globalIdx}].n_poli=this.value"
+                class="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-green-300 outline-none text-center" placeholder="4"></td>
+            <td class="px-1 py-1">
+                <div class="flex items-center gap-1 flex-wrap border border-gray-200 rounded px-1.5 py-0.5 min-h-[26px] bg-white focus-within:ring-1 focus-within:ring-green-300" id="codiceWrap-${globalIdx}">
+                    ${(r.codice||'').split('+').map(c=>c.trim()).filter(Boolean).map((c,ci)=>`
+                        <span class="inline-flex items-center gap-0.5 bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono text-xs group">
+                            <span onclick="modificaCodice(${globalIdx},${ci},this)" title="Clicca per modificare" class="cursor-pointer hover:text-green-700 hover:underline">${c}</span><button type="button" onclick="rimuoviCodice(${globalIdx},${ci})" class="text-gray-400 hover:text-red-500 ml-0.5 leading-none">×</button>
+                        </span>`).join('')}
+                    <input type="text" id="codiceInput-${globalIdx}"
+                        class="flex-1 min-w-[60px] text-xs font-mono outline-none bg-transparent placeholder-gray-300" placeholder="codice…"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiCodice(${globalIdx},this);}"
+                        onblur="if(this.value.trim())aggiungiCodice(${globalIdx},this)"
+                        style="width:70px">
+                    <button type="button" onclick="aggiungiCodice(${globalIdx},document.getElementById('codiceInput-${globalIdx}'))"
+                        class="text-green-500 hover:text-green-700 font-bold text-sm leading-none px-0.5 flex-shrink-0" title="Aggiungi altro codice">+</button>
+                </div>
+            </td>
+            <td class="px-1 py-1 text-center">
+                <button type="button" onclick="toggleEsitoRiga(${globalIdx})"
+                    class="px-2 py-1 rounded text-xs font-bold ${r.esito==='NON OK' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                    ${r.esito||'OK'}
+                </button>
+            </td>
+            <td class="px-1 py-1 text-center whitespace-nowrap">
+                ${piani.length > 0 ? `<select onchange="spostaNellaSezione(${globalIdx},this.value);this.value=''" title="Sposta in sezione"
+                    class="text-gray-400 hover:text-green-600 border-0 bg-transparent text-xs cursor-pointer outline-none focus:ring-0 appearance-none pr-0" style="width:18px;font-size:13px">
+                    <option value="" disabled selected>&#8594;</option>
+                    ${piani.filter(p => p !== (r.piano||'')).map(p => `<option value="${p}">${p}</option>`).join('')}
+                    ${r.piano ? `<option value="__SENZA__">— Senza sezione</option>` : ''}
+                </select>` : ''}
+                <button type="button" onclick="rimuoviRiga(${globalIdx})" class="text-gray-300 hover:text-red-500 transition" title="Elimina"><i class="fas fa-times text-xs"></i></button>
+                <button type="button" onclick="copiaRiga(${globalIdx}, this)" class="text-gray-300 hover:text-blue-500 transition ml-1" title="Duplica"><i class="fas fa-copy text-xs"></i></button>
+            </td>
+        </tr>`;
+    }
+
+    function spostaNellaSezione(rigaIdx, destinazione) {
+        if (!destinazione) return;
+        _righe[rigaIdx].piano = destinazione === '__SENZA__' ? '' : destinazione;
+        renderRighe();
+    }
+
+    function assegnaPianoARiga(idx, piano) {
+        if (!piano) return;
+        _righe[idx].piano = piano;
+        renderRighe();
+    }
+
+    function assegnaPianoATutti(piano) {
+        if (!piano) return;
+        const piani = [..._quadroSelezionate];
+        _righe.forEach(r => { if (!r.piano || !piani.includes(r.piano)) r.piano = piano; });
+        renderRighe();
+    }
+
+    function renderRighe() {
+        const container = document.getElementById('righeContainer');
+        // Usa _pianoOrdine per l'ordine delle sezioni
+        const piani = _pianoOrdine.filter(p => _quadroSelezionate.has(p));
+        const hasPiani = piani.length > 0;
+
+        // Se non ci sono piani → una sola sezione senza header
+        if (!hasPiani) {
+            if (_righe.length === 0) _righe.push({ piano:'', ubicazione:'', marca:'', n_poli:'', codice:'', esito:'OK' });
+            container.innerHTML = `
+            <div class="overflow-x-auto rounded-xl border border-gray-200">
+                <table class="w-full text-sm">
+                    <thead class="bg-green-50"><tr>
+                        <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-blue-600 w-20">Zona</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Marca</th>
+                            <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-16">N° Poli</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Codice</th>
+                            <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-24">Esito</th>
+                            <th class="w-14"></th>
+                    </tr></thead>
+                    <tbody>${_righe.map((r,i) => _buildRigaHtml(r, i)).join('')}</tbody>
+                </table>
+            </div>
+            <button type="button" onclick="aggiungiRiga('')"
+                class="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
+                <i class="fas fa-plus"></i> Aggiungi riga
+            </button>`;
+            return;
+        }
+
+        // Con piani → una sezione per piano
+        let html = '';
+        piani.forEach(piano => {
+            const indices = _righe.reduce((acc, r, i) => { if (r.piano === piano) acc.push(i); return acc; }, []);
+            html += `
+            <div class="rounded-xl border-2 border-green-200 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="flex flex-col gap-0.5">
+                            <button type="button" onclick="spostaPiano('${piano}', -1)" title="Sposta su"
+                                class="text-white/60 hover:text-white transition leading-none" style="font-size:10px">▲</button>
+                            <button type="button" onclick="spostaPiano('${piano}', 1)" title="Sposta giù"
+                                class="text-white/60 hover:text-white transition leading-none" style="font-size:10px">▼</button>
+                        </div>
+                        <span class="text-white font-bold text-sm">📋 ${piano}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="aggiungiRiga('${piano}')"
+                            class="flex items-center gap-1 px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition">
+                            <i class="fas fa-plus"></i> Aggiungi riga
+                        </button>
+                        <button type="button" onclick="rimuoviPianoSezione('${piano.replace(/'/g, "\\'")}')" title="Rimuovi sezione"
+                            class="w-6 h-6 flex items-center justify-center bg-white/20 hover:bg-red-500/80 text-white rounded-lg transition text-xs">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-green-50"><tr>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-blue-600 w-20">Zona</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Marca</th>
+                            <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-16">N° Poli</th>
+                            <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Codice</th>
+                            <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-24">Esito</th>
+                            <th class="w-14"></th>
+                        </tr></thead>
+                        <tbody>${indices.length ? indices.map(i => _buildRigaHtml(_righe[i], i, piani)).join('') : `<tr><td colspan="6" class="px-4 py-3 text-xs text-gray-400 italic text-center">Nessuna riga — clicca "Aggiungi riga"</td></tr>`}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+        // Righe senza sezione — sempre visibile
+        const senzaPiano = _righe.reduce((acc, r, i) => { if (!r.piano || !piani.includes(r.piano)) acc.push(i); return acc; }, []);
+        const pianoOpzioniHtml = piani.map(p => `<option value="${p}">${p}</option>`).join('');
+        html += `<div class="rounded-xl border-2 border-green-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-white font-bold text-sm">📋 Senza sezione</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="aggiungiRiga('')"
+                        class="flex items-center gap-1 px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition">
+                        <i class="fas fa-plus"></i> Aggiungi riga
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-green-50"><tr>
+                        <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                        <th class="px-2 py-2 text-left text-xs font-bold text-blue-600 w-20">Zona</th>
+                        <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Marca</th>
+                        <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-16">N° Poli</th>
+                        <th class="px-2 py-2 text-left text-xs font-bold text-green-800">Codice</th>
+                        <th class="px-2 py-2 text-center text-xs font-bold text-green-800 w-24">Esito</th>
+                        <th class="w-14"></th>
+                    </tr></thead>
+                    <tbody>${senzaPiano.length ? senzaPiano.map(i => _buildRigaHtml(_righe[i], i)).join('') : `<tr><td colspan="7" class="px-4 py-3 text-xs text-gray-400 italic text-center">Nessuna riga — clicca "Aggiungi riga"</td></tr>`}</tbody>
+                </table>
+            </div>
+        </div>`;
+
+        container.innerHTML = html;
+    }
+
+    // ── Dropdown Marche ──────────────────────────────────────────────────────────
+    const MARCHE_DEFAULT = ['ABB','BTicino','Came','Eaton','Finder','Gewiss','Hager',
+        'Legrand','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
+    let _marche = [];
+    let _marcaRigaIdx = null;
+
+    function initMarche() {
+        const custom = JSON.parse(localStorage.getItem('verifiche_marche_custom') || '[]');
+        _marche = [...MARCHE_DEFAULT, ...custom.filter(m => !MARCHE_DEFAULT.includes(m))].sort();
+    }
+
+    function apriMarcaModal(rigaIdx) {
+        _marcaRigaIdx = rigaIdx;
+        document.getElementById('marcaModalSearch').value = '';
+        document.getElementById('marcaModalNuova').value = '';
+        renderMarcaModalList();
+        document.getElementById('marcaModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('marcaModalSearch').focus(), 80);
+    }
+
+    function chiudiMarcaModal() {
+        document.getElementById('marcaModal').classList.add('hidden');
+        _marcaRigaIdx = null;
+    }
+
+    function renderMarcaModalList() {
+        const q = document.getElementById('marcaModalSearch').value.toLowerCase().trim();
+        const el = document.getElementById('marcaModalList');
+        const attuale = _marcaRigaIdx !== null ? (_righe[_marcaRigaIdx]?.marca || '') : '';
+        const filtrate = _marche.filter(m => !q || m.toLowerCase().includes(q));
+        el.innerHTML = filtrate.map(m => `
+            <button type="button" onclick="selezionaMarcaModal('${m.replace(/'/g,"\\'")}')"
+                class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-green-50 hover:text-green-700 transition font-medium ${m === attuale ? 'bg-green-50 text-green-700' : 'text-gray-700'}">
+                ${m === attuale ? '<i class="fas fa-check text-green-500 mr-2 text-xs"></i>' : '<span class="inline-block w-5 mr-1"></span>'}${m}
+            </button>`).join('') || '<p class="text-center text-gray-400 text-sm py-4">Nessun risultato</p>';
+    }
+
+    function selezionaMarcaModal(marca) {
+        if (_marcaRigaIdx === null) return;
+        _righe[_marcaRigaIdx].marca = marca;
+        // Aggiorna il bottone nella tabella
+        const btn = document.getElementById('marcaBtn-' + _marcaRigaIdx);
+        if (btn) btn.innerHTML = marca;
+        chiudiMarcaModal();
+    }
+
+    function aggiungiMarcaModal() {
+        const val = document.getElementById('marcaModalNuova').value.trim();
+        if (!val) return;
+        if (!_marche.includes(val)) {
+            _marche.push(val);
+            _marche.sort();
+            const custom = _marche.filter(m => !MARCHE_DEFAULT.includes(m));
+            localStorage.setItem('verifiche_marche_custom', JSON.stringify(custom));
+        }
+        selezionaMarcaModal(val);
+    }
+
+    // ── Legacy (non più usate ma mantenute per sicurezza) ──
+    function apriMarcaList() {}
+    function chiudiMarcaList() {}
+    function filtroMarcaList() {}
+
+    function modificaCodice(rigaIdx, codiceIdx, spanEl) {
+        const vecchioValore = spanEl.textContent.trim();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = vecchioValore;
+        input.className = 'font-mono text-xs outline-none bg-transparent w-[80px] border-b border-green-400 text-green-700';
+        spanEl.replaceWith(input);
+        input.focus();
+        input.select();
+        const salva = () => {
+            const nuovo = input.value.trim();
+            if (nuovo && nuovo !== vecchioValore) {
+                const codici = (_righe[rigaIdx].codice||'').split('+').map(c=>c.trim()).filter(Boolean);
+                codici[codiceIdx] = nuovo;
+                _righe[rigaIdx].codice = codici.join(' + ');
+                renderRighe();
+            } else {
+                input.replaceWith(spanEl);
+            }
+        };
+        input.addEventListener('blur', salva);
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { input.removeEventListener('blur', salva); input.replaceWith(spanEl); }
+        });
+    }
+
+    function aggiungiCodice(rigaIdx, inputEl) {
+        const val = inputEl.value.trim().replace(/\+/g,'').trim();
+        if (!val) return;
+        const codici = (_righe[rigaIdx].codice||'').split('+').map(c=>c.trim()).filter(Boolean);
+        if (!codici.includes(val)) codici.push(val);
+        _righe[rigaIdx].codice = codici.join(' + ');
+        inputEl.value = '';
+        renderRighe();
+        // Mantieni focus sull'input della riga
+        setTimeout(() => { const inp = document.getElementById('codiceInput-'+rigaIdx); if(inp) inp.focus(); }, 50);
+    }
+
+    function rimuoviCodice(rigaIdx, codiceIdx) {
+        const codici = (_righe[rigaIdx].codice||'').split('+').map(c=>c.trim()).filter(Boolean);
+        codici.splice(codiceIdx, 1);
+        _righe[rigaIdx].codice = codici.join(' + ');
+        renderRighe();
+    }
+
+    function aggiungiRiga(piano = '') {
+        _righe.push({ piano, ubicazione:'', marca:'', n_poli:'', codice:'', esito:'OK' });
+        renderRighe();
+    }
+
+    function rimuoviRiga(idx) {
+        if (_righe.length <= 1 && [..._quadroSelezionate].length === 0) return;
+        _righe.splice(idx, 1);
+        renderRighe();
+    }
+
+    function copiaRiga(idx, btnEl) {
+        const piani = [..._quadroSelezionate];
+        if (piani.length <= 1) {
+            const copia = { ..._righe[idx] };
+            _righe.splice(idx + 1, 0, copia);
+            renderRighe();
+            return;
+        }
+        // Rimuovi menu precedente
+        document.getElementById('_copiaMenu')?.remove();
+        const pianoCorrente = _righe[idx].piano || '';
+        const voci = [
+            { label: 'Stessa sezione', piano: pianoCorrente, stesso: true },
+            ...piani.filter(p => p !== pianoCorrente).map(p => ({ label: p, piano: p, stesso: false }))
+        ];
+        const menu = document.createElement('div');
+        menu.id = '_copiaMenu';
+        menu.className = 'absolute z-[200] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[160px]';
+        menu.style.cssText = 'font-size:12px';
+        menu.innerHTML = `<p class="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100">Duplica in:</p>` +
+            voci.map(v => `<button type="button" onclick="_eseguiCopia(${idx},'${v.piano}',${v.stesso});document.getElementById('_copiaMenu')?.remove()"
+                class="w-full text-left px-3 py-2 hover:bg-green-50 hover:text-green-700 text-gray-700 font-medium">
+                ${v.stesso ? '↩ Stessa sezione' : '→ ' + v.label}
+            </button>`).join('');
+        // Posiziona vicino al bottone
+        const rect = btnEl.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = (rect.bottom + 4) + 'px';
+        menu.style.left = Math.max(8, rect.left - 80) + 'px';
+        document.body.appendChild(menu);
+        // Chiudi cliccando fuori
+        setTimeout(() => document.addEventListener('click', function h(e) {
+            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', h); }
+        }), 0);
+    }
+
+    function _eseguiCopia(idx, piano, stesso) {
+        const copia = { ..._righe[idx] };
+        if (stesso) {
+            _righe.splice(idx + 1, 0, copia);
+        } else {
+            copia.piano = piano;
+            // Inserisci dopo l'ultima riga di quel piano
+            const lastIdx = _righe.reduce((last, r, i) => r.piano === piano ? i : last, -1);
+            if (lastIdx >= 0) _righe.splice(lastIdx + 1, 0, copia);
+            else _righe.push(copia);
+        }
+        renderRighe();
+    }
+
+    function toggleEsitoRiga(idx) {
+        _righe[idx].esito = _righe[idx].esito === 'NON OK' ? 'OK' : 'NON OK';
+        renderRighe();
+    }
+
     // ── Modal ──
     function openModal() {
         document.getElementById('verificaId').value = '';
         document.getElementById('modalTitle').textContent = 'Nuova Verifica';
         document.getElementById('f_comune').value     = '';
-        fpData.setDate('today', true);
-        fpProssima.clear();
-        document.getElementById('f_piano').value      = '';
-        document.getElementById('f_ubicazione').value = '';
-        document.getElementById('f_marca').value      = '';
-        document.getElementById('f_codice').value     = '';
+        document.getElementById('f_luogo').innerHTML  = '<option value="">— Prima seleziona un Comune —</option>';
+        fpProssima.clear();           // prima di setDate così non viene subito risovrascritto
+        fpData.setDate('today', true); // triggera onChange → setta prossima +6/12 mesi
+        document.getElementById('f_indirizzo').value  = '';
+        document.getElementById('f_lotto').value        = '';
         document.getElementById('f_note').value       = '';
-        document.querySelector('input[name="esitoRad"][value="conforme"]').checked = true;
-        updateEsitoStyle('conforme');
+        resetQuadroPicker('');
+        _righe = [{ ubicazione:'', marca:'', n_poli:'', codice:'', esito:'OK' }];
+        renderRighe();
         document.getElementById('verificaModal').classList.remove('hidden');
     }
 
@@ -601,16 +1487,30 @@
         document.getElementById('tipoVerifica').value  = v.tipo_verifica || 'semestrale';
         document.querySelector(`input[name="tipoVer"][value="${v.tipo_verifica||'semestrale'}"]`).checked = true;
         document.getElementById('f_comune').value      = v.cliente_id || '';
+        onComuneChange(v.cliente_id || '').then(() => {
+            const luogoSel = document.getElementById('f_luogo');
+            const opt = [...luogoSel.options].find(o => o.dataset.nome === v.luogo_nome);
+            if (opt) luogoSel.value = opt.value;
+            else if (v.luogo_nome) {
+                const o2 = new Option(v.luogo_nome, '__manual__');
+                o2.dataset.nome = v.luogo_nome;
+                luogoSel.appendChild(o2);
+                luogoSel.value = '__manual__';
+            }
+        });
         fpData.setDate(v.data_verifica || '', true);
         fpProssima.setDate(v.data_prossima || '', true);
-        document.getElementById('f_piano').value       = v.piano || '';
-        document.getElementById('f_ubicazione').value  = v.ubicazione || '';
-        document.getElementById('f_marca').value       = v.marca_n_poli || '';
-        document.getElementById('f_codice').value      = v.codice || '';
-        document.getElementById('f_note').value        = v.note || '';
-        const esitoVal = v.esito || 'conforme';
-        document.querySelector(`input[name="esitoRad"][value="${esitoVal}"]`).checked = true;
-        updateEsitoStyle(esitoVal);
+        document.getElementById('f_indirizzo').value  = v.indirizzo || '';
+        document.getElementById('f_lotto').value        = v.lotto || '';
+        resetQuadroPicker(v.quadro_descrizione || v.piano || '');
+        document.getElementById('f_note').value       = v.note || '';
+        // Carica righe: usa righe JSONB se presenti, altrimenti migra dalla riga singola
+        if (v.righe && v.righe.length > 0) {
+            _righe = v.righe.map(r => ({ piano: r.piano||'', zona: r.zona||'', ubicazione: r.ubicazione||'', marca: r.marca||'', n_poli: r.n_poli||'', codice: r.codice||'', esito: r.esito||'OK' }));
+        } else {
+            _righe = [{ ubicazione: v.ubicazione||'', marca: v.marca_n_poli||'', n_poli: '', codice: v.codice||'', esito: v.esito==='conforme'?'OK':'NON OK' }];
+        }
+        renderRighe();
         document.getElementById('verificaModal').classList.remove('hidden');
     }
 
@@ -623,31 +1523,46 @@
         const prossima  = fpProssima.selectedDates[0]
             ? fpProssima.formatDate(fpProssima.selectedDates[0], 'Y-m-d')
             : null;
-
-        const esito     = document.querySelector('input[name="esitoRad"]:checked')?.value || 'conforme';
         const tipo      = document.getElementById('tipoVerifica').value || currentTipo;
 
         if (!comuneId) { showToast('⚠️ Seleziona un Comune', 'warning'); return; }
         if (!data)     { showToast('⚠️ Inserisci la data della verifica', 'warning'); return; }
 
-        const sel       = document.getElementById('f_comune');
-        const luogoNome = sel.options[sel.selectedIndex]?.dataset.nome || '';
+        // _righe è già aggiornato in tempo reale via oninput — nessuna lettura DOM necessaria
+
+        // Esito complessivo: non_conforme se almeno una riga è NON OK
+        const hasNonOk = _righe.some(r => r.esito === 'NON OK');
+        const esito = hasNonOk ? 'non_conforme' : 'conforme';
+
+        const comuneSel  = document.getElementById('f_comune');
+        const luogoSel   = document.getElementById('f_luogo');
+        const luogoNome  = luogoSel.options[luogoSel.selectedIndex]?.dataset.nome
+                        || comuneSel.options[comuneSel.selectedIndex]?.dataset.nome || '';
 
         const payload = {
-            tipo_verifica: tipo,
-            settore:       'comune',
-            cliente_id:    comuneId,
-            luogo_nome:    luogoNome,
-            data_verifica: data,
-            piano:         document.getElementById('f_piano').value || null,
-            ubicazione:    document.getElementById('f_ubicazione').value.trim() || null,
-            marca_n_poli:  document.getElementById('f_marca').value.trim() || null,
-            codice:        document.getElementById('f_codice').value.trim() || null,
+            tipo_verifica:       tipo,
+            settore:             'comune',
+            cliente_id:          comuneId,
+            luogo_nome:          luogoNome,
+            data_verifica:       data,
+            // campi legacy (sempre presenti)
+            piano:               null,
+            ubicazione:          _righe[0]?.ubicazione || null,
+            marca_n_poli:        _righe[0]?.marca || null,
+            codice:              _righe[0]?.codice || null,
             esito,
-            data_prossima: prossima,
-            note:          document.getElementById('f_note').value.trim() || null,
-            updated_at:    new Date().toISOString(),
+            data_prossima:       prossima,
+            note:                document.getElementById('f_note').value.trim() || null,
         };
+
+        // Aggiungi i nuovi campi solo se la migrazione è stata eseguita
+        // (se non ci sono errori li accetterà, altrimenti verranno ignorati via try)
+        try {
+            payload.indirizzo          = document.getElementById('f_indirizzo').value.trim() || null;
+            payload.lotto              = document.getElementById('f_lotto').value.trim() || null;
+            payload.quadro_descrizione = document.getElementById('f_quadro').value.trim() || null;
+            payload.righe              = _righe;
+        } catch(e) { /* migrazione non ancora eseguita */ }
 
         const id = document.getElementById('verificaId').value;
         let error;
@@ -667,11 +1582,22 @@
     // ── Elimina ──
     async function eliminaVerifica(id) {
         const v = verifiche.find(x => x.id === id);
-        if (!confirm(`Eliminare la verifica del ${v?.data_verifica ? new Date(v.data_verifica).toLocaleDateString('it-IT') : id}?`)) return;
-        const { error } = await db.from('verifiche').delete().eq('id', id);
-        if (error) { showToast('❌ Errore: ' + error.message, 'error'); return; }
-        await loadVerifiche();
-        showToast('🗑️ Verifica eliminata', 'success');
+        const dataStr = v?.data_verifica ? new Date(v.data_verifica).toLocaleDateString('it-IT') : '';
+        const comune = v?.cliente?.ragione_sociale || v?.luogo_nome || '';
+        document.getElementById('eliminaMsg').textContent =
+            `Eliminare la verifica del ${dataStr}${comune ? ' — ' + comune : ''}?`;
+        document.getElementById('eliminaConfermaBtn').onclick = async () => {
+            chiudiEliminaModal();
+            const { error } = await db.from('verifiche').delete().eq('id', id);
+            if (error) { showToast('❌ Errore: ' + error.message, 'error'); return; }
+            await loadVerifiche();
+            showToast('🗑️ Verifica eliminata', 'success');
+        };
+        document.getElementById('eliminaModal').classList.remove('hidden');
+    }
+
+    function chiudiEliminaModal() {
+        document.getElementById('eliminaModal').classList.add('hidden');
     }
 
     // ── Stampa ──
@@ -680,55 +1606,130 @@
         if (!v) return;
         const nomeComune = v.cliente?.ragione_sociale || v.luogo_nome || '—';
         const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
-        const esitoLabel = { conforme:'✅ Conforme', non_conforme:'❌ Non Conforme', condizionato:'⚠️ Condizionato' }[v.esito] || v.esito;
-        const esitoColor = { conforme:'#16a34a', non_conforme:'#dc2626', condizionato:'#d97706' }[v.esito] || '#374151';
         const tipoLabel  = v.tipo_verifica === 'annuale' ? 'Verifica Annuale' : 'Verifica Semestrale';
+
+        const righe = (v.righe && v.righe.length > 0)
+            ? v.righe
+            : [{ ubicazione: v.ubicazione||'', marca: v.marca_n_poli||'', n_poli:'', codice: v.codice||'', esito: v.esito==='conforme'?'OK':'NON OK' }];
+
+        const hasNonOk = righe.some(r => r.esito === 'NON OK');
+        const esitoColor = hasNonOk ? '#dc2626' : '#16a34a';
+        const esitoLabel = hasNonOk ? '❌ NON CONFORME' : '✅ CONFORME';
+
+        const righeHtml = (() => {
+            // Ordine piani da quadro_descrizione (rispetta l'ordine salvato)
+            const pianiOrdinati = (v.quadro_descrizione || v.piano || '')
+                .split('+')
+                .map(p => p.trim())
+                .filter(Boolean);
+            const pianiDaRighe = [...new Set(righe.map(r => r.piano||'').filter(Boolean))];
+            const piani = [
+                ...pianiOrdinati,
+                ...pianiDaRighe.filter(p => !pianiOrdinati.includes(p))
+            ];
+            const hasPiani = piani.some(p => p !== '');
+            if (!hasPiani) {
+                return righe.map(r => `
+                <tr style="border-bottom:1px solid #f3f4f6">
+                    <td style="padding:7px 10px;font-size:12px">${r.ubicazione||'—'}</td>
+                    <td style="padding:5px 8px;font-size:11px;color:#2563eb">${r.zona||''}</td>
+                    <td style="padding:7px 10px;font-size:12px">${r.marca||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center">${r.n_poli||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;font-family:monospace">${r.codice||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center;font-weight:700;color:${r.esito==='NON OK'?'#dc2626':'#16a34a'}">${r.esito||'OK'}</td>
+                </tr>`).join('');
+            }
+            let html = '';
+            piani.forEach(piano => {
+                const group = righe.filter(r => (r.piano||'') === piano);
+                if (!group.length) return;
+                if (piano) {
+                    html += `<tr style="background:#ecfdf5;border-top:2px solid #6ee7b7">
+                        <td colspan="6" style="padding:7px 12px;font-size:12px;font-weight:800;color:#065f46">
+                            <i style="margin-right:6px">📋</i>${piano}
+                        </td></tr>`;
+                }
+                html += group.map(r => `
+                <tr style="border-bottom:1px solid #f3f4f6">
+                    <td style="padding:7px 10px;font-size:12px">${r.ubicazione||'—'}</td>
+                    <td style="padding:5px 8px;font-size:11px;color:#2563eb">${r.zona||''}</td>
+                    <td style="padding:7px 10px;font-size:12px">${r.marca||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center">${r.n_poli||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;font-family:monospace">${r.codice||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center;font-weight:700;color:${r.esito==='NON OK'?'#dc2626':'#16a34a'}">${r.esito||'OK'}</td>
+                </tr>`).join('');
+            });
+            // Righe senza sezione
+            const senzaSezione = righe.filter(r => !r.piano || !piani.includes(r.piano));
+            if (senzaSezione.length) {
+                html += `<tr style="background:#ecfdf5;border-top:2px solid #6ee7b7">
+                    <td colspan="6" style="padding:7px 12px;font-size:12px;font-weight:800;color:#065f46">
+                        <i style="margin-right:6px">📋</i>Senza sezione
+                    </td></tr>`;
+                html += senzaSezione.map(r => `
+                <tr style="border-bottom:1px solid #f3f4f6">
+                    <td style="padding:7px 10px;font-size:12px">${r.ubicazione||'—'}</td>
+                    <td style="padding:5px 8px;font-size:11px;color:#2563eb">${r.zona||''}</td>
+                    <td style="padding:7px 10px;font-size:12px">${r.marca||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center">${r.n_poli||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;font-family:monospace">${r.codice||'—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:center;font-weight:700;color:${r.esito==='NON OK'?'#dc2626':'#16a34a'}">${r.esito||'OK'}</td>
+                </tr>`).join('');
+            }
+            return html;
+        })();
 
         const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
 <title>Verifica ${nomeComune} – ${fmt(v.data_verifica)}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Helvetica Neue',Arial,sans-serif;padding:32px 40px;color:#111827;font-size:13px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:18px;margin-bottom:24px}
-  .company{font-size:20px;font-weight:900;color:#16a34a}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;padding:28px 36px;color:#111827;font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:14px;margin-bottom:18px}
+  .company{font-size:18px;font-weight:900;color:#16a34a}
   .company-sub{font-size:11px;color:#6b7280;margin-top:2px}
-  .doc-type{text-align:right}
-  .doc-type h1{font-size:16px;font-weight:800;color:#1f2937}
-  .doc-type p{font-size:12px;color:#6b7280;margin-top:2px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
-  .box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px}
-  .label{font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-  .value{font-size:14px;font-weight:700;color:#1f2937}
-  .esito-box{border:2px solid ${esitoColor};border-radius:10px;padding:16px;text-align:center;margin-bottom:22px}
-  .esito-val{font-size:22px;font-weight:900;color:${esitoColor}}
-  .note-box{background:#f9fafb;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:22px}
-  .footer{text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;margin-top:24px}
-  .firma-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:24px}
-  .firma-box{border-top:1px solid #374151;padding-top:6px;font-size:11px;color:#6b7280;text-align:center}
-  @media print{body{padding:16px 24px}}
+  .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:9px 12px}
+  .lbl{font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .val{font-size:13px;font-weight:700;color:#1f2937}
+  .quadro-box{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:7px;padding:9px 12px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px}
+  thead tr{background:#ecfdf5}
+  th{padding:8px 10px;font-size:10px;font-weight:700;color:#16a34a;text-align:left;text-transform:uppercase}
+  th.center{text-align:center}
+  .esito-footer{text-align:center;padding:12px;border:2px solid ${esitoColor};border-radius:8px;margin-bottom:14px}
+  .esito-val{font-size:18px;font-weight:900;color:${esitoColor}}
+  .firma-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:18px}
+  .firma-box{border-top:1px solid #374151;padding-top:6px;font-size:10px;color:#6b7280;text-align:center}
+  .footer{text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:14px}
+  @media print{body{padding:14px 20px}}
 </style></head><body>
+
 <div class="header">
-  <div><div class="company">ZG Impianti Srl</div><div class="company-sub">Ufficio Verifiche · verifiche@zgimpianti.it · zgimpianti.it</div></div>
-  <div class="doc-type"><h1>${tipoLabel} – Comune</h1><p>Data: ${fmt(v.data_verifica)}</p></div>
+  <div><div class="company">ZG Impianti Srl</div><div class="company-sub">Verifiche Elettriche · info@zgimpiantisrl.it</div></div>
+  <div style="text-align:right"><strong style="font-size:15px">${tipoLabel}</strong><br><span style="font-size:11px;color:#6b7280">Data: ${fmt(v.data_verifica)}</span></div>
 </div>
 
-<div class="grid">
-  <div class="box"><div class="label">Comune</div><div class="value">${nomeComune}</div></div>
-  <div class="box"><div class="label">Data Verifica</div><div class="value">${fmt(v.data_verifica)}</div></div>
-  <div class="box"><div class="label">Piano</div><div class="value">${v.piano || '—'}</div></div>
-  <div class="box"><div class="label">Ubicazione</div><div class="value">${v.ubicazione || '—'}</div></div>
-  <div class="box"><div class="label">Marca / N° Poli</div><div class="value">${v.marca_n_poli || '—'}</div></div>
-  <div class="box"><div class="label">Codice</div><div class="value">${v.codice || '—'}</div></div>
+<div class="info-grid">
+  <div class="box"><div class="lbl">Luogo</div><div class="val">${nomeComune}</div></div>
+  ${v.lotto ? `<div class="box"><div class="lbl">Lotto</div><div class="val" style="color:#16a34a;font-weight:900">${v.lotto}</div></div>` : `<div class="box"><div class="lbl">Indirizzo</div><div class="val">${v.indirizzo||'—'}</div></div>`}
+  <div class="box"><div class="lbl">Data verifica</div><div class="val">${fmt(v.data_verifica)}</div></div>
 </div>
+${v.lotto && v.indirizzo ? `<div class="box" style="margin-bottom:10px"><div class="lbl">Indirizzo</div><div class="val">${v.indirizzo}</div></div>` : ''}
 
-<div class="esito-box">
-  <div class="label" style="color:${esitoColor}">Esito Verifica</div>
-  <div class="esito-val">${esitoLabel}</div>
-</div>
+${(v.quadro_descrizione||v.piano) ? `<div class="quadro-box"><div class="lbl">Quadro / Pannello</div><div class="val">${v.quadro_descrizione||v.piano}</div></div>` : ''}
 
-${v.note ? `<div class="note-box"><strong style="font-size:11px;text-transform:uppercase;color:#166534">Note</strong><p style="margin-top:6px;color:#374151">${v.note}</p></div>` : ''}
+<table>
+  <thead><tr>
+    <th>Ubicazione</th><th style="color:#2563eb">Zona</th><th>Marca</th><th class="center">N° Poli</th><th>Codice</th><th class="center">Esito</th>
+  </tr></thead>
+  <tbody>${righeHtml}</tbody>
+</table>
 
-${v.data_prossima ? `<p style="text-align:center;font-size:12px;color:#6b7280;margin-bottom:20px">📅 Prossima verifica prevista: <strong>${fmt(v.data_prossima)}</strong></p>` : ''}
+<div class="esito-footer"><div class="lbl" style="color:${esitoColor}">Esito Complessivo</div><div class="esito-val">${esitoLabel}</div></div>
+
+${v.note ? `<div style="background:#f9fafb;border-left:4px solid #16a34a;padding:10px 14px;border-radius:0 7px 7px 0;margin-bottom:12px"><strong style="font-size:10px;text-transform:uppercase;color:#166534">Note</strong><p style="margin-top:4px;color:#374151;font-size:12px">${v.note}</p></div>` : ''}
+
+${v.data_prossima ? `<p style="text-align:center;font-size:11px;color:#6b7280;margin-bottom:12px">📅 Prossima verifica prevista: <strong>${fmt(v.data_prossima)}</strong></p>` : ''}
 
 <div class="firma-grid">
   <div class="firma-box">Tecnico verificatore</div>
@@ -739,7 +1740,7 @@ ${v.data_prossima ? `<p style="text-align:center;font-size:12px;color:#6b7280;ma
 <script>window.onload=function(){window.print();}<\/script>
 </body></html>`;
 
-        const w = window.open('', '_blank', 'width=800,height=700');
+        const w = window.open('', '_blank', 'width=860,height=750');
         w.document.write(html);
         w.document.close();
     }
@@ -769,6 +1770,229 @@ ${v.data_prossima ? `<p style="text-align:center;font-size:12px;color:#6b7280;ma
     }
 
     // ── Toast ──
+    // ═══════════════════════════════════════════════════
+    // NAVIGAZIONE GERARCHICA: Comuni → Luoghi → Verifiche
+    // ═══════════════════════════════════════════════════
+    let navView = 'comuni'; // 'comuni' | 'luoghi' | 'verifiche'
+    let navComuneId = null;
+    let navComuneNome = '';
+    let navLuogoNome = '';
+    let luoghi = []; // entità formali (tipo_cliente in scuola/luogo/struttura) per il comune corrente
+
+    async function setNavView(view, comuneId, comuneNome, luogoNome) {
+        navView = view;
+        if (comuneId !== undefined) navComuneId = comuneId;
+        if (comuneNome !== undefined) navComuneNome = comuneNome;
+        if (luogoNome !== undefined) navLuogoNome = luogoNome;
+
+        // Elementi
+        const comuniView    = document.getElementById('comuniView');
+        const luoghiView    = document.getElementById('luoghiView');
+        const verificheView = document.getElementById('verificheView');
+        const filters       = document.getElementById('verificheFilters');
+        const breadcrumb    = document.getElementById('navBreadcrumb');
+        const breadComune   = document.getElementById('breadComune');
+        const breadLuogo    = document.getElementById('breadLuogo');
+        const newBtn        = document.querySelector('button[onclick="openModal()"]');
+
+        comuniView.classList.toggle('hidden', view !== 'comuni');
+        luoghiView.classList.toggle('hidden', view !== 'luoghi');
+        verificheView.classList.toggle('hidden', view !== 'verifiche');
+        filters.classList.toggle('hidden', view !== 'verifiche');
+        breadcrumb.classList.toggle('hidden', view === 'comuni');
+
+        // Breadcrumb
+        document.getElementById('breadComuneNome').textContent = navComuneNome;
+        document.getElementById('breadLuogoNome').textContent = navLuogoNome;
+        breadComune.classList.toggle('hidden', view === 'comuni');
+        breadComune.style.display = view !== 'comuni' ? 'inline-flex' : 'none';
+        breadLuogo.classList.toggle('hidden', view !== 'verifiche');
+        breadLuogo.style.display = view === 'verifiche' ? 'inline-flex' : 'none';
+
+        if (view === 'comuni') {
+            await renderComuni();
+        } else if (view === 'luoghi') {
+            await renderLuoghi();
+        } else if (view === 'verifiche') {
+            applyFilters();
+        }
+    }
+
+    async function renderComuni() {
+        const grid = document.getElementById('comuniGrid');
+        grid.innerHTML = '<div class="col-span-full text-center py-12 text-gray-400"><i class="fas fa-spinner fa-spin text-3xl"></i></div>';
+
+        // Raggruppa verifiche per comune
+        const comuniMap = new Map();
+        verifiche.filter(v => v.tipo_verifica === currentTipo).forEach(v => {
+            const cid = v.cliente_id;
+            const nome = v.cliente?.ragione_sociale || v.luogo_nome || 'Comune sconosciuto';
+            if (!comuniMap.has(cid)) comuniMap.set(cid, { id: cid, nome, verifiche: [] });
+            comuniMap.get(cid).verifiche.push(v);
+        });
+
+        if (comuniMap.size === 0) {
+            grid.innerHTML = '<div class="col-span-full text-center py-12 text-gray-400"><i class="fas fa-landmark text-4xl mb-3 block"></i>Nessun comune con verifiche</div>';
+            return;
+        }
+
+        grid.innerHTML = [...comuniMap.values()].map(c => {
+            const totale = c.verifiche.length;
+            const conformi = c.verifiche.filter(v => v.esito === 'conforme').length;
+            const nonConformi = c.verifiche.filter(v => v.esito === 'non_conforme').length;
+            const ultima = c.verifiche[0]?.data_verifica
+                ? new Date(c.verifiche[0].data_verifica).toLocaleDateString('it-IT') : '—';
+            return `<div onclick="setNavView('luoghi', '${c.id}', '${c.nome.replace(/'/g,"\\'")}', '')"
+                class="bg-white rounded-xl shadow-sm border-2 border-transparent hover:border-green-400 hover:shadow-md transition-all cursor-pointer p-5">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-landmark text-green-700"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-gray-900 truncate">${c.nome}</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">Ultima: ${ultima}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <span class="flex-1 text-center py-1.5 bg-gray-50 rounded-lg font-bold text-gray-700">${totale} totali</span>
+                    <span class="flex-1 text-center py-1.5 bg-green-50 rounded-lg font-bold text-green-700">${conformi} ✓</span>
+                    ${nonConformi > 0 ? `<span class="flex-1 text-center py-1.5 bg-red-50 rounded-lg font-bold text-red-700">${nonConformi} ✗</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function renderLuoghi() {
+        document.getElementById('luoghiTitle').textContent = `Luoghi — ${navComuneNome}`;
+        const grid = document.getElementById('luoghiGrid');
+        grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin"></i></div>';
+
+        // Entità formali (scuola, luogo, struttura) con comune_id
+        const { data: entita } = await db.from('clients')
+            .select('id, ragione_sociale, tipo_cliente, indirizzo')
+            .eq('comune_id', navComuneId)
+            .in('tipo_cliente', ['scuola','luogo','struttura']);
+
+        // Luoghi da luogo_nome nelle verifiche
+        const vComune = verifiche.filter(v => v.cliente_id === navComuneId && v.tipo_verifica === currentTipo);
+        const luoghiNomi = [...new Set(vComune.map(v => v.luogo_nome).filter(Boolean))];
+
+        const cards = [];
+
+        // Prima le entità formali
+        (entita || []).forEach(e => {
+            const vLuogo = vComune.filter(v => v.luogo_nome === e.ragione_sociale);
+            cards.push({ id: e.id, nome: e.ragione_sociale, tipo: e.tipo_cliente, indirizzo: e.indirizzo, totale: vLuogo.length, conformi: vLuogo.filter(v=>v.esito==='conforme').length, nonConformi: vLuogo.filter(v=>v.esito==='non_conforme').length });
+        });
+
+        // Poi luoghi da testo libero non ancora entità
+        const entitaNomi = new Set((entita||[]).map(e => e.ragione_sociale));
+        luoghiNomi.filter(n => !entitaNomi.has(n)).forEach(nome => {
+            const vL = vComune.filter(v => v.luogo_nome === nome);
+            cards.push({ nome, tipo: 'testo', totale: vL.length, conformi: vL.filter(v=>v.esito==='conforme').length, nonConformi: vL.filter(v=>v.esito==='non_conforme').length });
+        });
+
+        // Card "Verifiche senza luogo specifico"
+        const senzaLuogo = vComune.filter(v => !v.luogo_nome);
+        if (senzaLuogo.length > 0) {
+            cards.push({ nome: '(Verifiche generali comune)', tipo: 'generale', totale: senzaLuogo.length, conformi: senzaLuogo.filter(v=>v.esito==='conforme').length, nonConformi: senzaLuogo.filter(v=>v.esito==='non_conforme').length });
+        }
+
+        if (!cards.length) {
+            grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400">
+                <i class="fas fa-map-marker-alt text-4xl mb-3 block"></i>
+                Nessun luogo registrato<br>
+                <button onclick="apriAggiungiLuogo()" class="mt-3 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700">+ Aggiungi primo luogo</button>
+            </div>`;
+            return;
+        }
+
+        const iconaTipo = { scuola:'fa-school', luogo:'fa-map-marker-alt', struttura:'fa-building', testo:'fa-map-pin', generale:'fa-landmark' };
+        const colTipo = { scuola:'green', luogo:'teal', struttura:'blue', testo:'gray', generale:'emerald' };
+
+        grid.innerHTML = cards.map(c => {
+            const ic = iconaTipo[c.tipo] || 'fa-map-pin';
+            const col = colTipo[c.tipo] || 'gray';
+            return `<div onclick="apriLuogo('${(c.nome||'').replace(/'/g,"\\'")}', '${(c.tipo||'')}', '${c.id||''}')"
+                class="bg-white rounded-xl shadow-sm border-2 border-transparent hover:border-${col}-400 hover:shadow-md transition-all cursor-pointer p-5">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-${col}-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fas ${ic} text-${col}-700"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-gray-900">${c.nome}</h3>
+                        ${c.indirizzo ? `<p class="text-xs text-gray-400 mt-0.5">${c.indirizzo}</p>` : ''}
+                    </div>
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <span class="flex-1 text-center py-1.5 bg-gray-50 rounded-lg font-bold text-gray-700">${c.totale} verif.</span>
+                    ${c.conformi > 0 ? `<span class="flex-1 text-center py-1.5 bg-green-50 rounded-lg font-bold text-green-700">${c.conformi} ✓</span>` : ''}
+                    ${c.nonConformi > 0 ? `<span class="flex-1 text-center py-1.5 bg-red-50 rounded-lg font-bold text-red-700">${c.nonConformi} ✗</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function apriLuogo(luogoNome, tipo, luogoId) {
+        navLuogoNome = luogoNome;
+        // Filtra le verifiche per questo luogo
+        document.getElementById('filterComune').value = navComuneId;
+        setNavView('verifiche', navComuneId, navComuneNome, luogoNome);
+    }
+
+    let _nuovoLuogoComuneId = null;
+    function apriAggiungiLuogo() {
+        _nuovoLuogoComuneId = navComuneId;
+        document.getElementById('nuovoLuogoNome').value = '';
+        document.getElementById('nuovoLuogoIndirizzo').value = '';
+        document.getElementById('nuovoLuogoNote').value = '';
+        document.getElementById('aggiungiLuogoModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('nuovoLuogoNome').focus(), 100);
+    }
+
+    async function salvaLuogo() {
+        const nome = document.getElementById('nuovoLuogoNome').value.trim();
+        if (!nome) { showToast('⚠️ Inserisci il nome del luogo', 'warning'); return; }
+        try {
+            // Prova con comune_id
+            await window.ClientsAPI.create({
+                tipo_cliente: 'luogo',
+                ragione_sociale: nome,
+                indirizzo: document.getElementById('nuovoLuogoIndirizzo').value.trim() || null,
+                comune_id: _nuovoLuogoComuneId,
+            });
+        } catch(err) {
+            console.warn('Insert con comune_id fallito:', err.message, '- ritento senza comune_id');
+            // Fallback senza comune_id (colonna potrebbe non esistere ancora)
+            try {
+                const result = await window.ClientsAPI.create({
+                    tipo_cliente: 'luogo',
+                    ragione_sociale: nome,
+                    indirizzo: document.getElementById('nuovoLuogoIndirizzo').value.trim() || null,
+                });
+                // Aggiorna comune_id separatamente via SQL (se la colonna esiste)
+                if (result?.id && _nuovoLuogoComuneId) {
+                    await window.supabase.from('clients')
+                        .update({ comune_id: _nuovoLuogoComuneId })
+                        .eq('id', result.id).maybeSingle();
+                }
+            } catch(err2) {
+                showToast('❌ Errore: ' + (err2.message || err2), 'error');
+                console.error('Errore salvaLuogo:', err2);
+                return;
+            }
+        }
+        document.getElementById('aggiungiLuogoModal').classList.add('hidden');
+        showToast(`✅ Luogo "${nome}" aggiunto — esegui add-comune-id-to-clients.sql in Supabase per il collegamento al comune`, 'success');
+        await renderLuoghi();
+    }
+
+    // Override applyFilters per filtrare anche per luogo quando siamo nella vista verifiche
+    const _origApplyFilters = applyFilters;
+    // Patch: applyFilters usa già filterComune → filtra per comune.
+    // In più, quando navLuogoNome è impostato, filtra anche per luogo_nome.
+    // Il filtro per luogo viene applicato in applyFilters() sovrascrivendo la logica.
+
     let _toastTimer;
     function showToast(msg, type = 'info') {
         const colors = { success:'#16a34a', error:'#dc2626', warning:'#d97706', info:'#2563eb' };

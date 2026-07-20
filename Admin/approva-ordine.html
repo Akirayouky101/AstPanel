@@ -135,6 +135,61 @@ function buildCard(o) {
         </tr>`;
     }).join('');
 
+    // ── Raggruppa items per cliente ──────────────────────────────────
+    const allItems   = o.items || [];
+    const hasClients = allItems.some(it => it.cliente_id);
+
+    let righeGrouped = '';
+    if (!hasClients) {
+        // Lista piatta (nessuna divisione per cliente)
+        righeGrouped = righe;
+    } else {
+        // Raggruppa per cliente_id preservando l'ordine di apparizione
+        const groups  = new Map();
+        const noCliente = { nome: '— Senza cliente —', items: [] };
+        allItems.forEach((it, idx) => {
+            if (it.cliente_id) {
+                if (!groups.has(it.cliente_id)) {
+                    groups.set(it.cliente_id, { nome: it.cliente_nome_cache || 'Cliente', items: [] });
+                }
+                groups.get(it.cliente_id).items.push({ ...it, _idx: idx });
+            } else {
+                noCliente.items.push({ ...it, _idx: idx });
+            }
+        });
+
+        const renderGroupRows = (items) => items.map((it, i) => {
+            const sconto = it.sconto_percentuale > 0
+                ? `<span style="font-size:11px;color:#6b7280;margin-left:4px">-${it.sconto_percentuale}%</span>`
+                : '';
+            const noteRiga = it.note ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px">${it.note}</div>` : '';
+            return `<tr>
+                <td class="c" style="font-size:12px;color:#9ca3af">${i + 1}</td>
+                <td style="font-family:monospace;font-size:12px;color:#7c3aed">${it.codice || '\u2014'}</td>
+                <td style="font-weight:600;color:#111827">${it.descrizione || '\u2014'}${noteRiga}</td>
+                <td class="c">${it.quantita ?? 0}</td>
+                <td class="c">${it.um || 'pz'}</td>
+                <td class="r">${fmtE(it.prezzo_unitario)}${sconto}</td>
+                <td class="r" style="font-weight:700">${fmtE(it.importo)}</td>
+            </tr>`;
+        }).join('');
+
+        const renderGroup = (nomeCliente, items) => `
+            <tr><td colspan="7" style="padding:0">
+                <div style="background:#f0fdfa;padding:8px 14px;border-top:2px solid #99f6e4;border-bottom:1px solid #ccfbf1;display:flex;align-items:center;gap:8px">
+                    <i class="fas fa-user" style="color:#0d9488;font-size:11px"></i>
+                    <span style="font-weight:700;font-size:13px;color:#0f766e">${nomeCliente}</span>
+                    <span style="font-size:11px;color:#6b7280;margin-left:4px">(${items.length} articolo${items.length !== 1 ? 'i' : ''})</span>
+                </div>
+            </td></tr>
+            ${renderGroupRows(items)}`;
+
+        groups.forEach((g) => { righeGrouped += renderGroup(g.nome, g.items); });
+        if (noCliente.items.length > 0) {
+            righeGrouped += renderGroup(noCliente.nome, noCliente.items);
+        }
+    }
+
     const imponibile = o.subtotale * (1 - (o.sconto_percentuale || 0) / 100);
     const iva = imponibile * ((o.iva_percentuale || 22) / 100);
     const scontoRow = o.sconto_percentuale > 0 ? `
@@ -183,7 +238,7 @@ function buildCard(o) {
                         <th class="r" style="width:100px">Importo</th>
                     </tr>
                 </thead>
-                <tbody>${righe || emptyRow}</tbody>
+                <tbody>${righeGrouped || emptyRow}</tbody>
             </table>
             <div class="totals">
                 <table class="totals-table">

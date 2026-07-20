@@ -341,6 +341,12 @@ class TaskWizard {
             case 3:
                 await this.loadProdottiMagazzino();
                 this.populateStep3Form();
+                // Se c'è un kit pendente da pre-caricare, fallo automaticamente
+                if (this._pendingKitId) {
+                    const kidToLoad = this._pendingKitId;
+                    this._pendingKitId = null;
+                    await this.preloadKitComponenti(kidToLoad);
+                }
                 break;
             case 4:
                 // STEP 4: Riepilogo finale
@@ -1016,7 +1022,8 @@ class TaskWizard {
                 wizard_completed: true,
                 progresso: this.wizardData.progresso !== undefined ? this.wizardData.progresso : 0,
                 note_progresso: this.wizardData.note_progresso || null,
-                parent_task_id: this.wizardData.parent_task_id || null
+                parent_task_id: this.wizardData.parent_task_id || null,
+                kit_id: this.wizardData.kit_id || null   // ✅ Kit collegato
             };
 
             // Imposta data_inizio: range se diverso da scadenza, altrimenti uguale alla scadenza
@@ -1047,11 +1054,19 @@ class TaskWizard {
                     .single();
 
                 if (updateError) {
-                    console.error('❌ [WIZARD] Errore update task:', updateError);
-                    throw updateError;
+                    // Se kit_id non esiste ancora, riprova senza
+                    if (updateError.code === 'PGRST204' && taskData.kit_id !== undefined) {
+                        const { kit_id, ...taskDataNoKit } = taskData;
+                        const { data: t2, error: e2 } = await supabaseClient.from('tasks').update(taskDataNoKit).eq('id', this.wizardData.id).select().single();
+                        if (e2) throw e2;
+                        task = t2;
+                    } else {
+                        console.error('❌ [WIZARD] Errore update task:', updateError);
+                        throw updateError;
+                    }
+                } else {
+                    task = updatedTask;
                 }
-                
-                task = updatedTask;
                 console.log('✅ [WIZARD] Task aggiornato con ID:', task.id);
                 
             } else {
@@ -1064,11 +1079,20 @@ class TaskWizard {
                     .single();
 
                 if (insertError) {
-                    console.error('❌ [WIZARD] Errore inserimento task:', insertError);
-                    throw insertError;
+                    // Se kit_id non esiste ancora, riprova senza (migration non ancora eseguita)
+                    if (insertError.code === 'PGRST204' && taskData.kit_id !== undefined) {
+                        console.warn('[WIZARD] Colonna kit_id non trovata — salvo senza kit_id (esegui add-kit-id-to-tasks.sql)');
+                        const { kit_id, ...taskDataNoKit } = taskData;
+                        const { data: t2, error: e2 } = await supabaseClient.from('tasks').insert([taskDataNoKit]).select().single();
+                        if (e2) throw e2;
+                        task = t2;
+                    } else {
+                        console.error('❌ [WIZARD] Errore inserimento task:', insertError);
+                        throw insertError;
+                    }
+                } else {
+                    task = newTask;
                 }
-                
-                task = newTask;
                 console.log('✅ [WIZARD] Task creato con ID:', task.id);
             }
 
@@ -1242,6 +1266,79 @@ class TaskWizard {
         lucide.createIcons();
     }
 
+    // ═══════════════════════════════════════════════════
+    // PRELOAD KIT: collega il kit alla lavorazione (riferimento, non componenti)
+    // ═══════════════════════════════════════════════════
+    async preloadKitComponenti(kitId) {
+        try {
+            const { data: kit } = await supabaseClient
+                .from('v_kits_completi')
+                .select('id, nome_kit, codice_kit, destinatario_nome, numero_componenti, quantita_totale')
+                .eq('id', kitId)
+                .single();
+
+            if (!kit) { console.warn('[Wizard] Kit non trovato:', kitId); return; }
+
+            // Salva il riferimento kit (NON i singoli componenti)
+            this.wizardData.kit_id     = kit.id;
+            this.wizardData.kit_codice = kit.codice_kit;
+            this.wizardData.kit_nome   = kit.nome_kit;
+
+            // Aggiorna UI step 3 — mostra badge kit invece dei componenti
+            this._renderKitRiferimento(kit);
+
+            console.log(`[Wizard] ✅ Kit collegato: "${kit.nome_kit}" (${kit.codice_kit})`);
+        } catch(e) {
+            console.error('[Wizard] Errore preload kit:', e);
+        }
+    }
+
+    _renderKitRiferimento(kit) {
+        const container = document.getElementById('wizard-componenti-selezionati');
+        if (!container) return;
+        const nComp = kit.numero_componenti || 0;
+        const nPz   = kit.quantita_totale   || 0;
+        container.innerHTML = `
+            <div class="bg-teal-50 border-2 border-teal-300 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-11 h-11 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-box text-teal-700 text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-bold text-gray-900">${kit.nome_kit || '-'}</span>
+                            <span class="font-mono text-xs bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full font-semibold">${kit.codice_kit || ''}</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            ${kit.destinatario_nome ? `<i class="fas fa-user mr-1"></i>${kit.destinatario_nome} &nbsp;·&nbsp;` : ''}
+                            <i class="fas fa-cubes mr-1"></i>${nComp} componenti (${nPz} pz)
+                        </div>
+                    </div>
+                    <button onclick="window.taskWizard._rimuoviKitRiferimento()"
+                        class="text-gray-400 hover:text-red-500 transition p-1 flex-shrink-0" title="Rimuovi kit">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        // Mostra banner info
+        const info = document.getElementById('kitPreloadInfo');
+        if (info) {
+            const span = info.querySelector('span');
+            if (span) span.textContent = `Kit "${kit.nome_kit}" (${kit.codice_kit}) collegato alla lavorazione`;
+            info.classList.remove('hidden');
+        }
+    }
+
+    _rimuoviKitRiferimento() {
+        this.wizardData.kit_id     = null;
+        this.wizardData.kit_codice = null;
+        this.wizardData.kit_nome   = null;
+        this.renderComponentiSelezionati();
+        const info = document.getElementById('kitPreloadInfo');
+        if (info) info.classList.add('hidden');
+    }
+
     resetData() {
         this.wizardData = {
             titolo: '',
@@ -1264,7 +1361,10 @@ class TaskWizard {
             coordinate_gps: null,
             componenti: [],
             progresso: 0,
-            note_progresso: null
+            note_progresso: null,
+            kit_id: null,
+            kit_codice: null,
+            kit_nome: null
         };
         // Nascondi la sezione progresso (solo per modifica)
         const progSection = document.getElementById('wizard-progress-section');

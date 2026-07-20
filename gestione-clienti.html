@@ -13,8 +13,7 @@
     <script src="data-migration.js"></script>
     <!-- Original Scripts -->
     <script src="client-modal.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB4ZAyqevbKvxxLUVVXGORNTDmBXc-TYEc&loading=async&libraries=places,maps,marker&language=it&region=IT" defer></script>
     <style>
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .fade-in { animation: fadeIn 0.5s ease-in; }
@@ -218,6 +217,13 @@
                             <div class="flex flex-col items-center flex-1">
                                 <i class="fas fa-school text-yellow-600 text-xl mb-1"></i>
                                 <span class="text-xs font-medium">Scuola</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-teal-500 transition-colors">
+                            <input type="radio" name="tipoCliente" value="luogo" class="mr-2" onchange="updateClientTypeFields()">
+                            <div class="flex flex-col items-center flex-1">
+                                <i class="fas fa-map-marker-alt text-teal-600 text-xl mb-1"></i>
+                                <span class="text-xs font-medium">Luogo</span>
                             </div>
                         </label>
                     </div>
@@ -494,57 +500,49 @@
                         <i class="fas fa-map-marker-alt text-blue-500"></i> Sede Operativa / Amministrativa
                     </label>
 
-                    <!-- Barra di ricerca indirizzo -->
+                    <!-- Barra di ricerca indirizzo Google -->
                     <div class="relative mb-3">
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 items-start">
                             <div class="relative flex-1">
-                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-search text-gray-400"></i>
+                                <div class="absolute top-3 left-3 pointer-events-none z-10">
+                                    <i class="fas fa-search text-blue-400 text-sm"></i>
                                 </div>
-                                <input type="text" id="addrSearch"
-                                       class="w-full pl-10 pr-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50 placeholder-gray-400"
-                                       placeholder="Cerca ubicazione: es. Via Roma 10, Milano"
-                                       oninput="onAddrSearchInput()"
-                                       autocomplete="off">
-                                <div id="addrSuggestions" class="hidden absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden max-h-64 overflow-y-auto"></div>
+                                <div id="addrSearchContainer" class="w-full pl-8">
+                                    <!-- Google PlaceAutocompleteElement inserito da JS -->
+                                </div>
+                                <input type="hidden" id="addrSearch">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Campi indirizzo compilati dalla ricerca -->
-                    <div class="grid grid-cols-12 gap-2 mb-2">
-                        <div class="col-span-7">
-                            <input type="text" id="indirizzo"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="Via / Piazza"
-                                   autocomplete="off">
-                        </div>
-                        <div class="col-span-2">
-                            <input type="text" id="civico"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="Civico"
-                                   autocomplete="off">
-                        </div>
-                        <div class="col-span-3">
-                            <input type="text" id="citta"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="Città">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-12 gap-2 mb-2">
-                        <div class="col-span-4">
-                            <input type="text" id="cap" maxlength="5"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="CAP">
-                        </div>
-                        <div class="col-span-4">
-                            <input type="text" id="provincia" maxlength="2"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
-                                   placeholder="Prov.">
+                    <!-- Preview indirizzo selezionato -->
+                    <div id="addrPreview" class="hidden mb-3 bg-blue-50 border-2 border-blue-300 rounded-xl p-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-start gap-2 flex-1 min-w-0">
+                                <i class="fas fa-map-marker-alt text-blue-600 mt-0.5 flex-shrink-0"></i>
+                                <div class="min-w-0">
+                                    <p id="addrPreviewText" class="text-sm font-semibold text-gray-900 break-words"></p>
+                                    <p class="text-xs text-gray-500 mt-0.5">Indirizzo confermato da Google Maps</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="cancellaIndirizzo()"
+                                class="text-xs text-blue-600 hover:text-red-500 flex-shrink-0 underline">
+                                Cambia
+                            </button>
                         </div>
                     </div>
 
-                    <p class="text-xs text-gray-500 mt-1">Cerca l'indirizzo nella barra sopra — i campi vengono compilati automaticamente. Puoi anche modificarli a mano.</p>
+                    <!-- Campi nascosti per il salvataggio (popolati da Google) -->
+                    <input type="hidden" id="indirizzo">
+                    <input type="hidden" id="civico">
+                    <input type="hidden" id="citta">
+                    <input type="hidden" id="cap">
+                    <input type="hidden" id="provincia">
+
+                    <p class="text-xs text-gray-400 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Cerca l'indirizzo con Google Maps — seleziona dalla lista per confermare automaticamente.
+                    </p>
                 </div>
 
                 <!-- Header Dati Amministrativi (solo struttura) -->
@@ -974,6 +972,7 @@
                         tipo === 'comune' ? 'bg-red-100 text-red-700' :
                         tipo === 'amministratore_condominio' ? 'bg-indigo-100 text-indigo-700' :
                         tipo === 'scuola' ? 'bg-yellow-100 text-yellow-700' :
+                        tipo === 'luogo' ? 'bg-teal-100 text-teal-700' :
                         tipo === 'struttura' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-700';
                     const tipoIcon = tipo === 'azienda' ? 'fa-building' :
                         tipo === 'privato' ? 'fa-user' :
@@ -982,6 +981,7 @@
                         tipo === 'comune' ? 'fa-landmark' :
                         tipo === 'amministratore_condominio' ? 'fa-user-tie' :
                         tipo === 'scuola' ? 'fa-school' :
+                        tipo === 'luogo' ? 'fa-map-marker-alt' :
                         tipo === 'struttura' ? 'fa-sitemap' : 'fa-question';
                     const tipoLabel = tipo === 'amministratore_condominio' ? 'Amm. Condominio' :
                         tipo === 'struttura' ? 'Struttura' : tipo.charAt(0).toUpperCase() + tipo.slice(1);
@@ -1142,10 +1142,11 @@
                 const modal = document.getElementById('clientFormModal');
                 modal.classList.remove('hidden');
                 
-                // Initialize or reset map
+                // Inizializza mappa e PlaceAutocompleteElement
                 setTimeout(() => {
                     initMap();
-                }, 100);
+                    _initGooglePlaces();  // re-inizializza autocomplete ad ogni apertura
+                }, 150);
                 
                 if (clientId) {
                     // Edit mode - load from Supabase
@@ -1180,8 +1181,12 @@
                     document.getElementById('partitaIva').value = client.partita_iva || '';
                     document.getElementById('indirizzo').value = client.indirizzo || '';
                     document.getElementById('civico').value = '';
-                    const addrSrch = document.getElementById('addrSearch');
-                    if (addrSrch) addrSrch.value = client.indirizzo ? [client.indirizzo, client.citta].filter(Boolean).join(', ') : '';
+                    // Mostra preview indirizzo se già salvato
+                    if (client.indirizzo) {
+                        const prevTxt = [client.indirizzo].filter(Boolean).join(', ');
+                        document.getElementById('addrPreviewText').textContent = prevTxt;
+                        document.getElementById('addrPreview').classList.remove('hidden');
+                    }
                     if (document.getElementById('citta')) document.getElementById('citta').value = client.citta || '';
                     if (document.getElementById('provincia')) document.getElementById('provincia').value = client.provincia || '';
                     if (document.getElementById('cap')) document.getElementById('cap').value = client.cap || '';
@@ -1250,9 +1255,10 @@
                     if (client.latitudine && client.longitudine) {
                         setTimeout(() => {
                             if (map && marker) {
-                                const latLng = [client.latitudine, client.longitudine];
-                                marker.setLatLng(latLng);
-                                map.setView(latLng, 15);
+                                const latLng = { lat: parseFloat(client.latitudine), lng: parseFloat(client.longitudine) };
+                                marker.position = latLng;
+                                map.setCenter(latLng);
+                                map.setZoom(15);
                                 document.getElementById('latitude').value = client.latitudine;
                                 document.getElementById('longitude').value = client.longitudine;
                             }
@@ -1285,170 +1291,198 @@
             clearAmm();
             clearComune();
             clearAzienda();
-            if (map) {
-                map.remove();
-                map = null;
-            }
+            // Reset mappa Google Maps (non ha .remove() come Leaflet)
+            if (map) { map = null; marker = null; }
+            const mapEl = document.getElementById('mapContainer');
+            if (mapEl) mapEl.innerHTML = '';
+            // Reset autocomplete e preview indirizzo per prossima apertura
+            _googleAutocomplete = null;
+            const container = document.getElementById('addrSearchContainer');
+            if (container) container.innerHTML = '';
+            document.getElementById('addrPreview')?.classList.add('hidden');
+            document.getElementById('addrPreviewText').textContent = '';
         }
 
         function initMap() {
-            if (map) {
-                map.remove();
+            // Inizializza Google Maps
+            const defaultLat = 45.0;
+            const defaultLng = 11.0;
+
+            const mapEl = document.getElementById('mapContainer');
+            if (!mapEl) return;
+
+            // Aspetta che Google Maps sia pronto
+            if (!window.google?.maps?.Map) {
+                setTimeout(initMap, 300);
+                return;
             }
-            
-            // Default center (Italy)
-            const defaultLat = 41.9028;
-            const defaultLng = 12.4964;
-            
-            map = L.map('mapContainer').setView([defaultLat, defaultLng], 6);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-            
-            marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
-            
-            // Update coordinates when marker is moved
-            marker.on('dragend', function(e) {
-                const position = marker.getLatLng();
-                document.getElementById('latitude').value = position.lat.toFixed(6);
-                document.getElementById('longitude').value = position.lng.toFixed(6);
+
+            // Rimuovi mappa precedente se esiste
+            if (map) {
+                mapEl.innerHTML = '';
+                map = null; marker = null;
+            }
+
+            map = new google.maps.Map(mapEl, {
+                center: { lat: defaultLat, lng: defaultLng },
+                zoom: 6,
+                mapId: 'DEMO_MAP_ID',
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false
             });
-            
-            // Add marker on map click
-            map.on('click', function(e) {
-                marker.setLatLng(e.latlng);
-                document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
-                document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
+
+            marker = new google.maps.marker.AdvancedMarkerElement({
+                position: { lat: defaultLat, lng: defaultLng },
+                map: map,
+                gmpDraggable: true
             });
-            
-            // Set initial coordinates
-            document.getElementById('latitude').value = defaultLat;
+
+            // Aggiorna coordinate al trascinamento
+            marker.addListener('dragend', (e) => {
+                const pos = marker.position;
+                const lat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+                const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
+                document.getElementById('latitude').value  = parseFloat(lat).toFixed(6);
+                document.getElementById('longitude').value = parseFloat(lng).toFixed(6);
+            });
+
+            // Sposta marker al click sulla mappa
+            map.addListener('click', (e) => {
+                marker.position = e.latLng;
+                document.getElementById('latitude').value  = e.latLng.lat().toFixed(6);
+                document.getElementById('longitude').value = e.latLng.lng().toFixed(6);
+            });
+
+            document.getElementById('latitude').value  = defaultLat;
             document.getElementById('longitude').value = defaultLng;
         }
 
-        // ── Address autocomplete & search ──────────────────────────────
+        // Close suggestions when clicking outside (legacy - Google Autocomplete gestisce da solo)
+        document.addEventListener('click', function(e) {});
+
+        // ══════════════════════════════════════════════════════
+        // GOOGLE PLACES AUTOCOMPLETE — ricerca indirizzo precisa
+        // ══════════════════════════════════════════════════════
+        let _googleAutocomplete = null;
         let _addrDebounce = null;
 
-        function onAddrSearchInput() {
-            clearTimeout(_addrDebounce);
-            const q = (document.getElementById('addrSearch').value || '').trim();
-            if (q.length < 3) { hideAddrSuggestions(); return; }
-            _addrDebounce = setTimeout(() => _fetchAddrSuggestions(false), 400);
-        }
+        function _initGooglePlaces() {
+            const container = document.getElementById('addrSearchContainer');
+            if (!container) return;
 
-        // keep old name for any legacy calls
-        function onIndirizzoInput() { onAddrSearchInput(); }
+            // Se esiste già, rimuovi e ricrea (per riaperture del modal)
+            if (_googleAutocomplete) {
+                container.innerHTML = '';
+                _googleAutocomplete = null;
+            }
 
-        function _buildQuery() {
-            const q = (document.getElementById('addrSearch').value || '').trim();
-            if (!q) return null;
-            // append Italia if not already there
-            return q.toLowerCase().includes('italia') ? q : q + ', Italia';
-        }
-
-        async function _fetchAddrSuggestions(fromButton) {
-            const q = _buildQuery();
-            if (!q) {
-                if (fromButton) showNotification('Compila almeno un campo indirizzo', 'warning');
+            if (!window.google?.maps?.places?.PlaceAutocompleteElement) {
+                setTimeout(_initGooglePlaces, 300);
                 return;
             }
-            const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=it&limit=6&q=${encodeURIComponent(q)}`;
-            try {
-                const res = await fetch(url, {headers:{'Accept-Language':'it'}});
-                const data = await res.json();
-                if (!data || data.length === 0) {
-                    if (fromButton) showNotification('Nessun risultato trovato. Prova a variare i dati.', 'error');
-                    hideAddrSuggestions();
-                    return;
-                }
-                renderAddrSuggestions(data);
-            } catch(e) {
-                if (fromButton) showNotification('Errore nella ricerca: ' + e.message, 'error');
+
+            const autocomplete = new google.maps.places.PlaceAutocompleteElement({
+                componentRestrictions: { country: 'it' },
+                types: ['address']
+            });
+            autocomplete.style.cssText = 'width:100%;display:block;';
+            container.appendChild(autocomplete);
+            _googleAutocomplete = autocomplete;
+
+            // gmp-placeselect: place è direttamente sull'evento
+            autocomplete.addEventListener('gmp-placeselect', async (event) => {
+                const place = event.place ?? event.detail?.place;
+                if (!place) { console.warn('[Places] Nessun place nell\'evento'); return; }
+
+                try {
+                    await place.fetchFields({
+                        fields: ['addressComponents', 'location', 'formattedAddress', 'displayName']
+                    });
+                } catch(e) { console.error('[Places] fetchFields error:', e); return; }
+
+                const comps = {};
+                (place.addressComponents || []).forEach(comp => {
+                    (comp.types || []).forEach(t => { comps[t] = comp; });
+                });
+
+                const _t  = (c) => c?.longText  || c?.long_name  || '';
+                const _ts = (c) => c?.shortText || c?.short_name || '';
+
+                const route     = _t(comps.route);
+                const streetNum = _t(comps.street_number);
+                const city      = _t(comps.locality)
+                               || _t(comps.administrative_area_level_3)
+                               || _t(comps.administrative_area_level_2);
+                const cap       = _t(comps.postal_code);
+                const provincia = _ts(comps.administrative_area_level_2);
+                const loc       = place.location;
+                const lat       = typeof loc?.lat === 'function' ? loc.lat() : (loc?.lat ?? 0);
+                const lng       = typeof loc?.lng === 'function' ? loc.lng() : (loc?.lng ?? 0);
+
+                console.log('[Places] Selezione:', { route, streetNum, city, cap, provincia, lat, lng });
+
+                // Indirizzo formattato da Google (senza ", Italia")
+                const formattedAddr = (place.formattedAddress || '')
+                    .replace(/,?\s*Italia\s*$/i, '').trim()
+                    || [route, streetNum, cap, city, provincia].filter(Boolean).join(', ');
+
+                // Popola campi nascosti per il salvataggio
+                document.getElementById('indirizzo').value  = formattedAddr;
+                document.getElementById('civico').value     = streetNum;
+                document.getElementById('citta').value      = city;
+                document.getElementById('cap').value        = cap;
+                document.getElementById('provincia').value  = provincia;
+                document.getElementById('latitude').value   = parseFloat(lat).toFixed(6);
+                document.getElementById('longitude').value  = parseFloat(lng).toFixed(6);
+
+                // Mostra preview indirizzo
+                document.getElementById('addrPreviewText').textContent = formattedAddr;
+                document.getElementById('addrPreview').classList.remove('hidden');
+
+                // Aggiorna marker e mappa
+                const _aggiornaMappa = () => {
+                    if (map && marker && lat && lng) {
+                        const latlng = new google.maps.LatLng(parseFloat(lat), parseFloat(lng));
+                        marker.position = latlng;
+                        map.panTo(latlng);
+                        map.setZoom(16);
+                    }
+                };
+                _aggiornaMappa();
+                setTimeout(_aggiornaMappa, 300); // fallback se mappa non ancora pronta
+
+                showNotification('Indirizzo selezionato!', 'success');
+            });
+        }
+
+        // Aspetta che Google Maps sia caricato
+        function _waitGoogleAndInit() {
+            if (window.google?.maps?.places) {
+                _initGooglePlaces();
+            } else {
+                setTimeout(_waitGoogleAndInit, 200);
             }
         }
+        _waitGoogleAndInit();
 
-        function renderAddrSuggestions(results) {
-            const box = document.getElementById('addrSuggestions');
-            box.innerHTML = results.map((r, i) => {
-                const a = r.address || {};
-                const via  = [a.road, a.house_number].filter(Boolean).join(' ');
-                const cit  = a.city || a.town || a.village || a.municipality || '';
-                const cap  = a.postcode || '';
-                const prov = _extractProvincia(a);
-                const line1 = [via, cit].filter(Boolean).join(', ') || r.display_name.split(',').slice(0,2).join(',');
-                const line2 = [cap, prov].filter(Boolean).join(' ');
-                return `<button type="button"
-                    class="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-3"
-                    onclick="selectAddrSuggestion(${i})">
-                    <i class="fas fa-map-marker-alt text-blue-400 mt-0.5 flex-shrink-0"></i>
-                    <div>
-                        <div class="text-sm font-semibold text-gray-800">${line1}</div>
-                        ${line2 ? `<div class="text-xs text-gray-500">${line2}</div>` : ''}
-                    </div>
-                </button>`;
-            }).join('');
-            box.dataset.results = JSON.stringify(results);
-            box.classList.remove('hidden');
+        // Stubs legacy (non più usati)
+        function onAddrSearchInput() {}
+        function onIndirizzoInput()  {}
+        function hideAddrSuggestions() {}
+
+        function cancellaIndirizzo() {
+            ['indirizzo','civico','citta','cap','provincia','latitude','longitude'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.value = '';
+            });
+            document.getElementById('addrPreview').classList.add('hidden');
+            document.getElementById('addrPreviewText').textContent = '';
+            // Reset autocomplete
+            _googleAutocomplete = null;
+            const container = document.getElementById('addrSearchContainer');
+            if (container) container.innerHTML = '';
+            _initGooglePlaces();
         }
-
-        function _extractProvincia(a) {
-            // Try county code (e.g. "TO") from various Nominatim fields
-            if (a.ISO3166_2_lvl6) return a.ISO3166_2_lvl6.replace(/^IT-/,'');
-            if (a.county) {
-                const m = a.county.match(/\(([A-Z]{2})\)/);
-                if (m) return m[1];
-                return a.county.slice(0,2).toUpperCase();
-            }
-            if (a.state_district) return a.state_district.slice(0,2).toUpperCase();
-            return '';
-        }
-
-        function selectAddrSuggestion(idx) {
-            const box = document.getElementById('addrSuggestions');
-            const results = JSON.parse(box.dataset.results || '[]');
-            const r = results[idx];
-            if (!r) return;
-            const a = r.address || {};
-            const cit   = a.city || a.town || a.village || a.municipality || '';
-            const cap   = a.postcode || '';
-            const prov  = _extractProvincia(a);
-            const lat   = parseFloat(r.lat);
-            const lng   = parseFloat(r.lon);
-
-            const road  = a.road || '';
-            const hnum  = a.house_number || '';
-            if (road) document.getElementById('indirizzo').value = road;
-            if (hnum) document.getElementById('civico').value = hnum;
-            if (cit) document.getElementById('citta').value = cit;
-            if (cap) document.getElementById('cap').value = cap;
-            if (prov) document.getElementById('provincia').value = prov;
-            document.getElementById('latitude').value = lat.toFixed(6);
-            document.getElementById('longitude').value = lng.toFixed(6);
-
-            if (typeof marker !== 'undefined' && typeof map !== 'undefined') {
-                marker.setLatLng([lat, lng]);
-                map.setView([lat, lng], 16);
-            }
-
-            hideAddrSuggestions();
-            // show selected address in search bar
-            const display = [road, hnum, cit, cap].filter(Boolean).join(', ');
-            document.getElementById('addrSearch').value = display;
-            showNotification('Indirizzo selezionato!', 'success');
-        }
-
-        function hideAddrSuggestions() {
-            const box = document.getElementById('addrSuggestions');
-            if (box) box.classList.add('hidden');
-        }
-
-        // Close suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('#addrSearch') && !e.target.closest('#addrSuggestions')) {
-                hideAddrSuggestions();
-            }
-        });
 
         function toggleSedeLegaleStessa() {
             const checked = document.getElementById('sedeLegaleStessa')?.checked;
@@ -1461,10 +1495,7 @@
             }
         }
 
-        function searchAddress() {
-            clearTimeout(_addrDebounce);
-            _fetchAddrSuggestions(true);
-        }
+        function searchAddress() { /* gestito da Google Places Autocomplete */ }
         function updateClientTypeFields() {
             const tipoCliente = document.querySelector('input[name="tipoCliente"]:checked').value;
             const referenteFields = document.getElementById('referenteFields');
@@ -1503,13 +1534,13 @@
 
             // Reset selezione se si cambia tipo
             if (tipoCliente !== 'condominio') clearAmm();
-            if (tipoCliente !== 'scuola') clearComune();
+            if (tipoCliente !== 'scuola' && tipoCliente !== 'luogo') clearComune();
             if (tipoCliente !== 'struttura') clearAzienda();
 
             // Nascondi contatti per condominio/scuola (usa quelli del comune/amministratore)
             const contattiFields = document.getElementById('contattiFields');
             if (contattiFields) {
-                if (tipoCliente === 'condominio' || tipoCliente === 'scuola') {
+                if (tipoCliente === 'condominio' || tipoCliente === 'scuola' || tipoCliente === 'luogo') {
                     contattiFields.style.display = 'none';
                     document.getElementById('telefono').removeAttribute('required');
                     document.getElementById('email').removeAttribute('required');

@@ -108,6 +108,9 @@ function buildOrdineHtml(p: Record<string, unknown>): string {
     <p style="margin:0 0 4px;font-size:12px;color:#6b7280">📧 ordini@zgimpianti.it &nbsp;|&nbsp; 🌐 zgimpianti.it</p>
     <p style="margin:12px 0 0;font-size:11px;color:#9ca3af">Questo messaggio è stato generato automaticamente dal gestionale ZG Impianti.<br>Per qualsiasi chiarimento risponda a questa email oppure contatti il nostro ufficio acquisti.</p>
   </div>
+</div></body></html>`;
+}
+
 function buildPreventivoHtml(p: Record<string, unknown>): string {
   const { toName, fornitoreNome, numeroRichiesta, oggetto, dataRichiesta, dataRispostaEntro, articoli, note } = p as {
     toName?: string; fornitoreNome: string; numeroRichiesta: string; oggetto: string;
@@ -340,8 +343,13 @@ Deno.serve(async (req) => {
       fromName = FROM_NAME;
     }
 
-    // CC opzionale (usato per richieste preventivo con referente + ufficio)
-    const cc: string | undefined = typeof payload.cc === 'string' && payload.cc ? payload.cc : undefined;
+    // CC opzionale: accetta sia stringa singola che array
+    let ccArray: string[] | undefined;
+    if (Array.isArray(payload.cc) && payload.cc.length > 0) {
+      ccArray = (payload.cc as string[]).filter(Boolean);
+    } else if (typeof payload.cc === 'string' && payload.cc) {
+      ccArray = [payload.cc];
+    }
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -349,7 +357,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from:    `${fromName} <${FROM_EMAIL}>`,
         to:      [to],
-        ...(cc ? { cc: [cc] } : {}),
+        ...(ccArray?.length ? { cc: ccArray } : {}),
         subject,
         html,
       }),

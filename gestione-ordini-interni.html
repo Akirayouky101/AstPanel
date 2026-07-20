@@ -73,9 +73,12 @@
         @page { size: A4 portrait; margin: 12mm 10mm 12mm 10mm; }
         @media print {
             .no-print { display: none !important; }
-            html, body { background: white !important; margin:0; padding:0; }
+            #previewOrdineModal::-webkit-scrollbar { display: none; }
+            #previewBody::-webkit-scrollbar { display: none; }
+            html, body { background: white !important; margin:0; padding:0; height:auto !important; overflow:hidden !important; }
             #ordineStampaPrint { display: block !important; }
             body > *:not(#ordineStampaPrint) { display: none !important; }
+            #ordineStampaPrint .sp-footer { page-break-after: avoid; }
         }
         #ordineStampaPrint {
             display: none;
@@ -761,7 +764,7 @@
     </div>
 
     <!-- ── Modal Riepilogo Ordine (preview + QR) ── -->
-    <div id="previewOrdineModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 overflow-y-auto no-print backdrop-blur-sm" style="padding:16px 12px">
+    <div id="previewOrdineModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 overflow-y-auto no-print backdrop-blur-sm" style="padding:16px 12px;scrollbar-width:none;-ms-overflow-style:none">
         <div class="bg-white rounded-2xl shadow-2xl w-full my-4" style="max-width:780px;overflow:hidden">
             <!-- Header modale -->
             <div style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:16px 22px;display:flex;align-items:center;justify-content:space-between">
@@ -772,7 +775,7 @@
                 <button onclick="closePreviewOrdine()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;line-height:1;width:36px;height:36px;border-radius:8px;cursor:pointer">&times;</button>
             </div>
             <!-- Corpo -->
-            <div id="previewBody" style="padding:22px 24px;overflow-y:auto;max-height:75vh"></div>
+            <div id="previewBody" style="padding:22px 24px;overflow-y:auto;max-height:75vh;scrollbar-width:none;-ms-overflow-style:none"></div>
             <!-- Footer -->
             <div style="padding:14px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px">
                 <button onclick="closePreviewOrdine()" style="padding:10px 20px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Chiudi</button>
@@ -1356,7 +1359,7 @@
                 ? `<tr>
                     <td>${i+1}</td>
                     <td>${it.codice?`<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>`:''}
-                        ${it.descrizione}</td>
+                        ${it.descrizione_stampa || it.descrizione}</td>
                     <td class="c">${it.um||'pz'}</td>
                     <td class="c">${it.quantita}</td>
                     <td class="r">${fmt(it.prezzo_unitario)}</td>
@@ -1366,7 +1369,7 @@
                 : `<tr style="${rowStyle}">
                     <td style="${cellPad}color:#6b7280;font-size:12px">${i+1}</td>
                     <td style="${cellPad}font-size:13px">${it.codice?`<span style="font-size:10px;color:#9ca3af;display:block">${it.codice}</span>`:''}
-                        ${it.descrizione}</td>
+                        ${it.descrizione_stampa || it.descrizione}</td>
                     <td style="${cellPad}text-align:center;font-size:12px">${it.um||'pz'}</td>
                     <td style="${cellPad}text-align:center;font-size:12px">${it.quantita}</td>
                     <td style="${cellPad}text-align:right;font-size:12px">${fmt(it.prezzo_unitario)}</td>
@@ -1407,7 +1410,19 @@
             try {
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
                 if (e1) throw e1;
-                const { data: items } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
+                let { data: items } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
+                items = items || [];
+
+                // Arricchisci con nome breve dal magazzino
+                const pIds = [...new Set(items.map(it => it.prodotto_id).filter(Boolean))];
+                if (pIds.length > 0) {
+                    const { data: comps } = await db.from('components').select('id, nome').in('id', pIds);
+                    const nomeMap = {};
+                    (comps || []).forEach(c => { nomeMap[c.id] = c.nome; });
+                    items = items.map(it => ({ ...it, descrizione_stampa: (it.prodotto_id && nomeMap[it.prodotto_id]) || it.descrizione }));
+                } else {
+                    items = items.map(it => ({ ...it, descrizione_stampa: it.descrizione }));
+                }
 
                 _previewOrdineId = id;
 
@@ -1524,11 +1539,25 @@
         }
 
         // ── Stampa da oggetto dati (usata dal preview modal) ──
-        function stampaOrdineFromData(o, items) {
+        async function stampaOrdineFromData(o, items) {
             const canaleMap = { telefono:'📞 Telefono', email:'✉️ Email/Fax', web:'🌐 Web', commerciale:'🤝 Tramite Commerciale', fisicamente:'🏪 Di persona', magazzini_persona:'📦 Magazzini ZG – persona', magazzini_web:'🖥️ Magazzini ZG – web' };
             const fmtDate = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
             const fmt = v => '€ ' + parseFloat(v||0).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
             const statoLabels = {bozza:'📝 Bozza',in_attesa:'⏸ In Attesa',approvato:'✅ Approvato',annullato:'❌ Annullato'};
+
+            // Arricchisci items con il nome breve dal magazzino
+            const prodottoIds = [...new Set((items||[]).map(it => it.prodotto_id).filter(Boolean))];
+            if (prodottoIds.length > 0) {
+                const { data: comps } = await db.from('components').select('id, nome').in('id', prodottoIds);
+                const nomeMap = {};
+                (comps || []).forEach(c => { nomeMap[c.id] = c.nome; });
+                items = items.map(it => ({
+                    ...it,
+                    descrizione_stampa: (it.prodotto_id && nomeMap[it.prodotto_id]) || it.descrizione
+                }));
+            } else {
+                items = (items||[]).map(it => ({ ...it, descrizione_stampa: it.descrizione }));
+            }
 
             // Sovrascrivo le variabili usate dal corpo stampa
             const numero       = o.numero || 'BOZZA';
@@ -1688,17 +1717,61 @@
             const totale        = imponibile + totaleIva;
             const fmt           = v => '€ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-            // Righe articoli
-            const righe = currentItems.map((it, i) => `
-                <tr>
-                    <td>${i+1}</td>
-                    <td>${it.codice ? `<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>` : ''}${it.descrizione}</td>
-                    <td class="c">${it.um || 'pz'}</td>
-                    <td class="c">${it.quantita}</td>
-                    <td class="r">${fmt(it.prezzo_unitario)}</td>
-                    <td class="c">${it.sconto_percentuale > 0 ? it.sconto_percentuale + '%' : '—'}</td>
-                    <td class="r"><b>${fmt(it.importo)}</b></td>
-                </tr>`).join('');
+            // Righe articoli — raggruppate per cliente se ci sono clienti diversi
+            const hasClients = currentItems.some(it => it.cliente_id);
+
+            let righe = '';
+            if (!hasClients) {
+                // Lista piatta
+                righe = currentItems.map((it, i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${it.codice ? `<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>` : ''}${it.descrizione}</td>
+                        <td class="c">${it.um || 'pz'}</td>
+                        <td class="c">${it.quantita}</td>
+                        <td class="r">${fmt(it.prezzo_unitario)}</td>
+                        <td class="c">${it.sconto_percentuale > 0 ? it.sconto_percentuale + '%' : '—'}</td>
+                        <td class="r"><b>${fmt(it.importo)}</b></td>
+                    </tr>`).join('');
+            } else {
+                // Raggruppa per cliente mantenendo l'ordine di apparizione
+                const groups = new Map();
+                const noCliente = { nome: '— Senza cliente —', items: [] };
+                currentItems.forEach(it => {
+                    if (it.cliente_id) {
+                        if (!groups.has(it.cliente_id)) {
+                            groups.set(it.cliente_id, { nome: it.cliente_nome_cache || 'Cliente', items: [] });
+                        }
+                        groups.get(it.cliente_id).items.push(it);
+                    } else {
+                        noCliente.items.push(it);
+                    }
+                });
+
+                const renderGroup = (nomeCliente, items) => {
+                    const header = `<tr><td colspan="7" style="padding:0">
+                        <div style="background:#f0fdfa;padding:7px 12px;border-top:2px solid #99f6e4;border-bottom:1px solid #ccfbf1">
+                            <span style="font-weight:800;font-size:12px;color:#0f766e;text-transform:uppercase;letter-spacing:.4px">
+                                👤 ${nomeCliente}
+                            </span>
+                        </div>
+                    </td></tr>`;
+                    const rows = items.map((it, i) => `
+                        <tr>
+                            <td>${i+1}</td>
+                            <td>${it.codice ? `<span style="font-size:10px;color:#6b7280;display:block">${it.codice}</span>` : ''}${it.descrizione}</td>
+                            <td class="c">${it.um || 'pz'}</td>
+                            <td class="c">${it.quantita}</td>
+                            <td class="r">${fmt(it.prezzo_unitario)}</td>
+                            <td class="c">${it.sconto_percentuale > 0 ? it.sconto_percentuale + '%' : '—'}</td>
+                            <td class="r"><b>${fmt(it.importo)}</b></td>
+                        </tr>`).join('');
+                    return header + rows;
+                };
+
+                groups.forEach(g => { righe += renderGroup(g.nome, g.items); });
+                if (noCliente.items.length > 0) righe += renderGroup(noCliente.nome, noCliente.items);
+            }
 
             const today = new Date().toLocaleDateString('it-IT');
 
@@ -1957,7 +2030,7 @@
         }
 
         // ── Stampa ──
-        async function stampaOrdine(id) {
+        async function stampaOrdineDaId(id) {
             try {
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
                 if (e1) throw e1;

@@ -5347,10 +5347,24 @@
                         <!-- Bottone Scanner Rapido -->
                         <button type="button"
                                 onclick="openWizardComponentSelector(true)"
-                                class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
+                                class="w-full mb-3 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
                             <i class="fas fa-qrcode"></i>
                             Solo Scanner (doppia colonna)
                         </button>
+
+                        <!-- Bottone Aggiungi da Kit -->
+                        <button type="button"
+                                onclick="openKitPickerWizard()"
+                                class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
+                            <i class="fas fa-box-open"></i>
+                            Aggiungi da Kit
+                        </button>
+
+                        <!-- Feedback kit precaricato -->
+                        <div id="kitPreloadInfo" class="hidden mb-3 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-800 font-semibold flex items-center gap-2">
+                            <i class="fas fa-check-circle text-teal-600"></i>
+                            <span></span>
+                        </div>
 
                         <div class="text-center text-gray-500 text-sm mb-3">
                             <i class="fas fa-info-circle mr-1"></i>
@@ -6569,6 +6583,167 @@
             </div>
         </div>
     </div>
+
+    <!-- ═══ MODAL KIT PICKER per Wizard ═══ -->
+    <div id="kitPickerModal" class="hidden fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden" style="max-height:85vh">
+            <div class="bg-gradient-to-r from-teal-600 to-emerald-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="font-bold text-lg">📦 Seleziona Kit</h3>
+                    <p class="text-teal-100 text-xs mt-0.5">I componenti del kit verranno aggiunti alla lavorazione</p>
+                </div>
+                <button onclick="closeKitPickerWizard()" class="text-white hover:bg-white/20 p-2 rounded-full transition">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b flex-shrink-0">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                    <input id="kitPickerSearch" type="text" placeholder="Cerca kit per nome o codice..."
+                        class="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-300 outline-none"
+                        oninput="filtroKitPicker(this.value)">
+                </div>
+            </div>
+            <div id="kitPickerList" class="overflow-y-auto flex-1 p-3 space-y-2">
+                <p class="text-center text-gray-400 py-6 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento kit...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ═══════════════════════════════════════════════════
+    // KIT PICKER PER WIZARD LAVORAZIONE
+    // ═══════════════════════════════════════════════════
+    let _kitPickerData = [];
+
+    async function openKitPickerWizard() {
+        document.getElementById('kitPickerModal').classList.remove('hidden');
+        document.getElementById('kitPickerSearch').value = '';
+        await caricaKitPerPicker();
+    }
+
+    function closeKitPickerWizard() {
+        document.getElementById('kitPickerModal').classList.add('hidden');
+    }
+
+    async function caricaKitPerPicker() {
+        const list = document.getElementById('kitPickerList');
+        list.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</p>';
+        const { data, error } = await supabase
+            .from('v_kits_completi')
+            .select('id, nome_kit, codice_kit, stato, destinatario_nome, numero_componenti, quantita_totale')
+            .neq('stato', 'eliminato')
+            .order('created_at', { ascending: false });
+        _kitPickerData = data || [];
+        renderKitPicker(_kitPickerData);
+    }
+
+    function filtroKitPicker(q) {
+        const ql = q.trim().toLowerCase();
+        const filtrati = ql ? _kitPickerData.filter(k =>
+            (k.nome_kit||'').toLowerCase().includes(ql) ||
+            (k.codice_kit||'').toLowerCase().includes(ql) ||
+            (k.destinatario_nome||'').toLowerCase().includes(ql)
+        ) : _kitPickerData;
+        renderKitPicker(filtrati);
+    }
+
+    function renderKitPicker(kits) {
+        const list = document.getElementById('kitPickerList');
+        if (!kits.length) {
+            list.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm">Nessun kit trovato</p>';
+            return;
+        }
+        const statoBadge = { pronto:'bg-green-100 text-green-700', in_preparazione:'bg-yellow-100 text-yellow-700', consegnato:'bg-gray-100 text-gray-500' };
+        list.innerHTML = kits.map(k => `
+            <button onclick="selezionaKitPerWizard('${k.id}')"
+                class="w-full text-left p-3 border-2 border-gray-100 hover:border-teal-300 hover:bg-teal-50 rounded-xl transition group">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-teal-100 text-teal-700 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-teal-200 transition">
+                        <i class="fas fa-box text-base"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-bold text-gray-900 text-sm truncate">${k.nome_kit||'-'}</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${statoBadge[k.stato]||'bg-gray-100 text-gray-500'} capitalize">${k.stato||''}</span>
+                        </div>
+                        <div class="flex gap-3 mt-0.5 flex-wrap">
+                            <span class="text-xs text-gray-400 font-mono">${k.codice_kit||''}</span>
+                            ${k.destinatario_nome ? `<span class="text-xs text-gray-500"><i class="fas fa-user mr-0.5"></i>${k.destinatario_nome}</span>` : ''}
+                            <span class="text-xs text-teal-600 font-semibold">${k.numero_componenti||0} componenti (${k.quantita_totale||0} pz)</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-300 group-hover:text-teal-500 transition mt-1 flex-shrink-0"></i>
+                </div>
+            </button>`).join('');
+    }
+
+    async function selezionaKitPerWizard(kitId) {
+        closeKitPickerWizard();
+        if (window.taskWizard) {
+            await window.taskWizard.preloadKitComponenti(kitId);
+        }
+    }
+
+    // ── Gestione URL param ?kit_id= al caricamento pagina ──
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const kitId   = params.get('kit_id');
+        const autoWiz = params.get('wizard') === '1';
+        if (kitId && autoWiz) {
+            const tryOpen = setInterval(async () => {
+                if (window.taskWizard && document.getElementById('wizard-step-1') &&
+                    typeof supabase !== 'undefined') {
+                    clearInterval(tryOpen);
+
+                    // 1. Carica dati kit (cliente incluso)
+                    const { data: kit } = await supabase
+                        .from('v_kits_completi')
+                        .select('id, nome_kit, codice_kit, cliente_id')
+                        .eq('id', kitId)
+                        .single();
+
+                    // 2. Avvia wizard dallo step 1
+                    await window.taskWizard.iniziaWizard();
+
+                    // 3. Salva kit come pendente (verrà caricato quando si arriva allo step 3)
+                    window.taskWizard._pendingKitId = kitId;
+
+                    // 4. Pre-popola cliente se disponibile
+                    if (kit?.cliente_id) {
+                        window.taskWizard.wizardData.cliente_id = kit.cliente_id;
+
+                        // Cerca nome cliente per la label
+                        let nomeCliente = '';
+                        try {
+                            const { data: cl } = await supabase
+                                .from('clients')
+                                .select('ragione_sociale')
+                                .eq('id', kit.cliente_id)
+                                .single();
+                            nomeCliente = cl?.ragione_sociale || '';
+                        } catch(e) {}
+
+                        // Aggiorna UI picker cliente
+                        const input   = document.getElementById('wizard-cliente-select');
+                        const lbl     = document.getElementById('wizardClientPickerLabel');
+                        const actions = document.getElementById('wizardClientPickerActions');
+                        if (input) input.value = kit.cliente_id;
+                        if (lbl && nomeCliente) {
+                            lbl.innerHTML = `<i data-lucide="building-2" class="w-4 h-4 inline mr-2 text-blue-600"></i><span class="text-gray-800 font-semibold">${nomeCliente}</span>`;
+                            lbl.classList.remove('text-gray-400');
+                        }
+                        if (actions) actions.classList.remove('hidden');
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    }
+
+                    // 5. Pulisci URL
+                    history.replaceState({}, '', window.location.pathname);
+                }
+            }, 300);
+        }
+    })();
+    </script>
 
 </body>
 </html>

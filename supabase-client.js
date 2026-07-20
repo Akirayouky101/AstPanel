@@ -32,6 +32,34 @@ window.supabaseAdmin = supabaseAdmin; // Per operazioni admin
 
 console.log('✅ Supabase clients initialized successfully');
 
+// ── Uppercase globale ──────────────────────────────────────────────────────
+(function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        * {
+            text-transform: uppercase !important;
+        }
+        /* Eccezioni: campi tecnici che non devono essere uppercase */
+        input[type="email"], input[type="password"], input[type="url"],
+        input[type="hidden"], input[type="file"],
+        input[id*="barcode"], input[id*="Barcode"],
+        input[id*="qr"], input[id*="Qr"],
+        input[id*="url"], input[id*="Url"],
+        input[id*="foto"], input[id*="Foto"],
+        input[id*="logo"], input[id*="Logo"],
+        input[id*="pec"], input[id*="Pec"],
+        input[id*="email"], input[id*="Email"],
+        input[id*="password"], input[id*="Password"],
+        a[href], img, svg, canvas, iframe,
+        code, pre, .font-mono, [class*="font-mono"],
+        [id*="qrCanvas"], [id*="barcodeCanvas"],
+        .no-uppercase, [data-uppercase="false"] {
+            text-transform: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
 // =====================================================
 // AUTHENTICATION
 // =====================================================

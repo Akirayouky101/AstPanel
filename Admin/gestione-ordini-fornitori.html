@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-client.js"></script>
     <script src="auth-helper.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         @keyframes bounce-in {
             0% { transform: scale(0.8); opacity: 0; }
@@ -410,9 +411,66 @@
         </div>
     </div>
 
+    <!-- ╔════ MODAL Seriale ════╗ -->
+    <div id="serialeModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.65);backdrop-filter:blur(4px)">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg">🔢 Inserisci Seriale</h3>
+                        <p id="serialeModalTitle" class="text-indigo-200 text-xs mt-0.5 truncate max-w-xs"></p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-black" id="serialeModalCount">0/0</div>
+                        <div class="text-indigo-200 text-xs">unità</div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="text" id="serialeModalInput"
+                    placeholder="Scansiona o digita il numero seriale…"
+                    autocomplete="off"
+                    class="w-full px-4 py-3 border-2 border-indigo-300 rounded-xl font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();confermaSerialeModal(true);}">
+                <div class="flex gap-3">
+                    <button onclick="confermaSerialeModal(true)"
+                        class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
+                        <i class="fas fa-check mr-1"></i>Conferma
+                    </button>
+                    <button onclick="confermaSerialeModal(false)"
+                        class="px-4 py-3 border-2 border-gray-200 text-gray-500 rounded-xl font-semibold hover:bg-gray-50 transition text-sm">
+                        Salta
+                    </button>
+                </div>
+                <div id="serialeModalChips" class="flex flex-wrap gap-1.5 min-h-[20px]"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ╔════ MODAL Sostituisci Prodotto ════╗ -->
+    <div id="sostituisciModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div class="bg-gradient-to-r from-orange-500 to-amber-500 text-white p-5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-xl font-bold">🔄 Sostituisci Prodotto</h3>
+                    <p id="sostituisciOldLabel" class="text-orange-100 text-sm mt-0.5 truncate max-w-sm"></p>
+                </div>
+                <button onclick="chiudiSostituisciModal()" class="text-white hover:bg-white/20 p-2 rounded-xl transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b border-gray-100 flex-shrink-0">
+                <input type="text" id="sostituisciSearch" placeholder="🔍 Cerca prodotto sostitutivo..."
+                    oninput="renderSostituisciList()"
+                    class="w-full px-4 py-2.5 border-2 border-orange-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-200 outline-none">
+            </div>
+            <div id="sostituisciList" class="overflow-y-auto flex-1 divide-y divide-gray-50"></div>
+        </div>
+    </div>
+
     <!-- Modal Ricezione Merce -->
     <div id="ricezioneModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full">
             <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 rounded-t-2xl">
                 <div class="flex items-center justify-between">
                     <div>
@@ -426,15 +484,90 @@
             </div>
             <div class="p-6">
                 <input type="hidden" id="ricezioneOrdineId">
-                <div id="ricezioneItems" class="space-y-4">
-                    <!-- Popolato dinamicamente -->
+
+                <!-- ── Sezione Scanner Barcode ── -->
+                <div class="mb-5 bg-green-50 border-2 border-green-200 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fas fa-barcode text-green-700 text-lg"></i>
+                        <span class="font-bold text-green-800">Scansiona Barcode</span>
+                        <span class="text-xs text-green-600 ml-auto">Lettore USB/Bluetooth o fotocamera</span>
+                    </div>
+
+                    <!-- Input per scanner USB/Bluetooth (il lettore digita il codice e preme Enter) -->
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="barcodeInput"
+                            placeholder="🔍 Scansiona o digita il barcode..."
+                            autocomplete="off"
+                            class="flex-1 px-4 py-2.5 border-2 border-green-300 rounded-xl text-sm focus:ring-2 focus:ring-green-200 outline-none bg-white font-mono"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();elaboraBarcode(this.value.trim());}">
+                        <button onclick="elaboraBarcode(document.getElementById('barcodeInput').value.trim())"
+                            class="px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold">
+                            <i class="fas fa-check mr-1"></i>Cerca
+                        </button>
+                        <button id="btnCameraScanner" onclick="toggleCameraScanner()"
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-semibold" title="Usa fotocamera">
+                            <i class="fas fa-camera mr-1"></i>Fotocamera
+                        </button>
+                    </div>
+
+                    <!-- Anteprima fotocamera -->
+                    <div id="cameraScannerContainer" class="hidden">
+                        <div id="qr-reader" class="rounded-xl overflow-hidden border-2 border-green-300"></div>
+                        <button onclick="stopCameraScanner()"
+                            class="mt-2 w-full py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 text-sm font-semibold">
+                            <i class="fas fa-stop mr-1"></i>Ferma Fotocamera
+                        </button>
+                    </div>
+
+                    <!-- Feedback scan -->
+                    <div id="barcodeFeedback" class="hidden mt-2 px-3 py-2 rounded-lg text-sm font-semibold"></div>
+                </div>
+                <!-- ── Fine Sezione Scanner ── -->
+
+                <div id="ricezioneItems" class="grid grid-cols-3 gap-3" style="min-height:200px">
+                    <!-- Colonna 1: Da ricevere -->
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2 mb-2 px-1">
+                            <i class="fas fa-clock text-gray-400 text-xs"></i>
+                            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">Da Ricevere</span>
+                            <span id="badgePending" class="ml-auto bg-gray-200 text-gray-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <div id="ricezioneItemsPending" class="space-y-2 overflow-y-auto flex-1 pr-1" style="max-height:320px">
+                        </div>
+                    </div>
+                    <!-- Colonna 2: Incompleti -->
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2 mb-2 px-1">
+                            <i class="fas fa-circle-half-stroke text-amber-500 text-xs"></i>
+                            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Incompleti</span>
+                            <span id="badgeIncompleti" class="ml-auto bg-amber-100 text-amber-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <div id="ricezioneItemsIncompleti" class="space-y-2 overflow-y-auto flex-1 pr-1" style="max-height:320px">
+                            <div class="flex flex-col items-center justify-center h-24 text-gray-300 text-xs">
+                                <i class="fas fa-minus-circle text-2xl mb-1"></i><p>Nessun parziale</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Colonna 3: Ricevuti -->
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2 mb-2 px-1">
+                            <i class="fas fa-check-circle text-green-500 text-xs"></i>
+                            <span class="text-xs font-bold text-green-700 uppercase tracking-wider">Ricevuti</span>
+                            <span id="badgeReceived" class="ml-auto bg-green-100 text-green-700 text-xs font-black px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <div id="ricezioneItemsCompleted" class="space-y-2 overflow-y-auto flex-1 pr-1" style="max-height:320px">
+                            <div class="flex flex-col items-center justify-center h-24 text-gray-300 text-xs">
+                                <i class="fas fa-inbox text-2xl mb-1"></i><p>Nessun ricevuto</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="mt-6 flex justify-end space-x-3">
                     <button onclick="closeRicezioneModal()" class="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
                         Annulla
                     </button>
                     <button onclick="confermaRicezione()" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">
-                        <i class="fas fa-check mr-2"></i>Conferma Ricezione
+                        <i class="fas fa-save mr-2"></i>Salva Ricezione
                     </button>
                 </div>
             </div>
@@ -460,43 +593,65 @@
                 <p id="emailConfirmNumero" class="font-bold text-gray-900 text-lg mb-4"></p>
 
                 <!-- Destinatario singolo -->
-                <div id="emailSingleDest" class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <div class="bg-blue-100 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <i class="fas fa-user text-blue-600 text-xs"></i>
-                    </div>
-                    <div>
-                        <p id="emailConfirmNome" class="font-semibold text-gray-800 text-sm"></p>
-                        <p id="emailConfirmEmail" class="text-blue-600 text-sm"></p>
-                    </div>
+                <div id="emailSingleDest" class="hidden">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Invia a:</p>
+                    <label class="flex items-center gap-3 p-3 border-2 border-blue-300 bg-blue-50 rounded-xl cursor-pointer hover:border-blue-400 transition">
+                        <input type="checkbox" name="emailDestSingle" value="referente" checked class="w-4 h-4 accent-blue-600">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800" id="emailConfirmNome"></p>
+                            <p class="text-xs text-blue-600" id="emailConfirmEmail"></p>
+                        </div>
+                    </label>
                 </div>
 
                 <!-- Selezione destinatario (quando ci sono 2 email) -->
-                <div id="emailMultiDest" class="hidden space-y-2">
+                <div id="emailMultiDest" class="hidden">
                     <p class="text-sm font-semibold text-gray-700 mb-2">Invia a:</p>
+                    <div class="space-y-2">
                     <label class="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 transition">
-                        <input type="radio" name="emailDestChoice" value="referente" class="accent-blue-600">
+                        <input type="checkbox" name="emailDestChoice" value="referente" checked class="w-4 h-4 accent-blue-600">
                         <div>
                             <p class="text-sm font-semibold text-gray-800" id="emailReferenteLbl">Referente Commerciale</p>
                             <p class="text-xs text-blue-600" id="emailReferenteVal"></p>
                         </div>
                     </label>
                     <label class="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 transition">
-                        <input type="radio" name="emailDestChoice" value="ufficio" class="accent-blue-600">
+                        <input type="checkbox" name="emailDestChoice" value="ufficio" checked class="w-4 h-4 accent-blue-600">
                         <div>
                             <p class="text-sm font-semibold text-gray-800">Ufficio / Amministrazione</p>
                             <p class="text-xs text-blue-600" id="emailUfficioVal"></p>
                         </div>
                     </label>
-                    <label class="flex items-center gap-3 p-3 border-2 border-blue-400 bg-blue-50 rounded-xl cursor-pointer hover:border-blue-500 transition">
-                        <input type="radio" name="emailDestChoice" value="entrambi" checked class="accent-blue-600">
-                        <div>
-                            <p class="text-sm font-semibold text-gray-800">✉️ Entrambi</p>
-                            <p class="text-xs text-gray-500" id="emailEntrambiVal"></p>
-                        </div>
-                    </label>
+                    </div>
                 </div>
 
                 <p class="text-xs text-gray-400 mt-3">Se lo stato è "Da Ordinare" verrà aggiornato automaticamente a "Ordinato".</p>
+
+                <!-- Destinatari extra (A:) -->
+                <div class="mt-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-sm font-semibold text-gray-700">
+                            <i class="fas fa-user-plus text-blue-400 mr-1"></i>Invia anche a <span class="font-normal text-gray-400">(altri destinatari)</span>
+                        </label>
+                        <button type="button" onclick="emailToAddRow()" class="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-xs font-semibold">
+                            <i class="fas fa-plus"></i> Aggiungi
+                        </button>
+                    </div>
+                    <div id="emailToExtraList" class="space-y-2"></div>
+                </div>
+
+                <!-- CC aggiuntivi -->
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-sm font-semibold text-gray-700">
+                            <i class="fas fa-users text-indigo-400 mr-1"></i>CC aggiuntivi <span class="font-normal text-gray-400">(opzionale)</span>
+                        </label>
+                        <button type="button" onclick="emailCCAddRow()" class="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition text-xs font-semibold">
+                            <i class="fas fa-plus"></i> Aggiungi
+                        </button>
+                    </div>
+                    <div id="emailCCList" class="space-y-2"></div>
+                </div>
             </div>
             <div class="px-6 pb-5 flex gap-3 justify-end">
                 <button onclick="emailConfirmResolve(false)" class="px-5 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition">Annulla</button>
@@ -594,6 +749,7 @@
                                     <th class="px-4 py-2 text-right text-gray-600 font-semibold">Prezzo</th>
                                     <th class="px-4 py-2 text-right text-gray-600 font-semibold">Importo</th>
                                     <th class="px-4 py-2 text-center text-gray-600 font-semibold">Stato</th>
+                                    <th class="px-4 py-2 w-10"></th>
                                 </tr>
                             </thead>
                             <tbody id="riepilogoItems" class="divide-y divide-gray-100"></tbody>
@@ -604,6 +760,11 @@
                 <div id="riepilogoNoteBox" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
                     <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
                     <p id="riepilogoNote" class="text-gray-700 text-sm"></p>
+                </div>
+                <!-- Registro invii email -->
+                <div id="riepilogoEmailLogBox">
+                    <h4 class="font-bold text-gray-700 mb-3 flex items-center"><i class="fas fa-paper-plane mr-2 text-blue-500"></i>Registro Invii Email</h4>
+                    <div id="riepilogoEmailLog" class="text-sm text-gray-400 italic">Caricamento...</div>
                 </div>
             </div>
             <div class="px-6 pb-6 flex justify-end gap-3">
@@ -1046,7 +1207,7 @@
             tbody.innerHTML = currentItems.map((item, index) => `
                 <tr>
                     <td class="px-4 py-2 text-sm">${item.codice}</td>
-                    <td class="px-4 py-2 text-sm">${item.descrizione}</td>
+                    <td class="px-4 py-2 text-sm">${item._nomeBreve || item.descrizione}</td>
                     <td class="px-4 py-2 text-sm">${item.um}</td>
                     <td class="px-4 py-2">
                         <input type="number" value="${item.quantita_ordinata}" min="0.01" step="0.01"
@@ -1153,7 +1314,8 @@
                         .eq('ordine_id', ordineId);
 
                     const existingIds = (existingItems || []).map(i => i.id);
-                    const currentIds = currentItems.filter(i => i.id).map(i => i.id);
+                    const isUUID = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+                    const currentIds = currentItems.filter(i => isUUID(i.id)).map(i => i.id);
 
                     // Elimina solo gli item rimossi dall'utente
                     const toDelete = existingIds.filter(id => !currentIds.includes(id));
@@ -1164,8 +1326,8 @@
                             .in('id', toDelete);
                     }
 
-                    // Aggiorna item esistenti (preserva quantita_ricevuta e stato)
-                    for (const item of currentItems.filter(i => i.id)) {
+                    // Aggiorna item esistenti (UUID reali dal DB)
+                    for (const item of currentItems.filter(i => isUUID(i.id))) {
                         await window.supabase
                             .from('ordini_fornitore_items')
                             .update({
@@ -1179,9 +1341,9 @@
                             .eq('id', item.id);
                     }
 
-                    // Inserisci solo i nuovi item (senza id)
+                    // Inserisci i nuovi item (id temporaneo non-UUID)
                     const newItems = currentItems
-                        .filter(i => !i.id)
+                        .filter(i => !isUUID(i.id))
                         .map(item => ({
                             ordine_id: savedOrdineId,
                             prodotto_id: item.prodotto_id,
@@ -1306,6 +1468,23 @@
                     importo: parseFloat(item.importo)
                 }));
 
+                // Carica nome breve dal magazzino (per id e per codice)
+                const editProdIds = [...new Set(currentItems.map(p => p.prodotto_id).filter(Boolean))];
+                const editCodici  = [...new Set(currentItems.filter(p => !p.prodotto_id && p.codice).map(p => p.codice))];
+                const editNomeMap = {}, editCodiceNomeMap = {};
+                if (editProdIds.length > 0) {
+                    const { data: ec } = await window.supabase.from('components').select('id, nome').in('id', editProdIds);
+                    (ec||[]).forEach(c => { editNomeMap[c.id] = c.nome; });
+                }
+                if (editCodici.length > 0) {
+                    const { data: ec2 } = await window.supabase.from('components').select('codice, nome').in('codice', editCodici);
+                    (ec2||[]).forEach(c => { editCodiceNomeMap[c.codice] = c.nome; });
+                }
+                currentItems = currentItems.map(item => ({
+                    ...item,
+                    _nomeBreve: (item.prodotto_id && editNomeMap[item.prodotto_id]) || (item.codice && editCodiceNomeMap[item.codice]) || item.descrizione
+                }));
+
                 renderProdottiTable();
                 calcolaTotale();
 
@@ -1317,54 +1496,114 @@
         }
 
         async function riceviMerce(ordineId) {
+            // Reset stato scanner quando si apre il modal
+            _html5QrScanner = null;
+            document.getElementById('barcodeInput').value = '';
+            document.getElementById('barcodeFeedback').classList.add('hidden');
+            document.getElementById('cameraScannerContainer').classList.add('hidden');
+            document.getElementById('btnCameraScanner').innerHTML = '<i class="fas fa-camera mr-1"></i>Fotocamera';
+
             try {
-                const { data: items, error } = await window.supabase
+                // Carica TUTTI gli item (inclusi già ricevuti) per mostrare stato completo
+                let queryItems = window.supabase
                     .from('ordini_fornitore_items')
-                    .select('*')
-                    .eq('ordine_id', ordineId)
-                    .neq('stato', 'ricevuto');
+                    .select('*, components!prodotto_id(barcode, ha_seriale)')
+                    .eq('ordine_id', ordineId);
 
-                if (error) throw error;
+                let { data: allItems, error } = await queryItems;
+                // Fallback se ha_seriale non esiste
+                if (error && error.message?.includes('ha_seriale')) {
+                    const { data: i2, error: e2 } = await window.supabase
+                        .from('ordini_fornitore_items')
+                        .select('*, components!prodotto_id(barcode)')
+                        .eq('ordine_id', ordineId);
+                    if (e2) throw e2;
+                    allItems = i2;
+                } else if (error) { throw error; }
 
-                if (!items || items.length === 0) {
+                if (!allItems || allItems.length === 0) {
+                    alert('Nessun articolo trovato in questo ordine');
+                    return;
+                }
+                const itemsToUse = allItems;
+
+                if (!itemsToUse || itemsToUse.length === 0) {
                     alert('Tutti gli articoli sono già stati ricevuti');
                     return;
                 }
 
                 document.getElementById('ricezioneOrdineId').value = ordineId;
+                _serialiMap = {};
                 
-                const container = document.getElementById('ricezioneItems');
-                container.innerHTML = items.map(item => {
+                const container = document.getElementById('ricezioneItemsPending');
+                document.getElementById('ricezioneItemsCompleted').innerHTML = `<div class="flex flex-col items-center justify-center h-24 text-gray-300 text-xs"><i class="fas fa-inbox text-2xl mb-1"></i><p>Nessun ricevuto</p></div>`;
+                document.getElementById('ricezioneItemsIncompleti').innerHTML = `<div class="flex flex-col items-center justify-center h-24 text-gray-300 text-xs"><i class="fas fa-minus-circle text-2xl mb-1"></i><p>Nessun parziale</p></div>`;
+                container.innerHTML = itemsToUse.map(item => {
                     const totOrd = parseFloat(item.quantita_ordinata||0);
                     const giàRic = parseFloat(item.quantita_ricevuta||0);
-                    const daRic  = Math.max(0, totOrd - giàRic);
                     const um = item.um || 'pz';
-                    // Se ordinato=0 o daRic=0, lascia vuoto e bordo rosso
-                    const valDefault = daRic > 0 ? daRic : '';
-                    const borderColor = daRic > 0 ? '#16a34a' : '#ef4444';
-                    const totLabel = totOrd > 0 ? `/ ${totOrd} ${um}` : `${um} (quantità libera)`;
+                    const itemBarcode = item.components?.barcode || '';
+                    const haSeriale = item.components?.ha_seriale || false;
+                    // Carica seriali salvati in _serialiMap
+                    if (haSeriale && item.seriali?.length) {
+                        _serialiMap[item.id] = [...item.seriali];
+                    }
+                    const serialiSalvati = _serialiMap[item.id] || [];
                     return `
-                    <div class="flex items-center gap-3 p-4 border-2 border-gray-100 rounded-2xl bg-white">
-                        <div class="flex-1 min-w-0">
-                            <p class="font-bold text-gray-900 truncate">${item.descrizione||''}</p>
-                            ${item.codice ? `<p class="text-xs text-gray-400 font-mono">${item.codice}</p>` : ''}
-                            ${daRic === 0 && totOrd === 0 ? `<p class="text-xs text-red-500 font-semibold mt-0.5">⚠️ Inserisci la quantità ricevuta</p>` : ''}
+                    <div class="flex flex-col gap-2 p-4 border-2 border-gray-100 rounded-2xl bg-white transition-all"
+                         data-itemid="${item.id}"
+                         data-barcode="${itemBarcode}"
+                         data-codice="${item.codice||''}"
+                         data-haseriale="${haSeriale}">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-gray-900 text-sm truncate">${item.descrizione||''}</p>
+                                ${item.codice ? `<p class="text-xs text-gray-400 font-mono">${item.codice}</p>` : ''}
+                                ${itemBarcode ? `<p class="text-xs text-gray-400 font-mono"><i class="fas fa-barcode mr-1"></i>${itemBarcode}</p>` : ''}
+                                ${haSeriale ? `<p class="text-xs font-semibold text-indigo-600 mt-0.5"><i class="fas fa-hashtag mr-1"></i>Seriale richiesto</p>` : ''}
+                            </div>
+                            <div class="flex-shrink-0 flex flex-col items-center gap-1">
+                                <div class="rounded-2xl border-2 px-3 py-2 transition-all min-w-[72px] text-center" id="ctrBadge_${item.id}" style="border-color:#e5e7eb;background:#f9fafb">
+                                    <div class="text-2xl font-black text-gray-700 leading-none" id="ctrVal_${item.id}">${giàRic}</div>
+                                    <div class="text-xs text-gray-400 font-semibold mt-0.5">/ ${totOrd > 0 ? totOrd : '?'} ${um}</div>
+                                </div>
+                                <!-- +/- manuali per prodotti senza barcode -->
+                                <div class="flex gap-1 w-full">
+                                    <button type="button"
+                                        onclick="incrementaManuale('${item.id}')"
+                                        class="flex-1 py-0.5 bg-gray-100 hover:bg-green-100 hover:text-green-700 rounded-lg text-xs font-black transition">+</button>
+                                    <button type="button"
+                                        onclick="decrementaManuale('${item.id}')"
+                                        class="flex-1 py-0.5 bg-gray-100 hover:bg-red-100 hover:text-red-600 rounded-lg text-xs font-black transition">−</button>
+                                </div>
+                            </div>
+                            <input type="number" id="qta_${item.id}" value="${giàRic}" class="sr-only"
+                                data-maxord="${totOrd}" data-origqta="${giàRic}" min="0" step="0.01">
                         </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            <input type="number"
-                                id="qta_${item.id}"
-                                value="${valDefault}"
-                                placeholder="0"
-                                min="0.01" step="0.01"
-                                style="border-color:${borderColor}"
-                                class="w-24 px-3 py-2.5 border-2 rounded-xl text-lg font-black text-center focus:ring-2 focus:ring-green-200 outline-none"
-                                oninput="this.style.borderColor=parseFloat(this.value||0)>0?'#16a34a':'#ef4444'">
-                            <span class="text-gray-500 font-semibold text-sm">${totLabel}</span>
-                        </div>
+                        ${haSeriale ? `
+                        <div class="border-t border-gray-100 pt-2">
+                            <p class="text-xs font-bold text-indigo-500 mb-1"><i class="fas fa-hashtag mr-1"></i>Seriali ricevuti:</p>
+                            <div id="serialiChips_${item.id}" class="flex flex-wrap gap-1.5 min-h-[20px]">
+                                ${serialiSalvati.length
+                                    ? serialiSalvati.map((s,i)=>`<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs">${s}<button type="button" onclick="_rimuoviSerialeCard('${item.id}',${i})" class="text-indigo-400 hover:text-red-500 ml-0.5">×</button></span>`).join('')
+                                    : '<span class="text-xs text-gray-300 italic">Nessun seriale ancora</span>'}
+                            </div>
+                        </div>` : ''}
                     </div>`;
                 }).join('');
 
+                _updateTabBadges();
+                buildBarcodeMap();
+                // Posiziona ogni item nella colonna corretta in base allo stato salvato
+                itemsToUse.forEach(item => {
+                    const totOrd = parseFloat(item.quantita_ordinata || 0);
+                    const giàRic = parseFloat(item.quantita_ricevuta || 0);
+                    if (giàRic > 0) {
+                        setTimeout(() => _aggiornaBadgeESposta(item.id, giàRic, totOrd), 0);
+                    }
+                });
                 document.getElementById('ricezioneModal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('barcodeInput').focus(), 100);
             } catch (error) {
                 console.error('Errore:', error);
                 alert('Errore nel caricamento: ' + error.message);
@@ -1372,41 +1611,66 @@
         }
 
         let _ricezioneInCorso = false;
+        let _serialiMap = {}; // itemId → array of seriali
+
+        function aggiungiSeriale(itemId, inputEl) {
+            const val = inputEl.value.trim();
+            if (!val) return;
+            if (!_serialiMap[itemId]) _serialiMap[itemId] = [];
+            if (!_serialiMap[itemId].includes(val)) {
+                _serialiMap[itemId].push(val);
+            }
+            inputEl.value = '';
+            _renderSerialiChips(itemId);
+            inputEl.focus();
+        }
+
+        function rimuoviSeriale(itemId, idx) {
+            if (_serialiMap[itemId]) {
+                _serialiMap[itemId].splice(idx, 1);
+                _renderSerialiChips(itemId);
+            }
+        }
+
+        function _renderSerialiChips(itemId) {
+            const chipsEl = document.getElementById('serialiChips_' + itemId);
+            const countEl = document.getElementById('serialeCount_' + itemId);
+            if (!chipsEl) return;
+            const seriali = _serialiMap[itemId] || [];
+            chipsEl.innerHTML = seriali.map((s, i) => `
+                <span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs font-semibold">
+                    <i class="fas fa-hashtag text-indigo-400 text-[10px]"></i>${s}
+                    <button type="button" onclick="rimuoviSeriale('${itemId}',${i})" class="text-indigo-400 hover:text-red-500 ml-0.5 leading-none">×</button>
+                </span>`).join('');
+            if (countEl) countEl.textContent = seriali.length + (seriali.length === 1 ? ' seriale inserito' : ' seriali inseriti');
+        }
 
         async function confermaRicezione() {
             if (_ricezioneInCorso) return;
-
-            // Validazione: almeno una quantità > 0
             const ordineId = document.getElementById('ricezioneOrdineId').value;
-            const allInputs = document.querySelectorAll('#ricezioneItems input[type="number"]');
-            const hasSomeQty = Array.from(allInputs).some(inp => parseFloat(inp.value||0) > 0);
-            if (!hasSomeQty) {
-                showErrorModal('Quantità mancante', 'Inserisci almeno una quantità maggiore di 0 prima di confermare la ricezione.');
-                return;
-            }
             _ricezioneInCorso = true;
             const btnConferma = document.querySelector('#ricezioneModal button[onclick="confermaRicezione()"]');
             if (btnConferma) { btnConferma.disabled = true; btnConferma.textContent = 'Caricamento...'; }
 
             try {
-                // Leggi gli item non ancora ricevuti
+                // Leggi tutti gli item dell'ordine (inclusi già ricevuti parzialmente)
                 const { data: items, error: itemsError } = await window.supabase
                     .from('ordini_fornitore_items')
                     .select('*')
-                    .eq('ordine_id', ordineId)
-                    .neq('stato', 'ricevuto');
+                    .eq('ordine_id', ordineId);
 
                 if (itemsError) throw itemsError;
 
-                // Leggi numero ordine per la causale
                 const ordine = ordini.find(o => o.id === ordineId);
                 const numeroOrdine = ordine?.numero || ordineId;
 
                 let caricati = 0;
                 for (const item of items) {
                     const qtaInput = document.getElementById(`qta_${item.id}`);
-                    const qtaRicevuta = parseFloat(qtaInput?.value || 0);
-                    if (qtaRicevuta <= 0) continue;
+                    const qtaTotaleNuova = parseFloat(qtaInput?.value || 0);
+                    const qtaGiàRic = parseFloat(qtaInput?.dataset.origqta || item.quantita_ricevuta || 0);
+                    const delta = qtaTotaleNuova - qtaGiàRic;
+                    if (delta <= 0) continue; // Nessuna variazione — skip
 
                     // 1. Leggi giacenza attuale del componente
                     let giacenzaPrima = 0;
@@ -1418,7 +1682,7 @@
                             .single();
                         giacenzaPrima = parseFloat(comp?.giacenza || 0);
                     }
-                    const giacenzaDopo = giacenzaPrima + qtaRicevuta;
+                    const giacenzaDopo = giacenzaPrima + delta;
 
                     // 2. Aggiorna giacenza componente
                     if (item.prodotto_id) {
@@ -1439,7 +1703,7 @@
                                 codice: item.codice || '',
                                 descrizione: item.descrizione || '',
                                 tipo_movimento: 'carico',
-                                quantita: qtaRicevuta,
+                                quantita: delta,
                                 giacenza_prima: giacenzaPrima,
                                 giacenza_dopo: giacenzaDopo,
                                 causale: `Carico da ordine fornitore ${numeroOrdine}`,
@@ -1450,17 +1714,18 @@
                         if (movErr) throw movErr;
                     }
 
-                    // 4. Aggiorna quantita_ricevuta e stato item
-                    const nuovaQtaRicevuta = parseFloat(item.quantita_ricevuta || 0) + qtaRicevuta;
-                    const nuovoStatoItem = nuovaQtaRicevuta >= parseFloat(item.quantita_ordinata)
+                    // 4. Aggiorna quantita_ricevuta e stato item (usa totale, non delta)
+                    const nuovoStatoItem = qtaTotaleNuova >= parseFloat(item.quantita_ordinata)
                         ? 'ricevuto'
                         : 'parzialmente_ricevuto';
 
+                    // Salva seriali
                     const { error: updItemErr } = await window.supabase
                         .from('ordini_fornitore_items')
                         .update({
-                            quantita_ricevuta: nuovaQtaRicevuta,
-                            stato: nuovoStatoItem
+                            quantita_ricevuta: qtaTotaleNuova,
+                            stato: nuovoStatoItem,
+                            seriali: _serialiMap[item.id]?.length ? _serialiMap[item.id] : null
                         })
                         .eq('id', item.id);
                     if (updItemErr) throw updItemErr;
@@ -1532,6 +1797,40 @@
         let _emailConfirmReferente = null;
         let _emailConfirmUfficio = null;
 
+        function emailCCAddRow(value = '') {
+            const list = document.getElementById('emailCCList');
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2';
+            row.innerHTML = `
+                <input type="email" value="${value}"
+                    class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none transition"
+                    placeholder="email@esempio.com">
+                <button type="button" onclick="this.closest('div').remove()"
+                    class="w-8 h-8 flex items-center justify-center bg-red-50 text-red-400 rounded-lg hover:bg-red-100 hover:text-red-600 transition flex-shrink-0"
+                    title="Rimuovi">
+                    <i class="fas fa-times text-xs"></i>
+                </button>`;
+            list.appendChild(row);
+            row.querySelector('input').focus();
+        }
+
+        function emailToAddRow(value = '') {
+            const list = document.getElementById('emailToExtraList');
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2';
+            row.innerHTML = `
+                <input type="email" value="${value}"
+                    class="flex-1 px-3 py-2 border-2 border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none transition"
+                    placeholder="email@esempio.com">
+                <button type="button" onclick="this.closest('div').remove()"
+                    class="w-8 h-8 flex items-center justify-center bg-red-50 text-red-400 rounded-lg hover:bg-red-100 hover:text-red-600 transition flex-shrink-0"
+                    title="Rimuovi">
+                    <i class="fas fa-times text-xs"></i>
+                </button>`;
+            list.appendChild(row);
+            row.querySelector('input').focus();
+        }
+
         function showEmailConfirm({ numero, nome, emailReferente, emailUfficio }) {
             document.getElementById('emailConfirmNumero').textContent = numero;
             _emailConfirmReferente = emailReferente;
@@ -1543,28 +1842,51 @@
                 document.getElementById('emailReferenteLbl').textContent = nome;
                 document.getElementById('emailReferenteVal').textContent = emailReferente;
                 document.getElementById('emailUfficioVal').textContent = emailUfficio;
-                document.getElementById('emailEntrambiVal').textContent = `${emailReferente}  +  ${emailUfficio}`;
-                document.querySelector('input[name="emailDestChoice"][value="entrambi"]').checked = true;
+                // reset checkbox a entrambi selezionati
+                document.querySelectorAll('input[name="emailDestChoice"]').forEach(cb => cb.checked = true);
             } else {
                 document.getElementById('emailSingleDest').classList.remove('hidden');
                 document.getElementById('emailMultiDest').classList.add('hidden');
                 document.getElementById('emailConfirmNome').textContent = nome;
                 document.getElementById('emailConfirmEmail').textContent = emailReferente;
+                const cb = document.querySelector('input[name="emailDestSingle"]');
+                if (cb) cb.checked = true;
             }
 
             document.getElementById('emailConfirmModal').classList.remove('hidden');
+            // Reset CC list con default aziendale
+            document.getElementById('emailCCList').innerHTML = '';
+            emailCCAddRow('info@zgimpiantisrl.it');
+            emailCCAddRow();
+            // Reset destinatari extra (vuoto)
+            document.getElementById('emailToExtraList').innerHTML = '';
             return new Promise(resolve => {
                 emailConfirmResolve = (confirmed) => {
+                    const ccInputs = document.querySelectorAll('#emailCCList input[type="email"]');
+                    const ccList = ['info@zgimpiantisrl.it', ...Array.from(ccInputs).map(i => i.value.trim()).filter(v => v.length > 0)];
+                    const extraToInputs = document.querySelectorAll('#emailToExtraList input[type="email"]');
+                    const extraTo = Array.from(extraToInputs).map(i => i.value.trim()).filter(v => v.length > 0);
                     document.getElementById('emailConfirmModal').classList.add('hidden');
                     if (!confirmed) { resolve(null); return; }
+
+                    // Raccoglie destinatari fornitore selezionati (checkbox)
+                    let fornDests = [];
                     if (_emailConfirmUfficio) {
-                        const sel = document.querySelector('input[name="emailDestChoice"]:checked')?.value;
-                        if (sel === 'referente') resolve([_emailConfirmReferente]);
-                        else if (sel === 'ufficio') resolve([_emailConfirmUfficio]);
-                        else resolve([_emailConfirmReferente, _emailConfirmUfficio]);
+                        document.querySelectorAll('input[name="emailDestChoice"]:checked').forEach(cb => {
+                            if (cb.value === 'referente') fornDests.push(_emailConfirmReferente);
+                            if (cb.value === 'ufficio') fornDests.push(_emailConfirmUfficio);
+                        });
                     } else {
-                        resolve([_emailConfirmReferente]);
+                        const cb = document.querySelector('input[name="emailDestSingle"]');
+                        if (cb?.checked) fornDests.push(_emailConfirmReferente);
                     }
+
+                    const allDests = [...new Set([...fornDests, ...extraTo])];
+                    if (allDests.length === 0) {
+                        alert('Seleziona almeno un destinatario principale o aggiungine uno.');
+                        resolve(null); return;
+                    }
+                    resolve({ dests: allDests, cc: ccList });
                 };
             });
         }
@@ -1582,13 +1904,14 @@
                 return;
             }
 
-            const emailDests = await showEmailConfirm({
+            const result = await showEmailConfirm({
                 numero: ordine.numero,
                 nome: fornitore.referente_commerciale || fornitore.ragione_sociale,
                 emailReferente,
                 emailUfficio,
             });
-            if (!emailDests) return;
+            if (!result) return;
+            const { dests: emailDests, cc: emailCC } = result;
 
             showToast('📧 Invio in corso…', 'info');
 
@@ -1597,6 +1920,22 @@
                     .from('ordini_fornitore_items')
                     .select('*')
                     .eq('ordine_id', id);
+
+                // Carica nome breve: per prodotto_id e per codice articolo
+                const prodottoIds = [...new Set((items||[]).map(p => p.prodotto_id).filter(Boolean))];
+                const codiciSenzaId = [...new Set((items||[]).filter(p => !p.prodotto_id && p.codice).map(p => p.codice))];
+                const nomeMap = {};
+                const codiceNomeMap = {};
+                if (prodottoIds.length > 0) {
+                    const { data: comps } = await window.supabase
+                        .from('components').select('id, nome').in('id', prodottoIds);
+                    (comps||[]).forEach(c => { nomeMap[c.id] = c.nome; });
+                }
+                if (codiciSenzaId.length > 0) {
+                    const { data: compsByCod } = await window.supabase
+                        .from('components').select('codice, nome').in('codice', codiciSenzaId);
+                    (compsByCod||[]).forEach(c => { codiceNomeMap[c.codice] = c.nome; });
+                }
 
                 const { data: { session } } = await window.supabase.auth.getSession();
                 const token = session?.access_token;
@@ -1611,7 +1950,7 @@
                     destinazioni:   ordine.destinazioni || [],
                     prodotti:       (items || []).map(p => ({
                         codice:         p.codice || '',
-                        descrizione:    p.descrizione || '',
+                        descrizione:    (p.prodotto_id && nomeMap[p.prodotto_id]) || (p.codice && codiceNomeMap[p.codice]) || p.descrizione || '',
                         quantita:       p.quantita_ordinata || 0,
                         um:             p.um || 'pz',
                         destinazione_id: p.destinazione_id || null,
@@ -1619,7 +1958,9 @@
                     note: ordine.note_interne || null,
                 };
 
-                for (const emailDest of emailDests) {
+                // Invia a tutti i destinatari principali + extra CC (uno per uno via dynamic-responder)
+                const tuttiDestinatari = [...new Set([...emailDests, ...(emailCC || [])])];
+                for (const emailDest of tuttiDestinatari) {
                     const res = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
                         method: 'POST',
                         headers: {
@@ -1632,6 +1973,20 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
                 }
+
+                // Salva nel registro invii
+                const { data: { session: sess2 } } = await window.supabase.auth.getSession();
+                const { data: utente } = await window.supabase
+                    .from('users').select('nome,cognome').eq('auth_id', sess2?.user?.id).maybeSingle();
+                const nomeUtente = utente ? `${utente.nome} ${utente.cognome}`.trim() : (sess2?.user?.email || 'Sconosciuto');
+                await window.supabase.from('ordini_email_log').insert({
+                    ordine_id: id,
+                    ordine_numero: ordine.numero,
+                    destinatari: emailDests,
+                    cc: emailCC?.length ? emailCC.join(', ') : null,
+                    inviato_da: sess2?.user?.id || null,
+                    inviato_da_nome: nomeUtente,
+                });
 
                 if (ordine.stato === 'da_ordinare') {
                     await window.supabase.from('ordini_fornitore').update({ stato: 'ordinato' }).eq('id', id);
@@ -1867,7 +2222,7 @@
 
             const { data: items, error } = await window.supabase
                 .from('ordini_fornitore_items')
-                .select('*')
+                .select('*, seriali')
                 .eq('ordine_id', ordineId)
                 .order('created_at', { ascending: true });
 
@@ -1875,6 +2230,37 @@
                 document.getElementById('riepilogoItems').innerHTML =
                     '<tr><td colspan="7" class="px-4 py-4 text-center text-red-500">Errore nel caricamento articoli</td></tr>';
                 return;
+            }
+
+            // Carica registro invii email
+            const { data: emailLog } = await window.supabase
+                .from('ordini_email_log')
+                .select('*')
+                .eq('ordine_id', ordineId)
+                .order('inviato_il', { ascending: false });
+
+            const emailLogEl = document.getElementById('riepilogoEmailLog');
+            if (emailLog && emailLog.length > 0) {
+                emailLogEl.innerHTML = emailLog.map(log => {
+                    const dest = (log.destinatari || []).join(', ');
+                    const cc = log.cc ? `<span class="ml-2 text-indigo-500"><i class="fas fa-user-plus mr-1 text-xs"></i>CC: ${log.cc}</span>` : '';
+                    const data = new Date(log.inviato_il).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                    return `<div class="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <i class="fas fa-paper-plane text-blue-500 text-xs"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-800 font-medium truncate">${dest}${cc}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">
+                                <i class="fas fa-user mr-1"></i>${log.inviato_da_nome || '—'}
+                                <span class="mx-1.5 text-gray-300">·</span>
+                                <i class="far fa-clock mr-1"></i>${data}
+                            </p>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                emailLogEl.innerHTML = '<p class="text-sm text-gray-400 italic py-2">Nessun invio registrato per questo ordine.</p>';
             }
 
             const itemBadges = {
@@ -1885,13 +2271,37 @@
 
             _riepilogoItemsCache = items;
 
+            // Carica nome breve: prima per prodotto_id, poi per codice articolo
+            const rProdIds = [...new Set(items.map(p => p.prodotto_id).filter(Boolean))];
+            const rCodici  = [...new Set(items.filter(p => !p.prodotto_id && p.codice).map(p => p.codice))];
+            const rNomeMap = {};
+            const rCodiceMap = {};
+            if (rProdIds.length > 0) {
+                const { data: rComps } = await window.supabase
+                    .from('components').select('id, nome').in('id', rProdIds);
+                (rComps||[]).forEach(c => { rNomeMap[c.id] = c.nome; });
+            }
+            if (rCodici.length > 0) {
+                const { data: rByCode } = await window.supabase
+                    .from('components').select('codice, nome').in('codice', rCodici);
+                (rByCode||[]).forEach(c => { rCodiceMap[c.codice] = c.nome; });
+            }
+
             // Render articoli raggruppati per set/destinazione (se presenti)
             const destList = Array.isArray(ordine.destinazioni) ? ordine.destinazioni : [];
 
-            const itemRowOdf = item => `
-                <tr class="hover:bg-gray-50">
+            const itemRowOdf = item => {
+                const seriali = Array.isArray(item.seriali) ? item.seriali : [];
+                const serialiHtml = seriali.length
+                    ? `<div class="mt-1 flex flex-wrap gap-1">${seriali.map(s=>`<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono text-xs">${s}</span>`).join('')}</div>`
+                    : '';
+                return `
+                <tr class="hover:bg-gray-50 group">
                     <td class="px-4 py-3 font-mono text-xs text-gray-600">${item.codice || '-'}</td>
-                    <td class="px-4 py-3 text-gray-800">${item.descrizione || '-'}</td>
+                    <td class="px-4 py-3 text-gray-800">
+                        <div>${(item.prodotto_id && rNomeMap[item.prodotto_id]) || (item.codice && rCodiceMap[item.codice]) || item.descrizione || '-'}</div>
+                        ${serialiHtml}
+                    </td>
                     <td class="px-4 py-3 text-right text-gray-700">${parseFloat(item.quantita_ordinata || 0).toFixed(2)} ${item.um || ''}</td>
                     <td class="px-4 py-3 text-right font-medium ${parseFloat(item.quantita_ricevuta || 0) >= parseFloat(item.quantita_ordinata || 0) ? 'text-green-600' : 'text-amber-600'}">
                         ${parseFloat(item.quantita_ricevuta || 0).toFixed(2)} ${item.um || ''}
@@ -1899,7 +2309,14 @@
                     <td class="px-4 py-3 text-right text-gray-600">€ ${parseFloat(item.prezzo_acquisto || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-right font-semibold text-gray-800">€ ${parseFloat(item.importo || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-center">${itemBadges[item.stato] || item.stato}</td>
-                </tr>`;
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="apriSostituisciModal('${item.codice||''}','${item.prodotto_id||''}','${(item.descrizione||'').replace(/'/g,"&apos;")}')" 
+                            title="Sostituisci con altro prodotto"
+                            class="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold hover:bg-orange-200">
+                            <i class="fas fa-exchange-alt mr-1"></i>Sostituisci
+                        </button>
+                    </td>
+                </tr>`;};
 
             if (destList.length === 0) {
                 document.getElementById('riepilogoItems').innerHTML = items.map(itemRowOdf).join('');
@@ -1935,7 +2352,513 @@
             document.getElementById('searchProdotto').value = '';
         }
 
+        // ── Sostituisci Prodotto ─────────────────────────────────────────────────
+        let _sostituisciOldCodice = null;
+        let _sostituisciOldProdottoId = null;
+
+        function apriSostituisciModal(oldCodice, oldProdottoId, oldDescrizione) {
+            _sostituisciOldCodice = oldCodice;
+            _sostituisciOldProdottoId = oldProdottoId;
+            document.getElementById('sostituisciOldLabel').textContent =
+                'Sostituisce: ' + (oldDescrizione || oldCodice || '—');
+            document.getElementById('sostituisciSearch').value = '';
+            renderSostituisciList();
+            document.getElementById('sostituisciModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('sostituisciSearch').focus(), 80);
+        }
+
+        function chiudiSostituisciModal() {
+            document.getElementById('sostituisciModal').classList.add('hidden');
+        }
+
+        function renderSostituisciList() {
+            const q = document.getElementById('sostituisciSearch').value.toLowerCase();
+            const container = document.getElementById('sostituisciList');
+            const filtered = (prodotti || []).filter(p =>
+                !q ||
+                p.codice?.toLowerCase().includes(q) ||
+                p.descrizione?.toLowerCase().includes(q) ||
+                p.nome?.toLowerCase().includes(q)
+            ).slice(0, 50);
+            if (!filtered.length) {
+                container.innerHTML = '<p class="text-center text-gray-400 py-8 text-sm">Nessun prodotto trovato</p>';
+                return;
+            }
+            container.innerHTML = filtered.map(p => `
+                <div onclick="eseguiSostituzione('${p.id}')" 
+                    class="flex items-center gap-3 px-4 py-3 hover:bg-orange-50 cursor-pointer transition-colors group">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 text-sm truncate">${p.descrizione || p.nome || '—'}</p>
+                        <p class="text-xs text-gray-400 font-mono">${p.codice || ''}</p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-sm font-bold text-orange-600">€ ${parseFloat(p.prezzo_acquisto || 0).toFixed(2)}</p>
+                        <p class="text-xs text-gray-400">${p.um || 'pz'}</p>
+                    </div>
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i class="fas fa-check-circle text-orange-500 text-lg"></i>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function eseguiSostituzione(newProdottoId) {
+            const newProd = (prodotti || []).find(p => p.id === newProdottoId);
+            if (!newProd) return;
+            const ordineId = _riepilogoOrdineId;
+            if (!ordineId) return;
+
+            try {
+                // Trova tutti gli item dell'ordine con il vecchio prodotto
+                let query = window.supabase
+                    .from('ordini_fornitore_items')
+                    .select('id')
+                    .eq('ordine_id', ordineId);
+                if (_sostituisciOldProdottoId) {
+                    query = query.eq('prodotto_id', _sostituisciOldProdottoId);
+                } else if (_sostituisciOldCodice) {
+                    query = query.eq('codice', _sostituisciOldCodice);
+                }
+                const { data: items, error: fetchErr } = await query;
+                if (fetchErr) throw fetchErr;
+
+                if (!items || items.length === 0) {
+                    showErrorModal('Nessun articolo trovato', 'Non ci sono articoli da sostituire con quel prodotto.');
+                    return;
+                }
+
+                const ids = items.map(i => i.id);
+                const { error: updErr } = await window.supabase
+                    .from('ordini_fornitore_items')
+                    .update({
+                        prodotto_id: newProd.id,
+                        codice:      newProd.codice || _sostituisciOldCodice,
+                        descrizione: newProd.descrizione || newProd.nome,
+                        um:          newProd.um || 'pz',
+                        prezzo_acquisto: parseFloat(newProd.prezzo_acquisto || 0)
+                    })
+                    .in('id', ids);
+
+                if (updErr) throw updErr;
+
+                chiudiSostituisciModal();
+                showSuccessModal(
+                    `✅ Sostituiti ${items.length} articol${items.length > 1 ? 'i' : 'o'}`,
+                    `Sostituito con: ${newProd.descrizione || newProd.nome}`
+                );
+                // Ricarica il riepilogo
+                await apriRiepilogo(ordineId);
+            } catch(e) {
+                showErrorModal('Errore sostituzione', e.message);
+            }
+        }
+
+        // ── Dati barcode relativi agli item dell'ordine corrente ──
+        let _barcodeItemsMap = {}; // barcode → item.id
+        let _html5QrScanner = null;
+
+        // Chiamato da riceviMerce dopo aver popolato il container
+        function buildBarcodeMap() {
+            _barcodeItemsMap = {};
+            document.querySelectorAll('#ricezioneItems [data-itemid]').forEach(el => {
+                const itemId = el.dataset.itemid;
+                if (!itemId) return;
+                // Mappa barcode del componente
+                const bc = (el.dataset.barcode || '').trim().toLowerCase();
+                if (bc) _barcodeItemsMap[bc] = itemId;
+                // Mappa anche il codice articolo (fallback)
+                const cod = (el.dataset.codice || '').trim().toLowerCase();
+                if (cod && !_barcodeItemsMap[cod]) _barcodeItemsMap[cod] = itemId;
+            });
+        }
+
+        function elaboraBarcode(barcode) {
+            if (!barcode) return;
+            const feedback = document.getElementById('barcodeFeedback');
+            const barcodeInput = document.getElementById('barcodeInput');
+
+            const key = barcode.trim().toLowerCase();
+            const itemId = _barcodeItemsMap[key];
+
+            if (!itemId) {
+                // Prova anche per codice articolo (non solo barcode)
+                const allRows = document.querySelectorAll('#ricezioneItems [data-itemid]');
+                let trovato = null;
+                allRows.forEach(row => {
+                    if ((row.dataset.codice || '').toLowerCase() === key) trovato = row.dataset.itemid;
+                });
+                if (!trovato) {
+                    feedback.textContent = `⚠️ Barcode "${barcode}" non trovato in questo ordine.`;
+                    feedback.className = 'mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700';
+                    feedback.classList.remove('hidden');
+                    barcodeInput.value = '';
+                    barcodeInput.focus();
+                    return;
+                }
+                // trovato tramite codice articolo
+                aggiungiQtaDaBarcode(trovato, barcode);
+            } else {
+                aggiungiQtaDaBarcode(itemId, barcode);
+            }
+
+            barcodeInput.value = '';
+            barcodeInput.focus();
+        }
+
+        // ── Serial Modal ──────────────────────────────────────────────────────────
+        let _serialeModalItemId = null;
+        let _serialeModalNewVal = 0;
+
+        function apriSerialeModal(itemId, newVal) {
+            _serialeModalItemId = itemId;
+            _serialeModalNewVal = newVal;
+            const inp = document.getElementById(`qta_${itemId}`);
+            const maxOrd = parseFloat(inp?.dataset.maxord || 0);
+            const nome = document.querySelector(`[data-itemid="${itemId}"] .font-bold.text-gray-900`)?.textContent?.trim() || '';
+            document.getElementById('serialeModalTitle').textContent = nome;
+            document.getElementById('serialeModalCount').textContent = `${newVal} / ${maxOrd}`;
+            document.getElementById('serialeModalInput').value = '';
+            const chips = (_serialiMap[itemId] || []).map(s =>
+                `<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs">${s}</span>`).join('');
+            document.getElementById('serialeModalChips').innerHTML = chips;
+            document.getElementById('serialeModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('serialeModalInput').focus(), 80);
+        }
+
+        function confermaSerialeModal(salvaSeriale) {
+            const itemId = _serialeModalItemId;
+            const newVal = _serialeModalNewVal;
+            if (!itemId) return;
+            const serial = document.getElementById('serialeModalInput').value.trim();
+            if (salvaSeriale && serial) {
+                if (!_serialiMap[itemId]) _serialiMap[itemId] = [];
+                _serialiMap[itemId].push(serial);
+            }
+            // Aggiorna chip nella card
+            const chipsEl = document.getElementById('serialiChips_' + itemId);
+            if (chipsEl) {
+                const seriali = _serialiMap[itemId] || [];
+                chipsEl.innerHTML = seriali.length
+                    ? seriali.map((s,i) => `<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs">
+                        ${s}<button type="button" onclick="_rimuoviSerialeCard('${itemId}',${i})" class="text-indigo-400 hover:text-red-500 ml-0.5">×</button></span>`).join('')
+                    : '<span class="text-xs text-gray-300 italic">Nessun seriale</span>';
+            }
+            const input = document.getElementById(`qta_${itemId}`);
+            if (input) input.value = newVal;
+            const maxOrd = parseFloat(input?.dataset.maxord || 0);
+            _aggiornaBadgeESposta(itemId, newVal, maxOrd);
+            const feedback = document.getElementById('barcodeFeedback');
+            if (feedback) {
+                feedback.textContent = `✅ ${newVal} / ${maxOrd || '?'} ${serial ? '— Seriale: ' + serial : ''}`;
+                feedback.className = 'mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-green-100 text-green-800';
+                feedback.classList.remove('hidden');
+            }
+            document.getElementById('serialeModal').classList.add('hidden');
+            _serialeModalItemId = null;
+            setTimeout(() => document.getElementById('barcodeInput')?.focus(), 80);
+        }
+
+        function _rimuoviSerialeCard(itemId, idx) {
+            if (!_serialiMap[itemId]) return;
+            _serialiMap[itemId].splice(idx, 1);
+
+            // Aggiorna chip nella card
+            const chipsEl = document.getElementById('serialiChips_' + itemId);
+            if (chipsEl) {
+                const seriali = _serialiMap[itemId] || [];
+                chipsEl.innerHTML = seriali.length
+                    ? seriali.map((s,i) => `<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs">
+                        ${s}<button type="button" onclick="_rimuoviSerialeCard('${itemId}',${i})" class="text-indigo-400 hover:text-red-500 ml-0.5">×</button></span>`).join('')
+                    : '<span class="text-xs text-gray-300 italic">Nessun seriale</span>';
+            }
+
+            // Decrementa contatore
+            const input = document.getElementById(`qta_${itemId}`);
+            if (!input) return;
+            const nuovoVal = Math.max(0, parseFloat(input.value || 0) - 1);
+            input.value = nuovoVal;
+            const maxOrd = parseFloat(input.dataset.maxord || 0);
+
+            // Aggiorna badge colore
+            const ctrVal = document.getElementById('ctrVal_' + itemId);
+            const ctrBadge = document.getElementById('ctrBadge_' + itemId);
+            if (ctrVal) ctrVal.textContent = nuovoVal;
+            if (ctrBadge) {
+                if (nuovoVal <= 0) {
+                    ctrBadge.style.borderColor = '#e5e7eb'; ctrBadge.style.background = '#f9fafb';
+                    if (ctrVal) ctrVal.style.color = '#374151';
+                } else if (maxOrd > 0 && nuovoVal >= maxOrd) {
+                    ctrBadge.style.borderColor = '#16a34a'; ctrBadge.style.background = '#f0fdf4';
+                    if (ctrVal) ctrVal.style.color = '#16a34a';
+                } else {
+                    ctrBadge.style.borderColor = '#f59e0b'; ctrBadge.style.background = '#fffbeb';
+                    if (ctrVal) ctrVal.style.color = '#b45309';
+                }
+            }
+
+            // Sposta nella colonna giusta
+            const row = document.querySelector(`[data-itemid="${itemId}"]`);
+            if (!row) return;
+            row.classList.remove('border-green-300', 'bg-green-50', 'border-amber-300', 'bg-amber-50', 'border-gray-100');
+
+            if (nuovoVal <= 0) {
+                // Torna in "Da Ricevere"
+                row.classList.add('border-gray-100');
+                const pending = document.getElementById('ricezioneItemsPending');
+                // Svuota eventuale messaggio "Tutti scansionati"
+                if (!pending.querySelector('[data-itemid]')) pending.innerHTML = '';
+                pending.appendChild(row);
+            } else if (maxOrd > 0 && nuovoVal >= maxOrd) {
+                row.classList.add('border-green-300', 'bg-green-50');
+            } else {
+                // Torna in "Incompleti"
+                row.classList.add('border-amber-300', 'bg-amber-50');
+                const incompleti = document.getElementById('ricezioneItemsIncompleti');
+                if (!incompleti.querySelector('[data-itemid]')) incompleti.innerHTML = '';
+                if (!row.closest('#ricezioneItemsIncompleti')) incompleti.appendChild(row);
+            }
+
+            _updateTabBadges();
+        }
+
+        function aggiungiQtaDaBarcode(itemId, barcode) {
+            const input = document.getElementById(`qta_${itemId}`);
+            const row = document.querySelector(`[data-itemid="${itemId}"]`);
+            if (!input) return;
+
+            const feedback = document.getElementById('barcodeFeedback');
+            const currentVal = parseFloat(input.value || 0);
+            const maxOrd = parseFloat(input.dataset.maxord || 0);
+            const newVal = currentVal + 1;
+            const haSeriale = row?.dataset.haseriale === 'true';
+
+            if (maxOrd > 0 && newVal > maxOrd) {
+                feedback.textContent = `⚠️ Quantità scansionata (${newVal}) supera quella ordinata (${maxOrd}) per "${barcode}".`;
+                feedback.className = 'mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-yellow-100 text-yellow-800';
+                feedback.classList.remove('hidden');
+                return;
+            }
+
+            if (haSeriale) {
+                // Apri modal seriale — counter aggiornato solo alla conferma
+                apriSerialeModal(itemId, newVal);
+                return;
+            }
+
+            // Nessun seriale — aggiorna subito
+            input.value = newVal;
+            _aggiornaBadgeESposta(itemId, newVal, maxOrd);
+            feedback.textContent = `✅ "${barcode}" trovato — ${newVal} / ${maxOrd || '?'}`;
+            feedback.className = 'mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-green-100 text-green-800';
+            feedback.classList.remove('hidden');
+        }
+
+        function incrementaManuale(itemId) {
+            // Stessa logica della scansione barcode ma senza barcode
+            const input = document.getElementById(`qta_${itemId}`);
+            const row = document.querySelector(`[data-itemid="${itemId}"]`);
+            if (!input) return;
+            const currentVal = parseFloat(input.value || 0);
+            const maxOrd = parseFloat(input.dataset.maxord || 0);
+            const newVal = currentVal + 1;
+            const haSeriale = row?.dataset.haseriale === 'true';
+            if (maxOrd > 0 && newVal > maxOrd) return; // non superare il max
+            if (haSeriale) {
+                apriSerialeModal(itemId, newVal);
+            } else {
+                input.value = newVal;
+                _aggiornaBadgeESposta(itemId, newVal, maxOrd);
+            }
+        }
+
+        function decrementaManuale(itemId) {
+            const input = document.getElementById(`qta_${itemId}`);
+            if (!input) return;
+            const currentVal = parseFloat(input.value || 0);
+            const maxOrd = parseFloat(input.dataset.maxord || 0);
+            const newVal = Math.max(0, currentVal - 1);
+            if (newVal === currentVal) return;
+            input.value = newVal;
+            // Se ha seriali, rimuovi l'ultimo
+            if ((_serialiMap[itemId] || []).length > 0) {
+                _serialiMap[itemId].pop();
+                const chipsEl = document.getElementById('serialiChips_' + itemId);
+                if (chipsEl) {
+                    const seriali = _serialiMap[itemId];
+                    chipsEl.innerHTML = seriali.length
+                        ? seriali.map((s,i) => `<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg font-mono text-xs">${s}<button type="button" onclick="_rimuoviSerialeCard('${itemId}',${i})" class="text-indigo-400 hover:text-red-500 ml-0.5">×</button></span>`).join('')
+                        : '<span class="text-xs text-gray-300 italic">Nessun seriale ancora</span>';
+                }
+            }
+            _aggiornaBadgeESposta(itemId, newVal, maxOrd);
+            // Se torna a 0: assicurati che sia in Da Ricevere
+            if (newVal <= 0) {
+                const row = document.querySelector(`[data-itemid="${itemId}"]`);
+                const pending = document.getElementById('ricezioneItemsPending');
+                if (row && !row.closest('#ricezioneItemsPending')) {
+                    row.classList.remove('border-green-300', 'bg-green-50', 'border-amber-300', 'bg-amber-50');
+                    row.classList.add('border-gray-100');
+                    if (!pending.querySelector('[data-itemid]')) pending.innerHTML = '';
+                    pending.appendChild(row);
+                    _updateTabBadges();
+                }
+            }
+        }
+
+        function switchTabRicezione(tab) {
+            const pending   = document.getElementById('ricezioneItemsPending');
+            const completed = document.getElementById('ricezioneItemsCompleted');
+            const tabP = document.getElementById('tabRicPending');
+            const tabR = document.getElementById('tabRicReceived');
+            if (tab === 'pending') {
+                pending.classList.remove('hidden');
+                completed.classList.add('hidden');
+                tabP.className = 'flex-1 py-3 text-sm font-bold bg-indigo-50 text-indigo-700 flex items-center justify-center gap-2 transition-colors';
+                tabR.className = 'flex-1 py-3 text-sm font-bold bg-white text-gray-400 flex items-center justify-center gap-2 transition-colors';
+            } else {
+                pending.classList.add('hidden');
+                completed.classList.remove('hidden');
+                tabR.className = 'flex-1 py-3 text-sm font-bold bg-green-50 text-green-700 flex items-center justify-center gap-2 transition-colors';
+                tabP.className = 'flex-1 py-3 text-sm font-bold bg-white text-gray-400 flex items-center justify-center gap-2 transition-colors';
+            }
+        }
+
+        function _updateTabBadges() {
+            const pCount = document.querySelectorAll('#ricezioneItemsPending [data-itemid]').length;
+            const iCount = document.querySelectorAll('#ricezioneItemsIncompleti [data-itemid]').length;
+            const rCount = document.querySelectorAll('#ricezioneItemsCompleted [data-itemid]').length;
+            const bp = document.getElementById('badgePending');
+            const bi = document.getElementById('badgeIncompleti');
+            const br = document.getElementById('badgeReceived');
+            if (bp) bp.textContent = pCount;
+            if (bi) bi.textContent = iCount;
+            if (br) br.textContent = rCount;
+        }
+
+        function _aggiornaBadgeESposta(itemId, newVal, maxOrd) {
+            // Aggiorna badge colore
+            const ctrVal = document.getElementById('ctrVal_' + itemId);
+            const ctrBadge = document.getElementById('ctrBadge_' + itemId);
+            if (ctrVal) ctrVal.textContent = newVal;
+            if (ctrBadge) {
+                const completo = maxOrd > 0 && newVal >= maxOrd;
+                ctrBadge.style.borderColor = completo ? '#16a34a' : '#f59e0b';
+                ctrBadge.style.background  = completo ? '#f0fdf4' : '#fffbeb';
+                if (ctrVal) ctrVal.style.color = completo ? '#16a34a' : '#b45309';
+            }
+            // Sposta nella colonna giusta
+            const row = document.querySelector(`[data-itemid="${itemId}"]`);
+            if (!row) return;
+            const completo = maxOrd > 0 && newVal >= maxOrd;
+            const target = document.getElementById(completo ? 'ricezioneItemsCompleted' : 'ricezioneItemsIncompleti');
+            if (!target || row.closest('#ricezioneItemsCompleted') || (!completo && row.closest('#ricezioneItemsIncompleti'))) {
+                // Già nella colonna giusta
+            } else {
+                // Svuota placeholder se è il primo elemento reale
+                if (!target.querySelector('[data-itemid]')) target.innerHTML = '';
+                // Stile riga
+                row.classList.remove('border-gray-100', 'border-green-300', 'border-amber-300', 'bg-green-50', 'bg-amber-50');
+                if (completo) { row.classList.add('border-green-300', 'bg-green-50'); }
+                else          { row.classList.add('border-amber-300', 'bg-amber-50'); }
+                target.appendChild(row);
+            }
+            // Se era in incompleti e ora è completo, spostalo in ricevuti
+            if (completo && row.closest('#ricezioneItemsIncompleti')) {
+                const recv = document.getElementById('ricezioneItemsCompleted');
+                if (!recv.querySelector('[data-itemid]')) recv.innerHTML = '';
+                row.classList.remove('border-amber-300', 'bg-amber-50');
+                row.classList.add('border-green-300', 'bg-green-50');
+                recv.appendChild(row);
+            }
+            _updateTabBadges();
+            // Se pending vuoto
+            const pending = document.getElementById('ricezioneItemsPending');
+            if (pending.querySelectorAll('[data-itemid]').length === 0) {
+                pending.innerHTML = `<div class="flex flex-col items-center justify-center h-24 text-green-500 text-xs"><i class="fas fa-check-circle text-2xl mb-1"></i><p class="font-bold">Tutti scansionati!</p></div>`;
+            }
+        }
+
+        function _spostaInCompletati(itemId) {
+            const row = document.querySelector(`[data-itemid="${itemId}"]`);
+            if (!row) return;
+            const pending   = document.getElementById('ricezioneItemsPending');
+            const completed = document.getElementById('ricezioneItemsCompleted');
+
+            // Stile verde
+            row.classList.remove('border-gray-100');
+            row.classList.add('border-green-300', 'bg-green-50');
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full mb-1';
+            badge.innerHTML = '<i class="fas fa-check-circle"></i> Ricevuto';
+            const nameEl = row.querySelector('.font-bold.text-gray-900');
+            if (nameEl) nameEl.before(badge);
+
+            // Disabilita input
+            const qtaInput = row.querySelector('input[type="number"]');
+            if (qtaInput) qtaInput.disabled = true;
+
+            // Svuota il placeholder nella colonna DX se è il primo
+            const placeholder = completed.querySelector('.fas.fa-inbox');
+            if (placeholder) completed.innerHTML = '';
+
+            completed.appendChild(row);
+            _updateTabBadges();
+
+            // Se pending vuoto
+            if (pending.querySelectorAll('[data-itemid]').length === 0) {
+                pending.innerHTML = `<div class="flex flex-col items-center justify-center h-32 text-green-500">
+                    <i class="fas fa-check-circle text-3xl mb-2"></i>
+                    <p class="text-xs font-bold">Tutto ricevuto!</p>
+                </div>`;
+            }
+        }
+
+        async function toggleCameraScanner() {
+            if (_html5QrScanner) {
+                await stopCameraScanner();
+            } else {
+                await startCameraScanner();
+            }
+        }
+
+        async function startCameraScanner() {
+            const container = document.getElementById('cameraScannerContainer');
+            const btn = document.getElementById('btnCameraScanner');
+            container.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Camera...';
+
+            try {
+                _html5QrScanner = new Html5Qrcode('qr-reader');
+                await _html5QrScanner.start(
+                    { facingMode: 'environment' },
+                    { fps: 10, qrbox: { width: 280, height: 100 } },
+                    (decodedText) => {
+                        elaboraBarcode(decodedText);
+                    },
+                    () => {} // ignore errors frame-by-frame
+                );
+                btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Stop Camera';
+            } catch (err) {
+                container.classList.add('hidden');
+                btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Fotocamera';
+                const feedback = document.getElementById('barcodeFeedback');
+                feedback.textContent = '⚠️ Fotocamera non disponibile: ' + (err.message || err);
+                feedback.className = 'mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700';
+                feedback.classList.remove('hidden');
+                _html5QrScanner = null;
+            }
+        }
+
+        async function stopCameraScanner() {
+            if (_html5QrScanner) {
+                try { await _html5QrScanner.stop(); } catch(e) {}
+                _html5QrScanner = null;
+            }
+            document.getElementById('cameraScannerContainer').classList.add('hidden');
+            document.getElementById('btnCameraScanner').innerHTML = '<i class="fas fa-camera mr-1"></i>Fotocamera';
+        }
+
         function closeRicezioneModal() {
+            stopCameraScanner();
             document.getElementById('ricezioneModal').classList.add('hidden');
         }
 

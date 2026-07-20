@@ -1373,8 +1373,109 @@
 
         // Stampa preventivo
         async function stampaPreventivo(id) {
-            // TODO: Implementare generazione PDF/Stampa
-            showToast('Funzionalità stampa in sviluppo', 'info');
+            const preventivo = preventivi.find(p => p.id === id);
+            if (!preventivo) { showToast('Preventivo non trovato', 'error'); return; }
+
+            const { data: items } = await supabase
+                .from('preventivi_items')
+                .select('*')
+                .eq('preventivo_id', id)
+                .order('posizione', { ascending: true });
+
+            const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
+            const fmtEur = v => `€ ${parseFloat(v||0).toFixed(2)}`;
+            // Descrizione breve: max 70 caratteri, senza a capo
+            const descBreve = d => {
+                if (!d) return '—';
+                const oneLine = d.replace(/[\r\n]+/g, ' ').trim();
+                return oneLine.length > 70 ? oneLine.substring(0, 68) + '…' : oneLine;
+            };
+
+            const sconto = parseFloat(preventivo.sconto_percentuale || 0);
+            const righeHtml = (items || []).map(it => {
+                const scontoRiga = parseFloat(it.sconto_percentuale || 0);
+                return `<tr>
+                    <td style="padding:7px 10px;font-size:12px;font-weight:600;color:#1f2937">${descBreve(it.descrizione)}
+                        ${it.codice ? `<div style="font-size:10px;color:#9ca3af;font-family:monospace">${it.codice}</div>` : ''}</td>
+                    <td style="padding:7px 6px;font-size:12px;text-align:center">${it.um||'pz'}</td>
+                    <td style="padding:7px 6px;font-size:12px;text-align:center;font-weight:700">${parseFloat(it.quantita||1)}</td>
+                    <td style="padding:7px 6px;font-size:12px;text-align:right">${fmtEur(it.prezzo_unitario)}</td>
+                    <td style="padding:7px 6px;font-size:12px;text-align:center;color:#dc2626">${scontoRiga > 0 ? scontoRiga + '%' : '—'}</td>
+                    <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:800;color:#6d28d9">${fmtEur(it.importo)}</td>
+                </tr>`;
+            }).join('');
+
+            const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Preventivo ${preventivo.numero}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;padding:28px 36px;color:#1f2937;font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #7c3aed;padding-bottom:14px;margin-bottom:18px}
+  .co{font-size:18px;font-weight:900;color:#7c3aed}.co-sub{font-size:11px;color:#6b7280;margin-top:2px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .box{background:#faf5ff;border:1px solid #ede9fe;border-radius:7px;padding:10px 13px}
+  .lbl{font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .val{font-size:13px;font-weight:700;color:#1f2937}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:16px}
+  thead tr{background:#f5f3ff}
+  th{padding:8px 10px;font-size:10px;font-weight:700;color:#7c3aed;text-align:left;text-transform:uppercase}
+  th.r{text-align:right} th.c{text-align:center}
+  tr{border-bottom:1px solid #f3f4f6}
+  .totali{display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:16px}
+  .tot-row{display:flex;gap:40px;font-size:12px}
+  .tot-label{color:#6b7280;width:120px;text-align:right}
+  .tot-val{font-weight:700;width:90px;text-align:right}
+  .tot-finale{font-size:16px;font-weight:900;color:#7c3aed;border-top:2px solid #7c3aed;padding-top:6px}
+  .note-box{background:#faf5ff;border-left:4px solid #7c3aed;padding:10px 14px;border-radius:0 7px 7px 0;margin-bottom:16px;font-size:12px}
+  .firma-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:20px}
+  .firma{border-top:1px solid #374151;padding-top:5px;font-size:10px;color:#6b7280;text-align:center}
+  .footer{text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:14px}
+  @media print{body{padding:14px 20px}}
+</style></head><body>
+<div class="header">
+  <div><div class="co">ZG Impianti Srl</div><div class="co-sub">info@zgimpiantisrl.it · zgimpianti.it</div></div>
+  <div style="text-align:right">
+    <div style="font-size:16px;font-weight:900;color:#7c3aed">PREVENTIVO ${preventivo.numero}</div>
+    <div style="font-size:11px;color:#6b7280;margin-top:2px">Data: ${fmt(preventivo.data_preventivo || preventivo.created_at)}</div>
+    ${preventivo.data_scadenza ? `<div style="font-size:11px;color:#dc2626">Scade il: ${fmt(preventivo.data_scadenza)}</div>` : ''}
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="box"><div class="lbl">Cliente</div><div class="val">${preventivo.cliente_nome || '—'}</div></div>
+  <div class="box"><div class="lbl">Oggetto</div><div class="val">${preventivo.oggetto || '—'}</div></div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>Descrizione</th>
+    <th class="c">UM</th><th class="c">Q.tà</th>
+    <th class="r">Prezzo unit.</th><th class="c">Sc.%</th>
+    <th class="r">Importo</th>
+  </tr></thead>
+  <tbody>${righeHtml}</tbody>
+</table>
+
+<div class="totali">
+  <div class="tot-row"><span class="tot-label">Subtotale</span><span class="tot-val">${fmtEur(preventivo.subtotale)}</span></div>
+  ${sconto > 0 ? `<div class="tot-row"><span class="tot-label">Sconto (${sconto}%)</span><span class="tot-val" style="color:#dc2626">- ${fmtEur(parseFloat(preventivo.subtotale||0)*sconto/100)}</span></div>` : ''}
+  <div class="tot-row tot-finale"><span class="tot-label">TOTALE</span><span class="tot-val">${fmtEur(preventivo.totale)}</span></div>
+</div>
+
+${preventivo.note_cliente ? `<div class="note-box"><strong style="font-size:10px;text-transform:uppercase;color:#6d28d9">Note</strong><p style="margin-top:4px">${preventivo.note_cliente}</p></div>` : ''}
+
+<div class="firma-grid">
+  <div class="firma">ZG Impianti Srl – Firma e Timbro</div>
+  <div class="firma">Cliente – Firma per accettazione</div>
+</div>
+
+<div class="footer">ZG Impianti Srl · Documento generato il ${new Date().toLocaleDateString('it-IT')}</div>
+<script>window.onload=function(){window.print();};<\/script>
+</body></html>`;
+
+            const w = window.open('', '_blank', 'width=900,height=750');
+            w.document.write(html);
+            w.document.close();
         }
 
         // Genera ordini materiali da preventivo

@@ -13,6 +13,6 @@ ALTER TABLE users
     CHECK (ruolo IN ('admin', 'dipendente', 'tecnico', 'titolare', 'segreteria', 'esterno'));
 
 -- 2. Verifica che l'aggiornamento sia andato a buon fine
-SELECT conname, consrc 
+SELECT conname, pg_get_constraintdef(oid) AS constraint_def
 FROM pg_constraint 
 WHERE conrelid = 'users'::regclass AND contype = 'c' AND conname = 'users_ruolo_check';

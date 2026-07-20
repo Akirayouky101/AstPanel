@@ -14,6 +14,7 @@ DROP VIEW IF EXISTS v_movimenti_operatore_pending CASCADE;
 DROP VIEW IF EXISTS v_cronologia_movimenti_operatore CASCADE;
 DROP VIEW IF EXISTS v_kit_storico CASCADE;
 DROP VIEW IF EXISTS v_kits_storico CASCADE;
+DROP VIEW IF EXISTS v_movimenti_dettagliato CASCADE;
 
 -- 2. Altera le colonne
 ALTER TABLE components
@@ -198,7 +199,33 @@ LEFT JOIN users u_create ON k.created_by = u_create.id
 LEFT JOIN users u_del ON k.deleted_by = u_del.id
 ORDER BY k.created_at DESC;
 
--- 11. Verifica
+-- 11. Ricrea v_movimenti_dettagliato
+CREATE OR REPLACE VIEW v_movimenti_dettagliato AS
+SELECT 
+    m.id,
+    m.data_movimento,
+    m.tipo_movimento,
+    m.quantita,
+    m.causale,
+    m.prodotto_id,
+    c.codice AS prodotto_codice,
+    c.nome   AS prodotto_nome,
+    c.categoria AS prodotto_categoria,
+    m.ordine_fornitore_id,
+    m.lavorazione_id,
+    m.created_by,
+    u.nome || ' ' || u.cognome AS created_by_name,
+    u.email AS created_by_email,
+    m.giacenza_prima,
+    m.giacenza_dopo
+FROM movimenti_magazzino m
+LEFT JOIN components c ON m.prodotto_id = c.id
+LEFT JOIN users u ON m.created_by = u.id
+ORDER BY m.data_movimento DESC;
+
+COMMENT ON VIEW v_movimenti_dettagliato IS 'Vista completa movimenti magazzino con tutti i dettagli';
+
+-- 12. Verifica
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'components'
