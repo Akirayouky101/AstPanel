@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheda Verifica Rapida</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { font-size: 11pt; }
+            .print-shadow { box-shadow: none !important; }
+        }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+
+<div class="max-w-6xl mx-auto">
+
+    <!-- Toolbar -->
+    <div class="no-print flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold text-gray-700"><i class="fas fa-clipboard-check text-green-600 mr-2"></i>Scheda Verifica Rapida</h1>
+        <div class="flex gap-2">
+            <button onclick="aggiungiRiga()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition">
+                <i class="fas fa-plus mr-1"></i>Aggiungi riga
+            </button>
+            <button onclick="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition">
+                <i class="fas fa-print mr-1"></i>Stampa
+            </button>
+        </div>
+    </div>
+
+    <!-- Card principale -->
+    <div class="bg-white rounded-2xl shadow-lg print-shadow p-6 space-y-5">
+
+        <!-- Header: Luogo + Quadro -->
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Luogo</label>
+                <input type="text" id="campoLuogo" placeholder="es: Comune di Caluso — Sede Municipale"
+                    class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none font-semibold text-gray-800 no-print"
+                    oninput="aggiornaTitolo()">
+                <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printLuogo"></div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quadro / Pannello</label>
+                <input type="text" id="campoQuadro" placeholder="es: Quadro generale piano terra"
+                    class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none text-gray-800 no-print"
+                    oninput="aggiornaTitolo()">
+                <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printQuadro"></div>
+            </div>
+        </div>
+
+        <!-- Tabella componenti -->
+        <div class="overflow-x-auto rounded-xl border-2 border-gray-100">
+            <table class="w-full text-sm" id="tabellaRighe">
+                <thead>
+                    <tr class="bg-green-50">
+                        <th class="px-3 py-2.5 text-left text-xs font-bold text-green-800 w-8">#</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-bold text-green-800">Ubicazione</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-bold text-green-800 w-36">Marca</th>
+                        <th class="px-3 py-2.5 text-center text-xs font-bold text-green-800 w-20">N° Poli</th>
+                        <th class="px-3 py-2.5 text-left text-xs font-bold text-green-800 w-52">Codice</th>
+                        <th class="px-3 py-2.5 text-center text-xs font-bold text-green-800 w-24">Esito</th>
+                        <th class="w-10 no-print"></th>
+                    </tr>
+                </thead>
+                <tbody id="righeBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Footer stampa -->
+        <div class="hidden print-only pt-4 border-t border-gray-200 flex justify-between text-xs text-gray-400">
+            <span>ZG Impianti Srl — Verifica Elettrica</span>
+            <span id="printData"></span>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let righe = [];
+    const MARCHE = ['ABB','BTicino','Came','Eaton','Finder','Gewiss','Hager','Legrand','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
+
+    function aggiornaTitolo() {
+        document.getElementById('printLuogo').textContent = document.getElementById('campoLuogo').value;
+        document.getElementById('printQuadro').textContent = document.getElementById('campoQuadro').value;
+    }
+
+    function aggiungiRiga() {
+        righe.push({ ubicazione: '', marca: '', npoli: '', codice: '', esito: 'OK' });
+        renderRighe();
+        setTimeout(() => {
+            const inputs = document.querySelectorAll('#righeBody input[data-ubicazione]');
+            inputs[inputs.length - 1]?.focus();
+        }, 50);
+    }
+
+    function rimuoviRiga(idx) {
+        righe.splice(idx, 1);
+        renderRighe();
+    }
+
+    function toggleEsito(idx) {
+        righe[idx].esito = righe[idx].esito === 'OK' ? 'NON OK' : 'OK';
+        renderRighe();
+    }
+
+    function renderRighe() {
+        const tbody = document.getElementById('righeBody');
+        if (righe.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-300 text-sm italic">Nessuna riga — clicca "Aggiungi riga"</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = righe.map((r, i) => `
+            <tr class="border-t border-gray-100">
+                <td class="px-3 py-1.5 text-xs text-gray-400 font-mono">${i + 1}</td>
+                <td class="px-1 py-1">
+                    <input type="text" value="${esc(r.ubicazione)}" data-ubicazione
+                        oninput="righe[${i}].ubicazione=this.value"
+                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-green-300 outline-none no-print"
+                        placeholder="es: Generale FM">
+                    <span class="hidden print-only text-xs">${esc(r.ubicazione)}</span>
+                </td>
+                <td class="px-1 py-1">
+                    <select oninput="righe[${i}].marca=this.value"
+                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-green-300 outline-none bg-white no-print">
+                        <option value="">—</option>
+                        ${MARCHE.map(m => `<option value="${m}" ${r.marca === m ? 'selected' : ''}>${m}</option>`).join('')}
+                    </select>
+                    <span class="hidden print-only text-xs">${esc(r.marca)}</span>
+                </td>
+                <td class="px-1 py-1">
+                    <input type="number" min="1" max="6" value="${esc(r.npoli)}" oninput="righe[${i}].npoli=this.value"
+                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-green-300 outline-none no-print"
+                        placeholder="4">
+                    <span class="hidden print-only text-xs text-center block">${esc(r.npoli)}</span>
+                </td>
+                <td class="px-1 py-1">
+                    <input type="text" value="${esc(r.codice)}" oninput="righe[${i}].codice=this.value"
+                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-green-300 outline-none no-print"
+                        placeholder="es: G843/32AC">
+                    <span class="hidden print-only font-mono text-xs">${esc(r.codice)}</span>
+                </td>
+                <td class="px-1 py-1 text-center">
+                    <button onclick="toggleEsito(${i})"
+                        class="px-3 py-1 rounded-lg text-xs font-bold no-print ${r.esito === 'NON OK' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                        ${r.esito}
+                    </button>
+                    <span class="hidden print-only text-xs font-bold ${r.esito === 'NON OK' ? 'text-red-600' : 'text-green-700'}">${r.esito}</span>
+                </td>
+                <td class="px-1 py-1 text-center no-print">
+                    <button onclick="rimuoviRiga(${i})" class="text-gray-300 hover:text-red-500 transition">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+    }
+
+    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+    // Imposta data per stampa
+    document.getElementById('printData').textContent = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+    // Gestione stampa: mostra/nascondi elementi
+    window.addEventListener('beforeprint', () => {
+        document.querySelectorAll('.print-only').forEach(el => el.classList.remove('hidden'));
+        document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+        aggiornaTitolo();
+    });
+    window.addEventListener('afterprint', () => {
+        document.querySelectorAll('.print-only').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+    });
+
+    // Avvio con 3 righe vuote
+    aggiungiRiga();
+    aggiungiRiga();
+    aggiungiRiga();
+</script>
+</body>
+</html>
