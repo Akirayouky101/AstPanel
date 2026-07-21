@@ -273,6 +273,7 @@
     let saveTimeout = null;
     let isSaving = false;
     let modalCallback = null;
+    let listaSchede = [];
 
     const MARCHE = ['ABB','BTicino','Came','Eaton','Finder','Gewiss','Hager','Legrand','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
 
@@ -304,9 +305,12 @@
         document.getElementById('listaLoading').classList.add('hidden');
 
         if (error || !data || data.length === 0) {
+            listaSchede = [];
             document.getElementById('listaVuota').classList.remove('hidden');
             return;
         }
+
+        listaSchede = data;
 
         const grid = document.getElementById('listaGrid');
         grid.classList.remove('hidden');
@@ -336,8 +340,12 @@
                             <span><i class="fas fa-list-ul mr-1"></i>${rows.length} righe</span>
                             <span><i class="fas fa-clock mr-1"></i>${data_str}</span>
                         </div>
+                        <button onclick="event.stopPropagation(); duplicaScheda('${s.id}')"
+                            class="text-gray-200 hover:text-blue-400 transition p-1" title="Duplica scheda">
+                            <i class="fas fa-copy text-xs"></i>
+                        </button>
                         <button onclick="event.stopPropagation(); chiediEliminaScheda('${s.id}')"
-                            class="text-gray-200 hover:text-red-400 transition p-1">
+                            class="text-gray-200 hover:text-red-400 transition p-1" title="Elimina scheda">
                             <i class="fas fa-trash text-xs"></i>
                         </button>
                     </div>
@@ -405,6 +413,17 @@
     async function eliminaScheda(id) {
         await sbClient.from('schede_verifica').delete().eq('id', id);
         caricaLista();
+    }
+
+    async function duplicaScheda(id) {
+        const orig = listaSchede.find(s => s.id === id);
+        if (!orig) return;
+        const { error } = await sbClient.from('schede_verifica').insert({
+            luogo:  (orig.luogo  || '') + ' (COPIA)',
+            quadro: orig.quadro || '',
+            righe:  orig.righe  || []
+        });
+        if (!error) caricaLista();
     }
 
     // ── Save status ───────────────────────────────────────────────
