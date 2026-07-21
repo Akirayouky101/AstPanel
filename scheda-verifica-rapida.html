@@ -11,9 +11,78 @@
         @media print {
             .no-print { display: none !important; }
             #viewLista { display: none !important; }
-            body { font-size: 11pt; }
+
+            @page {
+                size: A4 portrait;
+                margin: 1.5cm 1.5cm 2cm 1.5cm;
+            }
+
+            body { background: white !important; font-size: 10pt; }
+            .bg-gray-100 { background: white !important; }
             .print-shadow { box-shadow: none !important; }
+            .shadow-lg { box-shadow: none !important; }
+            .rounded-2xl { border-radius: 0 !important; }
+
+            #viewScheda > div { max-width: 100% !important; padding: 0 !important; }
+
+            .overflow-x-auto {
+                overflow: visible !important;
+                border: none !important;
+                border-radius: 0 !important;
+            }
+
+            /* Sezione luogo/quadro */
+            .grid.grid-cols-2.gap-4 {
+                border: 0.75pt solid #d1d5db;
+                border-radius: 4pt;
+                padding: 7pt 10pt !important;
+                background: #f9fafb !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                margin-bottom: 8pt;
+            }
+
+            #printLuogo, #printQuadro {
+                font-size: 10.5pt !important;
+                font-weight: 800 !important;
+                color: #111 !important;
+                border: none !important;
+                padding: 1pt 0 0 0 !important;
+            }
+
+            /* Tabella */
+            #tabellaRighe {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+
+            #tabellaRighe thead tr {
+                background-color: #d1fae5 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #tabellaRighe th {
+                border: 0.75pt solid #374151 !important;
+                padding: 5pt 7pt !important;
+                font-size: 8.5pt !important;
+                color: #064e3b !important;
+            }
+
+            #tabellaRighe tbody tr:nth-child(even) {
+                background-color: #f0fdf4 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #tabellaRighe td {
+                border: 0.5pt solid #d1d5db !important;
+                padding: 4pt 7pt !important;
+                font-size: 9pt !important;
+                vertical-align: middle !important;
+            }
         }
+
         * { -ms-overflow-style: none; scrollbar-width: none; }
         .view { display: none; }
         .view.active { display: block; }
@@ -92,6 +161,21 @@
     <!-- Card principale -->
     <div class="bg-white rounded-2xl shadow-lg print-shadow p-6 space-y-5">
 
+        <!-- Intestazione stampa: logo + titolo -->
+        <div class="hidden print-only" style="padding-bottom:12pt; margin-bottom:10pt; border-bottom:2.5pt solid #166534;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16pt;">
+                <img src="logo_zg.jpg" alt="ZG Impianti Srl" style="height:50pt; width:auto; object-fit:contain; display:block;">
+                <div style="flex:1; text-align:center; padding:0 12pt;">
+                    <div style="font-size:13pt; font-weight:900; letter-spacing:0.05em; color:#111;">SCHEDA VERIFICA RAPIDA</div>
+                    <div style="font-size:8.5pt; color:#374151; margin-top:3pt; letter-spacing:0.04em;">COMPONENTI ELETTRICI &mdash; QUADRI ELETTRICI</div>
+                </div>
+                <div style="text-align:right; font-size:8pt; color:#374151; min-width:90pt;">
+                    <div style="font-weight:bold; font-size:9pt; color:#111;">ZG Impianti Srl</div>
+                    <div id="printDataHeader" style="margin-top:3pt;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Header: Luogo + Quadro -->
         <div class="grid grid-cols-2 gap-4">
             <div>
@@ -128,10 +212,22 @@
             </table>
         </div>
 
-        <!-- Footer stampa -->
-        <div class="hidden print-only pt-4 border-t border-gray-200 flex justify-between text-xs text-gray-400">
-            <span>ZG Impianti Srl — Verifica Elettrica</span>
-            <span id="printData"></span>
+        <!-- Footer stampa: firma -->
+        <div class="hidden print-only" style="margin-top:24pt; padding-top:10pt; border-top:1pt solid #374151;">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20pt;">
+                <div>
+                    <div style="font-size:7.5pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.06em; color:#6b7280; margin-bottom:18pt;">Tecnico verificatore</div>
+                    <div style="border-bottom:0.75pt solid #374151;">&nbsp;</div>
+                </div>
+                <div>
+                    <div style="font-size:7.5pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.06em; color:#6b7280; margin-bottom:18pt;">Data verifica</div>
+                    <div style="border-bottom:0.75pt solid #374151; padding-bottom:1pt;"><span id="printData"></span></div>
+                </div>
+                <div>
+                    <div style="font-size:7.5pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.06em; color:#6b7280; margin-bottom:18pt;">Firma / Timbro</div>
+                    <div style="border-bottom:0.75pt solid #374151;">&nbsp;</div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -478,7 +574,9 @@
     function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
     // Imposta data per stampa
-    document.getElementById('printData').textContent = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const _dataOggi = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+    document.getElementById('printData').textContent = _dataOggi;
+    document.getElementById('printDataHeader').textContent = 'Data: ' + _dataOggi;
 
     // Gestione stampa
     window.addEventListener('beforeprint', () => {
