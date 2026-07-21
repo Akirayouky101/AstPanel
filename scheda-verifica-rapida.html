@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scheda Verifica Rapida</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @media print {
@@ -20,11 +21,20 @@
 <div class="max-w-6xl mx-auto">
 
     <!-- Toolbar -->
-    <div class="no-print flex items-center justify-between mb-4">
-        <h1 class="text-xl font-bold text-gray-700"><i class="fas fa-clipboard-check text-green-600 mr-2"></i>Scheda Verifica Rapida</h1>
-        <div class="flex gap-2">
+    <div class="no-print flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+            <h1 class="text-xl font-bold text-gray-700"><i class="fas fa-clipboard-check text-green-600 mr-2"></i>Scheda Verifica Rapida</h1>
+            <div id="saveStatus" class="flex items-center"></div>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="nuovaScheda()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition">
+                <i class="fas fa-file mr-1"></i>Nuova
+            </button>
             <button onclick="aggiungiRiga()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition">
                 <i class="fas fa-plus mr-1"></i>Aggiungi riga
+            </button>
+            <button onclick="salvaScheda()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition">
+                <i class="fas fa-cloud-upload-alt mr-1"></i>Salva
             </button>
             <button onclick="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition">
                 <i class="fas fa-print mr-1"></i>Stampa
@@ -41,14 +51,14 @@
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Luogo</label>
                 <input type="text" id="campoLuogo" placeholder="es: Comune di Caluso — Sede Municipale"
                     class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none font-semibold text-gray-800 no-print"
-                    oninput="aggiornaTitolo()">
+                    oninput="aggiornaTitolo(); autoSalva()">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printLuogo"></div>
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quadro / Pannello</label>
                 <input type="text" id="campoQuadro" placeholder="es: Quadro generale piano terra"
                     class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none text-gray-800 no-print"
-                    oninput="aggiornaTitolo()">
+                    oninput="aggiornaTitolo(); autoSalva()">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printQuadro"></div>
             </div>
         </div>
@@ -81,31 +91,138 @@
 </div>
 
 <script>
+    // ── Supabase ──────────────────────────────────────────────────
+    const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODczNjUsImV4cCI6MjA3Njg2MzM2NX0.EyJc6p88SDxDt07g4sytrrqqnoA6EOvpKmoZFNCaqvA';
+    const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     let righe = [];
+    let schedaId = new URLSearchParams(window.location.search).get('id') || null;
+    let saveTimeout = null;
+    let isSaving = false;
+
     const MARCHE = ['ABB','BTicino','Came','Eaton','Finder','Gewiss','Hager','Legrand','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
 
+    // ── Save status ───────────────────────────────────────────────
+    function setSaveStatus(status) {
+        const el = document.getElementById('saveStatus');
+        const map = {
+            pending: '<i class="fas fa-circle text-yellow-400 text-xs mr-1"></i><span class="text-xs text-yellow-600">Modifiche non salvate</span>',
+            saving:  '<i class="fas fa-spinner fa-spin text-blue-400 text-xs mr-1"></i><span class="text-xs text-blue-600">Salvataggio...</span>',
+            saved:   '<i class="fas fa-check-circle text-green-500 text-xs mr-1"></i><span class="text-xs text-green-600">Salvato</span>',
+            error:   '<i class="fas fa-exclamation-circle text-red-500 text-xs mr-1"></i><span class="text-xs text-red-600">Errore salvataggio</span>',
+        };
+        el.innerHTML = map[status] || '';
+    }
+
+    // ── Auto-save (debounced 2s) ───────────────────────────────────
+    function autoSalva() {
+        clearTimeout(saveTimeout);
+        setSaveStatus('pending');
+        saveTimeout = setTimeout(salvaScheda, 2000);
+    }
+
+    // ── Salva su Supabase ─────────────────────────────────────────
+    async function salvaScheda() {
+        if (isSaving) return;
+        isSaving = true;
+        clearTimeout(saveTimeout);
+        setSaveStatus('saving');
+        try {
+            const payload = {
+                luogo:  document.getElementById('campoLuogo').value,
+                quadro: document.getElementById('campoQuadro').value,
+                righe
+            };
+            if (schedaId) payload.id = schedaId;
+
+            const { data, error } = await sbClient
+                .from('schede_verifica')
+                .upsert(payload, { onConflict: 'id' })
+                .select('id')
+                .single();
+
+            if (error) throw error;
+            if (!schedaId) {
+                schedaId = data.id;
+                window.history.replaceState({}, '', `?id=${schedaId}`);
+            }
+            setSaveStatus('saved');
+        } catch(e) {
+            console.error('Errore salvataggio:', e);
+            setSaveStatus('error');
+        } finally {
+            isSaving = false;
+        }
+    }
+
+    // ── Carica da Supabase ────────────────────────────────────────
+    async function caricaScheda() {
+        if (!schedaId) return false;
+        try {
+            const { data, error } = await sbClient
+                .from('schede_verifica')
+                .select('*')
+                .eq('id', schedaId)
+                .single();
+            if (error || !data) return false;
+            document.getElementById('campoLuogo').value  = data.luogo  || '';
+            document.getElementById('campoQuadro').value = data.quadro || '';
+            righe = Array.isArray(data.righe) ? data.righe : [];
+            aggiornaTitolo();
+            renderRighe();
+            setSaveStatus('saved');
+            return true;
+        } catch(e) {
+            console.error('Errore caricamento:', e);
+            return false;
+        }
+    }
+
+    // ── Nuova scheda ──────────────────────────────────────────────
+    function nuovaScheda() {
+        if (!confirm('Iniziare una nuova scheda? La scheda attuale rimane salvata su Supabase.')) return;
+        schedaId = null;
+        righe = [];
+        document.getElementById('campoLuogo').value  = '';
+        document.getElementById('campoQuadro').value = '';
+        window.history.replaceState({}, '', window.location.pathname);
+        document.getElementById('saveStatus').innerHTML = '';
+        aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
+    }
+
+    // ── Operazioni righe ──────────────────────────────────────────
     function aggiornaTitolo() {
-        document.getElementById('printLuogo').textContent = document.getElementById('campoLuogo').value;
+        document.getElementById('printLuogo').textContent  = document.getElementById('campoLuogo').value;
         document.getElementById('printQuadro').textContent = document.getElementById('campoQuadro').value;
     }
 
-    function aggiungiRiga() {
+    function aggiungiRiga(skipSave = false) {
         righe.push({ ubicazione: '', marca: '', npoli: '', codice: '', esito: 'OK' });
         renderRighe();
         setTimeout(() => {
             const inputs = document.querySelectorAll('#righeBody input[data-ubicazione]');
             inputs[inputs.length - 1]?.focus();
         }, 50);
+        if (!skipSave) autoSalva();
+    }
+
+    function copiaRiga(idx) {
+        righe.splice(idx + 1, 0, { ...righe[idx] });
+        renderRighe();
+        autoSalva();
     }
 
     function rimuoviRiga(idx) {
         righe.splice(idx, 1);
         renderRighe();
+        autoSalva();
     }
 
     function toggleEsito(idx) {
         righe[idx].esito = righe[idx].esito === 'OK' ? 'NON OK' : 'OK';
         renderRighe();
+        autoSalva();
     }
 
     function renderRighe() {
@@ -119,13 +236,13 @@
                 <td class="px-3 py-1.5 text-xs text-gray-400 font-mono">${i + 1}</td>
                 <td class="px-1 py-1">
                     <input type="text" value="${esc(r.ubicazione)}" data-ubicazione
-                        oninput="righe[${i}].ubicazione=this.value"
+                        oninput="righe[${i}].ubicazione=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-green-300 outline-none no-print"
                         placeholder="es: Generale FM">
                     <span class="hidden print-only text-xs">${esc(r.ubicazione)}</span>
                 </td>
                 <td class="px-1 py-1">
-                    <select oninput="righe[${i}].marca=this.value"
+                    <select oninput="righe[${i}].marca=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-green-300 outline-none bg-white no-print">
                         <option value="">—</option>
                         ${MARCHE.map(m => `<option value="${m}" ${r.marca === m ? 'selected' : ''}>${m}</option>`).join('')}
@@ -133,13 +250,13 @@
                     <span class="hidden print-only text-xs">${esc(r.marca)}</span>
                 </td>
                 <td class="px-1 py-1">
-                    <input type="number" min="1" max="6" value="${esc(r.npoli)}" oninput="righe[${i}].npoli=this.value"
+                    <input type="number" min="1" max="6" value="${esc(r.npoli)}" oninput="righe[${i}].npoli=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-green-300 outline-none no-print"
                         placeholder="4">
                     <span class="hidden print-only text-xs text-center block">${esc(r.npoli)}</span>
                 </td>
                 <td class="px-1 py-1">
-                    <input type="text" value="${esc(r.codice)}" oninput="righe[${i}].codice=this.value"
+                    <input type="text" value="${esc(r.codice)}" oninput="righe[${i}].codice=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-green-300 outline-none no-print"
                         placeholder="es: G843/32AC">
                     <span class="hidden print-only font-mono text-xs">${esc(r.codice)}</span>
@@ -152,7 +269,10 @@
                     <span class="hidden print-only text-xs font-bold ${r.esito === 'NON OK' ? 'text-red-600' : 'text-green-700'}">${r.esito}</span>
                 </td>
                 <td class="px-1 py-1 text-center no-print">
-                    <button onclick="rimuoviRiga(${i})" class="text-gray-300 hover:text-red-500 transition">
+                    <button onclick="copiaRiga(${i})" class="text-gray-300 hover:text-blue-500 transition mr-2" title="Copia riga sotto">
+                        <i class="fas fa-copy text-xs"></i>
+                    </button>
+                    <button onclick="rimuoviRiga(${i})" class="text-gray-300 hover:text-red-500 transition" title="Elimina riga">
                         <i class="fas fa-times text-xs"></i>
                     </button>
                 </td>
@@ -175,10 +295,13 @@
         document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
     });
 
-    // Avvio con 3 righe vuote
-    aggiungiRiga();
-    aggiungiRiga();
-    aggiungiRiga();
+    // ── Init ──────────────────────────────────────────────────────
+    (async () => {
+        const loaded = await caricaScheda();
+        if (!loaded) {
+            aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
+        }
+    })();
 </script>
 </body>
 </html>
