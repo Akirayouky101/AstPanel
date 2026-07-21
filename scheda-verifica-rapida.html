@@ -6,6 +6,7 @@
     <title>Schede Verifica Elettrica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @media print {
@@ -149,6 +150,13 @@
             <button onclick="aggiungiRiga()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition">
                 <i class="fas fa-plus mr-1"></i>Aggiungi riga
             </button>
+            <button onclick="esportaExcel()" class="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 transition" title="Esporta in Excel">
+                <i class="fas fa-file-excel mr-1"></i>Esporta
+            </button>
+            <button onclick="avviaImport()" class="px-4 py-2 bg-teal-600 text-white rounded-xl text-sm font-bold hover:bg-teal-700 transition" title="Importa Excel corretto e revisiona modifiche">
+                <i class="fas fa-file-import mr-1"></i>Importa
+            </button>
+            <input type="file" id="inputExcelImport" accept=".xlsx,.xls" class="hidden no-print" onchange="importaExcel(event)">
             <button onclick="salvaScheda()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition">
                 <i class="fas fa-cloud-upload-alt mr-1"></i>Salva
             </button>
@@ -249,6 +257,40 @@
             </button>
             <button id="modalBtnConferma" class="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition">
                 Conferma
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL DIFF IMPORT EXCEL                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modalDiff" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="chiudiDiff()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height:90vh;">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-bold text-gray-800"><i class="fas fa-file-import text-teal-600 mr-2"></i>Revisione correzioni Excel</h3>
+                <p id="diffSubtitle" class="text-xs text-gray-400 mt-0.5"></p>
+            </div>
+            <button onclick="chiudiDiff()" class="text-gray-300 hover:text-gray-600 transition w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="px-6 py-2 border-b border-gray-100 flex flex-wrap gap-4 text-xs text-gray-500 flex-shrink-0">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded border-l-4 border-yellow-400 bg-yellow-50 inline-block"></span> Modifica</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-green-100 inline-block"></span> Aggiunta</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 inline-block"></span> Rimossa</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-white border border-gray-200 inline-block"></span> Invariata</span>
+        </div>
+        <div id="diffContent" class="flex-1 overflow-y-auto p-4 min-h-0"></div>
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+            <button onclick="chiudiDiff()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                Annulla
+            </button>
+            <button id="diffApplicaBtn" onclick="applicaCorrezioni()"
+                class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-bold text-white transition">
+                <i class="fas fa-check mr-1"></i> Applica correzioni
             </button>
         </div>
     </div>
@@ -608,6 +650,158 @@
         document.querySelectorAll('.print-only').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
     });
+
+    // ── Export / Import Excel ─────────────────────────────────────
+    let pendingImport = null;
+
+    function esportaExcel() {
+        if (righe.length === 0) { alert('Nessuna riga da esportare.'); return; }
+        if (typeof XLSX === 'undefined') { alert('Libreria Excel non ancora caricata, riprova.'); return; }
+        const luogo  = document.getElementById('campoLuogo').value  || 'Scheda';
+        const quadro = document.getElementById('campoQuadro').value || '';
+        const wsData = [
+            ['#', 'UBICAZIONE', 'MARCA', 'N\u00b0 POLI', 'CODICE', 'ESITO'],
+            ...righe.map((r, i) => [i + 1, r.ubicazione || '', r.marca || '', r.npoli || '', r.codice || '', r.esito || 'OK'])
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = [{ wch:4 }, { wch:32 }, { wch:16 }, { wch:8 }, { wch:24 }, { wch:10 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Verifica');
+        const nome = [luogo, quadro].filter(Boolean).join(' - ').replace(/[\/\\?%*:|"<>]/g, '_') || 'Scheda';
+        XLSX.writeFile(wb, nome + '.xlsx');
+    }
+
+    function avviaImport() {
+        document.getElementById('inputExcelImport').click();
+    }
+
+    function importaExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                const nuove = rows.slice(1)
+                    .filter(r => r.some(c => String(c).trim() !== ''))
+                    .map(r => ({
+                        ubicazione: String(r[1] || '').trim().toUpperCase(),
+                        marca:      String(r[2] || '').trim(),
+                        npoli:      String(r[3] || '').trim(),
+                        codice:     String(r[4] || '').trim().toUpperCase(),
+                        esito:      String(r[5] || 'OK').trim().toUpperCase() === 'NON OK' ? 'NON OK' : 'OK'
+                    }));
+                if (nuove.length === 0) { alert('Nessuna riga trovata nel file.'); return; }
+                mostraDiff(nuove);
+            } catch(err) {
+                console.error(err);
+                alert('Errore nella lettura del file. Usa il file esportato da questa pagina.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = '';
+    }
+
+    function mostraDiff(nuove) {
+        const maxLen = Math.max(righe.length, nuove.length);
+        const CAMPI  = ['ubicazione', 'marca', 'npoli', 'codice', 'esito'];
+        let nMod = 0, nAdd = 0, nDel = 0;
+        let tbody = '';
+
+        for (let i = 0; i < maxLen; i++) {
+            const v = righe[i];
+            const n = nuove[i];
+            if (!v) {
+                nAdd++;
+                tbody += '<tr class="bg-green-50">'
+                    + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
+                    + '<td class="px-2 py-1.5 text-green-800 font-medium">' + esc(n.ubicazione) + '</td>'
+                    + '<td class="px-2 py-1.5 text-green-800">' + esc(n.marca) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center text-green-800">' + esc(n.npoli) + '</td>'
+                    + '<td class="px-2 py-1.5 font-mono text-green-800">' + esc(n.codice) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center text-green-800">' + esc(n.esito) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-bold">+AGGIUNTA</span></td>'
+                    + '</tr>';
+            } else if (!n) {
+                nDel++;
+                tbody += '<tr class="bg-red-50">'
+                    + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
+                    + '<td class="px-2 py-1.5 text-red-400 line-through">' + esc(v.ubicazione) + '</td>'
+                    + '<td class="px-2 py-1.5 text-red-400 line-through">' + esc(v.marca) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center text-red-400 line-through">' + esc(v.npoli) + '</td>'
+                    + '<td class="px-2 py-1.5 font-mono text-red-400 line-through">' + esc(v.codice) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center text-red-400 line-through">' + esc(v.esito) + '</td>'
+                    + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-red-200 text-red-800 rounded-full text-xs font-bold">&minus;RIMOSSA</span></td>'
+                    + '</tr>';
+            } else {
+                const diff = CAMPI.filter(c => String(v[c]||'') !== String(n[c]||''));
+                if (diff.length > 0) {
+                    nMod++;
+                    const cell = (c, cls) => diff.includes(c)
+                        ? '<td class="px-2 py-1.5 ' + cls + '"><span class="text-red-400 line-through text-xs block leading-tight">' + esc(v[c]) + '</span><span class="text-green-700 font-bold">' + esc(n[c]) + '</span></td>'
+                        : '<td class="px-2 py-1.5 text-gray-500 ' + cls + '">' + esc(n[c]) + '</td>';
+                    tbody += '<tr class="bg-yellow-50 border-l-4 border-yellow-400">'
+                        + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
+                        + cell('ubicazione','font-medium') + cell('marca','') + cell('npoli','text-center')
+                        + cell('codice','font-mono') + cell('esito','text-center')
+                        + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded-full text-xs font-bold">~MODIFICA</span></td>'
+                        + '</tr>';
+                } else {
+                    tbody += '<tr class="border-t border-gray-50">'
+                        + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
+                        + '<td class="px-2 py-1.5 text-gray-600">' + esc(n.ubicazione) + '</td>'
+                        + '<td class="px-2 py-1.5 text-gray-500">' + esc(n.marca) + '</td>'
+                        + '<td class="px-2 py-1.5 text-center text-gray-500">' + esc(n.npoli) + '</td>'
+                        + '<td class="px-2 py-1.5 font-mono text-gray-500">' + esc(n.codice) + '</td>'
+                        + '<td class="px-2 py-1.5 text-center text-gray-500">' + esc(n.esito) + '</td>'
+                        + '<td class="px-2 py-1.5 text-center text-gray-300 text-xs">&mdash;</td>'
+                        + '</tr>';
+                }
+            }
+        }
+
+        pendingImport = nuove;
+        document.getElementById('diffContent').innerHTML =
+            '<div class="overflow-x-auto rounded-xl border border-gray-200">'
+            + '<table class="w-full text-xs">'
+            + '<thead class="bg-gray-50"><tr>'
+            + '<th class="px-2 py-2 text-left text-gray-500 font-bold w-8">#</th>'
+            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Ubicazione</th>'
+            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Marca</th>'
+            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Poli</th>'
+            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Codice</th>'
+            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Esito</th>'
+            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Stato</th>'
+            + '</tr></thead>'
+            + '<tbody>' + tbody + '</tbody>'
+            + '</table></div>';
+
+        const haChanges = nMod + nAdd + nDel > 0;
+        const parts = [];
+        if (nMod > 0) parts.push(nMod + (nMod > 1 ? ' modifiche' : ' modifica'));
+        if (nAdd > 0) parts.push(nAdd + (nAdd > 1 ? ' aggiunte' : ' aggiunta'));
+        if (nDel > 0) parts.push(nDel + (nDel > 1 ? ' rimosse' : ' rimossa'));
+        document.getElementById('diffSubtitle').textContent = haChanges
+            ? parts.join(', ')
+            : 'Nessuna differenza — il file è identico alla scheda corrente';
+        document.getElementById('diffApplicaBtn').disabled = !haChanges;
+        document.getElementById('modalDiff').classList.remove('hidden');
+    }
+
+    function chiudiDiff() {
+        document.getElementById('modalDiff').classList.add('hidden');
+        pendingImport = null;
+    }
+
+    async function applicaCorrezioni() {
+        if (!pendingImport) return;
+        righe = pendingImport;
+        renderRighe();
+        chiudiDiff();
+        await salvaScheda();
+    }
 
     // ── Init ──────────────────────────────────────────────────────
     (async () => {
