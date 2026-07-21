@@ -3,33 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scheda Verifica Rapida</title>
+    <title>Schede Verifica Elettrica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @media print {
             .no-print { display: none !important; }
+            #viewLista { display: none !important; }
             body { font-size: 11pt; }
             .print-shadow { box-shadow: none !important; }
         }
         * { -ms-overflow-style: none; scrollbar-width: none; }
+        .view { display: none; }
+        .view.active { display: block; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
+<body class="bg-gray-100 min-h-screen">
 
-<div class="max-w-6xl mx-auto">
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- VIEW 1: LISTA SCHEDE                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="viewLista" class="view no-print">
+    <!-- Top bar -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center">
+                <i class="fas fa-clipboard-check text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">Verifiche Elettriche</h1>
+                <p class="text-xs text-gray-400">ZG Impianti Srl</p>
+            </div>
+        </div>
+        <button onclick="nuovaScheda()" class="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition shadow-sm">
+            <i class="fas fa-plus"></i> Nuova scheda
+        </button>
+    </div>
+
+    <div class="max-w-6xl mx-auto p-6">
+        <!-- Stato caricamento -->
+        <div id="listaLoading" class="text-center py-16 text-gray-400">
+            <i class="fas fa-spinner fa-spin text-3xl mb-3 block"></i>
+            <span class="text-sm">Caricamento schede...</span>
+        </div>
+
+        <!-- Vuoto -->
+        <div id="listaVuota" class="hidden text-center py-20">
+            <i class="fas fa-folder-open text-5xl text-gray-200 mb-4 block"></i>
+            <p class="text-gray-400 font-medium">Nessuna scheda salvata</p>
+            <p class="text-gray-300 text-sm mt-1">Clicca "Nuova scheda" per iniziare</p>
+        </div>
+
+        <!-- Griglia schede -->
+        <div id="listaGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- VIEW 2: EDITOR SCHEDA                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="viewScheda" class="view">
+<div class="max-w-6xl mx-auto p-4">
 
     <!-- Toolbar -->
     <div class="no-print flex items-center justify-between mb-4 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-            <h1 class="text-xl font-bold text-gray-700"><i class="fas fa-clipboard-check text-green-600 mr-2"></i>Scheda Verifica Rapida</h1>
+            <button onclick="tornaAllaLista()" class="flex items-center gap-1.5 text-gray-500 hover:text-green-700 text-sm font-bold transition">
+                <i class="fas fa-arrow-left"></i> Lista
+            </button>
+            <span class="text-gray-300">|</span>
+            <span class="text-sm font-bold text-gray-600"><i class="fas fa-clipboard-check text-green-600 mr-1"></i>Scheda Verifica</span>
             <div id="saveStatus" class="flex items-center"></div>
         </div>
         <div class="flex gap-2 flex-wrap">
-            <button onclick="nuovaScheda()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition">
-                <i class="fas fa-file mr-1"></i>Nuova
-            </button>
             <button onclick="aggiungiRiga()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition">
                 <i class="fas fa-plus mr-1"></i>Aggiungi riga
             </button>
@@ -49,14 +96,14 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Luogo</label>
-                <input type="text" id="campoLuogo" placeholder="es: Comune di Caluso — Sede Municipale"
+                <input type="text" id="campoLuogo" placeholder="ES: COMUNE DI CALUSO — SEDE MUNICIPALE"
                     class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none font-semibold text-gray-800 no-print uppercase"
                     oninput="this.value=this.value.toUpperCase(); aggiornaTitolo(); autoSalva()">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printLuogo"></div>
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quadro / Pannello</label>
-                <input type="text" id="campoQuadro" placeholder="es: Quadro generale piano terra"
+                <input type="text" id="campoQuadro" placeholder="ES: QUADRO GENERALE PIANO TERRA"
                     class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none text-gray-800 no-print uppercase"
                     oninput="this.value=this.value.toUpperCase(); aggiornaTitolo(); autoSalva()">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printQuadro"></div>
@@ -74,7 +121,7 @@
                         <th class="px-3 py-2.5 text-center text-xs font-bold text-green-800 w-20">N° Poli</th>
                         <th class="px-3 py-2.5 text-left text-xs font-bold text-green-800 w-52">Codice</th>
                         <th class="px-3 py-2.5 text-center text-xs font-bold text-green-800 w-24">Esito</th>
-                        <th class="w-10 no-print"></th>
+                        <th class="w-16 no-print"></th>
                     </tr>
                 </thead>
                 <tbody id="righeBody"></tbody>
@@ -89,6 +136,28 @@
 
     </div>
 </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL CONFERMA                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modalConferma" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="chiudiModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in">
+        <div id="modalIcona" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"></div>
+        <h3 id="modalTitolo" class="text-base font-bold text-gray-800 text-center mb-2"></h3>
+        <p id="modalTesto" class="text-sm text-gray-500 text-center mb-6"></p>
+        <div class="flex gap-3">
+            <button onclick="chiudiModal()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                Annulla
+            </button>
+            <button id="modalBtnConferma" class="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition">
+                Conferma
+            </button>
+        </div>
+    </div>
+</div>
+
 
 <script>
     // ── Supabase ──────────────────────────────────────────────────
@@ -100,17 +169,149 @@
     let schedaId = new URLSearchParams(window.location.search).get('id') || null;
     let saveTimeout = null;
     let isSaving = false;
+    let modalCallback = null;
 
     const MARCHE = ['ABB','BTicino','Came','Eaton','Finder','Gewiss','Hager','Legrand','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
+
+    // ── Navigazione viste ─────────────────────────────────────────
+    function mostraView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function tornaAllaLista() {
+        window.history.replaceState({}, '', window.location.pathname);
+        schedaId = null;
+        righe = [];
+        mostraView('viewLista');
+        caricaLista();
+    }
+
+    // ── Lista schede ──────────────────────────────────────────────
+    async function caricaLista() {
+        document.getElementById('listaLoading').classList.remove('hidden');
+        document.getElementById('listaVuota').classList.add('hidden');
+        document.getElementById('listaGrid').classList.add('hidden');
+
+        const { data, error } = await sbClient
+            .from('schede_verifica')
+            .select('id, luogo, quadro, righe, updated_at, created_at')
+            .order('updated_at', { ascending: false });
+
+        document.getElementById('listaLoading').classList.add('hidden');
+
+        if (error || !data || data.length === 0) {
+            document.getElementById('listaVuota').classList.remove('hidden');
+            return;
+        }
+
+        const grid = document.getElementById('listaGrid');
+        grid.classList.remove('hidden');
+        grid.innerHTML = data.map(s => {
+            const rows = Array.isArray(s.righe) ? s.righe : [];
+            const nonOk = rows.filter(r => r.esito === 'NON OK').length;
+            const data_str = new Date(s.updated_at).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            const luogo = s.luogo || '<span class="italic text-gray-300">Luogo non inserito</span>';
+            const quadro = s.quadro || '<span class="italic text-gray-300">Quadro non inserito</span>';
+            const nonOkBadge = nonOk > 0
+                ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">${nonOk} NON OK</span>`
+                : `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Tutti OK</span>`;
+            return `
+            <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-100 hover:border-green-300 hover:shadow-md transition-all cursor-pointer group"
+                 onclick="apriScheda('${s.id}')">
+                <div class="p-5">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center group-hover:bg-green-100 transition">
+                            <i class="fas fa-clipboard-check text-green-600 text-sm"></i>
+                        </div>
+                        ${nonOkBadge}
+                    </div>
+                    <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${luogo}</div>
+                    <div class="text-gray-500 text-xs truncate mb-4">${quadro}</div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3 text-xs text-gray-400">
+                            <span><i class="fas fa-list-ul mr-1"></i>${rows.length} righe</span>
+                            <span><i class="fas fa-clock mr-1"></i>${data_str}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); chiediEliminaScheda('${s.id}')"
+                            class="text-gray-200 hover:text-red-400 transition p-1">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function apriScheda(id) {
+        schedaId = id;
+        window.history.replaceState({}, '', `?id=${id}`);
+        righe = [];
+        document.getElementById('campoLuogo').value = '';
+        document.getElementById('campoQuadro').value = '';
+        document.getElementById('saveStatus').innerHTML = '';
+        mostraView('viewScheda');
+        caricaScheda();
+    }
+
+    function nuovaScheda() {
+        schedaId = null;
+        righe = [];
+        document.getElementById('campoLuogo').value = '';
+        document.getElementById('campoQuadro').value = '';
+        window.history.replaceState({}, '', window.location.pathname);
+        document.getElementById('saveStatus').innerHTML = '';
+        mostraView('viewScheda');
+        aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
+    }
+
+    // ── Modal conferma ────────────────────────────────────────────
+    function mostraModal({ titolo, testo, icona, colore, labelOk, onOk }) {
+        const iconMap = { danger: 'fas fa-trash', warning: 'fas fa-exclamation-triangle' };
+        const colorMap = { danger: 'bg-red-100 text-red-600', warning: 'bg-yellow-100 text-yellow-600' };
+        const btnMap   = { danger: 'bg-red-600 hover:bg-red-700', warning: 'bg-yellow-500 hover:bg-yellow-600' };
+        document.getElementById('modalIcona').className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${colorMap[colore] || colorMap.warning}`;
+        document.getElementById('modalIcona').innerHTML = `<i class="${iconMap[colore] || iconMap.warning} text-xl"></i>`;
+        document.getElementById('modalTitolo').textContent = titolo;
+        document.getElementById('modalTesto').textContent = testo;
+        document.getElementById('modalBtnConferma').textContent = labelOk || 'Conferma';
+        document.getElementById('modalBtnConferma').className = `flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition ${btnMap[colore] || btnMap.warning}`;
+        modalCallback = onOk;
+        document.getElementById('modalConferma').classList.remove('hidden');
+    }
+
+    function chiudiModal() {
+        document.getElementById('modalConferma').classList.add('hidden');
+        modalCallback = null;
+    }
+
+    document.getElementById('modalBtnConferma').onclick = () => {
+        chiudiModal();
+        if (modalCallback) modalCallback();
+    };
+
+    function chiediEliminaScheda(id) {
+        mostraModal({
+            titolo: 'Elimina scheda',
+            testo: 'Questa scheda verrà eliminata definitivamente da Supabase.',
+            icona: 'trash', colore: 'danger', labelOk: 'Elimina',
+            onOk: () => eliminaScheda(id)
+        });
+    }
+
+    async function eliminaScheda(id) {
+        await sbClient.from('schede_verifica').delete().eq('id', id);
+        caricaLista();
+    }
 
     // ── Save status ───────────────────────────────────────────────
     function setSaveStatus(status) {
         const el = document.getElementById('saveStatus');
         const map = {
-            pending: '<i class="fas fa-circle text-yellow-400 text-xs mr-1"></i><span class="text-xs text-yellow-600">Modifiche non salvate</span>',
+            pending: '<i class="fas fa-circle text-yellow-400 text-xs mr-1"></i><span class="text-xs text-yellow-600">Non salvato</span>',
             saving:  '<i class="fas fa-spinner fa-spin text-blue-400 text-xs mr-1"></i><span class="text-xs text-blue-600">Salvataggio...</span>',
             saved:   '<i class="fas fa-check-circle text-green-500 text-xs mr-1"></i><span class="text-xs text-green-600">Salvato</span>',
-            error:   '<i class="fas fa-exclamation-circle text-red-500 text-xs mr-1"></i><span class="text-xs text-red-600">Errore salvataggio</span>',
+            error:   '<i class="fas fa-exclamation-circle text-red-500 text-xs mr-1"></i><span class="text-xs text-red-600">Errore</span>',
         };
         el.innerHTML = map[status] || '';
     }
@@ -156,7 +357,7 @@
         }
     }
 
-    // ── Carica da Supabase ────────────────────────────────────────
+    // ── Carica scheda da Supabase ─────────────────────────────────
     async function caricaScheda() {
         if (!schedaId) return false;
         try {
@@ -177,18 +378,6 @@
             console.error('Errore caricamento:', e);
             return false;
         }
-    }
-
-    // ── Nuova scheda ──────────────────────────────────────────────
-    function nuovaScheda() {
-        if (!confirm('Iniziare una nuova scheda? La scheda attuale rimane salvata su Supabase.')) return;
-        schedaId = null;
-        righe = [];
-        document.getElementById('campoLuogo').value  = '';
-        document.getElementById('campoQuadro').value = '';
-        window.history.replaceState({}, '', window.location.pathname);
-        document.getElementById('saveStatus').innerHTML = '';
-        aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
     }
 
     // ── Operazioni righe ──────────────────────────────────────────
@@ -238,7 +427,7 @@
                     <input type="text" value="${esc(r.ubicazione)}" data-ubicazione
                         oninput="this.value=this.value.toUpperCase(); righe[${i}].ubicazione=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-green-300 outline-none no-print"
-                        placeholder="es: Generale FM">
+                        placeholder="ES: GENERALE FM">
                     <span class="hidden print-only text-xs">${esc(r.ubicazione)}</span>
                 </td>
                 <td class="px-1 py-1">
@@ -258,7 +447,7 @@
                 <td class="px-1 py-1">
                     <input type="text" value="${esc(r.codice)}" oninput="this.value=this.value.toUpperCase(); righe[${i}].codice=this.value; autoSalva()"
                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-green-300 outline-none no-print"
-                        placeholder="es: G843/32AC">
+                        placeholder="ES: G843/32AC">
                     <span class="hidden print-only font-mono text-xs">${esc(r.codice)}</span>
                 </td>
                 <td class="px-1 py-1 text-center">
@@ -284,7 +473,7 @@
     // Imposta data per stampa
     document.getElementById('printData').textContent = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
 
-    // Gestione stampa: mostra/nascondi elementi
+    // Gestione stampa
     window.addEventListener('beforeprint', () => {
         document.querySelectorAll('.print-only').forEach(el => el.classList.remove('hidden'));
         document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
@@ -297,9 +486,13 @@
 
     // ── Init ──────────────────────────────────────────────────────
     (async () => {
-        const loaded = await caricaScheda();
-        if (!loaded) {
-            aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
+        if (schedaId) {
+            mostraView('viewScheda');
+            const loaded = await caricaScheda();
+            if (!loaded) { schedaId = null; mostraView('viewLista'); caricaLista(); }
+        } else {
+            mostraView('viewLista');
+            caricaLista();
         }
     })();
 </script>
