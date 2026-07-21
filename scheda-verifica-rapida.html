@@ -96,19 +96,32 @@
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div id="viewLista" class="view no-print">
     <!-- Top bar -->
-    <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center">
-                <i class="fas fa-clipboard-check text-white text-lg"></i>
+            <a href="admin-functional.html" class="flex items-center gap-2 text-gray-500 hover:text-green-700 text-sm font-bold transition">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+            <span class="text-gray-200">|</span>
+            <div class="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center">
+                <i class="fas fa-clipboard-check text-white text-base"></i>
             </div>
             <div>
                 <h1 class="text-lg font-bold text-gray-800">Verifiche Elettriche</h1>
                 <p class="text-xs text-gray-400">ZG Impianti Srl</p>
             </div>
         </div>
-        <button onclick="nuovaScheda()" class="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition shadow-sm">
-            <i class="fas fa-plus"></i> Nuova scheda
-        </button>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="esportaTutti()" class="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition" title="Esporta tutte le schede in un unico file Excel">
+                <i class="fas fa-file-excel"></i> Esporta tutto
+            </button>
+            <button onclick="avviaImportTutti()" class="flex items-center gap-1.5 px-3 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold hover:bg-teal-100 transition" title="Importa correzioni da pi&ugrave; file Excel">
+                <i class="fas fa-file-import"></i> Importa tutto
+            </button>
+            <input type="file" id="inputExcelImportTutti" accept=".xlsx,.xls" multiple class="hidden" onchange="importaTutti(event)">
+            <button onclick="nuovaScheda()" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition shadow-sm">
+                <i class="fas fa-plus"></i> Nuova scheda
+            </button>
+        </div>
     </div>
 
     <div class="max-w-6xl mx-auto p-6">
@@ -283,9 +296,17 @@
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 inline-block"></span> Rimossa</span>
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-white border border-gray-200 inline-block"></span> Invariata</span>
         </div>
+        <div id="diffProgress" class="hidden px-6 pt-2 pb-1 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <span id="diffProgressText" class="font-medium"></span>
+            </div>
+            <div class="bg-gray-100 rounded-full h-1.5">
+                <div id="diffProgressBar" class="bg-green-500 rounded-full h-1.5 transition-all" style="width:0%"></div>
+            </div>
+        </div>
         <div id="diffContent" class="flex-1 overflow-y-auto p-4 min-h-0"></div>
         <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-            <button onclick="chiudiDiff()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+            <button id="diffAnnullaBtn" onclick="saltaDiff()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
                 Annulla
             </button>
             <button id="diffApplicaBtn" onclick="applicaCorrezioni()"
@@ -382,6 +403,10 @@
                             <span><i class="fas fa-list-ul mr-1"></i>${rows.length} righe</span>
                             <span><i class="fas fa-clock mr-1"></i>${data_str}</span>
                         </div>
+                        <button onclick="event.stopPropagation(); esportaSchedaDaLista('${s.id}')"
+                            class="text-gray-200 hover:text-amber-500 transition p-1" title="Esporta Excel">
+                            <i class="fas fa-file-excel text-xs"></i>
+                        </button>
                         <button onclick="event.stopPropagation(); duplicaScheda('${s.id}')"
                             class="text-gray-200 hover:text-blue-400 transition p-1" title="Duplica scheda">
                             <i class="fas fa-copy text-xs"></i>
@@ -652,23 +677,86 @@
     });
 
     // ── Export / Import Excel ─────────────────────────────────────
-    let pendingImport = null;
+    let pendingImport  = null;
+    let importQueue    = [];
+    let importQueueIdx = 0;
+
+    function _buildWsData(id, rows) {
+        return [
+            ['SCHEDA_ID', id],
+            ['#', 'UBICAZIONE', 'MARCA', 'N\u00b0 POLI', 'CODICE', 'ESITO'],
+            ...rows.map((r, i) => [i+1, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK'])
+        ];
+    }
+    function _buildWs(wsData) {
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = [{ wch:4 },{ wch:32 },{ wch:16 },{ wch:8 },{ wch:24 },{ wch:10 }];
+        return ws;
+    }
+    function _parseRows(rows, start) {
+        return rows.slice(start)
+            .filter(r => r.some(c => String(c).trim() !== ''))
+            .map(r => ({
+                ubicazione: String(r[1]||'').trim().toUpperCase(),
+                marca:      String(r[2]||'').trim(),
+                npoli:      String(r[3]||'').trim(),
+                codice:     String(r[4]||'').trim().toUpperCase(),
+                esito:      String(r[5]||'OK').trim().toUpperCase() === 'NON OK' ? 'NON OK' : 'OK'
+            }));
+    }
 
     function esportaExcel() {
         if (righe.length === 0) { alert('Nessuna riga da esportare.'); return; }
-        if (typeof XLSX === 'undefined') { alert('Libreria Excel non ancora caricata, riprova.'); return; }
+        if (typeof XLSX === 'undefined') { alert('Libreria Excel non caricata, riprova.'); return; }
         const luogo  = document.getElementById('campoLuogo').value  || 'Scheda';
         const quadro = document.getElementById('campoQuadro').value || '';
-        const wsData = [
-            ['#', 'UBICAZIONE', 'MARCA', 'N\u00b0 POLI', 'CODICE', 'ESITO'],
-            ...righe.map((r, i) => [i + 1, r.ubicazione || '', r.marca || '', r.npoli || '', r.codice || '', r.esito || 'OK'])
-        ];
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [{ wch:4 }, { wch:32 }, { wch:16 }, { wch:8 }, { wch:24 }, { wch:10 }];
+        const ws = _buildWs(_buildWsData(schedaId || 'SENZA_ID', righe));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Verifica');
         const nome = [luogo, quadro].filter(Boolean).join(' - ').replace(/[\/\\?%*:|"<>]/g, '_') || 'Scheda';
         XLSX.writeFile(wb, nome + '.xlsx');
+    }
+
+    function esportaSchedaDaLista(id) {
+        if (typeof XLSX === 'undefined') { alert('Libreria Excel non caricata, riprova.'); return; }
+        const s = listaSchede.find(x => x.id === id);
+        if (!s) return;
+        const rows = Array.isArray(s.righe) ? s.righe : [];
+        if (!rows.length) { alert('Scheda senza righe da esportare.'); return; }
+        const ws = _buildWs(_buildWsData(id, rows));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Verifica');
+        const nome = [s.luogo, s.quadro].filter(Boolean).join(' - ').replace(/[\/\\?%*:|"<>]/g, '_') || 'Scheda';
+        XLSX.writeFile(wb, nome + '.xlsx');
+    }
+
+    function esportaTutti() {
+        if (!listaSchede.length) { alert('Nessuna scheda da esportare.'); return; }
+        if (typeof XLSX === 'undefined') { alert('Libreria Excel non caricata, riprova.'); return; }
+        const wb = XLSX.utils.book_new();
+        const sumData = [
+            ['LUOGO','QUADRO','N\u00b0 RIGHE','NON OK','AGGIORNATO','ID'],
+            ...listaSchede.map(s => {
+                const r = Array.isArray(s.righe) ? s.righe : [];
+                return [s.luogo||'', s.quadro||'', r.length,
+                    r.filter(x => x.esito === 'NON OK').length,
+                    new Date(s.updated_at).toLocaleDateString('it-IT'), s.id];
+            })
+        ];
+        const wsSUM = XLSX.utils.aoa_to_sheet(sumData);
+        wsSUM['!cols'] = [{ wch:28 },{ wch:20 },{ wch:10 },{ wch:8 },{ wch:12 },{ wch:36 }];
+        XLSX.utils.book_append_sheet(wb, wsSUM, 'RIEPILOGO');
+        const nomi = ['RIEPILOGO'];
+        listaSchede.forEach(s => {
+            const rows = Array.isArray(s.righe) ? s.righe : [];
+            const ws = _buildWs(_buildWsData(s.id, rows));
+            let nome = (s.luogo || 'Scheda').substring(0, 26).replace(/[*?:\/\\[\]]/g, '_');
+            let cnt = 1;
+            while (nomi.includes(nome)) nome = nome.substring(0, 23) + ' ' + (++cnt);
+            nomi.push(nome);
+            XLSX.utils.book_append_sheet(wb, ws, nome);
+        });
+        XLSX.writeFile(wb, 'Verifiche_ZG_' + new Date().toLocaleDateString('it-IT').replace(/\//g,'-') + '.xlsx');
     }
 
     function avviaImport() {
@@ -681,20 +769,13 @@
         const reader = new FileReader();
         reader.onload = e => {
             try {
-                const wb = XLSX.read(e.target.result, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
+                const wb  = XLSX.read(e.target.result, { type: 'array' });
+                const ws  = wb.Sheets[wb.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-                const nuove = rows.slice(1)
-                    .filter(r => r.some(c => String(c).trim() !== ''))
-                    .map(r => ({
-                        ubicazione: String(r[1] || '').trim().toUpperCase(),
-                        marca:      String(r[2] || '').trim(),
-                        npoli:      String(r[3] || '').trim(),
-                        codice:     String(r[4] || '').trim().toUpperCase(),
-                        esito:      String(r[5] || 'OK').trim().toUpperCase() === 'NON OK' ? 'NON OK' : 'OK'
-                    }));
-                if (nuove.length === 0) { alert('Nessuna riga trovata nel file.'); return; }
-                mostraDiff(nuove);
+                const hasId = rows[0] && String(rows[0][0]) === 'SCHEDA_ID';
+                const nuove = _parseRows(rows, hasId ? 2 : 1);
+                if (!nuove.length) { alert('Nessuna riga trovata.'); return; }
+                mostraDiff(righe, nuove, { mode: 'editor' });
             } catch(err) {
                 console.error(err);
                 alert('Errore nella lettura del file. Usa il file esportato da questa pagina.');
@@ -704,103 +785,166 @@
         event.target.value = '';
     }
 
-    function mostraDiff(nuove) {
-        const maxLen = Math.max(righe.length, nuove.length);
-        const CAMPI  = ['ubicazione', 'marca', 'npoli', 'codice', 'esito'];
-        let nMod = 0, nAdd = 0, nDel = 0;
-        let tbody = '';
+    function avviaImportTutti() {
+        document.getElementById('inputExcelImportTutti').click();
+    }
 
+    function importaTutti(event) {
+        const files = Array.from(event.target.files);
+        if (!files.length) return;
+        importQueue = []; importQueueIdx = 0;
+        let done = 0;
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const wb  = XLSX.read(e.target.result, { type: 'array' });
+                    const ws  = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                    const hasId = rows[0] && String(rows[0][0]) === 'SCHEDA_ID';
+                    const sid   = hasId ? String(rows[0][1]) : null;
+                    if (sid) {
+                        const scheda = listaSchede.find(s => s.id === sid);
+                        if (scheda) {
+                            const nuove = _parseRows(rows, hasId ? 2 : 1);
+                            const orig  = Array.isArray(scheda.righe) ? scheda.righe : [];
+                            const CAMPI = ['ubicazione','marca','npoli','codice','esito'];
+                            const diff  = nuove.length !== orig.length
+                                || nuove.some((n, i) => !orig[i] || CAMPI.some(c => String(orig[i][c]||'') !== String(n[c]||'')));
+                            if (diff) importQueue.push({ schedaId: sid, scheda, nuoveRighe: nuove });
+                        }
+                    }
+                } catch(err) { console.error('File ignorato:', file.name, err); }
+                if (++done === files.length) {
+                    if (!importQueue.length) alert('Nessuna modifica trovata nei file selezionati.');
+                    else { importQueueIdx = 0; mostraDiffCoda(); }
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        event.target.value = '';
+    }
+
+    function mostraDiffCoda() {
+        if (importQueueIdx >= importQueue.length) {
+            document.getElementById('diffProgress').classList.add('hidden');
+            caricaLista();
+            return;
+        }
+        const item = importQueue[importQueueIdx];
+        mostraDiff(item.scheda.righe || [], item.nuoveRighe, {
+            mode: 'queue', schedaId: item.schedaId,
+            progress: (importQueueIdx + 1) + ' di ' + importQueue.length,
+            titolo: item.scheda.luogo || 'Scheda'
+        });
+    }
+
+    function mostraDiff(origRighe, nuove, opts) {
+        opts = opts || { mode: 'editor' };
+        const maxLen = Math.max(origRighe.length, nuove.length);
+        const CAMPI  = ['ubicazione','marca','npoli','codice','esito'];
+        let nMod = 0, nAdd = 0, nDel = 0, tbody = '';
         for (let i = 0; i < maxLen; i++) {
-            const v = righe[i];
-            const n = nuove[i];
+            const v = origRighe[i], n = nuove[i];
             if (!v) {
                 nAdd++;
-                tbody += '<tr class="bg-green-50">'
-                    + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
-                    + '<td class="px-2 py-1.5 text-green-800 font-medium">' + esc(n.ubicazione) + '</td>'
-                    + '<td class="px-2 py-1.5 text-green-800">' + esc(n.marca) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center text-green-800">' + esc(n.npoli) + '</td>'
-                    + '<td class="px-2 py-1.5 font-mono text-green-800">' + esc(n.codice) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center text-green-800">' + esc(n.esito) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-bold">+AGGIUNTA</span></td>'
-                    + '</tr>';
+                tbody += '<tr class="bg-green-50"><td class="px-2 py-1.5 text-gray-400 font-mono text-xs">'+(i+1)+'</td>'
+                    +'<td class="px-2 py-1.5 text-green-800 font-medium">'+esc(n.ubicazione)+'</td>'
+                    +'<td class="px-2 py-1.5 text-green-800">'+esc(n.marca)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center text-green-800">'+esc(n.npoli)+'</td>'
+                    +'<td class="px-2 py-1.5 font-mono text-green-800">'+esc(n.codice)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center text-green-800">'+esc(n.esito)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-bold">+AGGIUNTA</span></td></tr>';
             } else if (!n) {
                 nDel++;
-                tbody += '<tr class="bg-red-50">'
-                    + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
-                    + '<td class="px-2 py-1.5 text-red-400 line-through">' + esc(v.ubicazione) + '</td>'
-                    + '<td class="px-2 py-1.5 text-red-400 line-through">' + esc(v.marca) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center text-red-400 line-through">' + esc(v.npoli) + '</td>'
-                    + '<td class="px-2 py-1.5 font-mono text-red-400 line-through">' + esc(v.codice) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center text-red-400 line-through">' + esc(v.esito) + '</td>'
-                    + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-red-200 text-red-800 rounded-full text-xs font-bold">&minus;RIMOSSA</span></td>'
-                    + '</tr>';
+                tbody += '<tr class="bg-red-50"><td class="px-2 py-1.5 text-gray-400 font-mono text-xs">'+(i+1)+'</td>'
+                    +'<td class="px-2 py-1.5 text-red-400 line-through">'+esc(v.ubicazione)+'</td>'
+                    +'<td class="px-2 py-1.5 text-red-400 line-through">'+esc(v.marca)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center text-red-400 line-through">'+esc(v.npoli)+'</td>'
+                    +'<td class="px-2 py-1.5 font-mono text-red-400 line-through">'+esc(v.codice)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center text-red-400 line-through">'+esc(v.esito)+'</td>'
+                    +'<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-red-200 text-red-800 rounded-full text-xs font-bold">&minus;RIMOSSA</span></td></tr>';
             } else {
                 const diff = CAMPI.filter(c => String(v[c]||'') !== String(n[c]||''));
-                if (diff.length > 0) {
+                if (diff.length) {
                     nMod++;
                     const cell = (c, cls) => diff.includes(c)
-                        ? '<td class="px-2 py-1.5 ' + cls + '"><span class="text-red-400 line-through text-xs block leading-tight">' + esc(v[c]) + '</span><span class="text-green-700 font-bold">' + esc(n[c]) + '</span></td>'
-                        : '<td class="px-2 py-1.5 text-gray-500 ' + cls + '">' + esc(n[c]) + '</td>';
-                    tbody += '<tr class="bg-yellow-50 border-l-4 border-yellow-400">'
-                        + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
-                        + cell('ubicazione','font-medium') + cell('marca','') + cell('npoli','text-center')
-                        + cell('codice','font-mono') + cell('esito','text-center')
-                        + '<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded-full text-xs font-bold">~MODIFICA</span></td>'
-                        + '</tr>';
+                        ? '<td class="px-2 py-1.5 '+cls+'"><span class="text-red-400 line-through text-xs block leading-tight">'+esc(v[c])+'</span><span class="text-green-700 font-bold">'+esc(n[c])+'</span></td>'
+                        : '<td class="px-2 py-1.5 text-gray-500 '+cls+'">'+esc(n[c])+'</td>';
+                    tbody += '<tr class="bg-yellow-50 border-l-4 border-yellow-400"><td class="px-2 py-1.5 text-gray-400 font-mono text-xs">'+(i+1)+'</td>'
+                        +cell('ubicazione','font-medium')+cell('marca','')+cell('npoli','text-center')+cell('codice','font-mono')+cell('esito','text-center')
+                        +'<td class="px-2 py-1.5 text-center"><span class="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded-full text-xs font-bold">~MODIFICA</span></td></tr>';
                 } else {
-                    tbody += '<tr class="border-t border-gray-50">'
-                        + '<td class="px-2 py-1.5 text-gray-400 font-mono text-xs">' + (i+1) + '</td>'
-                        + '<td class="px-2 py-1.5 text-gray-600">' + esc(n.ubicazione) + '</td>'
-                        + '<td class="px-2 py-1.5 text-gray-500">' + esc(n.marca) + '</td>'
-                        + '<td class="px-2 py-1.5 text-center text-gray-500">' + esc(n.npoli) + '</td>'
-                        + '<td class="px-2 py-1.5 font-mono text-gray-500">' + esc(n.codice) + '</td>'
-                        + '<td class="px-2 py-1.5 text-center text-gray-500">' + esc(n.esito) + '</td>'
-                        + '<td class="px-2 py-1.5 text-center text-gray-300 text-xs">&mdash;</td>'
-                        + '</tr>';
+                    tbody += '<tr class="border-t border-gray-50"><td class="px-2 py-1.5 text-gray-400 font-mono text-xs">'+(i+1)+'</td>'
+                        +'<td class="px-2 py-1.5 text-gray-600">'+esc(n.ubicazione)+'</td>'
+                        +'<td class="px-2 py-1.5 text-gray-500">'+esc(n.marca)+'</td>'
+                        +'<td class="px-2 py-1.5 text-center text-gray-500">'+esc(n.npoli)+'</td>'
+                        +'<td class="px-2 py-1.5 font-mono text-gray-500">'+esc(n.codice)+'</td>'
+                        +'<td class="px-2 py-1.5 text-center text-gray-500">'+esc(n.esito)+'</td>'
+                        +'<td class="px-2 py-1.5 text-center text-gray-300 text-xs">&mdash;</td></tr>';
                 }
             }
         }
-
-        pendingImport = nuove;
+        pendingImport = { nuoveRighe: nuove, mode: opts.mode, schedaId: opts.schedaId };
         document.getElementById('diffContent').innerHTML =
-            '<div class="overflow-x-auto rounded-xl border border-gray-200">'
-            + '<table class="w-full text-xs">'
-            + '<thead class="bg-gray-50"><tr>'
-            + '<th class="px-2 py-2 text-left text-gray-500 font-bold w-8">#</th>'
-            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Ubicazione</th>'
-            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Marca</th>'
-            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Poli</th>'
-            + '<th class="px-2 py-2 text-left text-gray-500 font-bold">Codice</th>'
-            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Esito</th>'
-            + '<th class="px-2 py-2 text-center text-gray-500 font-bold">Stato</th>'
-            + '</tr></thead>'
-            + '<tbody>' + tbody + '</tbody>'
-            + '</table></div>';
-
+            '<div class="overflow-x-auto rounded-xl border border-gray-200"><table class="w-full text-xs">'
+            +'<thead class="bg-gray-50"><tr>'
+            +'<th class="px-2 py-2 text-left text-gray-500 font-bold w-8">#</th>'
+            +'<th class="px-2 py-2 text-left text-gray-500 font-bold">Ubicazione</th>'
+            +'<th class="px-2 py-2 text-left text-gray-500 font-bold">Marca</th>'
+            +'<th class="px-2 py-2 text-center text-gray-500 font-bold">Poli</th>'
+            +'<th class="px-2 py-2 text-left text-gray-500 font-bold">Codice</th>'
+            +'<th class="px-2 py-2 text-center text-gray-500 font-bold">Esito</th>'
+            +'<th class="px-2 py-2 text-center text-gray-500 font-bold">Stato</th>'
+            +'</tr></thead><tbody>'+tbody+'</tbody></table></div>';
         const haChanges = nMod + nAdd + nDel > 0;
         const parts = [];
-        if (nMod > 0) parts.push(nMod + (nMod > 1 ? ' modifiche' : ' modifica'));
-        if (nAdd > 0) parts.push(nAdd + (nAdd > 1 ? ' aggiunte' : ' aggiunta'));
-        if (nDel > 0) parts.push(nDel + (nDel > 1 ? ' rimosse' : ' rimossa'));
-        document.getElementById('diffSubtitle').textContent = haChanges
-            ? parts.join(', ')
-            : 'Nessuna differenza — il file è identico alla scheda corrente';
+        if (nMod) parts.push(nMod + (nMod > 1 ? ' modifiche' : ' modifica'));
+        if (nAdd) parts.push(nAdd + (nAdd > 1 ? ' aggiunte' : ' aggiunta'));
+        if (nDel) parts.push(nDel + (nDel > 1 ? ' rimosse' : ' rimossa'));
+        const isQueue = opts.mode === 'queue';
+        document.getElementById('diffSubtitle').textContent =
+            (isQueue ? (opts.titolo || '') + ' — ' : '') + (haChanges ? parts.join(', ') : 'Nessuna differenza');
+        const progEl = document.getElementById('diffProgress');
+        if (isQueue && importQueue.length > 1) {
+            progEl.classList.remove('hidden');
+            document.getElementById('diffProgressText').textContent = 'Scheda ' + opts.progress + ': ' + (opts.titolo || '');
+            document.getElementById('diffProgressBar').style.width = Math.round((importQueueIdx / importQueue.length) * 100) + '%';
+        } else { progEl.classList.add('hidden'); }
+        document.getElementById('diffAnnullaBtn').textContent = isQueue ? 'Salta' : 'Annulla';
         document.getElementById('diffApplicaBtn').disabled = !haChanges;
         document.getElementById('modalDiff').classList.remove('hidden');
     }
 
     function chiudiDiff() {
         document.getElementById('modalDiff').classList.add('hidden');
+        document.getElementById('diffProgress').classList.add('hidden');
         pendingImport = null;
+    }
+
+    function saltaDiff() {
+        if (pendingImport && pendingImport.mode === 'queue') {
+            chiudiDiff(); importQueueIdx++; setTimeout(mostraDiffCoda, 200);
+        } else { chiudiDiff(); }
     }
 
     async function applicaCorrezioni() {
         if (!pendingImport) return;
-        righe = pendingImport;
-        renderRighe();
-        chiudiDiff();
-        await salvaScheda();
+        const { nuoveRighe, mode, schedaId: sid } = pendingImport;
+        if (mode === 'editor') {
+            righe = nuoveRighe;
+            renderRighe();
+            chiudiDiff();
+            await salvaScheda();
+        } else if (mode === 'queue') {
+            chiudiDiff();
+            const { error } = await sbClient.from('schede_verifica').update({ righe: nuoveRighe }).eq('id', sid);
+            if (error) { alert('Errore nel salvataggio, riprova.'); return; }
+            const idx = listaSchede.findIndex(s => s.id === sid);
+            if (idx >= 0) listaSchede[idx].righe = nuoveRighe;
+            importQueueIdx++;
+            setTimeout(mostraDiffCoda, 300);
+        }
     }
 
     // ── Init ──────────────────────────────────────────────────────
