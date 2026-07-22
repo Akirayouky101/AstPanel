@@ -356,14 +356,14 @@
 
 
 <script>
-    // ── Helpers ───────────────────────────────────────────────────
+    // -- Helpers ---------------------------------------------------
     function toUpper(el) {
         const s = el.selectionStart, e = el.selectionEnd;
         el.value = el.value.toUpperCase();
         el.setSelectionRange(s, e);
     }
 
-    // ── Supabase ──────────────────────────────────────────────────
+    // -- Supabase --------------------------------------------------
     const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODczNjUsImV4cCI6MjA3Njg2MzM2NX0.EyJc6p88SDxDt07g4sytrrqqnoA6EOvpKmoZFNCaqvA';
     const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -381,7 +381,7 @@
 
     const MARCHE = ['ABB','BTicino','Came','Chint','Eaton','Finder','Gewiss','Hager','Legrand','Merlin Gerin','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
 
-    // ── Navigazione viste ─────────────────────────────────────────
+    // -- Navigazione viste -----------------------------------------
     function mostraView(id) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
@@ -395,7 +395,7 @@
         caricaLista();
     }
 
-    // ── Lista schede ──────────────────────────────────────────────
+    // -- Lista schede ----------------------------------------------
     async function caricaLista() {
         document.getElementById('listaLoading').classList.remove('hidden');
         document.getElementById('listaVuota').classList.add('hidden');
@@ -617,7 +617,7 @@
         aggiungiRiga(true); aggiungiRiga(true); aggiungiRiga(true);
     }
 
-    // ── Modal conferma ────────────────────────────────────────────
+    // -- Modal conferma --------------------------------------------
     function mostraModal({ titolo, testo, icona, colore, labelOk, onOk }) {
         const iconMap = { danger: 'fas fa-trash', warning: 'fas fa-exclamation-triangle' };
         const colorMap = { danger: 'bg-red-100 text-red-600', warning: 'bg-yellow-100 text-yellow-600' };
@@ -668,7 +668,7 @@
         if (!error) caricaLista();
     }
 
-    // ── Save status ───────────────────────────────────────────────
+    // -- Save status -----------------------------------------------
     function setSaveStatus(status) {
         const el = document.getElementById('saveStatus');
         const map = {
@@ -680,14 +680,14 @@
         el.innerHTML = map[status] || '';
     }
 
-    // ── Auto-save (debounced 2s) ───────────────────────────────────
+    // -- Auto-save (debounced 2s) -----------------------------------
     function autoSalva() {
         clearTimeout(saveTimeout);
         setSaveStatus('pending');
         saveTimeout = setTimeout(salvaScheda, 2000);
     }
 
-    // ── Salva su Supabase ─────────────────────────────────────────
+    // -- Salva su Supabase -----------------------------------------
     async function salvaScheda() {
         if (isSaving) return;
         isSaving = true;
@@ -726,7 +726,7 @@
         }
     }
 
-    // ── Carica scheda da Supabase ─────────────────────────────────
+    // -- Carica scheda da Supabase ---------------------------------
     async function caricaScheda() {
         if (!schedaId) return false;
         try {
@@ -749,7 +749,7 @@
         }
     }
 
-    // ── Operazioni righe ──────────────────────────────────────────
+    // -- Operazioni righe ------------------------------------------
     function aggiornaTitolo() {
         document.getElementById('printLuogo').textContent  = document.getElementById('campoLuogo').value;
         document.getElementById('printQuadro').textContent = document.getElementById('campoQuadro').value;
@@ -816,7 +816,7 @@
                             oninput="toUpper(this); righe[${i}].testo=this.value; autoSalva()"
                             placeholder="Nome sezione (es: QUADRO PRINCIPALE)"
                             class="flex-1 bg-transparent border-0 border-b border-green-300 px-1 py-1 text-xs font-bold text-green-800 placeholder-green-300 outline-none focus:border-green-500 no-print">
-                        <span class="hidden print-only text-xs font-bold text-green-800 uppercase tracking-wider">${esc(r.testo) || '────────────────'}</span>
+                        <span class="hidden print-only text-xs font-bold text-green-800 uppercase tracking-wider">${esc(r.testo) || '----------------'}</span>
                     </div>
                 </td>
                 <td class="px-1 py-1 text-center no-print">
@@ -909,7 +909,7 @@
         document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
     });
 
-    // ── Export / Import Excel ─────────────────────────────────────
+    // -- Export / Import Excel -------------------------------------
     let pendingImport  = null;
     let importQueue    = [];
     let importQueueIdx = 0;
@@ -1189,7 +1189,7 @@
         }
     }
 
-    // ── Unisci schede ─────────────────────────────────────────
+    // -- Unisci schede -----------------------------------------
     let _unisciSorgenteId = null;
 
     async function apriModaleUnisci() {
@@ -1256,7 +1256,7 @@
         });
     }
 
-    // ── Export PDF per gruppo ──────────────────────────────────────────
+    // -- Export PDF per gruppo ------------------------------------------
     function _getSchedeGruppo(gid) {
         const dirette  = listaSchede.filter(s => s.gruppo_id === gid);
         const subGruppi = listaGruppi.filter(g => g.parent_id === gid);
@@ -1291,7 +1291,7 @@
         }
     }
 
-    // ── Navigazione gruppi ────────────────────────────────────────────────────
+    // -- Navigazione gruppi ----------------------------------------------------
     function apriGruppo(id, nome) {
         gruppoNavPath.push({ id, nome });
         currentGruppoId = id;
@@ -1313,7 +1313,7 @@
         renderLista();
     }
 
-    // ── Gestione gruppi ───────────────────────────────────────────────────────
+    // -- Gestione gruppi -------------------------------------------------------
     function apriModaleNuovoGruppo() {
         document.getElementById('inputNomeGruppo').value = '';
         document.getElementById('_editGruppoId').value = '';
@@ -1378,7 +1378,7 @@
         });
     }
 
-    // ── Sposta scheda in gruppo ───────────────────────────────────────────────
+    // -- Sposta scheda in gruppo -----------------------------------------------
     function apriModaleSpostaScheda(sid) {
         document.getElementById('_spostaSchedaId').value = sid;
         document.getElementById('_spostaGruppoId').value = '';
@@ -1486,7 +1486,7 @@
 
     async function eseguiSpostaScheda() { await eseguiSposta(); }
 
-    // ── Init ────────────────────────────────────────────────────────────────
+    // -- Init ----------------------------------------------------------------
     (async () => {
         if (schedaId) {
             mostraView('viewScheda');
@@ -1498,7 +1498,7 @@
         }
     })();
 
-    // ── Invio email verifiche ──────────────────────────────────────
+    // -- Invio email verifiche --------------------------------------
     function apriModaleInvio() {
         if (!listaSchede.length) { alert('Nessuna scheda da inviare.'); return; }
         const lista = document.getElementById('listaInvioSchede');
@@ -1647,7 +1647,7 @@
                 head: [['#', 'UBICAZIONE', 'MARCA', 'N° POLI', 'CODICE', 'ESITO']],
                 body: rows.map(r => {
                     if (r.tipo === 'divisore') {
-                        return [{ content: r.testo || '─────────────────────────────────', colSpan: 6,
+                        return [{ content: r.testo || '---------------------------------', colSpan: 6,
                             styles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'left' } }];
                     }
                     _pn++;
