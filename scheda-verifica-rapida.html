@@ -125,6 +125,22 @@
     </div>
 
     <div class="max-w-6xl mx-auto p-6">
+        <!-- Barra di ricerca -->
+        <div id="barraRicerca" class="hidden mb-4">
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                <input type="text" id="cercaSchede" placeholder="Cerca per luogo o quadro..."
+                    oninput="filtraSchede(this.value)"
+                    class="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 bg-white transition">
+            </div>
+        </div>
+
+        <!-- Nessun risultato ricerca -->
+        <div id="listaFiltroVuota" class="hidden text-center py-10">
+            <i class="fas fa-search text-3xl text-gray-200 mb-3 block"></i>
+            <p class="text-gray-400 text-sm">Nessuna scheda corrisponde alla ricerca</p>
+        </div>
+
         <!-- Stato caricamento -->
         <div id="listaLoading" class="text-center py-16 text-gray-400">
             <i class="fas fa-spinner fa-spin text-3xl mb-3 block"></i>
@@ -377,6 +393,9 @@
 
         const grid = document.getElementById('listaGrid');
         grid.classList.remove('hidden');
+        document.getElementById('barraRicerca').classList.remove('hidden');
+        document.getElementById('cercaSchede').value = '';
+        document.getElementById('listaFiltroVuota').classList.add('hidden');
         grid.innerHTML = data.map(s => {
             const rows = Array.isArray(s.righe) ? s.righe : [];
             const nonOk = rows.filter(r => r.esito === 'NON OK').length;
@@ -388,7 +407,8 @@
                 : `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Tutti OK</span>`;
             return `
             <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-100 hover:border-green-300 hover:shadow-md transition-all cursor-pointer group"
-                 onclick="apriScheda('${s.id}')">
+                 onclick="apriScheda('${s.id}')"
+                 data-search="${(s.luogo||'').toLowerCase()} ${(s.quadro||'').toLowerCase()}">
                 <div class="p-5">
                     <div class="flex items-start justify-between mb-3">
                         <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center group-hover:bg-green-100 transition">
@@ -419,6 +439,18 @@
                 </div>
             </div>`;
         }).join('');
+    }
+
+    function filtraSchede(q) {
+        const term = q.trim().toLowerCase();
+        const cards = document.querySelectorAll('#listaGrid > div');
+        let visibili = 0;
+        cards.forEach(card => {
+            const match = !term || (card.dataset.search || '').includes(term);
+            card.style.display = match ? '' : 'none';
+            if (match) visibili++;
+        });
+        document.getElementById('listaFiltroVuota').classList.toggle('hidden', visibili > 0 || !term);
     }
 
     function apriScheda(id) {
@@ -798,22 +830,28 @@
             const reader = new FileReader();
             reader.onload = e => {
                 try {
-                    const wb  = XLSX.read(e.target.result, { type: 'array' });
-                    const ws  = wb.Sheets[wb.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-                    const hasId = rows[0] && String(rows[0][0]) === 'SCHEDA_ID';
-                    const sid   = hasId ? String(rows[0][1]) : null;
-                    if (sid) {
-                        const scheda = listaSchede.find(s => s.id === sid);
-                        if (scheda) {
-                            const nuove = _parseRows(rows, hasId ? 2 : 1);
-                            const orig  = Array.isArray(scheda.righe) ? scheda.righe : [];
-                            const CAMPI = ['ubicazione','marca','npoli','codice','esito'];
-                            const diff  = nuove.length !== orig.length
-                                || nuove.some((n, i) => !orig[i] || CAMPI.some(c => String(orig[i][c]||'') !== String(n[c]||'')));
-                            if (diff) importQueue.push({ schedaId: sid, scheda, nuoveRighe: nuove });
+                    const wb = XLSX.read(e.target.result, { type: 'array' });
+                    // Scorre tutti i fogli: supporta sia file singolo che file "esporta tutti" (multi-foglio)
+                    wb.SheetNames.forEach(sheetName => {
+                        if (sheetName === 'RIEPILOGO') return; // salta il foglio riepilogo
+                        const ws   = wb.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                        const hasId = rows[0] && String(rows[0][0]) === 'SCHEDA_ID';
+                        const sid   = hasId ? String(rows[0][1]) : null;
+                        if (sid) {
+                            const scheda = listaSchede.find(s => s.id === sid);
+                            if (scheda) {
+                                const nuove = _parseRows(rows, hasId ? 2 : 1);
+                                const orig  = Array.isArray(scheda.righe) ? scheda.righe : [];
+                                const CAMPI = ['ubicazione','marca','npoli','codice','esito'];
+                                const diff  = nuove.length !== orig.length
+                                    || nuove.some((n, i) => !orig[i] || CAMPI.some(c => String(orig[i][c]||'') !== String(n[c]||'')));
+                                if (diff && !importQueue.find(q => q.schedaId === sid)) {
+                                    importQueue.push({ schedaId: sid, scheda, nuoveRighe: nuove });
+                                }
+                            }
                         }
-                    }
+                    });
                 } catch(err) { console.error('File ignorato:', file.name, err); }
                 if (++done === files.length) {
                     if (!importQueue.length) alert('Nessuna modifica trovata nei file selezionati.');
