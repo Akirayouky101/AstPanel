@@ -191,6 +191,9 @@
                 <i class="fas fa-file-import mr-1"></i>Importa
             </button>
             <input type="file" id="inputExcelImport" accept=".xlsx,.xls" class="hidden no-print" onchange="importaExcel(event)">
+            <button onclick="apriModaleUnisci()" class="px-4 py-2 bg-orange-500 text-white rounded-xl text-sm font-bold hover:bg-orange-600 transition" title="Unisci righe da un'altra scheda">
+                <i class="fas fa-code-merge mr-1"></i>Unisci
+            </button>
             <button onclick="salvaScheda()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition">
                 <i class="fas fa-cloud-upload-alt mr-1"></i>Salva
             </button>
@@ -1052,8 +1055,72 @@
         }
     }
 
-    // ── Init ──────────────────────────────────────────────────────
-    (async () => {
+    // ── Unisci schede ─────────────────────────────────────────
+    let _unisciSorgenteId = null;
+
+    async function apriModaleUnisci() {
+        // Carica lista schede se non disponibile (accesso diretto via URL)
+        if (listaSchede.filter(s => s.id !== schedaId).length === 0) {
+            const { data } = await sbClient
+                .from('schede_verifica')
+                .select('id, luogo, quadro, righe')
+                .order('updated_at', { ascending: false });
+            if (data) listaSchede = data;
+        }
+        const altre = listaSchede.filter(s => s.id !== schedaId);
+        if (!altre.length) { alert('Non ci sono altre schede da unire.'); return; }
+
+        const lista = document.getElementById('listaUnisciSchede');
+        lista.innerHTML = altre.map((s, idx) => {
+            const rows   = Array.isArray(s.righe) ? s.righe : [];
+            const nRighe = rows.filter(r => r.tipo !== 'divisore').length;
+            return `
+            <label class="flex items-start gap-3 p-3 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-orange-300 hover:bg-orange-50 transition unisci-option">
+                <input type="radio" name="unisci-scheda" class="w-4 h-4 accent-orange-500 flex-shrink-0 mt-0.5" value="${s.id}" ${idx === 0 ? 'checked' : ''}>
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-gray-800 truncate">${s.luogo || '—'}</div>
+                    <div class="text-xs text-gray-500 truncate">${s.quadro || '—'}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">${nRighe} rig${nRighe !== 1 ? 'he' : 'a'}</div>
+                </div>
+            </label>`;
+        }).join('');
+
+        _unisciSorgenteId = null;
+        document.getElementById('modalUnisci').classList.remove('hidden');
+    }
+
+    function chiudiModaleUnisci() {
+        document.getElementById('modalUnisci').classList.add('hidden');
+    }
+
+    function eseguiUnione() {
+        const sel = document.querySelector('input[name="unisci-scheda"]:checked');
+        if (!sel) { alert('Seleziona una scheda.'); return; }
+        const pos     = document.querySelector('input[name="unisci-pos"]:checked')?.value || 'coda';
+        const sid     = sel.value;
+        const scheda  = listaSchede.find(s => s.id === sid);
+        if (!scheda) return;
+
+        const origRows = Array.isArray(scheda.righe) ? scheda.righe : [];
+        if (!origRows.length) { alert('La scheda selezionata non ha righe.'); return; }
+
+        righe = pos === 'testa' ? [...origRows, ...righe] : [...righe, ...origRows];
+        renderRighe();
+        autoSalva();
+        chiudiModaleUnisci();
+
+        _unisciSorgenteId = sid;
+        const nome = scheda.luogo ? `"${scheda.luogo}"` : 'la scheda di origine';
+        mostraModal({
+            titolo: 'Elimina scheda origine?',
+            testo: `Unione completata: ${origRows.length} righe aggiunte ${pos === 'testa' ? 'in testa' : 'in coda'}. Vuoi eliminare ${nome} da Supabase?`,
+            icona: 'trash', colore: 'danger', labelOk: 'Elimina',
+            onOk: async () => {
+                await sbClient.from('schede_verifica').delete().eq('id', _unisciSorgenteId);
+                listaSchede = listaSchede.filter(s => s.id !== _unisciSorgenteId);
+            }
+        });
+    }
         if (schedaId) {
             mostraView('viewScheda');
             const loaded = await caricaScheda();
@@ -1286,6 +1353,55 @@
             <button onclick="generaEInvia()" id="btnInviaEmail"
                 class="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-bold text-white transition flex items-center justify-center">
                 <i class="fas fa-paper-plane mr-1"></i>Invia PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL: Unisci schede                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modalUnisci" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="chiudiModaleUnisci()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style="max-height:88vh">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-bold text-gray-800"><i class="fas fa-code-merge text-orange-500 mr-2"></i>Unisci scheda</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Scegli dove aggiungere le righe e quale scheda unire</p>
+            </div>
+            <button onclick="chiudiModaleUnisci()" class="text-gray-300 hover:text-gray-600 transition w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <!-- Posizione -->
+        <div class="px-6 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Posizione</p>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-orange-400 hover:bg-orange-50 transition has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
+                    <input type="radio" name="unisci-pos" value="testa" class="sr-only" checked>
+                    <i class="fas fa-arrow-up text-orange-400 text-lg"></i>
+                    <span class="text-xs font-bold text-gray-700">In testa</span>
+                    <span class="text-xs text-gray-400 text-center leading-snug">Le righe vengono aggiunte sopra le esistenti</span>
+                </label>
+                <label class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-orange-400 hover:bg-orange-50 transition has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
+                    <input type="radio" name="unisci-pos" value="coda" class="sr-only">
+                    <i class="fas fa-arrow-down text-orange-400 text-lg"></i>
+                    <span class="text-xs font-bold text-gray-700">In coda</span>
+                    <span class="text-xs text-gray-400 text-center leading-snug">Le righe vengono aggiunte sotto le esistenti</span>
+                </label>
+            </div>
+        </div>
+        <!-- Lista schede -->
+        <div class="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Scheda da unire</p>
+            <div id="listaUnisciSchede" class="space-y-2"></div>
+        </div>
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+            <button onclick="chiudiModaleUnisci()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                Annulla
+            </button>
+            <button onclick="eseguiUnione()" class="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 rounded-xl text-sm font-bold text-white transition flex items-center justify-center gap-2">
+                <i class="fas fa-code-merge"></i> Unisci
             </button>
         </div>
     </div>
