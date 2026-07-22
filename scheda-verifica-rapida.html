@@ -407,13 +407,22 @@
         document.getElementById('listaGrid').classList.add('hidden');
         document.getElementById('barraRicerca').classList.add('hidden');
 
-        const [gruppiRes, schedeRes] = await Promise.all([
-            sbClient.from('gruppi_schede').select('id, nome, note').order('nome'),
-            sbClient.from('schede_verifica').select('id, luogo, quadro, righe, gruppo_id, updated_at, created_at').order('updated_at', { ascending: false })
-        ]);
+        // Fetch gruppi (può fallire se la migration non è ancora stata eseguita)
+        const gruppiRes = await sbClient.from('gruppi_schede').select('id, nome, note').order('nome');
+        listaGruppi = gruppiRes.error ? [] : (gruppiRes.data || []);
+
+        // Fetch schede: prima prova con gruppo_id, poi fallback senza
+        let schedeRes = await sbClient.from('schede_verifica')
+            .select('id, luogo, quadro, righe, gruppo_id, updated_at, created_at')
+            .order('updated_at', { ascending: false });
+        if (schedeRes.error) {
+            // fallback senza gruppo_id (migration non ancora eseguita)
+            schedeRes = await sbClient.from('schede_verifica')
+                .select('id, luogo, quadro, righe, updated_at, created_at')
+                .order('updated_at', { ascending: false });
+        }
 
         document.getElementById('listaLoading').classList.add('hidden');
-        listaGruppi = gruppiRes.data || [];
         listaSchede = schedeRes.data || [];
         renderLista();
     }
