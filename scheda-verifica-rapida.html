@@ -124,6 +124,9 @@
             <button onclick="apriModaleInvio()" class="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 transition" title="Invia schede via email">
                 <i class="fas fa-paper-plane"></i> Invia email
             </button>
+            <button onclick="apriModaleNuovoGruppo()" class="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition" title="Crea nuovo gruppo cartella">
+                <i class="fas fa-folder-plus"></i> Nuovo gruppo
+            </button>
             <button onclick="nuovaScheda()" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition shadow-sm">
                 <i class="fas fa-plus"></i> Nuova scheda
             </button>
@@ -131,6 +134,18 @@
     </div>
 
     <div class="max-w-6xl mx-auto p-6">
+        <!-- Breadcrumb navigazione gruppi -->
+        <div id="breadcrumb" class="hidden flex items-center gap-2 mb-4 px-1">
+            <button onclick="tornaAllaListaRoot()" class="flex items-center gap-1.5 text-gray-500 hover:text-amber-600 text-sm font-bold transition">
+                <i class="fas fa-arrow-left text-xs"></i> Tutte le verifiche
+            </button>
+            <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-folder text-amber-500 text-sm"></i>
+                <span id="breadcrumbNome" class="font-bold text-gray-700 text-sm"></span>
+            </div>
+        </div>
+
         <!-- Barra di ricerca -->
         <div id="barraRicerca" class="hidden mb-4">
             <div class="relative">
@@ -365,6 +380,9 @@
     let isSaving = false;
     let modalCallback = null;
     let listaSchede = [];
+    let listaGruppi = [];
+    let currentGruppoId = null;
+    let _nuovaSchedaGruppoId = null;
 
     const MARCHE = ['ABB','BTicino','Came','Chint','Eaton','Finder','Gewiss','Hager','Legrand','Merlin Gerin','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
 
@@ -387,72 +405,140 @@
         document.getElementById('listaLoading').classList.remove('hidden');
         document.getElementById('listaVuota').classList.add('hidden');
         document.getElementById('listaGrid').classList.add('hidden');
+        document.getElementById('barraRicerca').classList.add('hidden');
 
-        const { data, error } = await sbClient
-            .from('schede_verifica')
-            .select('id, luogo, quadro, righe, updated_at, created_at')
-            .order('updated_at', { ascending: false });
+        const [gruppiRes, schedeRes] = await Promise.all([
+            sbClient.from('gruppi_schede').select('id, nome, note').order('nome'),
+            sbClient.from('schede_verifica').select('id, luogo, quadro, righe, gruppo_id, updated_at, created_at').order('updated_at', { ascending: false })
+        ]);
 
         document.getElementById('listaLoading').classList.add('hidden');
+        listaGruppi = gruppiRes.data || [];
+        listaSchede = schedeRes.data || [];
+        renderLista();
+    }
 
-        if (error || !data || data.length === 0) {
-            listaSchede = [];
+    function renderLista() {
+        const grid = document.getElementById('listaGrid');
+
+        if (currentGruppoId) {
+            const g = listaGruppi.find(x => x.id === currentGruppoId);
+            document.getElementById('breadcrumbNome').textContent = g ? g.nome : '';
+            document.getElementById('breadcrumb').classList.remove('hidden');
+        } else {
+            document.getElementById('breadcrumb').classList.add('hidden');
+        }
+
+        let html = '';
+        if (currentGruppoId === null) {
+            const ungrouped = listaSchede.filter(s => !s.gruppo_id);
+            html = listaGruppi.map(_htmlGruppoCard).join('');
+            if (ungrouped.length > 0 && listaGruppi.length > 0)
+                html += `<div class="col-span-full text-xs font-bold text-gray-400 uppercase tracking-wider pt-3 pb-1 px-1">Senza gruppo</div>`;
+            html += ungrouped.map(_htmlSchedaCard).join('');
+        } else {
+            const schedeGruppo = listaSchede.filter(s => s.gruppo_id === currentGruppoId);
+            html = schedeGruppo.length
+                ? schedeGruppo.map(_htmlSchedaCard).join('')
+                : `<div class="col-span-full text-center py-14 text-gray-300"><i class="fas fa-inbox text-4xl mb-3 block"></i><p class="text-sm">Nessuna scheda in questo gruppo</p><p class="text-xs mt-1">Clicca "Nuova scheda" o sposta una scheda qui</p></div>`;
+        }
+
+        if (!html && currentGruppoId === null) {
             document.getElementById('listaVuota').classList.remove('hidden');
+            grid.classList.add('hidden');
             return;
         }
 
-        listaSchede = data;
-
-        const grid = document.getElementById('listaGrid');
+        document.getElementById('listaVuota').classList.add('hidden');
+        document.getElementById('listaFiltroVuota').classList.add('hidden');
         grid.classList.remove('hidden');
         document.getElementById('barraRicerca').classList.remove('hidden');
-        document.getElementById('listaFiltroVuota').classList.add('hidden');
-        grid.innerHTML = data.map(s => {
-            const rows = Array.isArray(s.righe) ? s.righe : [];
-            const nonOk = rows.filter(r => r.esito === 'NON OK').length;
-            const data_str = new Date(s.updated_at).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-            const luogo = s.luogo || '<span class="italic text-gray-300">Luogo non inserito</span>';
-            const quadro = s.quadro || '<span class="italic text-gray-300">Quadro non inserito</span>';
-            const nonOkBadge = nonOk > 0
-                ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">${nonOk} NON OK</span>`
-                : `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Tutti OK</span>`;
-            return `
-            <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-100 hover:border-green-300 hover:shadow-md transition-all cursor-pointer group"
-                 onclick="apriScheda('${s.id}')"
-                 data-search="${(s.luogo||'').toLowerCase()} ${(s.quadro||'').toLowerCase()}">
-                <div class="p-5">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center group-hover:bg-green-100 transition">
-                            <i class="fas fa-clipboard-check text-green-600 text-sm"></i>
-                        </div>
-                        ${nonOkBadge}
-                    </div>
-                    <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${luogo}</div>
-                    <div class="text-gray-500 text-xs truncate mb-4">${quadro}</div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3 text-xs text-gray-400">
-                            <span><i class="fas fa-list-ul mr-1"></i>${rows.length} righe</span>
-                            <span><i class="fas fa-clock mr-1"></i>${data_str}</span>
-                        </div>
-                        <button onclick="event.stopPropagation(); esportaSchedaDaLista('${s.id}')"
-                            class="text-gray-200 hover:text-amber-500 transition p-1" title="Esporta Excel">
-                            <i class="fas fa-file-excel text-xs"></i>
-                        </button>
-                        <button onclick="event.stopPropagation(); duplicaScheda('${s.id}')"
-                            class="text-gray-200 hover:text-blue-400 transition p-1" title="Duplica scheda">
-                            <i class="fas fa-copy text-xs"></i>
-                        </button>
-                        <button onclick="event.stopPropagation(); chiediEliminaScheda('${s.id}')"
-                            class="text-gray-200 hover:text-red-400 transition p-1" title="Elimina scheda">
-                            <i class="fas fa-trash text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-        // Riapplica il filtro attivo se presente
+        grid.innerHTML = html;
+
         const cercaVal = document.getElementById('cercaSchede').value;
         if (cercaVal) filtraSchede(cercaVal);
+    }
+
+    function _htmlSchedaCard(s) {
+        const rows    = Array.isArray(s.righe) ? s.righe : [];
+        const nonOk   = rows.filter(r => r.esito === 'NON OK').length;
+        const data_str = new Date(s.updated_at).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        const luogo   = s.luogo  || '<span class="italic text-gray-300">Luogo non inserito</span>';
+        const quadro  = s.quadro || '<span class="italic text-gray-300">Quadro non inserito</span>';
+        const badge   = nonOk > 0
+            ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">${nonOk} NON OK</span>`
+            : `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Tutti OK</span>`;
+        return `
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-100 hover:border-green-300 hover:shadow-md transition-all cursor-pointer group"
+             onclick="apriScheda('${s.id}')"
+             data-search="${(s.luogo||'').toLowerCase()} ${(s.quadro||'').toLowerCase()}">
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center group-hover:bg-green-100 transition">
+                        <i class="fas fa-clipboard-check text-green-600 text-sm"></i>
+                    </div>
+                    ${badge}
+                </div>
+                <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${luogo}</div>
+                <div class="text-gray-500 text-xs truncate mb-4">${quadro}</div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 text-xs text-gray-400">
+                        <span><i class="fas fa-list-ul mr-1"></i>${rows.length} righe</span>
+                        <span><i class="fas fa-clock mr-1"></i>${data_str}</span>
+                    </div>
+                    <button onclick="event.stopPropagation(); apriModaleSpostaScheda('${s.id}')"
+                        class="text-gray-200 hover:text-amber-500 transition p-1" title="Sposta in gruppo">
+                        <i class="fas fa-folder-open text-xs"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); esportaSchedaDaLista('${s.id}')"
+                        class="text-gray-200 hover:text-amber-500 transition p-1" title="Esporta Excel">
+                        <i class="fas fa-file-excel text-xs"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); duplicaScheda('${s.id}')"
+                        class="text-gray-200 hover:text-blue-400 transition p-1" title="Duplica scheda">
+                        <i class="fas fa-copy text-xs"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); chiediEliminaScheda('${s.id}')"
+                        class="text-gray-200 hover:text-red-400 transition p-1" title="Elimina scheda">
+                        <i class="fas fa-trash text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function _htmlGruppoCard(g) {
+        const schedeGruppo = listaSchede.filter(s => s.gruppo_id === g.id);
+        const nSchede = schedeGruppo.length;
+        const nonOk   = schedeGruppo.reduce((acc, s) => acc + (Array.isArray(s.righe) ? s.righe.filter(r => r.esito === 'NON OK').length : 0), 0);
+        const badge   = nonOk > 0
+            ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">${nonOk} NON OK</span>`
+            : `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">${nSchede} schede</span>`;
+        return `
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+             onclick="apriGruppo('${g.id}','${esc(g.nome)}')"
+             data-search="${g.nome.toLowerCase()}">
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center group-hover:bg-amber-100 transition">
+                        <i class="fas fa-folder text-amber-500 text-sm"></i>
+                    </div>
+                    ${badge}
+                </div>
+                <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${esc(g.nome)}</div>
+                <div class="text-gray-400 text-xs mb-4">${nSchede} scheda${nSchede !== 1 ? 'e' : ''}</div>
+                <div class="flex items-center justify-end gap-1">
+                    <button onclick="event.stopPropagation(); apriModaleRinominaGruppo('${g.id}','${esc(g.nome)}')"
+                        class="text-gray-200 hover:text-amber-500 transition p-1" title="Rinomina">
+                        <i class="fas fa-pen text-xs"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); chiediEliminaGruppo('${g.id}','${esc(g.nome)}',${nSchede})"
+                        class="text-gray-200 hover:text-red-400 transition p-1" title="Elimina gruppo">
+                        <i class="fas fa-trash text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
     }
 
     function filtraSchede(q) {
@@ -480,6 +566,7 @@
 
     function nuovaScheda() {
         schedaId = null;
+        _nuovaSchedaGruppoId = currentGruppoId;
         righe = [];
         document.getElementById('campoLuogo').value = '';
         document.getElementById('campoQuadro').value = '';
@@ -571,7 +658,11 @@
                 quadro: document.getElementById('campoQuadro').value,
                 righe
             };
-            if (schedaId) payload.id = schedaId;
+            if (schedaId) {
+                payload.id = schedaId;
+            } else if (_nuovaSchedaGruppoId) {
+                payload.gruppo_id = _nuovaSchedaGruppoId;
+            }
 
             const { data, error } = await sbClient
                 .from('schede_verifica')
@@ -582,6 +673,7 @@
             if (error) throw error;
             if (!schedaId) {
                 schedaId = data.id;
+                _nuovaSchedaGruppoId = null;
                 window.history.replaceState({}, '', `?id=${schedaId}`);
             }
             setSaveStatus('saved');
@@ -1123,6 +1215,106 @@
         });
     }
 
+    // ── Navigazione gruppi ────────────────────────────────────────────────────
+    function apriGruppo(id) {
+        currentGruppoId = id;
+        document.getElementById('cercaSchede').value = '';
+        renderLista();
+    }
+
+    function tornaAllaListaRoot() {
+        currentGruppoId = null;
+        document.getElementById('cercaSchede').value = '';
+        renderLista();
+    }
+
+    // ── Gestione gruppi ───────────────────────────────────────────────────────
+    function apriModaleNuovoGruppo() {
+        document.getElementById('inputNomeGruppo').value = '';
+        document.getElementById('_editGruppoId').value = '';
+        document.getElementById('titoloCreaGruppo').textContent = 'Nuovo gruppo';
+        document.getElementById('modalNuovoGruppo').classList.remove('hidden');
+        setTimeout(() => document.getElementById('inputNomeGruppo').focus(), 50);
+    }
+
+    function apriModaleRinominaGruppo(id, nome) {
+        document.getElementById('inputNomeGruppo').value = nome;
+        document.getElementById('_editGruppoId').value = id;
+        document.getElementById('titoloCreaGruppo').textContent = 'Rinomina gruppo';
+        document.getElementById('modalNuovoGruppo').classList.remove('hidden');
+        setTimeout(() => document.getElementById('inputNomeGruppo').focus(), 50);
+    }
+
+    function chiudiModaleNuovoGruppo() {
+        document.getElementById('modalNuovoGruppo').classList.add('hidden');
+    }
+
+    async function salvaGruppo() {
+        const nome   = document.getElementById('inputNomeGruppo').value.trim();
+        if (!nome) { alert('Inserisci un nome per il gruppo.'); return; }
+        const editId = document.getElementById('_editGruppoId').value;
+        if (editId) {
+            await sbClient.from('gruppi_schede').update({ nome }).eq('id', editId);
+        } else {
+            const { data } = await sbClient.from('gruppi_schede').insert({ nome }).select('id').single();
+            if (data) currentGruppoId = data.id;
+        }
+        chiudiModaleNuovoGruppo();
+        caricaLista();
+    }
+
+    function chiediEliminaGruppo(id, nome, nSchede) {
+        const testo = nSchede > 0
+            ? `Il gruppo "${nome}" contiene ${nSchede} schede che diventeranno senza gruppo.`
+            : `Eliminare il gruppo "${nome}"?`;
+        mostraModal({
+            titolo: 'Elimina gruppo', testo,
+            icona: 'trash', colore: 'danger', labelOk: 'Elimina',
+            onOk: async () => {
+                await sbClient.from('gruppi_schede').delete().eq('id', id);
+                if (currentGruppoId === id) currentGruppoId = null;
+                caricaLista();
+            }
+        });
+    }
+
+    // ── Sposta scheda in gruppo ───────────────────────────────────────────────
+    function apriModaleSpostaScheda(sid) {
+        document.getElementById('_spostaSchedaId').value = sid;
+        const scheda   = listaSchede.find(s => s.id === sid);
+        const currentG = scheda?.gruppo_id || '';
+        document.getElementById('listaSpostaGruppi').innerHTML =
+            `<label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-gray-300 transition">
+                <input type="radio" name="sposta-gruppo" value="" class="w-4 h-4 accent-gray-500" ${!currentG ? 'checked' : ''}>
+                <span class="text-sm text-gray-500 italic">Senza gruppo</span>
+            </label>` +
+            listaGruppi.map(g => `
+            <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-amber-300 transition">
+                <input type="radio" name="sposta-gruppo" value="${g.id}" class="w-4 h-4 accent-amber-500" ${currentG === g.id ? 'checked' : ''}>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-folder text-amber-400 text-xs"></i>
+                    <span class="text-sm text-gray-700 font-medium">${esc(g.nome)}</span>
+                </div>
+            </label>`).join('');
+        document.getElementById('modalSpostaScheda').classList.remove('hidden');
+    }
+
+    function chiudiModaleSpostaScheda() {
+        document.getElementById('modalSpostaScheda').classList.add('hidden');
+    }
+
+    async function eseguiSpostaScheda() {
+        const sid = document.getElementById('_spostaSchedaId').value;
+        const sel = document.querySelector('input[name="sposta-gruppo"]:checked');
+        if (!sel) return;
+        const gid = sel.value || null;
+        await sbClient.from('schede_verifica').update({ gruppo_id: gid }).eq('id', sid);
+        const s = listaSchede.find(x => x.id === sid);
+        if (s) s.gruppo_id = gid;
+        chiudiModaleSpostaScheda();
+        renderLista();
+    }
+
     // ── Init ────────────────────────────────────────────────────────────────
     (async () => {
         if (schedaId) {
@@ -1406,6 +1598,55 @@
             </button>
             <button onclick="eseguiUnione()" class="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 rounded-xl text-sm font-bold text-white transition flex items-center justify-center gap-2">
                 <i class="fas fa-code-merge"></i> Unisci
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL: Nuovo / Rinomina Gruppo                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modalNuovoGruppo" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="chiudiModaleNuovoGruppo()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h3 id="titoloCreaGruppo" class="text-base font-bold text-gray-800"><i class="fas fa-folder-plus text-amber-500 mr-2"></i>Nuovo gruppo</h3>
+            <button onclick="chiudiModaleNuovoGruppo()" class="text-gray-300 hover:text-gray-600 transition w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="px-6 py-5">
+            <input type="hidden" id="_editGruppoId">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nome gruppo</label>
+            <input type="text" id="inputNomeGruppo" placeholder="es: Comune di Caluso, Scuola Gozzano…"
+                onkeydown="if(event.key==='Enter') salvaGruppo()"
+                class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition">
+        </div>
+        <div class="flex gap-3 px-6 pb-5">
+            <button onclick="chiudiModaleNuovoGruppo()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">Annulla</button>
+            <button onclick="salvaGruppo()" class="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 rounded-xl text-sm font-bold text-white transition">
+                <i class="fas fa-check mr-1"></i>Salva
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL: Sposta scheda in gruppo                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="modalSpostaScheda" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="chiudiModaleSpostaScheda()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col" style="max-height:80vh">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+            <h3 class="text-base font-bold text-gray-800"><i class="fas fa-folder-open text-amber-500 mr-2"></i>Sposta in gruppo</h3>
+            <button onclick="chiudiModaleSpostaScheda()" class="text-gray-300 hover:text-gray-600 transition w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-4 min-h-0">
+            <input type="hidden" id="_spostaSchedaId">
+            <div id="listaSpostaGruppi" class="space-y-1.5"></div>
+        </div>
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+            <button onclick="chiudiModaleSpostaScheda()" class="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition">Annulla</button>
+            <button onclick="eseguiSpostaScheda()" class="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 rounded-xl text-sm font-bold text-white transition">
+                <i class="fas fa-check mr-1"></i>Sposta
             </button>
         </div>
     </div>
