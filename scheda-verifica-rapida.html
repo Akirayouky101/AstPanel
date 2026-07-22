@@ -648,6 +648,12 @@
         autoSalva();
     }
 
+    function aggiungiDivisore(idx) {
+        righe.splice(idx + 1, 0, { tipo: 'divisore', testo: '' });
+        renderRighe();
+        autoSalva();
+    }
+
     function toggleEsito(idx) {
         righe[idx].esito = righe[idx].esito === 'OK' ? 'NON OK' : 'OK';
         renderRighe();
@@ -660,9 +666,39 @@
             tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-300 text-sm italic">Nessuna riga — clicca "Aggiungi riga"</td></tr>`;
             return;
         }
-        tbody.innerHTML = righe.map((r, i) => `
+        let _n = 0;
+        tbody.innerHTML = righe.map((r, i) => {
+            if (r.tipo === 'divisore') {
+                return `
+            <tr class="border-t-2 border-green-100 bg-green-50">
+                <td class="px-3 py-1.5 text-center text-green-300 text-xs select-none">—</td>
+                <td colspan="5" class="px-2 py-1.5">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-grip-lines text-green-400 text-xs flex-shrink-0 no-print"></i>
+                        <input type="text" value="${esc(r.testo)}"
+                            oninput="righe[${i}].testo=this.value; autoSalva()"
+                            placeholder="Nome sezione (es: QUADRO PRINCIPALE)"
+                            class="flex-1 bg-transparent border-0 border-b border-green-300 px-1 py-1 text-xs font-bold text-green-800 placeholder-green-300 outline-none focus:border-green-500 no-print">
+                        <span class="hidden print-only text-xs font-bold text-green-800 uppercase tracking-wider">${esc(r.testo) || '────────────────'}</span>
+                    </div>
+                </td>
+                <td class="px-1 py-1 text-center no-print">
+                    <button onclick="spostaRiga(${i}, -1)" class="text-gray-300 hover:text-green-500 transition p-0.5" title="Sposta su" ${i === 0 ? 'disabled style="opacity:0.25;cursor:default"' : ''}>
+                        <i class="fas fa-chevron-up text-xs"></i>
+                    </button>
+                    <button onclick="spostaRiga(${i}, 1)" class="text-gray-300 hover:text-green-500 transition p-0.5" title="Sposta giù" ${i === righe.length - 1 ? 'disabled style="opacity:0.25;cursor:default"' : ''}>
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </button>
+                    <button onclick="rimuoviRiga(${i})" class="text-gray-300 hover:text-red-500 transition p-0.5 ml-1" title="Elimina separatore">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </td>
+            </tr>`;
+            }
+            _n++;
+            return `
             <tr class="border-t border-gray-100">
-                <td class="px-3 py-1.5 text-xs text-gray-400 font-mono">${i + 1}</td>
+                <td class="px-3 py-1.5 text-xs text-gray-400 font-mono">${_n}</td>
                 <td class="px-1 py-1">
                     <input type="text" value="${esc(r.ubicazione)}" data-ubicazione
                         oninput="toUpper(this); righe[${i}].ubicazione=this.value; autoSalva()"
@@ -704,14 +740,18 @@
                     <button onclick="spostaRiga(${i}, 1)" class="text-gray-300 hover:text-green-500 transition p-0.5" title="Sposta giù" ${i === righe.length - 1 ? 'disabled style="opacity:0.25;cursor:default"' : ''}>
                         <i class="fas fa-chevron-down text-xs"></i>
                     </button>
-                    <button onclick="copiaRiga(${i})" class="text-gray-300 hover:text-blue-500 transition p-0.5 ml-1" title="Copia riga sotto">
+                    <button onclick="aggiungiDivisore(${i})" class="text-gray-300 hover:text-green-600 transition p-0.5 ml-1" title="Inserisci separatore dopo questa riga">
+                        <i class="fas fa-grip-lines text-xs"></i>
+                    </button>
+                    <button onclick="copiaRiga(${i})" class="text-gray-300 hover:text-blue-500 transition p-0.5" title="Copia riga sotto">
                         <i class="fas fa-copy text-xs"></i>
                     </button>
                     <button onclick="rimuoviRiga(${i})" class="text-gray-300 hover:text-red-500 transition p-0.5" title="Elimina riga">
                         <i class="fas fa-times text-xs"></i>
                     </button>
                 </td>
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
     }
 
     function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -741,7 +781,7 @@
         return [
             ['SCHEDA_ID', id],
             ['#', 'UBICAZIONE', 'MARCA', 'N\u00b0 POLI', 'CODICE', 'ESITO'],
-            ...rows.map((r, i) => [i+1, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK'])
+            ...(() => { let n=0; return rows.map(r => r.tipo === 'divisore' ? ['---', r.testo||'', '', '', '', ''] : [++n, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK']); })()
         ];
     }
     function _buildWs(wsData) {
@@ -752,13 +792,16 @@
     function _parseRows(rows, start) {
         return rows.slice(start)
             .filter(r => r.some(c => String(c).trim() !== ''))
-            .map(r => ({
-                ubicazione: String(r[1]||'').trim().toUpperCase(),
-                marca:      String(r[2]||'').trim(),
-                npoli:      String(r[3]||'').trim(),
-                codice:     String(r[4]||'').trim().toUpperCase(),
-                esito:      String(r[5]||'OK').trim().toUpperCase() === 'NON OK' ? 'NON OK' : 'OK'
-            }));
+            .map(r => {
+                if (String(r[0]).trim() === '---') return { tipo: 'divisore', testo: String(r[1]||'').trim() };
+                return {
+                    ubicazione: String(r[1]||'').trim().toUpperCase(),
+                    marca:      String(r[2]||'').trim(),
+                    npoli:      String(r[3]||'').trim(),
+                    codice:     String(r[4]||'').trim().toUpperCase(),
+                    esito:      String(r[5]||'OK').trim().toUpperCase() === 'NON OK' ? 'NON OK' : 'OK'
+                };
+            });
     }
 
     function esportaExcel() {
@@ -1138,7 +1181,8 @@
         schede.forEach((s, idx) => {
             if (idx > 0) doc.addPage();
             const rows = Array.isArray(s.righe) ? s.righe : [];
-            const nonOk = rows.filter(r => r.esito === 'NON OK').length;
+            const nonOk    = rows.filter(r => r.tipo !== 'divisore' && r.esito === 'NON OK').length;
+            const totalRows = rows.filter(r => r.tipo !== 'divisore').length;
 
             // Header verde
             doc.setFillColor(...verde);
@@ -1160,13 +1204,21 @@
             doc.setFont('helvetica', 'normal');
             doc.text(String(s.quadro || '—'), 30, 35);
             doc.setFont('helvetica', 'bold');
-            doc.text(`Righe: ${rows.length}   OK: ${rows.length - nonOk}   NON OK: ${nonOk}`, 12, 41);
+            doc.text(`Righe: ${totalRows}   OK: ${totalRows - nonOk}   NON OK: ${nonOk}`, 12, 41);
 
-            // Tabella
+            // Tabella con supporto divisori
+            let _pn = 0;
             doc.autoTable({
                 startY: 46,
                 head: [['#', 'UBICAZIONE', 'MARCA', 'N° POLI', 'CODICE', 'ESITO']],
-                body: rows.map((r, i) => [i+1, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK']),
+                body: rows.map(r => {
+                    if (r.tipo === 'divisore') {
+                        return [{ content: r.testo || '─────────────────────────────────', colSpan: 6,
+                            styles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'left' } }];
+                    }
+                    _pn++;
+                    return [_pn, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK'];
+                }),
                 styles: { fontSize: 8, cellPadding: 2.5 },
                 headStyles: { fillColor: verde, textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
@@ -1180,7 +1232,7 @@
                         if (data.cell.raw === 'NON OK') {
                             data.cell.styles.textColor = [220, 38, 38];
                             data.cell.styles.fontStyle = 'bold';
-                        } else {
+                        } else if (data.cell.raw === 'OK') {
                             data.cell.styles.textColor = [22, 163, 74];
                             data.cell.styles.fontStyle = 'bold';
                         }
