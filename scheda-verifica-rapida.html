@@ -134,17 +134,8 @@
     </div>
 
     <div class="max-w-6xl mx-auto p-6">
-        <!-- Breadcrumb navigazione gruppi -->
-        <div id="breadcrumb" class="hidden flex items-center gap-2 mb-4 px-1">
-            <button onclick="tornaAllaListaRoot()" class="flex items-center gap-1.5 text-gray-500 hover:text-amber-600 text-sm font-bold transition">
-                <i class="fas fa-arrow-left text-xs"></i> Tutte le verifiche
-            </button>
-            <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-            <div class="flex items-center gap-2">
-                <i class="fas fa-folder text-amber-500 text-sm"></i>
-                <span id="breadcrumbNome" class="font-bold text-gray-700 text-sm"></span>
-            </div>
-        </div>
+        <!-- Breadcrumb navigazione gruppi (riempito dinamicamente) -->
+        <div id="breadcrumb" class="hidden flex items-center gap-2 mb-4 px-1 flex-wrap"></div>
 
         <!-- Barra di ricerca -->
         <div id="barraRicerca" class="hidden mb-4">
@@ -382,6 +373,7 @@
     let listaSchede = [];
     let listaGruppi = [];
     let currentGruppoId = null;
+    let gruppoNavPath = []; // [{id, nome}, ...] per breadcrumb multilivello
     let _nuovaSchedaGruppoId = null;
 
     const MARCHE = ['ABB','BTicino','Came','Chint','Eaton','Finder','Gewiss','Hager','Legrand','Merlin Gerin','MKS','Nice','SACE','Schneider','Siemens','Urmet','Vimar'];
@@ -408,7 +400,7 @@
         document.getElementById('barraRicerca').classList.add('hidden');
 
         // Fetch gruppi (può fallire se la migration non è ancora stata eseguita)
-        const gruppiRes = await sbClient.from('gruppi_schede').select('id, nome, note').order('nome');
+        const gruppiRes = await sbClient.from('gruppi_schede').select('id, nome, note, parent_id').order('nome');
         listaGruppi = gruppiRes.error ? [] : (gruppiRes.data || []);
 
         // Fetch schede: prima prova con gruppo_id, poi fallback senza
@@ -430,27 +422,22 @@
     function renderLista() {
         const grid = document.getElementById('listaGrid');
 
-        if (currentGruppoId) {
-            const g = listaGruppi.find(x => x.id === currentGruppoId);
-            document.getElementById('breadcrumbNome').textContent = g ? g.nome : '';
-            document.getElementById('breadcrumb').classList.remove('hidden');
-        } else {
-            document.getElementById('breadcrumb').classList.add('hidden');
-        }
+        _aggiornaBreadcrumb();
 
-        let html = '';
-        if (currentGruppoId === null) {
-            const ungrouped = listaSchede.filter(s => !s.gruppo_id);
-            html = listaGruppi.map(_htmlGruppoCard).join('');
-            if (ungrouped.length > 0 && listaGruppi.length > 0)
-                html += `<div class="col-span-full text-xs font-bold text-gray-400 uppercase tracking-wider pt-3 pb-1 px-1">Senza gruppo</div>`;
-            html += ungrouped.map(_htmlSchedaCard).join('');
-        } else {
-            const schedeGruppo = listaSchede.filter(s => s.gruppo_id === currentGruppoId);
-            html = schedeGruppo.length
-                ? schedeGruppo.map(_htmlSchedaCard).join('')
-                : `<div class="col-span-full text-center py-14 text-gray-300"><i class="fas fa-inbox text-4xl mb-3 block"></i><p class="text-sm">Nessuna scheda in questo gruppo</p><p class="text-xs mt-1">Clicca "Nuova scheda" o sposta una scheda qui</p></div>`;
-        }
+        // Gruppi al livello corrente
+        const gruppiLivello = listaGruppi.filter(g => (g.parent_id || null) === currentGruppoId);
+        // Schede al livello corrente
+        const schedeLivello = currentGruppoId === null
+            ? listaSchede.filter(s => !s.gruppo_id)
+            : listaSchede.filter(s => s.gruppo_id === currentGruppoId);
+
+        let html = gruppiLivello.map(_htmlGruppoCard).join('');
+        if (schedeLivello.length > 0 && gruppiLivello.length > 0)
+            html += `<div class="col-span-full text-xs font-bold text-gray-400 uppercase tracking-wider pt-3 pb-1 px-1">Schede</div>`;
+        if (schedeLivello.length > 0)
+            html += schedeLivello.map(_htmlSchedaCard).join('');
+        else if (gruppiLivello.length === 0)
+            html = `<div class="col-span-full text-center py-14 text-gray-300"><i class="fas fa-inbox text-4xl mb-3 block"></i><p class="text-sm">${currentGruppoId ? 'Nessuna scheda in questo gruppo' : 'Nessuna scheda salvata'}</p><p class="text-xs mt-1">Clicca “Nuova scheda” o sposta una scheda qui</p></div>`;
 
         if (!html && currentGruppoId === null) {
             document.getElementById('listaVuota').classList.remove('hidden');
@@ -466,6 +453,29 @@
 
         const cercaVal = document.getElementById('cercaSchede').value;
         if (cercaVal) filtraSchede(cercaVal);
+    }
+
+    function _aggiornaBreadcrumb() {
+        const el = document.getElementById('breadcrumb');
+        if (gruppoNavPath.length === 0) { el.classList.add('hidden'); return; }
+        el.classList.remove('hidden');
+        let html = `<button onclick="tornaAllaListaRoot()" class="flex items-center gap-1.5 text-gray-500 hover:text-amber-600 text-sm font-bold transition">
+            <i class="fas fa-arrow-left text-xs"></i> Tutte
+        </button>`;
+        gruppoNavPath.forEach((g, i) => {
+            html += `<i class="fas fa-chevron-right text-gray-300 text-xs"></i>`;
+            if (i < gruppoNavPath.length - 1) {
+                html += `<button onclick="tornaAlLivello(${i})" class="flex items-center gap-1.5 text-gray-500 hover:text-amber-600 text-sm font-bold transition">
+                    <i class="fas fa-folder text-amber-400 text-xs"></i> ${esc(g.nome)}
+                </button>`;
+            } else {
+                html += `<div class="flex items-center gap-2">
+                    <i class="fas fa-folder-open text-amber-500 text-sm"></i>
+                    <span class="font-bold text-gray-700 text-sm">${esc(g.nome)}</span>
+                </div>`;
+            }
+        });
+        el.innerHTML = html;
     }
 
     function _htmlSchedaCard(s) {
@@ -517,12 +527,20 @@
     }
 
     function _htmlGruppoCard(g) {
-        const schedeGruppo = listaSchede.filter(s => s.gruppo_id === g.id);
-        const nSchede = schedeGruppo.length;
-        const nonOk   = schedeGruppo.reduce((acc, s) => acc + (Array.isArray(s.righe) ? s.righe.filter(r => r.esito === 'NON OK').length : 0), 0);
-        const badge   = nonOk > 0
+        const subGruppi  = listaGruppi.filter(sg => sg.parent_id === g.id);
+        const schedeDir  = listaSchede.filter(s => s.gruppo_id === g.id);
+        const allSchede  = [...schedeDir, ...subGruppi.flatMap(sg => listaSchede.filter(s => s.gruppo_id === sg.id))];
+        const nSchede    = allSchede.length;
+        const nSub       = subGruppi.length;
+        const nonOk      = allSchede.reduce((acc, s) => acc + (Array.isArray(s.righe) ? s.righe.filter(r => r.esito === 'NON OK').length : 0), 0);
+        const badge = nonOk > 0
             ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">${nonOk} NON OK</span>`
-            : `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">${nSchede} schede</span>`;
+            : nSub > 0
+                ? `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">${nSub} gruppi</span>`
+                : `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">${nSchede} schede</span>`;
+        const subtitle = nSub > 0
+            ? `${nSub} sottogruppo${nSub !== 1 ? 'i' : ''} &middot; ${nSchede} schede`
+            : `${nSchede} scheda${nSchede !== 1 ? 'e' : ''}`;
         return `
         <div class="bg-white rounded-2xl shadow-sm border-2 border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
              onclick="apriGruppo('${g.id}','${esc(g.nome)}')"
@@ -530,18 +548,18 @@
             <div class="p-5">
                 <div class="flex items-start justify-between mb-3">
                     <div class="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center group-hover:bg-amber-100 transition">
-                        <i class="fas fa-folder text-amber-500 text-sm"></i>
+                        <i class="fas fa-${nSub > 0 ? 'folder-open' : 'folder'} text-amber-500 text-sm"></i>
                     </div>
                     ${badge}
                 </div>
                 <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${esc(g.nome)}</div>
-                <div class="text-gray-400 text-xs mb-4">${nSchede} scheda${nSchede !== 1 ? 'e' : ''}</div>
+                <div class="text-gray-400 text-xs mb-4">${subtitle}</div>
                 <div class="flex items-center justify-end gap-1">
                     <button onclick="event.stopPropagation(); apriModaleRinominaGruppo('${g.id}','${esc(g.nome)}')"
                         class="text-gray-200 hover:text-amber-500 transition p-1" title="Rinomina">
                         <i class="fas fa-pen text-xs"></i>
                     </button>
-                    <button onclick="event.stopPropagation(); chiediEliminaGruppo('${g.id}','${esc(g.nome)}',${nSchede})"
+                    <button onclick="event.stopPropagation(); chiediEliminaGruppo('${g.id}','${esc(g.nome)}',${nSchede},${nSub})"
                         class="text-gray-200 hover:text-red-400 transition p-1" title="Elimina gruppo">
                         <i class="fas fa-trash text-xs"></i>
                     </button>
@@ -1225,14 +1243,23 @@
     }
 
     // ── Navigazione gruppi ────────────────────────────────────────────────────
-    function apriGruppo(id) {
+    function apriGruppo(id, nome) {
+        gruppoNavPath.push({ id, nome });
         currentGruppoId = id;
         document.getElementById('cercaSchede').value = '';
         renderLista();
     }
 
     function tornaAllaListaRoot() {
+        gruppoNavPath = [];
         currentGruppoId = null;
+        document.getElementById('cercaSchede').value = '';
+        renderLista();
+    }
+
+    function tornaAlLivello(idx) {
+        gruppoNavPath = gruppoNavPath.slice(0, idx + 1);
+        currentGruppoId = gruppoNavPath[gruppoNavPath.length - 1].id;
         document.getElementById('cercaSchede').value = '';
         renderLista();
     }
@@ -1265,23 +1292,38 @@
         if (editId) {
             await sbClient.from('gruppi_schede').update({ nome }).eq('id', editId);
         } else {
-            const { data } = await sbClient.from('gruppi_schede').insert({ nome }).select('id').single();
-            if (data) currentGruppoId = data.id;
+            // Il nuovo gruppo diventa figlio del gruppo corrente
+            const { data } = await sbClient.from('gruppi_schede')
+                .insert({ nome, parent_id: currentGruppoId || null })
+                .select('id').single();
+            if (data) {
+                gruppoNavPath.push({ id: data.id, nome });
+                currentGruppoId = data.id;
+            }
         }
         chiudiModaleNuovoGruppo();
         caricaLista();
     }
 
-    function chiediEliminaGruppo(id, nome, nSchede) {
-        const testo = nSchede > 0
-            ? `Il gruppo "${nome}" contiene ${nSchede} schede che diventeranno senza gruppo.`
+    function chiediEliminaGruppo(id, nome, nSchede, nSub) {
+        nSub = nSub || 0;
+        const parti = [];
+        if (nSub > 0) parti.push(`${nSub} sottogruppo${nSub !== 1 ? 'i' : ''}`);
+        if (nSchede > 0) parti.push(`${nSchede} schede`);
+        const testo = parti.length > 0
+            ? `Il gruppo "${nome}" contiene ${parti.join(' e ')}. Elimina comunque?`
             : `Eliminare il gruppo "${nome}"?`;
         mostraModal({
             titolo: 'Elimina gruppo', testo,
             icona: 'trash', colore: 'danger', labelOk: 'Elimina',
             onOk: async () => {
                 await sbClient.from('gruppi_schede').delete().eq('id', id);
-                if (currentGruppoId === id) currentGruppoId = null;
+                if (currentGruppoId === id) {
+                    // torna al livello padre
+                    const idx = gruppoNavPath.findIndex(g => g.id === id);
+                    if (idx > 0) { gruppoNavPath = gruppoNavPath.slice(0, idx); currentGruppoId = gruppoNavPath[gruppoNavPath.length-1].id; }
+                    else { gruppoNavPath = []; currentGruppoId = null; }
+                }
                 caricaLista();
             }
         });
@@ -1292,19 +1334,33 @@
         document.getElementById('_spostaSchedaId').value = sid;
         const scheda   = listaSchede.find(s => s.id === sid);
         const currentG = scheda?.gruppo_id || '';
-        document.getElementById('listaSpostaGruppi').innerHTML =
-            `<label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-gray-300 transition">
-                <input type="radio" name="sposta-gruppo" value="" class="w-4 h-4 accent-gray-500" ${!currentG ? 'checked' : ''}>
-                <span class="text-sm text-gray-500 italic">Senza gruppo</span>
-            </label>` +
-            listaGruppi.map(g => `
-            <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-amber-300 transition">
-                <input type="radio" name="sposta-gruppo" value="${g.id}" class="w-4 h-4 accent-amber-500" ${currentG === g.id ? 'checked' : ''}>
+        const topGroups = listaGruppi.filter(g => !g.parent_id);
+
+        const optionHtml = (g, level) => {
+            const pad = level > 0 ? 'style="margin-left:' + (level * 20) + 'px"' : '';
+            const icon = level > 0 ? 'text-amber-300' : 'text-amber-400';
+            return `<label class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-amber-300 transition" ${pad}>
+                <input type="radio" name="sposta-gruppo" value="${g.id}" class="w-4 h-4 accent-amber-500 flex-shrink-0" ${currentG === g.id ? 'checked' : ''}>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-folder text-amber-400 text-xs"></i>
+                    <i class="fas fa-folder ${icon} text-xs"></i>
                     <span class="text-sm text-gray-700 font-medium">${esc(g.nome)}</span>
                 </div>
-            </label>`).join('');
+            </label>`;
+        };
+
+        let html = `<label class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-gray-300 transition">
+            <input type="radio" name="sposta-gruppo" value="" class="w-4 h-4 accent-gray-500" ${!currentG ? 'checked' : ''}>
+            <span class="text-sm text-gray-500 italic">Senza gruppo</span>
+        </label>`;
+
+        topGroups.forEach(g => {
+            html += optionHtml(g, 0);
+            listaGruppi.filter(sg => sg.parent_id === g.id).forEach(sg => {
+                html += optionHtml(sg, 1);
+            });
+        });
+
+        document.getElementById('listaSpostaGruppi').innerHTML = html;
         document.getElementById('modalSpostaScheda').classList.remove('hidden');
     }
 
