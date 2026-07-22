@@ -115,7 +115,10 @@
         </div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="esportaTutti()" class="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition" title="Esporta tutte le schede in un unico file Excel">
-                <i class="fas fa-file-excel"></i> Esporta tutto
+                <i class="fas fa-file-excel"></i> Esporta Excel
+            </button>
+            <button onclick="esportaContestoPDF()" class="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100 transition" id="btnEsportaPDF" title="Esporta come PDF">
+                <i class="fas fa-file-pdf"></i> <span id="lblEsportaPDF">Esporta PDF</span>
             </button>
             <button onclick="avviaImportTutti()" class="flex items-center gap-1.5 px-3 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold hover:bg-teal-100 transition" title="Importa correzioni da pi&ugrave; file Excel">
                 <i class="fas fa-file-import"></i> Importa tutto
@@ -457,6 +460,9 @@
 
     function _aggiornaBreadcrumb() {
         const el = document.getElementById('breadcrumb');
+        // Aggiorna label pulsante PDF contestuale
+        const lbl = document.getElementById('lblEsportaPDF');
+        if (lbl) lbl.textContent = currentGruppoId ? 'PDF cartella' : 'Esporta PDF';
         if (gruppoNavPath.length === 0) { el.classList.add('hidden'); return; }
         el.classList.remove('hidden');
         let html = `<button onclick="tornaAllaListaRoot()" class="flex items-center gap-1.5 text-gray-500 hover:text-amber-600 text-sm font-bold transition">
@@ -555,6 +561,10 @@
                 <div class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${esc(g.nome)}</div>
                 <div class="text-gray-400 text-xs mb-4">${subtitle}</div>
                 <div class="flex items-center justify-end gap-1">
+                    <button onclick="event.stopPropagation(); esportaGruppoPDF('${g.id}','${esc(g.nome)}')"
+                        class="text-gray-200 hover:text-rose-500 transition p-1" title="Esporta PDF">
+                        <i class="fas fa-file-pdf text-xs"></i>
+                    </button>
                     <button onclick="event.stopPropagation(); apriModaleRinominaGruppo('${g.id}','${esc(g.nome)}')"
                         class="text-gray-200 hover:text-amber-500 transition p-1" title="Rinomina">
                         <i class="fas fa-pen text-xs"></i>
@@ -1246,7 +1256,40 @@
         });
     }
 
-    // ── Navigazione gruppi ────────────────────────────────────────────────────
+    // ── Export PDF per gruppo ──────────────────────────────────────────
+    function _getSchedeGruppo(gid) {
+        const dirette  = listaSchede.filter(s => s.gruppo_id === gid);
+        const subGruppi = listaGruppi.filter(g => g.parent_id === gid);
+        return [...dirette, ...subGruppi.flatMap(sg => _getSchedeGruppo(sg.id))];
+    }
+
+    function esportaGruppoPDF(gid, nome) {
+        const schede = _getSchedeGruppo(gid);
+        if (!schede.length) { alert('Nessuna scheda in questo gruppo.'); return; }
+        if (typeof window.jspdf === 'undefined') { alert('Libreria PDF non caricata, riprova.'); return; }
+        const pdf = generaPdfVerifiche(schede);
+        // scarica il PDF
+        const link = document.createElement('a');
+        link.href = 'data:application/pdf;base64,' + pdf;
+        link.download = (nome || 'Gruppo').replace(/[^a-zA-Z0-9À-ž _-]/g, '_') + '.pdf';
+        link.click();
+    }
+
+    function esportaContestoPDF() {
+        if (currentGruppoId) {
+            const g = listaGruppi.find(x => x.id === currentGruppoId);
+            esportaGruppoPDF(currentGruppoId, g ? g.nome : 'Gruppo');
+        } else {
+            // esporta tutte le schede come PDF
+            if (!listaSchede.length) { alert('Nessuna scheda da esportare.'); return; }
+            if (typeof window.jspdf === 'undefined') { alert('Libreria PDF non caricata, riprova.'); return; }
+            const pdf = generaPdfVerifiche(listaSchede);
+            const link = document.createElement('a');
+            link.href = 'data:application/pdf;base64,' + pdf;
+            link.download = 'Verifiche_ZG_' + new Date().toLocaleDateString('it-IT').replace(/\//g, '-') + '.pdf';
+            link.click();
+        }
+    }──────────────
     function apriGruppo(id, nome) {
         gruppoNavPath.push({ id, nome });
         currentGruppoId = id;
