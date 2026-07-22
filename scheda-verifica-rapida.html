@@ -1268,23 +1268,22 @@
         const schede = _getSchedeGruppo(gid);
         if (!schede.length) { alert('Nessuna scheda in questo gruppo.'); return; }
         if (typeof window.jspdf === 'undefined') { alert('Libreria PDF non caricata, riprova.'); return; }
-        const pdf = generaPdfVerifiche(schede);
+        const pdf = await generaPdfVerifiche(schede);
         // scarica il PDF
         const link = document.createElement('a');
         link.href = 'data:application/pdf;base64,' + pdf;
-        link.download = (nome || 'Gruppo').replace(/[^a-zA-Z0-9À-ž _-]/g, '_') + '.pdf';
+        link.download = (nome || 'Gruppo').replace(/[^a-zA-Z0-9\u00C0-\u017E _-]/g, '_') + '.pdf';
         link.click();
     }
 
-    function esportaContestoPDF() {
+    async function esportaContestoPDF() {
         if (currentGruppoId) {
             const g = listaGruppi.find(x => x.id === currentGruppoId);
             esportaGruppoPDF(currentGruppoId, g ? g.nome : 'Gruppo');
         } else {
-            // esporta tutte le schede come PDF
             if (!listaSchede.length) { alert('Nessuna scheda da esportare.'); return; }
             if (typeof window.jspdf === 'undefined') { alert('Libreria PDF non caricata, riprova.'); return; }
-            const pdf = generaPdfVerifiche(listaSchede);
+            const pdf = await generaPdfVerifiche(listaSchede);
             const link = document.createElement('a');
             link.href = 'data:application/pdf;base64,' + pdf;
             link.download = 'Verifiche_ZG_' + new Date().toLocaleDateString('it-IT').replace(/\//g, '-') + '.pdf';
@@ -1589,7 +1588,7 @@
                 schede = listaSchede.filter(s => ids.includes(s.id));
             }
 
-            const pdfBase64 = generaPdfVerifiche(schede);
+            const pdfBase64 = await generaPdfVerifiche(schede);
 
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Invio...';
 
@@ -1620,73 +1619,97 @@
         }
     }
 
-    function generaPdfVerifiche(schede) {
+    async function generaPdfVerifiche(schede) {
         const { jsPDF } = window.jspdf;
-        const doc  = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-        const verde = [22, 163, 74];
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const ML = 15, W = 180;
+        const verdeScuro  = [22, 101, 52];
+        const verdeTh     = [209, 250, 229];
+        const verdeFontTh = [6, 78, 59];
+        const verdeAltRow = [240, 253, 244];
+        const verdeOK     = [22, 163, 74];
+        const rossoKO     = [220, 38, 38];
+
+        let logoDataUrl = null;
+        try {
+            const resp = await fetch('logo_zg.jpg');
+            const blob = await resp.blob();
+            logoDataUrl = await new Promise(res => {
+                const r2 = new FileReader();
+                r2.onload = e => res(e.target.result);
+                r2.readAsDataURL(blob);
+            });
+        } catch(e) {}
+
+        const dateStr = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
 
         schede.forEach((s, idx) => {
             if (idx > 0) doc.addPage();
-            const rows = Array.isArray(s.righe) ? s.righe : [];
-            const nonOk    = rows.filter(r => r.tipo !== 'divisore' && r.esito === 'NON OK').length;
+            const rows      = Array.isArray(s.righe) ? s.righe : [];
+            const nonOk     = rows.filter(r => r.tipo !== 'divisore' && r.esito === 'NON OK').length;
             const totalRows = rows.filter(r => r.tipo !== 'divisore').length;
 
-            // Header verde
-            doc.setFillColor(...verde);
-            doc.rect(0, 0, 297, 20, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-            doc.text('Scheda Verifica Elettrica – ZG Impianti Srl', 12, 9);
-            doc.setFontSize(8);  doc.setFont('helvetica', 'normal');
-            doc.text(new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' }), 12, 16);
+            // ----- INTESTAZIONE (stile stampa) -----
+            let y = 15;
+            if (logoDataUrl) doc.addImage(logoDataUrl, 'JPEG', ML, y - 2, 28, 17);
 
-            // Info
-            doc.setTextColor(30, 30, 30);
-            doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-            doc.text('Luogo:', 12, 29);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(s.luogo || '—'), 30, 29);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Quadro:', 12, 35);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(s.quadro || '—'), 30, 35);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Righe: ${totalRows}   OK: ${totalRows - nonOk}   NON OK: ${nonOk}`, 12, 41);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5); doc.setTextColor(17, 17, 17);
+            doc.text('SCHEDA VERIFICA RAPIDA', 105, y + 5, { align: 'center' });
+            doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(55, 65, 81);
+            doc.text('COMPONENTI ELETTRICI -- QUADRI ELETTRICI', 105, y + 10.5, { align: 'center' });
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(17, 17, 17);
+            doc.text('ZG Impianti Srl', ML + W, y + 3, { align: 'right' });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(55, 65, 81);
+            doc.text('Data: ' + dateStr, ML + W, y + 8.5, { align: 'right' });
 
-            // Tabella con supporto divisori
+            y += 20;
+            doc.setDrawColor(...verdeScuro); doc.setLineWidth(0.8);
+            doc.line(ML, y, ML + W, y);
+            y += 5;
+
+            // ----- BOX LUOGO / QUADRO -----
+            doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.25);
+            doc.setFillColor(249, 250, 251);
+            doc.roundedRect(ML, y, W, 17, 1.5, 1.5, 'FD');
+            doc.setDrawColor(209, 213, 219);
+            doc.line(ML + W / 2, y + 1, ML + W / 2, y + 16);
+
+            doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(107, 114, 128);
+            doc.text('LUOGO', ML + 4, y + 5);
+            doc.text('QUADRO / PANNELLO', ML + W / 2 + 4, y + 5);
+            doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(17, 17, 17);
+            doc.text(String(s.luogo || '--'), ML + 4, y + 12, { maxWidth: W / 2 - 8 });
+            doc.text(String(s.quadro || '--'), ML + W / 2 + 4, y + 12, { maxWidth: W / 2 - 8 });
+
+            y += 21;
+            doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(107, 114, 128);
+            doc.text(`Componenti: ${totalRows}   |   OK: ${totalRows - nonOk}   |   NON OK: ${nonOk}`, ML, y);
+            y += 5;
+
+            // ----- TABELLA -----
             let _pn = 0;
             doc.autoTable({
-                startY: 46,
-                head: [['#', 'UBICAZIONE', 'MARCA', 'N° POLI', 'CODICE', 'ESITO']],
+                startY: y,
+                head: [['#', 'UBICAZIONE', 'MARCA', 'N. POLI', 'CODICE', 'ESITO']],
                 body: rows.map(r => {
                     if (r.tipo === 'divisore') {
-                        return [{ content: r.testo || '---------------------------------', colSpan: 6,
-                            styles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'left' } }];
+                        return [{ content: r.testo || '----- SEZIONE -----', colSpan: 6,
+                            styles: { fillColor: verdeTh, textColor: verdeFontTh, fontStyle: 'bold', fontSize: 8 } }];
                     }
                     _pn++;
                     return [_pn, r.ubicazione||'', r.marca||'', r.npoli||'', r.codice||'', r.esito||'OK'];
                 }),
-                styles: { fontSize: 8, cellPadding: 2.5 },
-                headStyles: { fillColor: verde, textColor: 255, fontStyle: 'bold' },
-                columnStyles: {
-                    0: { halign: 'center', cellWidth: 10 },
-                    2: { cellWidth: 30 },
-                    3: { halign: 'center', cellWidth: 18 },
-                    5: { halign: 'center', cellWidth: 22 }
-                },
+                styles: { fontSize: 8, cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 }, lineColor: [209, 213, 219], lineWidth: 0.2 },
+                headStyles: { fillColor: verdeTh, textColor: verdeFontTh, fontStyle: 'bold', fontSize: 8, lineColor: [55, 65, 81], lineWidth: 0.3 },
+                alternateRowStyles: { fillColor: verdeAltRow },
+                columnStyles: { 0: { halign: 'center', cellWidth: 8 }, 2: { cellWidth: 26 }, 3: { halign: 'center', cellWidth: 13 }, 5: { halign: 'center', cellWidth: 16 } },
                 didParseCell(data) {
-                    if (data.section === 'body' && data.column.index === 5) {
-                        if (data.cell.raw === 'NON OK') {
-                            data.cell.styles.textColor = [220, 38, 38];
-                            data.cell.styles.fontStyle = 'bold';
-                        } else if (data.cell.raw === 'OK') {
-                            data.cell.styles.textColor = [22, 163, 74];
-                            data.cell.styles.fontStyle = 'bold';
-                        }
+                    if (data.section === 'body' && data.column.index === 5 && data.cell.colSpan === 1) {
+                        if (data.cell.raw === 'NON OK') { data.cell.styles.textColor = rossoKO; data.cell.styles.fontStyle = 'bold'; }
+                        else if (data.cell.raw === 'OK') { data.cell.styles.textColor = verdeOK; data.cell.styles.fontStyle = 'bold'; }
                     }
                 },
-                alternateRowStyles: { fillColor: [249, 250, 251] },
-                margin: { left: 12, right: 12 }
+                margin: { left: ML, right: ML }
             });
         });
 
