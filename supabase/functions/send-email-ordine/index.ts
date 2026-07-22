@@ -306,6 +306,56 @@ function buildApprovazionePreventivoHtml(p: Record<string, unknown>): string {
 </body></html>`;
 }
 
+// ── Verifica Elettrica ────────────────────────────────────────────────────────
+function buildVerificaHtml(p: Record<string, unknown>): string {
+  const { oggetto, nSchede, schede } = p as {
+    oggetto: string;
+    nSchede: number;
+    schede: Array<{ luogo: string; quadro: string }>;
+  };
+  const righeSchede = (schede ?? []).map(s =>
+    `<tr style="border-bottom:1px solid #f0fdf4">
+      <td style="padding:8px 14px;font-size:13px;font-weight:600;color:#111827">${s.luogo || '—'}</td>
+      <td style="padding:8px 14px;font-size:13px;color:#374151">${s.quadro || '—'}</td>
+    </tr>`
+  ).join('');
+  return `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif">
+<div style="max-width:680px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#16a34a,#15803d);padding:32px 40px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:36px">📋</div>
+      <div>
+        <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">ZG Impianti Srl</p>
+        <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff">Verifiche Elettriche</h1>
+        <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:13px">Schede allegate in PDF</p>
+      </div>
+    </div>
+  </div>
+  <div style="padding:32px 40px">
+    <p style="margin:0 0 20px;font-size:15px;color:#374151">
+      In allegato trovi <strong>${nSchede} scheda${nSchede !== 1 ? 'e' : ''} di verifica elettrica</strong> in formato PDF.
+    </p>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid #dcfce7">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:linear-gradient(135deg,#16a34a,#15803d)">
+            <th style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;text-align:left">Luogo</th>
+            <th style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;text-align:left">Quadro / Pannello</th>
+          </tr>
+        </thead>
+        <tbody>${righeSchede}</tbody>
+      </table>
+    </div>
+  </div>
+  <div style="background:#f3f4f6;padding:24px 40px;text-align:center;border-top:2px solid #e5e7eb">
+    <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#374151">ZG Impianti Srl</p>
+    <p style="margin:0;font-size:12px;color:#6b7280">📧 ordini@zgimpianti.it &nbsp;|&nbsp; 🌐 zgimpianti.it</p>
+  </div>
+</div></body></html>`;
+}
+
 // ── Handler principale ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -325,7 +375,11 @@ Deno.serve(async (req) => {
     let html: string;
     let subject: string;
     let fromName: string;
-    if (tipo === 'preventivo') {
+    if (tipo === 'verifica') {
+      html     = buildVerificaHtml(payload);
+      subject  = (payload.oggetto as string) || 'Verifiche Elettriche – ZG Impianti';
+      fromName = 'ZG Impianti – Verifiche';
+    } else if (tipo === 'preventivo') {
       html     = buildPreventivoHtml(payload);
       subject  = `[${payload.numeroRichiesta}] Richiesta Preventivo – ZG Impianti`;
       fromName = FROM_NAME_PREVENTIVO;
@@ -351,6 +405,12 @@ Deno.serve(async (req) => {
       ccArray = [payload.cc];
     }
 
+    // Allegato PDF opzionale (base64)
+    let attachments: Array<{ filename: string; content: string }> | undefined;
+    if (payload.allegato && payload.nomeAllegato) {
+      attachments = [{ filename: payload.nomeAllegato as string, content: payload.allegato as string }];
+    }
+
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -358,6 +418,7 @@ Deno.serve(async (req) => {
         from:    `${fromName} <${FROM_EMAIL}>`,
         to:      [to],
         ...(ccArray?.length ? { cc: ccArray } : {}),
+        ...(attachments?.length ? { attachments } : {}),
         subject,
         html,
       }),
