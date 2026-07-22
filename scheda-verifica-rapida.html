@@ -1400,16 +1400,22 @@
             </label>`;
         };
 
+        // Rendering ricorsivo per qualsiasi profondita'
+        const renderGruppoRicorsivo = (g, level) => {
+            let h = optionHtml(g, level);
+            listaGruppi.filter(sg => sg.parent_id === g.id).forEach(sg => {
+                h += renderGruppoRicorsivo(sg, level + 1);
+            });
+            return h;
+        };
+
         let html = `<label class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-gray-300 transition">
             <input type="radio" name="sposta-gruppo" value="" class="w-4 h-4 accent-gray-500" ${!currentG ? 'checked' : ''}>
             <span class="text-sm text-gray-500 italic">Senza gruppo</span>
         </label>`;
 
-        topGroups.forEach(g => {
-            html += optionHtml(g, 0);
-            listaGruppi.filter(sg => sg.parent_id === g.id).forEach(sg => {
-                html += optionHtml(sg, 1);
-            });
+        listaGruppi.filter(g => !g.parent_id).forEach(g => {
+            html += renderGruppoRicorsivo(g, 0);
         });
 
         document.getElementById('listaSpostaGruppi').innerHTML = html;
@@ -1444,15 +1450,21 @@
             </label>`;
         };
 
+        // Rendering ricorsivo per qualsiasi profondita', escludendo il gruppo che stiamo spostando e i suoi discendenti
+        const renderGruppoEsclusi = (g, level) => {
+            let h = optHtml(g, level);
+            listaGruppi.filter(sg => sg.parent_id === g.id && !esclusi.has(sg.id)).forEach(sg => {
+                h += renderGruppoEsclusi(sg, level + 1);
+            });
+            return h;
+        };
+
         let html = `<label class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border-2 border-gray-100 hover:border-gray-300 transition">
             <input type="radio" name="sposta-gruppo" value="" class="w-4 h-4 accent-gray-500" checked>
             <span class="text-sm text-gray-500 font-medium">&#127968; Livello radice (nessun genitore)</span>
         </label>`;
         topGroups.forEach(g => {
-            html += optHtml(g, 0);
-            listaGruppi.filter(sg => sg.parent_id === g.id && !esclusi.has(sg.id)).forEach(sg => {
-                html += optHtml(sg, 1);
-            });
+            html += renderGruppoEsclusi(g, 0);
         });
 
         document.getElementById('listaSpostaGruppi').innerHTML = html;
