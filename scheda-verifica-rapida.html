@@ -11,6 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
     <style>
         @media print {
             .no-print { display: none !important; }
@@ -252,9 +255,16 @@
             </div>
             <div class="rounded-2xl border border-gray-200 bg-emerald-50/70 p-3">
                 <label class="block text-[11px] font-bold text-emerald-700 uppercase tracking-[0.16em] mb-2">Data verifica</label>
-                <input type="date" id="campoDataVerifica"
-                    class="w-full px-3 py-2.5 border border-emerald-200 bg-white rounded-xl text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none text-gray-800 no-print"
-                    onchange="autoSalva()">
+                <div class="relative">
+                    <input type="text" id="campoDataVerifica" placeholder="gg/mm/aaaa"
+                        class="w-full px-3 py-2.5 pr-10 border border-emerald-200 bg-white rounded-xl text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none text-gray-800 no-print"
+                        oninput="formattaDataInput(this); autoSalva()"
+                        onblur="normalizzaData(this); autoSalva()">
+                    <button type="button" onclick="document.getElementById('campoDataVerifica').focus(); if (window.flatpickr) flatpickr('#campoDataVerifica').open();" class="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-600 hover:text-emerald-700 transition">
+                        <i class="fas fa-calendar-alt text-sm"></i>
+                    </button>
+                </div>
+                <input type="hidden" id="campoDataVerificaIso">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printDataVerifica"></div>
             </div>
         </div>
@@ -369,6 +379,77 @@
         el.value = el.value.toUpperCase();
         el.setSelectionRange(s, e);
     }
+
+    let calendarioDataVerificaInstance = null;
+
+    function formattaDataInput(el) {
+        let v = String(el.value || '').replace(/[^0-9]/g, '').slice(0, 8);
+        if (v.length > 4) {
+            el.value = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+        } else if (v.length > 2) {
+            el.value = `${v.slice(0, 2)}/${v.slice(2)}`;
+        } else {
+            el.value = v;
+        }
+    }
+
+    function toISODate(value) {
+        if (!value) return '';
+        const match = String(value).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        if (match) {
+            const [, dd, mm, yyyy] = match;
+            const d = new Date(`${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00`);
+            if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+        }
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    }
+
+    function formatDateForDisplay(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        const date = new Date(`${y}-${m}-${d}T00:00:00`);
+        return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function initCalendarioDataVerifica() {
+        const input = document.getElementById('campoDataVerifica');
+        if (!input || !window.flatpickr) return;
+
+        calendarioDataVerificaInstance = flatpickr(input, {
+            locale: 'it',
+            dateFormat: 'd/m/Y',
+            allowInput: true,
+            clickOpens: true,
+            static: true,
+            onChange: (selectedDates) => {
+                const iso = selectedDates[0] ? selectedDates[0].toISOString().slice(0, 10) : '';
+                setDataVerificaValue(iso, true);
+            }
+        });
+    }
+
+    function setDataVerificaValue(iso, save = true) {
+        const input = document.getElementById('campoDataVerifica');
+        const hidden = document.getElementById('campoDataVerificaIso');
+        hidden.value = iso || '';
+        input.value = iso ? formatDateForDisplay(iso) : '';
+        if (calendarioDataVerificaInstance) {
+            calendarioDataVerificaInstance.setDate(iso ? new Date(`${iso}T00:00:00`) : null, false);
+        }
+        if (save) autoSalva();
+    }
+
+    function getDataVerificaISO() {
+        return document.getElementById('campoDataVerificaIso').value || '';
+    }
+
+    function normalizzaData(el) {
+        const iso = toISODate(el.value);
+        setDataVerificaValue(iso, false);
+    }
+
+    initCalendarioDataVerifica();
 
     // -- Supabase --------------------------------------------------
     const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
@@ -607,7 +688,7 @@
         righe = [];
         document.getElementById('campoLuogo').value = '';
         document.getElementById('campoQuadro').value = '';
-        document.getElementById('campoDataVerifica').value = '';
+        setDataVerificaValue('', false);
         document.getElementById('saveStatus').innerHTML = '';
         mostraView('viewScheda');
         caricaScheda();
@@ -619,7 +700,7 @@
         righe = [];
         document.getElementById('campoLuogo').value = '';
         document.getElementById('campoQuadro').value = '';
-        document.getElementById('campoDataVerifica').value = '';
+        setDataVerificaValue('', false);
         window.history.replaceState({}, '', window.location.pathname);
         document.getElementById('saveStatus').innerHTML = '';
         mostraView('viewScheda');
@@ -748,7 +829,7 @@
             if (error || !data) return false;
             document.getElementById('campoLuogo').value  = data.luogo  || '';
             document.getElementById('campoQuadro').value = data.quadro || '';
-            document.getElementById('campoDataVerifica').value = data.data_verifica || '';
+            setDataVerificaValue(data.data_verifica || '', false);
             righe = Array.isArray(data.righe) ? data.righe : [];
             aggiornaTitolo();
             renderRighe();
@@ -764,7 +845,7 @@
     function aggiornaTitolo() {
         document.getElementById('printLuogo').textContent  = document.getElementById('campoLuogo').value;
         document.getElementById('printQuadro').textContent = document.getElementById('campoQuadro').value;
-        const dataVal = document.getElementById('campoDataVerifica').value;
+        const dataVal = getDataVerificaISO();
         const printData = dataVal ? new Date(dataVal + 'T00:00:00').toLocaleDateString('it-IT') : '';
         document.getElementById('printDataVerifica').textContent = printData;
         document.getElementById('printData').textContent = printData || _dataOggi;
@@ -1597,7 +1678,7 @@
                 schede = [{
                     luogo:  document.getElementById('campoLuogo').value || '—',
                     quadro: document.getElementById('campoQuadro').value || '—',
-                    data_verifica: document.getElementById('campoDataVerifica').value || null,
+                    data_verifica: getDataVerificaISO() || null,
                     righe
                 }];
             } else {
