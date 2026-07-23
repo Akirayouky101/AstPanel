@@ -1958,21 +1958,20 @@
                     note: ordine.note_interne || null,
                 };
 
-                // Invia a tutti i destinatari principali + extra CC (uno per uno via dynamic-responder)
-                const tuttiDestinatari = [...new Set([...emailDests, ...(emailCC || [])])];
-                for (const emailDest of tuttiDestinatari) {
-                    const res = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                            'apikey': SUPABASE_ANON_KEY,
-                        },
-                        body: JSON.stringify({ ...payload, to: emailDest }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
-                }
+                // Invia UNA SOLA email: primo destinatario in TO, gli altri + lista CC in CC
+                const primaryTo = emailDests[0];
+                const ccAll = [...new Set([...emailDests.slice(1), ...(emailCC || [])])];
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                    },
+                    body: JSON.stringify({ ...payload, to: primaryTo, cc: ccAll }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
 
                 // Salva nel registro invii
                 const { data: { session: sess2 } } = await window.supabase.auth.getSession();
@@ -2034,14 +2033,29 @@
             const fmt = d => d ? new Date(d).toLocaleDateString('it-IT') : '—';
             const destList = Array.isArray(ordine.destinazioni) ? ordine.destinazioni : [];
 
-            const itemRow = i => `
+            const nomeProdottoMap = {};
+            (prodotti || []).forEach(p => {
+                if (p.id) nomeProdottoMap[p.id] = p.nome || p.descrizione || '';
+                if (p.codice) nomeProdottoMap[p.codice] = p.nome || p.descrizione || '';
+            });
+
+            const getNomeArticolo = i => {
+                const byId = i.prodotto_id ? nomeProdottoMap[i.prodotto_id] : '';
+                const byCode = i.codice ? nomeProdottoMap[i.codice] : '';
+                return (byId || byCode || i.descrizione || i.nome || '—').toString();
+            };
+
+            const itemRow = i => {
+                const nomeArticolo = getNomeArticolo(i).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `
                 <tr>
                     <td style="padding:7px 10px;font-family:monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb">${i.codice || '—'}</td>
-                    <td style="padding:7px 10px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb">${i.descrizione || '—'}</td>
+                    <td style="padding:7px 10px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb">${nomeArticolo}</td>
                     <td style="padding:7px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">${parseFloat(i.quantita_ordinata||0).toFixed(2)} ${i.um||'pz'}</td>
                     <td style="padding:7px 10px;text-align:right;font-size:13px;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.prezzo_acquisto||0).toFixed(2)}</td>
                     <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;border-bottom:1px solid #e5e7eb">€ ${parseFloat(i.importo||0).toFixed(2)}</td>
                 </tr>`;
+            };
 
             const destHeader = dest => `
                 <tr>
