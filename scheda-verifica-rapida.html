@@ -1739,14 +1739,19 @@
 
         // try load stamp/signature image (optional)
         let stampDataUrl = null; let stampImg = null;
-        try {
-            const r = await fetch('timbro_firma.jpg');
-            if (r.ok) {
+        const stampFiles = ['timbro_firma.jpg', 'timbro_firma.jpeg', 'timbro_firma.png', 'timbro.jpg', 'timbro.png'];
+        for (const stampFile of stampFiles) {
+            try {
+                const r = await fetch(stampFile);
+                if (!r.ok) continue;
                 const b = await r.blob();
                 stampDataUrl = await new Promise(res => { const r2 = new FileReader(); r2.onload = e => res(e.target.result); r2.readAsDataURL(b); });
                 stampImg = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = stampDataUrl; });
+                if (stampImg) break;
+            } catch(e) {
+                stampDataUrl = null; stampImg = null;
             }
-        } catch(e) { stampDataUrl = null; stampImg = null; }
+        }
 
         const dateStr = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
 
@@ -1862,7 +1867,8 @@
                 const sH = Math.round((stampImg.naturalHeight / stampImg.naturalWidth) * sW);
                 const pageH = doc.internal.pageSize.getHeight();
                 const yPos = pageH - 30 - sH; // keep some bottom margin
-                try { doc.addImage(stampDataUrl, 'JPEG', ML, yPos, sW, sH); } catch(e) { /* ignore image errors */ }
+                const stampFormat = stampDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+                try { doc.addImage(stampDataUrl, stampFormat, ML, yPos, sW, sH); } catch(e) { /* ignore image errors */ }
             }
         });
 
