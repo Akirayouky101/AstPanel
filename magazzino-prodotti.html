@@ -173,7 +173,7 @@
                 
                 <!-- Info Prodotto -->
                 <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                    <div class="font-bold text-lg" id="movimentoProdottoNome"></div>
+                    <div class="font-bold text-lg leading-snug break-words max-h-16 overflow-hidden" id="movimentoProdottoNome"></div>
                     <div class="text-sm text-gray-600" id="movimentoCodice"></div>
                     <div class="text-sm font-semibold mt-2">
                         Giacenza attuale: <span id="movimentoGiacenzaAttuale" class="text-blue-600">0</span> <span id="movimentoUM">pz</span>
@@ -2120,8 +2120,11 @@
             const prodotto = prodotti.find(p => p.id === prodottoId);
             if (!prodotto) return;
 
+            const nomeProdotto = (prodotto.nome || prodotto.descrizione || 'Prodotto').toString().trim();
+
             document.getElementById('movimentoProdottoId').value = prodottoId;
-            document.getElementById('movimentoProdottoNome').textContent = prodotto.descrizione;
+            document.getElementById('movimentoProdottoNome').textContent = nomeProdotto;
+            document.getElementById('movimentoProdottoNome').title = nomeProdotto;
             document.getElementById('movimentoCodice').textContent = prodotto.codice || prodotto.barcode || 'N/A';
             document.getElementById('movimentoGiacenzaAttuale').textContent = (prodotto.giacenza || 0).toFixed(2);
             document.getElementById('movimentoUM').textContent = prodotto.um || 'pz';
@@ -2184,7 +2187,8 @@
                 if (movError) throw movError;
 
                 const tipoLabel = tipoMovimentoSelezionato === 'carico' ? 'Carico' : 'Scarico';
-                showSuccessModal(`${tipoLabel} registrato!`, `${prodotto.descrizione}: ${quantita} ${prodotto.um || 'pz'}`);
+                const nomeMovimento = (prodotto.nome || prodotto.descrizione || 'Prodotto').toString().trim();
+                showSuccessModal(`${tipoLabel} registrato!`, `${nomeMovimento}: ${quantita} ${prodotto.um || 'pz'}`);
                 closeMovimentoModal();
                 await caricaProdotti();
 
