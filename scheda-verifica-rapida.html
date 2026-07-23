@@ -224,7 +224,7 @@
             <div style="display:flex; align-items:center; justify-content:space-between; gap:16pt;">
                 <img src="logo_zg.jpg" alt="ZG Impianti Srl" style="height:50pt; width:auto; object-fit:contain; display:block;">
                 <div style="flex:1; text-align:center; padding:0 12pt;">
-                    <div style="font-size:13pt; font-weight:900; letter-spacing:0.05em; color:#111;">SCHEDA VERIFICA RAPIDA</div>
+                    <div style="font-size:13pt; font-weight:900; letter-spacing:0.05em; color:#111;">SCHEDA VERIFICA</div>
                     <div style="font-size:8.5pt; color:#374151; margin-top:3pt; letter-spacing:0.04em;">COMPONENTI ELETTRICI &mdash; QUADRI ELETTRICI</div>
                 </div>
                 <div style="text-align:right; font-size:8pt; color:#374151; min-width:90pt;">
@@ -234,8 +234,8 @@
             </div>
         </div>
 
-        <!-- Header: Luogo + Quadro -->
-        <div class="grid grid-cols-2 gap-4">
+        <!-- Header: Luogo + Quadro + Data verifica -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Luogo</label>
                 <input type="text" id="campoLuogo" placeholder="ES: COMUNE DI CALUSO — SEDE MUNICIPALE"
@@ -249,6 +249,13 @@
                     class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none text-gray-800 no-print uppercase"
                     oninput="toUpper(this); aggiornaTitolo(); autoSalva()">
                 <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printQuadro"></div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Data verifica</label>
+                <input type="date" id="campoDataVerifica"
+                    class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none text-gray-800 no-print"
+                    onchange="autoSalva()">
+                <div class="hidden print-only font-bold text-gray-900 text-base border-b-2 border-gray-300 pb-1" id="printDataVerifica"></div>
             </div>
         </div>
 
@@ -600,6 +607,7 @@
         righe = [];
         document.getElementById('campoLuogo').value = '';
         document.getElementById('campoQuadro').value = '';
+        document.getElementById('campoDataVerifica').value = '';
         document.getElementById('saveStatus').innerHTML = '';
         mostraView('viewScheda');
         caricaScheda();
@@ -611,6 +619,7 @@
         righe = [];
         document.getElementById('campoLuogo').value = '';
         document.getElementById('campoQuadro').value = '';
+        document.getElementById('campoDataVerifica').value = '';
         window.history.replaceState({}, '', window.location.pathname);
         document.getElementById('saveStatus').innerHTML = '';
         mostraView('viewScheda');
@@ -697,6 +706,7 @@
             const payload = {
                 luogo:  document.getElementById('campoLuogo').value,
                 quadro: document.getElementById('campoQuadro').value,
+                data_verifica: document.getElementById('campoDataVerifica').value || null,
                 righe
             };
             if (schedaId) {
@@ -738,6 +748,7 @@
             if (error || !data) return false;
             document.getElementById('campoLuogo').value  = data.luogo  || '';
             document.getElementById('campoQuadro').value = data.quadro || '';
+            document.getElementById('campoDataVerifica').value = data.data_verifica || '';
             righe = Array.isArray(data.righe) ? data.righe : [];
             aggiornaTitolo();
             renderRighe();
@@ -753,6 +764,11 @@
     function aggiornaTitolo() {
         document.getElementById('printLuogo').textContent  = document.getElementById('campoLuogo').value;
         document.getElementById('printQuadro').textContent = document.getElementById('campoQuadro').value;
+        const dataVal = document.getElementById('campoDataVerifica').value;
+        const printData = dataVal ? new Date(dataVal + 'T00:00:00').toLocaleDateString('it-IT') : '';
+        document.getElementById('printDataVerifica').textContent = printData;
+        document.getElementById('printData').textContent = printData || _dataOggi;
+        document.getElementById('printDataHeader').textContent = printData ? 'Data: ' + printData : 'Data: ' + _dataOggi;
     }
 
     function aggiungiRiga(skipSave = false) {
@@ -896,8 +912,7 @@
 
     // Imposta data per stampa
     const _dataOggi = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
-    document.getElementById('printData').textContent = _dataOggi;
-    document.getElementById('printDataHeader').textContent = 'Data: ' + _dataOggi;
+    aggiornaTitolo();
 
     // Gestione stampa
     window.addEventListener('beforeprint', () => {
@@ -1582,6 +1597,7 @@
                 schede = [{
                     luogo:  document.getElementById('campoLuogo').value || '—',
                     quadro: document.getElementById('campoQuadro').value || '—',
+                    data_verifica: document.getElementById('campoDataVerifica').value || null,
                     righe
                 }];
             } else {
@@ -1654,13 +1670,12 @@
             if (logoDataUrl) doc.addImage(logoDataUrl, 'JPEG', ML, y - 2, 28, 17);
 
             doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5); doc.setTextColor(17, 17, 17);
-            doc.text('SCHEDA VERIFICA RAPIDA', 105, y + 5, { align: 'center' });
+            doc.text('ESITO VERIFICHE', 105, y + 5, { align: 'center' });
             doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(55, 65, 81);
             doc.text('COMPONENTI ELETTRICI -- QUADRI ELETTRICI', 105, y + 10.5, { align: 'center' });
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(17, 17, 17);
-            doc.text('ZG Impianti Srl', ML + W, y + 3, { align: 'right' });
             doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(55, 65, 81);
-            doc.text('Data: ' + dateStr, ML + W, y + 8.5, { align: 'right' });
+            const dataVerificaPdf = s.data_verifica ? new Date(s.data_verifica + 'T00:00:00').toLocaleDateString('it-IT') : dateStr;
+            doc.text('Data: ' + dataVerificaPdf, ML + W, y + 6, { align: 'right' });
 
             y += 20;
             doc.setDrawColor(...verdeScuro); doc.setLineWidth(0.8);

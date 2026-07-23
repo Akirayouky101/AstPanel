@@ -4,12 +4,13 @@
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS schede_verifica (
-    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    luogo      TEXT,
-    quadro     TEXT,
-    righe      JSONB       NOT NULL DEFAULT '[]'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    luogo          TEXT,
+    quadro         TEXT,
+    data_verifica  DATE,
+    righe          JSONB       NOT NULL DEFAULT '[]'::jsonb,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Aggiorna updated_at automaticamente ad ogni UPDATE
