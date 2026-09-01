@@ -104,6 +104,14 @@ const fmtD = d => {
     return day + '/' + m + '/' + y;
 };
 
+// Prima frase (fino al primo punto) oppure max 80 caratteri
+const descBreve = s => {
+    if (!s) return '\u2014';
+    const dot = s.indexOf('.');
+    const short = dot > 0 && dot < 80 ? s.slice(0, dot + 1) : s.slice(0, 80) + (s.length > 80 ? '\u2026' : '');
+    return short;
+};
+
 function setState(n) {
     document.querySelectorAll('.state').forEach(e => e.classList.remove('active'));
     document.getElementById('state' + n)?.classList.add('active');
@@ -127,7 +135,7 @@ function buildCard(o) {
         return `<tr>
             <td class="c" style="font-size:12px;color:#9ca3af">${idx + 1}</td>
             <td style="font-family:monospace;font-size:12px;color:#7c3aed">${it.codice || '\u2014'}</td>
-            <td style="font-weight:600;color:#111827">${it.descrizione || '\u2014'}${noteRiga}</td>
+            <td style="font-weight:600;color:#111827">${descBreve(it.descrizione)}${noteRiga}</td>
             <td class="c">${it.quantita ?? 0}</td>
             <td class="c">${it.um || 'pz'}</td>
             <td class="r">${fmtE(it.prezzo_unitario)}${sconto}</td>
@@ -166,7 +174,7 @@ function buildCard(o) {
             return `<tr>
                 <td class="c" style="font-size:12px;color:#9ca3af">${i + 1}</td>
                 <td style="font-family:monospace;font-size:12px;color:#7c3aed">${it.codice || '\u2014'}</td>
-                <td style="font-weight:600;color:#111827">${it.descrizione || '\u2014'}${noteRiga}</td>
+                <td style="font-weight:600;color:#111827">${descBreve(it.descrizione)}${noteRiga}</td>
                 <td class="c">${it.quantita ?? 0}</td>
                 <td class="c">${it.um || 'pz'}</td>
                 <td class="r">${fmtE(it.prezzo_unitario)}${sconto}</td>
