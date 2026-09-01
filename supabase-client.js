@@ -608,16 +608,35 @@ window.TasksAPI = {
         return data;
     },
 
-    // Update task
+    // Update task — scales warehouse components when transitioning to 'completato'
     async update(id, updates) {
+        let previousStato = null;
+        if (updates.stato === 'completato') {
+            const { data: prev } = await supabase
+                .from('tasks')
+                .select('stato')
+                .eq('id', id)
+                .single();
+            previousStato = prev?.stato;
+        }
+
         const { data, error } = await supabase
             .from('tasks')
             .update(updates)
             .eq('id', id)
             .select()
             .single();
-        
+
         if (error) throw error;
+
+        if (updates.stato === 'completato' && previousStato !== 'completato') {
+            try {
+                await this.deductComponentsOnCompletion(id);
+            } catch (e) {
+                console.error('Errore scalatura componenti dal magazzino:', e);
+            }
+        }
+
         return data;
     },
 
