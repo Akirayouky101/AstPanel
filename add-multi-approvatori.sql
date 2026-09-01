@@ -83,6 +83,7 @@ BEGIN
                     'items', (
                         SELECT COALESCE(json_agg(json_build_object(
                             'codice',            i.codice,
+                            'nome',              COALESCE(c.nome, i.descrizione),
                             'descrizione',       i.descrizione,
                             'quantita',          i.quantita,
                             'um',                i.um,
@@ -91,7 +92,9 @@ BEGIN
                             'importo',           i.importo,
                             'note',              i.note
                         ) ORDER BY i.posizione), '[]'::json)
-                        FROM ordini_interni_items i WHERE i.ordine_id = o.id
+                        FROM ordini_interni_items i
+                        LEFT JOIN components c ON c.id = i.prodotto_id
+                        WHERE i.ordine_id = o.id
                     )
                 ) ORDER BY o.created_at
             ), '[]'::json)
