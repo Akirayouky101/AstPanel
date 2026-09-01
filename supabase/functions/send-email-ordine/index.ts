@@ -181,12 +181,36 @@ function buildPreventivoHtml(p: Record<string, unknown>): string {
 
 // ── Richiesta Approvazione Ordine Interno ─────────────────────────────────────
 function buildApprovazioneHtml(p: Record<string, unknown>): string {
-  const { numero, oggetto, fornitore, totale, approvalUrl } = p as {
-    numero: string; oggetto: string; fornitore?: string; totale?: string; approvalUrl: string;
+  const { numero, oggetto, fornitore, totale, approvalUrl, articoli } = p as {
+    numero: string; oggetto: string; fornitore?: string; totale?: string;
+    approvalUrl: string;
+    articoli?: Array<{ codice?: string; descrizione: string; quantita: number; um?: string }>;
   };
   const totaleStr = totale
     ? `€ ${parseFloat(totale).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : '—';
+
+  const righeArticoli = (articoli ?? []).map(r => `
+    <tr style="border-bottom:1px solid #f3f0ff">
+      <td style="padding:7px 10px;font-size:12px;color:#7c3aed;font-family:monospace">${r.codice ?? '—'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:#111827">${r.descrizione ?? '—'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:#374151;text-align:center;white-space:nowrap">${r.quantita ?? 0} ${r.um ?? 'pz'}</td>
+    </tr>`).join('');
+
+  const tabellaArticoli = righeArticoli ? `
+    <h3 style="margin:0 0 10px;font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Articoli</h3>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid #ddd6fe;margin-bottom:28px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+            <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase">Cod.</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase">Descrizione</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:center;text-transform:uppercase">Q.tà</th>
+          </tr>
+        </thead>
+        <tbody>${righeArticoli}</tbody>
+      </table>
+    </div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -214,6 +238,7 @@ function buildApprovazioneHtml(p: Record<string, unknown>): string {
         <tr><td style="padding:8px 0;font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Totale</td><td style="padding:8px 0;font-size:16px;font-weight:700;color:#059669">${totaleStr}</td></tr>
       </table>
     </div>
+    ${tabellaArticoli}
     <div style="text-align:center;margin-bottom:28px">
       <a href="${approvalUrl}" style="display:inline-block;padding:16px 40px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;box-shadow:0 4px 14px rgba(124,58,237,0.4)">
         📋&nbsp;&nbsp;Gestisci Approvazione →
