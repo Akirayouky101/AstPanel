@@ -86,6 +86,7 @@ class ComponentMultiScanner {
 
             this.updateLists();
             this.updateStats();
+            this.renderInventory();
             this.startScanner();
         }
     }
@@ -217,10 +218,58 @@ class ComponentMultiScanner {
         inputEl.focus();
     }
 
+    renderInventory(searchTerm = '') {
+        const container = document.getElementById('componentInventoryList');
+        if (!container) return;
+
+        const search = searchTerm.trim().toLowerCase();
+        const components = this.allComponents.filter(component => !search ||
+            component.nome?.toLowerCase().includes(search) ||
+            component.codice?.toLowerCase().includes(search) ||
+            component.barcode?.toLowerCase().includes(search)
+        );
+
+        if (!components.length) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-10">Nessun componente trovato</p>';
+            return;
+        }
+
+        container.innerHTML = components.map(component => {
+            const selected = this.componentiTrovati.has(component.id);
+            const stock = component.giacenza ?? component.quantita_disponibile ?? 0;
+            return `
+                <button type="button" onclick="componentScanner.addFromInventory('${component.id}')"
+                        class="w-full text-left p-3 border rounded-lg transition ${selected ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-purple-300'}">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-gray-900 truncate">${component.nome}</p>
+                            <p class="text-xs text-gray-500">${component.codice || 'Senza codice'}${component.barcode ? ` · ${component.barcode}` : ''}</p>
+                        </div>
+                        <span class="text-sm font-semibold whitespace-nowrap ${stock > 0 ? 'text-green-700' : 'text-red-600'}">${stock} ${component.unita_misura || 'pz'}</span>
+                    </div>
+                </button>`;
+        }).join('');
+    }
+
+    addFromInventory(componentId) {
+        const component = this.allComponents.find(item => item.id === componentId);
+        if (!component) return;
+
+        if (this.componentiTrovati.has(componentId)) {
+            this.componentiTrovati.get(componentId).quantita++;
+        } else {
+            this.componentiTrovati.set(componentId, { component, quantita: 1 });
+        }
+        this.updateLists();
+        this.updateStats();
+    }
+
     // Aggiorna liste componenti
     updateLists() {
         this.updateListaTrovati();
         this.updateListaNonTrovati();
+        const searchInput = document.getElementById('componentInventorySearch');
+        this.renderInventory(searchInput?.value || '');
     }
 
     // Aggiorna lista componenti trovati

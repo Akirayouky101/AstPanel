@@ -1958,11 +1958,11 @@
                 const [hi, mi] = ingresso.split(':').map(Number);
                 const [hu, mu] = uscita.split(':').map(Number);
                 oreLavorate = (hu * 60 + mu - hi * 60 - mi) / 60;
+                // calcola durata pausa per salvarla, ma NON sottrarre dalle ore lavorate
                 if (pausaInizio && pausaFine) {
                     const [hp1, mp1] = pausaInizio.split(':').map(Number);
                     const [hp2, mp2] = pausaFine.split(':').map(Number);
                     pausaMinutiEffettivi = (hp2 * 60 + mp2) - (hp1 * 60 + mp1);
-                    oreLavorate -= pausaMinutiEffettivi / 60;
                 }
                 oreLavorate = Math.max(0, oreLavorate);
             }
@@ -1978,7 +1978,7 @@
                         ora_uscita: uscita || null,
                         pausa_inizio: pausaInizio || null,
                         pausa_fine: pausaFine || null,
-                        pausa_minuti: pausaMinutiEffettivi || null,
+                        pausa_minuti: (pausaInizio && pausaFine) ? pausaMinutiEffettivi : 0,
                         ore_lavorate: oreLavorate,
                         note: `[INSERIMENTO MANUALE ADMIN] ${motivo}${note ? ' | ' + note : ''}`,
                         stato: 'approved',
@@ -2075,7 +2075,7 @@
                 return;
             }
 
-            // Calcola ore lavorate
+            // Calcola ore lavorate (pausa tracciata separatamente, NON sottratta)
             let oreLavorate = 0;
             let newPausaMinuti = 0;
             if (newIngresso && newUscita) {
@@ -2083,12 +2083,11 @@
                 const uscitaMinutes = parseInt(newUscita.split(':')[0]) * 60 + parseInt(newUscita.split(':')[1]);
                 let totalMinutes = uscitaMinutes - ingressoMinutes;
 
-                // Sottrai pausa se presente
+                // calcola durata pausa per salvarla, ma NON sottrarre dalle ore lavorate
                 if (newPausaInizio && newPausaFine) {
                     const pausaInizioMinutes = parseInt(newPausaInizio.split(':')[0]) * 60 + parseInt(newPausaInizio.split(':')[1]);
                     const pausaFineMinutes = parseInt(newPausaFine.split(':')[0]) * 60 + parseInt(newPausaFine.split(':')[1]);
                     newPausaMinuti = pausaFineMinutes - pausaInizioMinutes;
-                    totalMinutes -= newPausaMinuti;
                 }
 
                 oreLavorate = totalMinutes / 60;
@@ -2198,7 +2197,7 @@
                         ora_uscita: newUscita || null,
                         pausa_inizio: newPausaInizio || null,
                         pausa_fine: newPausaFine || null,
-                        pausa_minuti: newPausaMinuti || null,
+                        pausa_minuti: (newPausaInizio && newPausaFine) ? newPausaMinuti : 0,
                         ore_lavorate: oreLavorate,
                         note: newNote || null,
                         updated_at: new Date().toISOString()

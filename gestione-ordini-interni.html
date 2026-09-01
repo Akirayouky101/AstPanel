@@ -1325,15 +1325,19 @@
                     cliente_nome_cache: item.cliente_nome_cache || ''
                 }));
 
-                // Ripristina sezioni cliente dai dati
-                const seenIds = new Set();
-                currentClients = [];
-                currentItems.forEach(it => {
-                    if (it.cliente_id && !seenIds.has(it.cliente_id)) {
-                        seenIds.add(it.cliente_id);
-                        currentClients.push({ id: it.cliente_id, nome: it.cliente_nome_cache || 'Cliente' });
-                    }
-                });
+                // Ripristina sezioni cliente: prima dalla colonna persistita, poi dagli item come fallback
+                if (Array.isArray(o.clienti_sezioni) && o.clienti_sezioni.length > 0) {
+                    currentClients = o.clienti_sezioni;
+                } else {
+                    const seenIds = new Set();
+                    currentClients = [];
+                    currentItems.forEach(it => {
+                        if (it.cliente_id && !seenIds.has(it.cliente_id)) {
+                            seenIds.add(it.cliente_id);
+                            currentClients.push({ id: it.cliente_id, nome: it.cliente_nome_cache || 'Cliente' });
+                        }
+                    });
+                }
 
                 renderArticoliTable();
                 calcolaTotali();
@@ -1896,6 +1900,7 @@
                     note_interne: document.getElementById('noteInterne').value || null,
                     chi_ha_ordinato: document.getElementById('chiHaOrdinato').value.trim() || null,
                     canale_ordine: document.getElementById('canaleOrdine').value || null,
+                    clienti_sezioni: currentClients.length > 0 ? currentClients : [],
                     sconto_percentuale: scontoPerc,
                     sconto_importo: scontoImporto,
                     iva_percentuale: ivaPerc,

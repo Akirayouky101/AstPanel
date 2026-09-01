@@ -578,12 +578,27 @@
         // Carica aziende
         async function loadAziende() {
             try {
-                const { data, error } = await window.supabase
+                const sb = window.supabase || window.supabaseClient;
+                if (!sb) throw new Error('Client Supabase non disponibile');
+
+                // Prova prima solo aziende attive; se non torna nulla o c'e' errore,
+                // fai fallback a tutte le aziende per non bloccare la selezione.
+                let { data, error } = await sb
                     .from('aziende')
                     .select('*')
                     .eq('attiva', true)
                     .order('nome');
-                if (error) throw error;
+
+                if (error || !data || data.length === 0) {
+                    if (error) console.warn('Filtro aziende attive non disponibile:', error.message || error);
+                    const fallback = await sb
+                        .from('aziende')
+                        .select('*')
+                        .order('nome');
+                    if (fallback.error) throw fallback.error;
+                    data = fallback.data || [];
+                }
+
                 aziende = data || [];
                 // Popola select nel modal
                 const sel = document.getElementById('aziendaId');

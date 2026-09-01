@@ -1867,7 +1867,7 @@ async function duplicateTask(taskId){
 
 <!-- ===== WIZARD INIT ===== -->
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
         // Override renderWizard: mostra il modal
         if (window.taskWizard) {
             window.taskWizard.renderWizard = async function() {
@@ -1891,10 +1891,12 @@ async function duplicateTask(taskId){
 
         // Inizializza ComponentMultiScanner se disponibile
         if (typeof ComponentMultiScanner !== 'undefined') {
-            window.componentScanner = new ComponentMultiScanner({
+            componentScanner = new ComponentMultiScanner({
                 modalId: 'componentMultiScannerModal',
                 supabaseClient: window.supabaseAdmin || window.supabaseClient
             });
+            window.componentScanner = componentScanner;
+            await componentScanner.initialize();
         }
 
         // Priority pills init
@@ -2116,6 +2118,61 @@ async function duplicateTask(taskId){
                     <button onclick="window.taskWizard.closeWizard()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Annulla</button>
                     <button id="wizard-next-btn" onclick="window.taskWizard.saveCurrentStepData(); window.taskWizard.nextStep();" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Avanti →</button>
                     <button id="wizard-submit-btn" onclick="window.taskWizard.submitWizard();" class="hidden px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">🎉 Crea Lavorazione</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ricerca e selezione componenti dal magazzino -->
+    <div id="componentMultiScannerModal" class="hidden fixed inset-0 bg-black/70 z-[60] items-center justify-center p-3">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden">
+            <input type="text" id="componentScannerFocusInput" class="absolute opacity-0 pointer-events-none" autocomplete="off">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Componenti dal magazzino</h3>
+                    <p class="text-sm text-purple-100">Cerca e seleziona i materiali necessari alla lavorazione</p>
+                </div>
+                <button type="button" onclick="componentScanner?.close()" class="p-2 text-white hover:bg-white/20 rounded-lg" aria-label="Chiudi">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 overflow-hidden flex-1 min-h-0">
+                <section class="flex flex-col min-h-[280px] min-w-0">
+                    <label for="componentInventorySearch" class="text-sm font-semibold text-gray-700 mb-2">Cerca nel magazzino</label>
+                    <div class="relative mb-3">
+                        <i data-lucide="search" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
+                        <input id="componentInventorySearch" type="search" placeholder="Nome, codice o barcode..."
+                               oninput="componentScanner?.renderInventory(this.value)"
+                               class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div id="componentInventoryList" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+                </section>
+
+                <section class="flex flex-col min-h-[280px] min-w-0 bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-100 border-b flex items-center justify-between">
+                        <h4 class="font-bold text-gray-800">Componenti selezionati</h4>
+                        <span id="componentCountTrovati" class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-bold text-sm">0</span>
+                    </div>
+                    <div id="componentListaTrovati" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+                </section>
+            </div>
+
+            <div class="hidden" aria-hidden="true">
+                <input id="componentManualSearchInput">
+                <div id="componentListaNonTrovati"></div>
+                <span id="componentCountNonTrovati">0</span>
+                <span id="componentTotalScansioni">0</span>
+                <span id="componentUnici">0</span>
+            </div>
+            <div class="px-5 py-4 border-t bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+                <div id="componentScannerStatus" class="px-3 py-2 rounded-lg text-sm bg-gray-200 text-gray-700">Magazzino caricato</div>
+                <div class="flex gap-2 ml-auto">
+                    <button type="button" onclick="componentScanner?.close()" class="px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100">Annulla</button>
+                    <button type="button" id="btnConfermaComponenti" onclick="componentScanner?.confirm()" disabled
+                            class="px-5 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Conferma selezione
+                    </button>
                 </div>
             </div>
         </div>
