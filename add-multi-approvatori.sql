@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS approvatori (
 ALTER TABLE approvatori ENABLE ROW LEVEL SECURITY;
 
 -- Solo admin/authenticated possono gestire la tabella
+DROP POLICY IF EXISTS "approvatori_admin_all" ON approvatori;
 CREATE POLICY "approvatori_admin_all" ON approvatori
     FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
