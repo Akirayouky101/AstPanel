@@ -1966,6 +1966,17 @@
                             const selezionati = await showApprovatoreSelector(approvatori, 'Invia per Approvazione');
 
                             if (selezionati && selezionati.length > 0) {
+                                const prodottoIds = [...new Set(currentItems.map(it => it.prodotto_id).filter(Boolean))];
+                                const nomeProdottoMap = {};
+                                if (prodottoIds.length > 0) {
+                                    const { data: prodotti, error: prodottiError } = await db
+                                        .from('components')
+                                        .select('id, nome')
+                                        .in('id', prodottoIds);
+                                    if (prodottiError) throw prodottiError;
+                                    (prodotti || []).forEach(prodotto => { nomeProdottoMap[prodotto.id] = prodotto.nome; });
+                                }
+
                                 await Promise.all(selezionati.map(a => {
                                     const approvalUrl = `https://ast-panel.vercel.app/Admin/approva-ordine.html?s=${a.token}`;
                                     return fetch(`${SUPABASE_URL}/functions/v1/send-email-ordine`, {
@@ -1984,9 +1995,9 @@
                                             approvalUrl,
                                             articoli: currentItems.slice(0, 15).map(it => ({
                                                 codice: it.codice || '',
-                                                descrizione: (it.descrizione || '').length > 60
-                                                    ? (it.descrizione || '').slice(0, 60) + '…'
-                                                    : (it.descrizione || '—'),
+                                                descrizione: ((it.prodotto_id && nomeProdottoMap[it.prodotto_id]) || it.descrizione || '—').length > 60
+                                                    ? ((it.prodotto_id && nomeProdottoMap[it.prodotto_id]) || it.descrizione || '—').slice(0, 60) + '…'
+                                                    : ((it.prodotto_id && nomeProdottoMap[it.prodotto_id]) || it.descrizione || '—'),
                                                 quantita: it.quantita,
                                                 um: it.um || 'pz'
                                             }))
@@ -2047,8 +2058,23 @@
             try {
                 const { data: o, error: e1 } = await db.from('ordini_interni').select('*').eq('id', id).single();
                 if (e1) throw e1;
-                const { data: items, error: e2 } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
+                let { data: items, error: e2 } = await db.from('ordini_interni_items').select('*').eq('ordine_id', id).order('posizione');
                 if (e2) throw e2;
+
+                const prodottoIds = [...new Set((items || []).map(item => item.prodotto_id).filter(Boolean))];
+                const nomeProdottoMap = {};
+                if (prodottoIds.length > 0) {
+                    const { data: prodotti, error: prodottiError } = await db
+                        .from('components')
+                        .select('id, nome')
+                        .in('id', prodottoIds);
+                    if (prodottiError) throw prodottiError;
+                    (prodotti || []).forEach(prodotto => { nomeProdottoMap[prodotto.id] = prodotto.nome; });
+                }
+                items = (items || []).map(item => ({
+                    ...item,
+                    nome_prodotto: (item.prodotto_id && nomeProdottoMap[item.prodotto_id]) || item.descrizione
+                }));
 
                 const tipoLabel = o.tipo === 'da_approvare' ? 'DA APPROVARE' : 'DA RATIFICARE';
                 const statoLabel = { bozza: 'BOZZA', in_attesa: 'IN ATTESA', approvato: 'APPROVATO/RATIFICATO', annullato: 'ANNULLATO' }[o.stato] || o.stato.toUpperCase();
@@ -2056,7 +2082,7 @@
                 const righe = (items || []).map(i => `
                     <tr>
                         <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;font-size:12px">${i.codice || '—'}</td>
-                        <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;font-size:12px">${i.descrizione}</td>
+                        <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;font-size:12px">${i.nome_prodotto}</td>
                         <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;text-align:center;font-size:12px">${i.quantita} ${i.um || 'pz'}</td>
                         <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-size:12px">€ ${parseFloat(i.prezzo_unitario).toFixed(2)}</td>
                         <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-size:12px;font-weight:700">€ ${parseFloat(i.importo).toFixed(2)}</td>

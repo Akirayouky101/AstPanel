@@ -204,7 +204,7 @@ function buildApprovazioneHtml(p: Record<string, unknown>): string {
         <thead>
           <tr style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
             <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase">Cod.</th>
-            <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase">Descrizione</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase">Prodotto</th>
             <th style="padding:8px 10px;font-size:11px;font-weight:700;color:#fff;text-align:center;text-transform:uppercase">Q.tà</th>
           </tr>
         </thead>
