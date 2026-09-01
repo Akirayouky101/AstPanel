@@ -84,7 +84,7 @@ BEGIN
                     'items', (
                         SELECT COALESCE(json_agg(json_build_object(
                             'codice',            i.codice,
-                            'nome',              COALESCE(c.nome, i.descrizione),
+                            'nome',              COALESCE(c.nome, LEFT(i.descrizione, 80)),
                             'descrizione',       i.descrizione,
                             'quantita',          i.quantita,
                             'um',                i.um,
