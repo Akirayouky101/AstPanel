@@ -1977,9 +1977,9 @@
                                     (prodotti || []).forEach(prodotto => { nomeProdottoMap[prodotto.id] = prodotto.nome; });
                                 }
 
-                                await Promise.all(selezionati.map(a => {
+                                await Promise.all(selezionati.map(async a => {
                                     const approvalUrl = `https://ast-panel.vercel.app/Admin/approva-ordine.html?s=${a.token}`;
-                                    return fetch('https://uchrjlngfzfibcpdxtky.supabase.co/functions/v1/send-email-ordine', {
+                                    const response = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -2003,6 +2003,10 @@
                                             }))
                                         })
                                     });
+                                    if (!response.ok) {
+                                        const result = await response.json().catch(() => ({}));
+                                        throw new Error(result.error || `Invio email non riuscito (${response.status})`);
+                                    }
                                 }));
                                 showToast(`✅ Email di approvazione inviata a ${selezionati.length} approvatore/i`, 'success');
                             } else {
