@@ -662,11 +662,18 @@ function handleDashScan(val){
 async function searchProdottoDashboard(val, clearFn){
     const db=window.supabaseClient;
     if(!db)return;
-    // cerca per barcode esatto, poi per codice esatto (case-insensitive)
+    // cerca per barcode principale, secondario, poi per codice esatto
     let prodotto=null;
     try{
         const {data:byBarcode}=await db.from('components').select('*, fornitori!components_fornitore_id_fkey(ragione_sociale)').eq('barcode',val).eq('stato','attivo').maybeSingle();
         if(byBarcode) prodotto=byBarcode;
+        if(!prodotto){
+            const {data:alias}=await db.from('component_barcodes').select('component_id').ilike('barcode',val).maybeSingle();
+            if(alias){
+                const {data:byAlias}=await db.from('components').select('*, fornitori!components_fornitore_id_fkey(ragione_sociale)').eq('id',alias.component_id).eq('stato','attivo').maybeSingle();
+                if(byAlias) prodotto=byAlias;
+            }
+        }
         if(!prodotto){
             const {data:byCodice}=await db.from('components').select('*, fornitori!components_fornitore_id_fkey(ragione_sociale)').ilike('codice',val).eq('stato','attivo').maybeSingle();
             if(byCodice) prodotto=byCodice;

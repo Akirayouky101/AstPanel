@@ -258,13 +258,16 @@
                         </div>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN *</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN principale</label>
                         <div class="flex space-x-2">
                             <input type="text" id="nuovoBarcode" class="flex-1 px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="Scansiona o inserisci manualmente">
                             <button onclick="scanBarcode()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
                                 <i class="fas fa-barcode"></i>
                             </button>
                         </div>
+                        <label class="block text-sm font-bold text-gray-700 mt-3 mb-2">Codici a barre secondari</label>
+                        <textarea id="nuoviBarcodeSecondari" rows="2" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono no-uppercase" placeholder="Uno per riga o separati da virgola"></textarea>
+                        <p class="text-xs text-gray-400 mt-1">Per confezioni diverse dello stesso prodotto</p>
                         <!-- Seriale -->
                         <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
                             <input type="checkbox" id="nuovoHaSeriale" class="w-4 h-4 accent-purple-600 cursor-pointer">
@@ -418,8 +421,11 @@
                         </div>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN *</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN principale</label>
                         <input type="text" id="modificaBarcode" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-sm font-bold text-gray-700 mt-3 mb-2">Codici a barre secondari</label>
+                        <textarea id="modificaBarcodeSecondari" rows="2" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono no-uppercase" placeholder="Uno per riga o separati da virgola"></textarea>
+                        <p class="text-xs text-gray-400 mt-1">Per confezioni diverse dello stesso prodotto</p>
                         <!-- Seriale -->
                         <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
                             <input type="checkbox" id="modificaHaSeriale" class="w-4 h-4 accent-indigo-600 cursor-pointer">
@@ -1191,6 +1197,8 @@
                     toggleScanner();
                 } else if (params.get('action') === 'new') {
                     showNuovoProdotto();
+                } else if (params.get('editProduct')) {
+                    apriModificaProdotto(params.get('editProduct'));
                 }
             } catch (error) {
                 console.error('Errore init:', error);
@@ -1403,6 +1411,22 @@
                 
                 if (compError) throw compError;
 
+                const { data: barcodeData, error: barcodeError } = await supabase
+                    .from('component_barcodes')
+                    .select('component_id, barcode');
+
+                if (barcodeError) throw new Error(`Codici secondari non disponibili: ${barcodeError.message}. Esegui add-barcode-secondari-prodotti.sql`);
+
+                const barcodePerProdotto = (barcodeData || []).reduce((result, item) => {
+                    if (!result[item.component_id]) result[item.component_id] = [];
+                    result[item.component_id].push(item.barcode);
+                    return result;
+                }, {});
+
+                (componentsData || []).forEach(component => {
+                    component.barcodes_secondari = barcodePerProdotto[component.id] || [];
+                });
+
                 // Poi carica giacenze complete con impegni
                 const { data: giacenzeData, error: giacError } = await supabase
                     .from('v_giacenze_complete')
@@ -1506,7 +1530,8 @@
                     p.nome?.toLowerCase().includes(search) ||
                     p.descrizione?.toLowerCase().includes(search) ||
                     p.codice?.toLowerCase().includes(search) ||
-                    p.barcode?.toLowerCase().includes(search);
+                    p.barcode?.toLowerCase().includes(search) ||
+                    p.barcodes_secondari?.some(barcode => barcode.toLowerCase().includes(search));
                 
                 if (!matchSearch) return false;
 
@@ -1687,7 +1712,8 @@
                     p.nome?.toLowerCase().includes(search) ||
                     p.descrizione?.toLowerCase().includes(search) ||
                     p.codice?.toLowerCase().includes(search) ||
-                    p.barcode?.toLowerCase().includes(search);
+                    p.barcode?.toLowerCase().includes(search) ||
+                    p.barcodes_secondari?.some(barcode => barcode.toLowerCase().includes(search));
                 if (!matchSearch) return false;
                 const giacenza = p.giacenza_libera || 0;
                 const min = p.giacenza_minima || 0;
@@ -2106,7 +2132,11 @@
 
         // Cerca prodotto per barcode
         function cercaProdottoPerBarcode(barcode) {
-            const prodotto = prodotti.find(p => p.barcode === barcode);
+            const codiceScansionato = barcode.trim().toLowerCase();
+            const prodotto = prodotti.find(p =>
+                p.barcode?.trim().toLowerCase() === codiceScansionato ||
+                p.barcodes_secondari?.some(codice => codice.trim().toLowerCase() === codiceScansionato)
+            );
             
             if (prodotto) {
                 apriMovimento(prodotto.id, 'carico');
@@ -2206,6 +2236,7 @@
         // Reset completo form nuovo prodotto
         function resetNuovoProdottoForm() {
             document.getElementById('nuovoBarcode').value = '';
+            document.getElementById('nuoviBarcodeSecondari').value = '';
             document.getElementById('nuovoNome').value = '';
             document.getElementById('nuovoDescrizione').value = '';
             document.getElementById('nuovoCodice').value = '';
@@ -2283,11 +2314,18 @@
         // Salva nuovo prodotto
         async function salvaNuovoProdotto() {
             const barcode = document.getElementById('nuovoBarcode').value.trim();
+            const barcodeSecondari = leggiBarcodeSecondari('nuoviBarcodeSecondari', barcode);
             const nome = document.getElementById('nuovoNome').value.trim();
             const descrizione = document.getElementById('nuovoDescrizione').value.trim();
 
             if (!nome) {
                 showErrorModal('Campo obbligatorio', 'Il Nome Prodotto è obbligatorio');
+                return;
+            }
+
+            const barcodeDuplicato = trovaBarcodeGiaUsato(barcode, barcodeSecondari);
+            if (barcodeDuplicato) {
+                showErrorModal('Barcode già utilizzato', `Il codice ${barcodeDuplicato} appartiene già a un altro prodotto`);
                 return;
             }
 
@@ -2323,11 +2361,22 @@
                     ha_seriale: document.getElementById('nuovoHaSeriale').checked
                 };
 
-                const { error } = await supabase
+                const { data: prodottoCreato, error } = await supabase
                     .from('components')
-                    .insert(nuovoProdotto);
+                    .insert(nuovoProdotto)
+                    .select('id')
+                    .single();
 
                 if (error) throw error;
+
+                const { error: barcodeError } = await supabase.rpc('set_component_secondary_barcodes', {
+                    p_component_id: prodottoCreato.id,
+                    p_barcodes: barcodeSecondari
+                });
+                if (barcodeError) {
+                    await supabase.from('components').delete().eq('id', prodottoCreato.id);
+                    throw barcodeError;
+                }
 
                 // Mostra modal successo
                 showSuccessModal('Prodotto creato con successo!', `${nome} è stato aggiunto al magazzino`);
@@ -2362,6 +2411,33 @@
         // ========================================
         // MODIFICA PRODOTTO
         // ========================================
+        function leggiBarcodeSecondari(elementId, barcodePrincipale = '') {
+            const principale = barcodePrincipale.trim().toLowerCase();
+            const unici = new Map();
+            document.getElementById(elementId).value
+                .split(/[\n,;]+/)
+                .map(value => value.trim())
+                .filter(value => value && value.toLowerCase() !== principale)
+                .forEach(value => unici.set(value.toLowerCase(), value));
+            return [...unici.values()];
+        }
+
+        function trovaBarcodeGiaUsato(barcodePrincipale, barcodeSecondari, prodottoIdEscluso = null) {
+            const codiciInseriti = new Set(
+                [barcodePrincipale, ...barcodeSecondari]
+                    .map(value => value.trim().toLowerCase())
+                    .filter(Boolean)
+            );
+
+            for (const prodotto of prodotti) {
+                if (prodotto.id === prodottoIdEscluso) continue;
+                const codiciProdotto = [prodotto.barcode, ...(prodotto.barcodes_secondari || [])];
+                const duplicato = codiciProdotto.find(value => value && codiciInseriti.has(value.trim().toLowerCase()));
+                if (duplicato) return duplicato;
+            }
+            return null;
+        }
+
         function apriModificaProdotto(prodottoId) {
             const prodotto = prodotti.find(p => p.id === prodottoId);
             if (!prodotto) return;
@@ -2369,6 +2445,7 @@
             // Precompila tutti i campi
             document.getElementById('modificaId').value = prodotto.id;
             document.getElementById('modificaBarcode').value = prodotto.barcode || '';
+            document.getElementById('modificaBarcodeSecondari').value = (prodotto.barcodes_secondari || []).join('\n');
             document.getElementById('modificaNome').value = prodotto.nome || '';
             document.getElementById('modificaDescrizione').value = prodotto.descrizione || prodotto.nome || '';
             document.getElementById('modificaCodice').value = prodotto.codice || '';
@@ -2427,11 +2504,18 @@
         async function salvaModificaProdotto() {
             const prodottoId = document.getElementById('modificaId').value;
             const barcode = document.getElementById('modificaBarcode').value.trim();
+            const barcodeSecondari = leggiBarcodeSecondari('modificaBarcodeSecondari', barcode);
             const nome = document.getElementById('modificaNome').value.trim();
             const descrizione = document.getElementById('modificaDescrizione').value.trim();
 
             if (!nome) {
                 showErrorModal('Campo obbligatorio', 'Il Nome Prodotto è obbligatorio');
+                return;
+            }
+
+            const barcodeDuplicato = trovaBarcodeGiaUsato(barcode, barcodeSecondari, prodottoId);
+            if (barcodeDuplicato) {
+                showErrorModal('Barcode già utilizzato', `Il codice ${barcodeDuplicato} appartiene già a un altro prodotto`);
                 return;
             }
 
@@ -2468,6 +2552,12 @@
                     .eq('id', prodottoId);
 
                 if (error) throw error;
+
+                const { error: barcodeError } = await supabase.rpc('set_component_secondary_barcodes', {
+                    p_component_id: prodottoId,
+                    p_barcodes: barcodeSecondari
+                });
+                if (barcodeError) throw barcodeError;
 
                 showSuccessModal('Prodotto aggiornato!', `${descrizione} è stato modificato con successo`);
                 closeModificaProdottoModal();

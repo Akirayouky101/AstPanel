@@ -820,7 +820,7 @@
             <div style="padding:16px 20px">
                 <div style="position:relative;margin-bottom:14px">
                     <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px"></i>
-                    <input type="text" id="searchMagazzino" oninput="renderMagazzinoList()" placeholder="Cerca per codice, descrizione, categoria..."
+                    <input type="text" id="searchMagazzino" oninput="renderMagazzinoList()" placeholder="Cerca per codice, barcode, descrizione, categoria..."
                            style="width:100%;padding:11px 14px 11px 36px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box">
                 </div>
                 <div id="magazzinoList" style="max-height:420px;overflow-y:auto;border:1px solid #f3f4f6;border-radius:12px"></div>
@@ -1014,6 +1014,20 @@
                 const { data, error } = await db.from('components').select('*').order('codice');
                 if (error) throw error;
                 prodotti = data || [];
+
+                const { data: barcodeData, error: barcodeError } = await db
+                    .from('component_barcodes')
+                    .select('component_id, barcode');
+                if (barcodeError) throw barcodeError;
+
+                const barcodePerProdotto = (barcodeData || []).reduce((result, item) => {
+                    if (!result[item.component_id]) result[item.component_id] = [];
+                    result[item.component_id].push(item.barcode);
+                    return result;
+                }, {});
+                prodotti.forEach(prodotto => {
+                    prodotto.barcodes_secondari = barcodePerProdotto[prodotto.id] || [];
+                });
             } catch (err) {
                 console.warn('Prodotti non caricati:', err.message);
                 prodotti = [];
@@ -1373,7 +1387,9 @@
                 : `<tr style="${rowStyle}">
                     <td style="${cellPad}color:#6b7280;font-size:12px">${i+1}</td>
                     <td style="${cellPad}font-size:13px">${it.codice?`<span style="font-size:10px;color:#9ca3af;display:block">${it.codice}</span>`:''}
-                        ${it.descrizione_stampa || it.descrizione}</td>
+                        ${it.prodotto_id
+                            ? `<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(it.prodotto_id)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" style="color:#2563eb;font-weight:600;text-decoration:none">${it.descrizione_stampa || it.descrizione} <i class="fas fa-external-link-alt" style="font-size:10px"></i></a>`
+                            : it.descrizione_stampa || it.descrizione}</td>
                     <td style="${cellPad}text-align:center;font-size:12px">${it.um||'pz'}</td>
                     <td style="${cellPad}text-align:center;font-size:12px">${it.quantita}</td>
                     <td style="${cellPad}text-align:right;font-size:12px">${fmt(it.prezzo_unitario)}</td>
@@ -2255,7 +2271,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                         </td>
                         <td style="padding:6px 6px;vertical-align:middle">
                             <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
-                            ${item.prodotto_id?`<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>`:''}
+                            ${item.prodotto_id?`<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(item.prodotto_id)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#2563eb;margin-top:3px;text-decoration:none;font-weight:600"><i class="fas fa-external-link-alt"></i> Apri prodotto</a>`:''}
                         </td>
                         <td style="padding:6px 6px;vertical-align:middle;width:62px">
                             <input type="text" value="${item.um||'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
@@ -2334,7 +2350,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                 </td>
                 <td style="padding:6px 6px;vertical-align:middle">
                     <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
-                    ${item.prodotto_id?`<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>`:''}
+                    ${item.prodotto_id?`<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(item.prodotto_id)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#2563eb;margin-top:3px;text-decoration:none;font-weight:600"><i class="fas fa-external-link-alt"></i> Apri prodotto</a>`:''}
                 </td>
                 <td style="padding:6px 6px;vertical-align:middle;width:62px">
                     <input type="text" value="${item.um||'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
@@ -2437,7 +2453,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle">
                         <input type="text" value="${item.descrizione}" placeholder="Descrizione articolo" onchange="currentItems[${i}].descrizione=this.value" ${focus} style="${inp}">
-                        ${item.prodotto_id?`<div style="font-size:10px;color:#9ca3af;margin-top:2px"><i class="fas fa-warehouse"></i> Dal magazzino</div>`:''}
+                        ${item.prodotto_id?`<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(item.prodotto_id)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#2563eb;margin-top:3px;text-decoration:none;font-weight:600"><i class="fas fa-external-link-alt"></i> Apri prodotto</a>`:''}
                     </td>
                     <td style="padding:6px 6px;vertical-align:middle;width:62px">
                         <input type="text" value="${item.um||'pz'}" placeholder="pz" onchange="currentItems[${i}].um=this.value" ${focus} style="${inp};text-align:center">
@@ -2588,21 +2604,27 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         }
 
         function renderMagazzinoList() {
-            const q = document.getElementById('searchMagazzino').value.toLowerCase();
+            const q = document.getElementById('searchMagazzino').value.toLowerCase().trim();
             const fornId = document.getElementById('fornitoreId').value;
+
+            const matchesSearch = p => !q ||
+                p.codice?.toLowerCase().includes(q) ||
+                p.barcode?.toLowerCase().includes(q) ||
+                p.barcodes_secondari?.some(barcode => barcode.toLowerCase().includes(q)) ||
+                p.nome?.toLowerCase().includes(q) ||
+                p.descrizione?.toLowerCase().includes(q) ||
+                p.categoria?.toLowerCase().includes(q);
 
             let filtered;
             if (magazzinoPickerMode === 'fornitore' && fornId) {
                 // Solo prodotti del fornitore selezionato
                 filtered = prodotti.filter(p =>
                     p.fornitore_id === fornId &&
-                    (!q || p.codice?.toLowerCase().includes(q) || p.descrizione?.toLowerCase().includes(q))
+                    matchesSearch(p)
                 );
             } else {
                 // Tutti i prodotti (senza filtro fornitore)
-                filtered = prodotti.filter(p =>
-                    !q || p.codice?.toLowerCase().includes(q) || p.descrizione?.toLowerCase().includes(q) || p.categoria?.toLowerCase().includes(q)
-                );
+                filtered = prodotti.filter(matchesSearch);
             }
 
             const container = document.getElementById('magazzinoList');

@@ -1204,10 +1204,13 @@
                 return;
             }
 
+            const getProdottoId = item => item.prodotto_id || prodotti.find(prodotto => prodotto.codice === item.codice)?.id;
             tbody.innerHTML = currentItems.map((item, index) => `
                 <tr>
                     <td class="px-4 py-2 text-sm">${item.codice}</td>
-                    <td class="px-4 py-2 text-sm">${item._nomeBreve || item.descrizione}</td>
+                    <td class="px-4 py-2 text-sm">${getProdottoId(item)
+                        ? `<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(getProdottoId(item))}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline">${item._nomeBreve || item.descrizione} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>`
+                        : item._nomeBreve || item.descrizione}</td>
                     <td class="px-4 py-2 text-sm">${item.um}</td>
                     <td class="px-4 py-2">
                         <input type="number" value="${item.quantita_ordinata}" min="0.01" step="0.01"
@@ -1527,6 +1530,17 @@
                 }
                 const itemsToUse = allItems;
 
+                const prodottoIds = [...new Set(itemsToUse.map(item => item.prodotto_id).filter(Boolean))];
+                let barcodeSecondari = [];
+                if (prodottoIds.length > 0) {
+                    const { data: aliases, error: aliasesError } = await window.supabase
+                        .from('component_barcodes')
+                        .select('component_id, barcode')
+                        .in('component_id', prodottoIds);
+                    if (aliasesError) throw aliasesError;
+                    barcodeSecondari = aliases || [];
+                }
+
                 if (!itemsToUse || itemsToUse.length === 0) {
                     alert('Tutti gli articoli sono già stati ricevuti');
                     return;
@@ -1542,6 +1556,7 @@
                     const totOrd = parseFloat(item.quantita_ordinata||0);
                     const giàRic = parseFloat(item.quantita_ricevuta||0);
                     const um = item.um || 'pz';
+                    const prodottoId = item.prodotto_id || prodotti.find(prodotto => prodotto.codice === item.codice)?.id;
                     const itemBarcode = item.components?.barcode || '';
                     const haSeriale = item.components?.ha_seriale || false;
                     // Carica seriali salvati in _serialiMap
@@ -1557,7 +1572,9 @@
                          data-haseriale="${haSeriale}">
                         <div class="flex items-center gap-3">
                             <div class="flex-1 min-w-0">
-                                <p class="font-bold text-gray-900 text-sm truncate">${item.descrizione||''}</p>
+                                ${prodottoId
+                                    ? `<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(prodottoId)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" class="block font-bold text-blue-600 hover:text-blue-800 hover:underline text-sm truncate">${item.descrizione||''} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>`
+                                    : `<p class="font-bold text-gray-900 text-sm truncate">${item.descrizione||''}</p>`}
                                 ${item.codice ? `<p class="text-xs text-gray-400 font-mono">${item.codice}</p>` : ''}
                                 ${itemBarcode ? `<p class="text-xs text-gray-400 font-mono"><i class="fas fa-barcode mr-1"></i>${itemBarcode}</p>` : ''}
                                 ${haSeriale ? `<p class="text-xs font-semibold text-indigo-600 mt-0.5"><i class="fas fa-hashtag mr-1"></i>Seriale richiesto</p>` : ''}
@@ -1594,6 +1611,12 @@
 
                 _updateTabBadges();
                 buildBarcodeMap();
+                const itemPerProdotto = new Map(itemsToUse.map(item => [item.prodotto_id, item.id]));
+                barcodeSecondari.forEach(alias => {
+                    const itemId = itemPerProdotto.get(alias.component_id);
+                    const barcode = alias.barcode?.trim().toLowerCase();
+                    if (itemId && barcode) _barcodeItemsMap[barcode] = itemId;
+                });
                 // Posiziona ogni item nella colonna corretta in base allo stato salvato
                 itemsToUse.forEach(item => {
                     const totOrd = parseFloat(item.quantita_ordinata || 0);
@@ -1968,7 +1991,7 @@
                         'Authorization': `Bearer ${token}`,
                         'apikey': SUPABASE_ANON_KEY,
                     },
-                    body: JSON.stringify({ ...payload, to: primaryTo, cc: ccAll }),
+                    body: JSON.stringify({ ...payload, to: primaryTo, ...(ccAll.length ? { cc: ccAll } : {}) }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
@@ -1982,7 +2005,7 @@
                     ordine_id: id,
                     ordine_numero: ordine.numero,
                     destinatari: emailDests,
-                    cc: emailCC?.length ? emailCC.join(', ') : null,
+                    cc: ccAll.length ? ccAll.join(', ') : null,
                     inviato_da: sess2?.user?.id || null,
                     inviato_da_nome: nomeUtente,
                 });
@@ -2290,6 +2313,7 @@
             const rCodici  = [...new Set(items.filter(p => !p.prodotto_id && p.codice).map(p => p.codice))];
             const rNomeMap = {};
             const rCodiceMap = {};
+            const rCodiceIdMap = {};
             if (rProdIds.length > 0) {
                 const { data: rComps } = await window.supabase
                     .from('components').select('id, nome').in('id', rProdIds);
@@ -2297,8 +2321,11 @@
             }
             if (rCodici.length > 0) {
                 const { data: rByCode } = await window.supabase
-                    .from('components').select('codice, nome').in('codice', rCodici);
-                (rByCode||[]).forEach(c => { rCodiceMap[c.codice] = c.nome; });
+                    .from('components').select('id, codice, nome').in('codice', rCodici);
+                (rByCode||[]).forEach(c => {
+                    rCodiceMap[c.codice] = c.nome;
+                    rCodiceIdMap[c.codice] = c.id;
+                });
             }
 
             // Render articoli raggruppati per set/destinazione (se presenti)
@@ -2306,6 +2333,8 @@
 
             const itemRowOdf = item => {
                 const seriali = Array.isArray(item.seriali) ? item.seriali : [];
+                const prodottoId = item.prodotto_id || rCodiceIdMap[item.codice];
+                const prodottoNome = (item.prodotto_id && rNomeMap[item.prodotto_id]) || (item.codice && rCodiceMap[item.codice]) || item.descrizione || '-';
                 const serialiHtml = seriali.length
                     ? `<div class="mt-1 flex flex-wrap gap-1">${seriali.map(s=>`<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono text-xs">${s}</span>`).join('')}</div>`
                     : '';
@@ -2313,7 +2342,9 @@
                 <tr class="hover:bg-gray-50 group">
                     <td class="px-4 py-3 font-mono text-xs text-gray-600">${item.codice || '-'}</td>
                     <td class="px-4 py-3 text-gray-800">
-                        <div>${(item.prodotto_id && rNomeMap[item.prodotto_id]) || (item.codice && rCodiceMap[item.codice]) || item.descrizione || '-'}</div>
+                        <div>${prodottoId
+                            ? `<a href="/magazzino-prodotti.html?editProduct=${encodeURIComponent(prodottoId)}" target="_blank" rel="noopener" title="Apri e modifica il prodotto" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline">${prodottoNome} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>`
+                            : prodottoNome}</div>
                         ${serialiHtml}
                     </td>
                     <td class="px-4 py-3 text-right text-gray-700">${parseFloat(item.quantita_ordinata || 0).toFixed(2)} ${item.um || ''}</td>
