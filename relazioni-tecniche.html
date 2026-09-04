@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relazioni Tecniche - AST Panel</title>
+    <link rel="icon" href="logo_zg.jpg" type="image/jpeg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        :root { --ink: #172554; --accent: #0369a1; --paper: #f8fafc; }
+        body { font-family: "Avenir Next", "Segoe UI", sans-serif; }
+        .view { display: none; }
+        .view.active { display: block; }
+        .field { width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: .65rem .75rem; background: white; outline: none; }
+        .field:focus { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
+        .label { display: block; margin-bottom: .35rem; color: #475569; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
+        .doc-grid { background-image: linear-gradient(rgba(3,105,161,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(3,105,161,.035) 1px, transparent 1px); background-size: 24px 24px; }
+        @media print {
+            @page { size: A4 portrait; margin: 14mm; }
+            .no-print, #listaView { display: none !important; }
+            #editorView { display: block !important; }
+            body, .doc-grid { background: white !important; }
+            #documento { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; }
+            .field { border: 0 !important; padding: 0 !important; box-shadow: none !important; appearance: none; }
+            textarea.field { resize: none; overflow: visible; }
+            .print-border { border-bottom: 1px solid #94a3b8 !important; padding-bottom: 5px !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+    <section id="listaView" class="view active">
+        <header class="bg-[#172554] text-white border-b-4 border-sky-600">
+            <div class="max-w-7xl mx-auto px-5 py-5 flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-4">
+                    <a href="admin-functional.html" class="p-2 hover:bg-white/10 rounded-md" title="Dashboard"><i data-lucide="arrow-left"></i></a>
+                    <div>
+                        <h1 class="text-xl font-bold">Relazioni Tecniche</h1>
+                        <p class="text-sky-200 text-sm">Schede di lavorazione e dichiarazioni di intervento</p>
+                    </div>
+                </div>
+                <button onclick="nuovaRelazione()" class="bg-sky-600 hover:bg-sky-500 px-4 py-2.5 rounded-md font-bold flex items-center gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i> Nuova relazione
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-5 py-7">
+            <div class="flex flex-col md:flex-row gap-3 mb-6">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                    <input id="ricerca" oninput="renderLista()" class="field pl-10" placeholder="Cerca cliente, oggetto, luogo o numero...">
+                </div>
+                <select id="filtroTipo" onchange="renderLista()" class="field md:w-64" aria-label="Filtra per tipo di documento">
+                    <option value="">Tutti i documenti</option>
+                    <option value="relazione_lavorazione">Relazioni di lavorazione</option>
+                    <option value="dichiarazione_tecnica">Dichiarazioni tecniche</option>
+                </select>
+            </div>
+
+            <div id="loading" class="py-20 text-center text-slate-400">
+                <i data-lucide="loader-circle" class="w-8 h-8 animate-spin mx-auto mb-3"></i>Caricamento...
+            </div>
+            <div id="vuoto" class="hidden py-20 text-center border-2 border-dashed border-slate-200 rounded-md">
+                <i data-lucide="files" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+                <p class="font-bold text-slate-500">Nessuna relazione tecnica</p>
+                <p class="text-sm text-slate-400">Crea il primo documento per iniziare.</p>
+            </div>
+            <div id="lista" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        </main>
+    </section>
+
+    <section id="editorView" class="view doc-grid min-h-screen py-5">
+        <div class="no-print max-w-5xl mx-auto px-4 mb-4 flex justify-between gap-3 flex-wrap">
+            <button onclick="tornaAllaLista()" class="flex items-center gap-2 text-slate-600 hover:text-sky-700 font-bold">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i> Archivio
+            </button>
+            <div class="flex gap-2 flex-wrap">
+                <span id="statoSalvataggio" class="self-center text-sm text-slate-500"></span>
+                <button onclick="window.print()" class="border border-slate-300 bg-white px-3 py-2 rounded-md font-bold flex items-center gap-2">
+                    <i data-lucide="printer" class="w-4 h-4"></i> Stampa / PDF
+                </button>
+                <button onclick="salvaRelazione()" id="btnSalva" class="bg-sky-700 hover:bg-sky-600 text-white px-4 py-2 rounded-md font-bold flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Salva
+                </button>
+            </div>
+        </div>
+
+        <form id="relazioneForm" onsubmit="event.preventDefault(); salvaRelazione()" class="max-w-5xl mx-auto bg-white border border-slate-200 shadow-xl p-6 md:p-10" autocomplete="off">
+            <input type="hidden" id="relazioneId">
+            <div class="flex items-start justify-between gap-6 border-b-2 border-[#172554] pb-5 mb-7">
+                <div class="flex items-center gap-4">
+                    <img src="logo_zg.jpg" alt="ZG Impianti" class="w-16 h-16 object-contain">
+                    <div>
+                        <div class="font-black text-[#172554] text-lg">ZG IMPIANTI SRL</div>
+                        <div class="text-xs text-slate-500">Documento tecnico di intervento</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div id="numeroDocumento" class="font-bold text-[#172554]">NUOVO DOCUMENTO</div>
+                    <div class="text-xs text-slate-500 mt-1">Data emissione: <span id="dataEmissione"></span></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-7">
+                <div class="md:col-span-2">
+                    <label class="label" for="tipoDocumento">Tipo documento</label>
+                    <select id="tipoDocumento" class="field font-bold text-[#172554]" onchange="aggiornaTitolo()">
+                        <option value="relazione_lavorazione">Relazione tecnica della lavorazione</option>
+                        <option value="dichiarazione_tecnica">Dichiarazione tecnica dell'intervento</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label" for="dataIntervento">Data intervento *</label>
+                    <input type="date" id="dataIntervento" class="field" required>
+                </div>
+            </div>
+
+            <div class="no-print bg-sky-50 border border-sky-200 p-4 mb-6 rounded-md">
+                <div class="flex justify-between items-end gap-3 flex-wrap">
+                    <div class="flex-1 min-w-64">
+                        <label class="label" for="clienteSelect">Cliente collegato</label>
+                        <select id="clienteSelect" class="field" onchange="selezionaCliente(this.value)">
+                            <option value="">Inserimento manuale / nessun collegamento</option>
+                        </select>
+                    </div>
+                    <button type="button" onclick="apriNuovoCliente()" class="bg-white border border-sky-300 text-sky-800 px-3 py-2.5 rounded-md font-bold flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i> Cliente non presente
+                    </button>
+                </div>
+                <p class="text-xs text-sky-700 mt-2">La selezione compila i dati sotto. Puoi modificarli solo per questo documento mantenendo il collegamento al cliente.</p>
+            </div>
+
+            <h2 class="text-sm font-black text-[#172554] uppercase mb-3 border-b border-slate-200 pb-2">Dati cliente</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-7">
+                <div class="md:col-span-2">
+                    <label class="label" for="clienteNome">Ragione sociale / nominativo *</label>
+                    <input id="clienteNome" class="field print-border font-bold" required>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="label" for="clienteIndirizzo">Indirizzo</label>
+                    <input id="clienteIndirizzo" class="field print-border">
+                </div>
+                <div>
+                    <label class="label" for="clienteCitta">Citt&agrave;</label>
+                    <input id="clienteCitta" class="field print-border">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="label" for="clienteCap">CAP</label><input id="clienteCap" class="field print-border"></div>
+                    <div><label class="label" for="clienteProvincia">Provincia</label><input id="clienteProvincia" maxlength="10" class="field print-border"></div>
+                </div>
+                <div><label class="label" for="clienteTelefono">Telefono</label><input id="clienteTelefono" class="field print-border"></div>
+                <div><label class="label" for="clienteEmail">Email</label><input id="clienteEmail" type="email" class="field print-border"></div>
+                <div><label class="label" for="clientePartitaIva">Partita IVA</label><input id="clientePartitaIva" class="field print-border"></div>
+                <div><label class="label" for="clienteCodiceFiscale">Codice fiscale</label><input id="clienteCodiceFiscale" class="field print-border"></div>
+            </div>
+
+            <h2 class="text-sm font-black text-[#172554] uppercase mb-3 border-b border-slate-200 pb-2">Intervento</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div><label class="label" for="luogoIntervento">Luogo intervento</label><input id="luogoIntervento" class="field print-border"></div>
+                <div><label class="label" for="tecnico">Tecnico incaricato</label><input id="tecnico" class="field print-border"></div>
+            </div>
+            <div class="space-y-4">
+                <div><label class="label" for="oggetto">Oggetto *</label><input id="oggetto" class="field print-border font-bold" required placeholder="Oggetto della lavorazione o dell'intervento"></div>
+                <div><label class="label" for="descrizione">Situazione riscontrata / premessa</label><textarea id="descrizione" rows="5" class="field" placeholder="Descrivere il contesto e quanto rilevato..."></textarea></div>
+                <div><label class="label" for="interventoEseguito">Lavorazioni e verifiche eseguite</label><textarea id="interventoEseguito" rows="8" class="field" placeholder="Descrivere in modo dettagliato le attivit&agrave; svolte..."></textarea></div>
+                <div><label class="label" for="esito">Esito e dichiarazione conclusiva</label><textarea id="esito" rows="5" class="field" placeholder="Indicare esito, conformit&agrave; e condizioni di funzionamento..."></textarea></div>
+                <div><label class="label" for="note">Note, prescrizioni e raccomandazioni</label><textarea id="note" rows="4" class="field"></textarea></div>
+            </div>
+
+            <div class="mt-12 grid grid-cols-2 gap-12 text-center text-sm">
+                <div class="border-t border-slate-500 pt-2">Firma del tecnico</div>
+                <div class="border-t border-slate-500 pt-2">Firma del cliente</div>
+            </div>
+        </form>
+    </section>
+
+    <div id="clienteModal" class="hidden fixed inset-0 bg-slate-950/60 z-50 p-4 items-center justify-center no-print" onclick="if(event.target===this)chiudiNuovoCliente()">
+        <form onsubmit="event.preventDefault(); creaCliente()" class="bg-white w-full max-w-2xl rounded-md shadow-2xl overflow-hidden">
+            <div class="bg-[#172554] text-white px-5 py-4 flex justify-between items-center">
+                <div><h2 class="font-bold text-lg">Nuovo cliente</h2><p class="text-xs text-sky-200">Verr&agrave; salvato in anagrafica e collegato alla relazione.</p></div>
+                <button type="button" onclick="chiudiNuovoCliente()" title="Chiudi"><i data-lucide="x"></i></button>
+            </div>
+            <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="label" for="nuovoNome">Ragione sociale / nominativo *</label><input id="nuovoNome" class="field" required></div>
+                <div class="md:col-span-2"><label class="label" for="nuovoIndirizzo">Indirizzo</label><input id="nuovoIndirizzo" class="field"></div>
+                <div><label class="label" for="nuovoCitta">Citt&agrave;</label><input id="nuovoCitta" class="field"></div>
+                <div class="grid grid-cols-2 gap-3"><div><label class="label" for="nuovoCap">CAP</label><input id="nuovoCap" class="field"></div><div><label class="label" for="nuovoProvincia">Provincia</label><input id="nuovoProvincia" class="field"></div></div>
+                <div><label class="label" for="nuovoTelefono">Telefono</label><input id="nuovoTelefono" class="field"></div>
+                <div><label class="label" for="nuovoEmail">Email</label><input id="nuovoEmail" type="email" class="field"></div>
+                <div><label class="label" for="nuovoPartitaIva">Partita IVA</label><input id="nuovoPartitaIva" class="field"></div>
+                <div><label class="label" for="nuovoCodiceFiscale">Codice fiscale</label><input id="nuovoCodiceFiscale" class="field"></div>
+            </div>
+            <div class="px-5 py-4 bg-slate-50 border-t flex justify-end gap-2">
+                <button type="button" onclick="chiudiNuovoCliente()" class="px-4 py-2 border border-slate-300 rounded-md font-bold">Annulla</button>
+                <button type="submit" id="btnCreaCliente" class="px-4 py-2 bg-sky-700 text-white rounded-md font-bold">Salva e collega</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="toast" class="hidden fixed right-4 bottom-4 z-[60] px-4 py-3 rounded-md shadow-xl text-white font-bold text-sm"></div>
+
+<script>
+    const db = window.supabaseClient;
+    let relazioni = [];
+    let clienti = [];
+
+    const campiCliente = {
+        clienteNome: 'ragione_sociale', clienteIndirizzo: 'indirizzo', clienteCitta: 'citta',
+        clienteCap: 'cap', clienteProvincia: 'provincia', clienteTelefono: 'telefono',
+        clienteEmail: 'email', clientePartitaIva: 'partita_iva', clienteCodiceFiscale: 'codice_fiscale'
+    };
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        lucide.createIcons();
+        document.getElementById('dataEmissione').textContent = new Date().toLocaleDateString('it-IT');
+        await Promise.all([caricaClienti(), caricaRelazioni()]);
+    });
+
+    function mostraVista(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        window.scrollTo(0, 0);
+        lucide.createIcons();
+    }
+
+    async function caricaClienti() {
+        const { data, error } = await db.from('clients')
+            .select('id,ragione_sociale,nome,cognome,indirizzo,citta,cap,provincia,telefono,email,partita_iva,codice_fiscale')
+            .order('ragione_sociale');
+        if (error) { toast('Impossibile caricare i clienti: ' + error.message, true); return; }
+        clienti = data || [];
+        aggiornaSelectClienti();
+    }
+
+    function aggiornaSelectClienti(selectedId = '') {
+        const select = document.getElementById('clienteSelect');
+        select.innerHTML = '<option value="">Inserimento manuale / nessun collegamento</option>' + clienti.map(cliente =>
+            `<option value="${cliente.id}" ${cliente.id === selectedId ? 'selected' : ''}>${escapeHtml(nomeCliente(cliente))}</option>`
+        ).join('');
+    }
+
+    async function caricaRelazioni() {
+        document.getElementById('loading').classList.remove('hidden');
+        const { data, error } = await db.from('relazioni_tecniche').select('*').order('data_intervento', { ascending: false }).order('numero', { ascending: false });
+        document.getElementById('loading').classList.add('hidden');
+        if (error) {
+            document.getElementById('vuoto').classList.remove('hidden');
+            document.getElementById('vuoto').innerHTML = '<p class="font-bold text-red-600">Tabella non disponibile</p><p class="text-sm text-slate-500 mt-1">Esegui prima la migrazione add-relazioni-tecniche.sql in Supabase.</p>';
+            return;
+        }
+        relazioni = data || [];
+        renderLista();
+    }
+
+    function renderLista() {
+        const termine = document.getElementById('ricerca').value.trim().toLowerCase();
+        const tipo = document.getElementById('filtroTipo').value;
+        const filtrate = relazioni.filter(r => {
+            const testo = [r.numero, r.cliente_nome, r.oggetto, r.luogo_intervento].join(' ').toLowerCase();
+            return (!termine || testo.includes(termine)) && (!tipo || r.tipo_documento === tipo);
+        });
+        const lista = document.getElementById('lista');
+        const vuoto = document.getElementById('vuoto');
+        lista.classList.toggle('hidden', filtrate.length === 0);
+        vuoto.classList.toggle('hidden', filtrate.length !== 0);
+        if (!filtrate.length) return;
+        lista.innerHTML = filtrate.map(r => `
+            <article class="bg-white border border-slate-200 border-l-4 ${r.tipo_documento === 'dichiarazione_tecnica' ? 'border-l-amber-500' : 'border-l-sky-600'} p-5 shadow-sm">
+                <div class="flex justify-between gap-3 mb-3">
+                    <span class="text-xs font-black uppercase text-slate-500">N. ${String(r.numero || '').padStart(4, '0')}</span>
+                    <span class="text-xs text-slate-500">${formattaData(r.data_intervento)}</span>
+                </div>
+                <h2 class="font-bold text-[#172554] mb-1">${escapeHtml(r.cliente_nome || 'Cliente non indicato')}</h2>
+                <p class="text-sm text-slate-700 min-h-10">${escapeHtml(r.oggetto || 'Nessun oggetto')}</p>
+                <p class="text-xs text-slate-400 mt-2">${r.tipo_documento === 'dichiarazione_tecnica' ? 'Dichiarazione tecnica' : 'Relazione di lavorazione'}${r.cliente_id ? ' · Collegata al cliente' : ''}</p>
+                <div class="flex justify-end gap-1 mt-4 pt-3 border-t border-slate-100">
+                    <button onclick="modificaRelazione('${r.id}')" class="p-2 text-sky-700 hover:bg-sky-50 rounded" title="Apri"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                    <button onclick="stampaRelazione('${r.id}')" class="p-2 text-slate-600 hover:bg-slate-100 rounded" title="Stampa"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                    <button onclick="eliminaRelazione('${r.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded" title="Elimina"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            </article>`).join('');
+        lucide.createIcons();
+    }
+
+    function nuovaRelazione() {
+        document.getElementById('relazioneForm').reset();
+        document.getElementById('relazioneId').value = '';
+        document.getElementById('dataIntervento').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('numeroDocumento').textContent = 'NUOVO DOCUMENTO';
+        document.getElementById('statoSalvataggio').textContent = '';
+        mostraVista('editorView');
+    }
+
+    function modificaRelazione(id) {
+        const r = relazioni.find(item => item.id === id);
+        if (!r) return;
+        document.getElementById('relazioneId').value = r.id;
+        document.getElementById('tipoDocumento').value = r.tipo_documento;
+        document.getElementById('dataIntervento').value = r.data_intervento || '';
+        document.getElementById('clienteSelect').value = r.cliente_id || '';
+        ['luogoIntervento','oggetto','descrizione','interventoEseguito','esito','note','tecnico'].forEach(idCampo => {
+            const colonna = idCampo.replace(/[A-Z]/g, lettera => '_' + lettera.toLowerCase());
+            document.getElementById(idCampo).value = r[colonna] || '';
+        });
+        Object.keys(campiCliente).forEach(idCampo => {
+            const colonna = idCampo.replace(/[A-Z]/g, lettera => '_' + lettera.toLowerCase());
+            document.getElementById(idCampo).value = r[colonna] || '';
+        });
+        document.getElementById('numeroDocumento').textContent = `DOCUMENTO N. ${String(r.numero || '').padStart(4, '0')}`;
+        document.getElementById('statoSalvataggio').textContent = '';
+        mostraVista('editorView');
+    }
+
+    function selezionaCliente(id) {
+        if (!id) return;
+        const cliente = clienti.find(item => item.id === id);
+        if (!cliente) return;
+        Object.entries(campiCliente).forEach(([idCampo, colonna]) => {
+            document.getElementById(idCampo).value = cliente[colonna] || '';
+        });
+        if (!document.getElementById('luogoIntervento').value) {
+            document.getElementById('luogoIntervento').value = [cliente.indirizzo, cliente.citta].filter(Boolean).join(', ');
+        }
+    }
+
+    async function salvaRelazione() {
+        const form = document.getElementById('relazioneForm');
+        if (!form.reportValidity()) return;
+        const id = document.getElementById('relazioneId').value;
+        const payload = {
+            cliente_id: document.getElementById('clienteSelect').value || null,
+            tipo_documento: valore('tipoDocumento'), data_intervento: valore('dataIntervento'),
+            luogo_intervento: valore('luogoIntervento'), oggetto: valore('oggetto'),
+            descrizione: valore('descrizione'), intervento_eseguito: valore('interventoEseguito'),
+            esito: valore('esito'), note: valore('note'), tecnico: valore('tecnico'),
+            cliente_nome: valore('clienteNome'), cliente_indirizzo: valore('clienteIndirizzo'),
+            cliente_citta: valore('clienteCitta'), cliente_cap: valore('clienteCap'),
+            cliente_provincia: valore('clienteProvincia'), cliente_telefono: valore('clienteTelefono'),
+            cliente_email: valore('clienteEmail'), cliente_partita_iva: valore('clientePartitaIva'),
+            cliente_codice_fiscale: valore('clienteCodiceFiscale')
+        };
+        const bottone = document.getElementById('btnSalva');
+        bottone.disabled = true;
+        document.getElementById('statoSalvataggio').textContent = 'Salvataggio...';
+        const query = id
+            ? db.from('relazioni_tecniche').update(payload).eq('id', id).select().single()
+            : db.from('relazioni_tecniche').insert(payload).select().single();
+        const { data, error } = await query;
+        bottone.disabled = false;
+        if (error) { document.getElementById('statoSalvataggio').textContent = ''; toast('Errore: ' + error.message, true); return; }
+        document.getElementById('relazioneId').value = data.id;
+        document.getElementById('numeroDocumento').textContent = `DOCUMENTO N. ${String(data.numero || '').padStart(4, '0')}`;
+        document.getElementById('statoSalvataggio').textContent = 'Salvato';
+        await caricaRelazioni();
+        toast('Relazione salvata');
+    }
+
+    async function eliminaRelazione(id) {
+        const relazione = relazioni.find(item => item.id === id);
+        if (!confirm(`Eliminare la relazione n. ${relazione?.numero || ''}?`)) return;
+        const { error } = await db.from('relazioni_tecniche').delete().eq('id', id);
+        if (error) { toast('Errore: ' + error.message, true); return; }
+        relazioni = relazioni.filter(item => item.id !== id);
+        renderLista();
+        toast('Relazione eliminata');
+    }
+
+    function stampaRelazione(id) {
+        modificaRelazione(id);
+        setTimeout(() => window.print(), 100);
+    }
+
+    function tornaAllaLista() { mostraVista('listaView'); }
+    function aggiornaTitolo() {}
+
+    function apriNuovoCliente() {
+        document.getElementById('clienteModal').classList.remove('hidden');
+        document.getElementById('clienteModal').classList.add('flex');
+        document.getElementById('nuovoNome').focus();
+    }
+
+    function chiudiNuovoCliente() {
+        document.getElementById('clienteModal').classList.add('hidden');
+        document.getElementById('clienteModal').classList.remove('flex');
+    }
+
+    async function creaCliente() {
+        const payload = {
+            ragione_sociale: valore('nuovoNome'), tipo_cliente: 'azienda', indirizzo: valore('nuovoIndirizzo'),
+            citta: valore('nuovoCitta'), cap: valore('nuovoCap'), provincia: valore('nuovoProvincia'),
+            telefono: valore('nuovoTelefono'), email: valore('nuovoEmail'), partita_iva: valore('nuovoPartitaIva'),
+            codice_fiscale: valore('nuovoCodiceFiscale'), stato: 'attivo'
+        };
+        if (!payload.ragione_sociale) return;
+        const bottone = document.getElementById('btnCreaCliente');
+        bottone.disabled = true;
+        const { data, error } = await db.from('clients').insert(payload).select().single();
+        bottone.disabled = false;
+        if (error) { toast('Errore cliente: ' + error.message, true); return; }
+        clienti.push(data);
+        clienti.sort((a, b) => nomeCliente(a).localeCompare(nomeCliente(b), 'it'));
+        aggiornaSelectClienti(data.id);
+        selezionaCliente(data.id);
+        chiudiNuovoCliente();
+        document.querySelector('#clienteModal form').reset();
+        toast('Cliente creato e collegato');
+    }
+
+    function nomeCliente(cliente) {
+        return cliente.ragione_sociale || [cliente.nome, cliente.cognome].filter(Boolean).join(' ') || 'Senza nome';
+    }
+    function valore(id) { return document.getElementById(id).value.trim(); }
+    function formattaData(data) { return data ? new Date(data + 'T12:00:00').toLocaleDateString('it-IT') : ''; }
+    function escapeHtml(testo) { const div = document.createElement('div'); div.textContent = testo ?? ''; return div.innerHTML; }
+    function toast(messaggio, errore = false) {
+        const el = document.getElementById('toast');
+        el.textContent = messaggio;
+        el.className = `fixed right-4 bottom-4 z-[60] px-4 py-3 rounded-md shadow-xl text-white font-bold text-sm ${errore ? 'bg-red-700' : 'bg-emerald-700'}`;
+        clearTimeout(el._timer);
+        el._timer = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+</script>
+</body>
+</html>
