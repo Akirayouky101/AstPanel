@@ -532,8 +532,14 @@
                         </div>
                     </div>
 
-                    <!-- Campi nascosti per il salvataggio (popolati da Google) -->
-                    <input type="hidden" id="indirizzo">
+                    <!-- Indirizzo effettivamente salvato, compilato da Google ma modificabile -->
+                    <div class="mb-3">
+                        <label for="indirizzo" class="block text-xs font-semibold text-gray-600 mb-1">Indirizzo da salvare</label>
+                        <input type="text" id="indirizzo"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                               placeholder="Via/Piazza e numero civico">
+                    </div>
+                    <!-- Campi nascosti per località e coordinate (popolati da Google) -->
                     <input type="hidden" id="civico">
                     <input type="hidden" id="citta">
                     <input type="hidden" id="cap">
@@ -1179,6 +1185,7 @@
                     document.getElementById('email').value = client.email || '';
                     document.getElementById('pec').value = client.pec || '';
                     document.getElementById('partitaIva').value = client.partita_iva || '';
+                    document.getElementById('codiceFiscale').value = client.codice_fiscale || '';
                     document.getElementById('indirizzo').value = client.indirizzo || '';
                     document.getElementById('civico').value = '';
                     // Mostra preview indirizzo se già salvato
@@ -1390,9 +1397,9 @@
             container.appendChild(autocomplete);
             _googleAutocomplete = autocomplete;
 
-            // gmp-placeselect: place è direttamente sull'evento
-            autocomplete.addEventListener('gmp-placeselect', async (event) => {
-                const place = event.place ?? event.detail?.place;
+            const handlePlaceSelection = async (event) => {
+                const prediction = event.placePrediction ?? event.detail?.placePrediction;
+                const place = event.place ?? event.detail?.place ?? prediction?.toPlace?.();
                 if (!place) { console.warn('[Places] Nessun place nell\'evento'); return; }
 
                 try {
@@ -1453,7 +1460,11 @@
                 setTimeout(_aggiornaMappa, 300); // fallback se mappa non ancora pronta
 
                 showNotification('Indirizzo selezionato!', 'success');
-            });
+            };
+
+            // Supporta sia l'evento attuale sia quello usato dalle versioni precedenti.
+            autocomplete.addEventListener('gmp-select', handlePlaceSelection);
+            autocomplete.addEventListener('gmp-placeselect', handlePlaceSelection);
         }
 
         // Aspetta che Google Maps sia caricato
@@ -1675,8 +1686,7 @@
                 const partitaIva = document.getElementById('partitaIva').value;
                 const codiceFiscale = document.getElementById('codiceFiscale').value;
                 const _via = (document.getElementById('indirizzo').value || '').trim();
-                const _civ = (document.getElementById('civico').value || '').trim();
-                const indirizzo = [_via, _civ].filter(Boolean).join(' ');
+                const indirizzo = _via;
                 const citta = document.getElementById('citta')?.value || null;
                 const provincia = document.getElementById('provincia')?.value || null;
                 const cap = document.getElementById('cap')?.value || null;
