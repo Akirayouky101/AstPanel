@@ -53,10 +53,14 @@
             .no-print, #listaView { display: none !important; }
             #editorView { display: block !important; }
             body, .doc-grid { background: white !important; }
-            #documento { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; }
+            #relazioneForm { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; }
             .field { border: 0 !important; padding: 0 !important; box-shadow: none !important; appearance: none; }
             textarea.field { resize: none; overflow: visible; }
             .print-border { border-bottom: 1px solid #94a3b8 !important; padding-bottom: 5px !important; }
+            .print-page-intervento { break-before: page; page-break-before: always; padding-top: 2mm; }
+            .print-keep-together { break-inside: avoid; page-break-inside: avoid; }
+            .print-page-intervento .space-y-4 > div,
+            .print-page-intervento .grid > div { break-inside: avoid; page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -173,46 +177,50 @@
                 <p class="text-xs text-sky-700 mt-2">La selezione compila i dati sotto. Puoi modificarli solo per questo documento mantenendo il collegamento al cliente.</p>
             </div>
 
-            <h2 class="text-sm font-black text-[#172554] mb-3 border-b border-slate-200 pb-2">Dati cliente</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-7">
-                <div class="md:col-span-2">
-                    <label class="label" for="clienteNome">Ragione sociale / nominativo *</label>
-                    <input id="clienteNome" class="field print-border font-bold" required>
+            <div class="print-keep-together">
+                <h2 class="text-sm font-black text-[#172554] mb-3 border-b border-slate-200 pb-2">Dati cliente</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-7">
+                    <div class="md:col-span-2">
+                        <label class="label" for="clienteNome">Ragione sociale / nominativo *</label>
+                        <input id="clienteNome" class="field print-border font-bold" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="label" for="clienteIndirizzo">Indirizzo</label>
+                        <input id="clienteIndirizzo" class="field print-border">
+                    </div>
+                    <div>
+                        <label class="label" for="clienteCitta">Citt&agrave;</label>
+                        <input id="clienteCitta" class="field print-border">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="label" for="clienteCap">CAP</label><input id="clienteCap" class="field print-border"></div>
+                        <div><label class="label" for="clienteProvincia">Provincia</label><input id="clienteProvincia" maxlength="10" class="field print-border"></div>
+                    </div>
+                    <div><label class="label" for="clienteTelefono">Telefono</label><input id="clienteTelefono" class="field print-border"></div>
+                    <div><label class="label" for="clienteEmail">Email</label><input id="clienteEmail" type="email" class="field print-border"></div>
+                    <div><label class="label" for="clientePartitaIva">Partita IVA</label><input id="clientePartitaIva" class="field print-border"></div>
+                    <div><label class="label" for="clienteCodiceFiscale">Codice fiscale</label><input id="clienteCodiceFiscale" class="field print-border"></div>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="label" for="clienteIndirizzo">Indirizzo</label>
-                    <input id="clienteIndirizzo" class="field print-border">
-                </div>
-                <div>
-                    <label class="label" for="clienteCitta">Citt&agrave;</label>
-                    <input id="clienteCitta" class="field print-border">
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="label" for="clienteCap">CAP</label><input id="clienteCap" class="field print-border"></div>
-                    <div><label class="label" for="clienteProvincia">Provincia</label><input id="clienteProvincia" maxlength="10" class="field print-border"></div>
-                </div>
-                <div><label class="label" for="clienteTelefono">Telefono</label><input id="clienteTelefono" class="field print-border"></div>
-                <div><label class="label" for="clienteEmail">Email</label><input id="clienteEmail" type="email" class="field print-border"></div>
-                <div><label class="label" for="clientePartitaIva">Partita IVA</label><input id="clientePartitaIva" class="field print-border"></div>
-                <div><label class="label" for="clienteCodiceFiscale">Codice fiscale</label><input id="clienteCodiceFiscale" class="field print-border"></div>
             </div>
 
-            <h2 class="text-sm font-black text-[#172554] mb-3 border-b border-slate-200 pb-2">Intervento</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div><label class="label" for="luogoIntervento">Luogo intervento</label><input id="luogoIntervento" class="field print-border"></div>
-                <div><label class="label" for="tecnico">Tecnico incaricato</label><input id="tecnico" class="field print-border"></div>
-            </div>
-            <div class="space-y-4">
-                <div><label class="label" for="oggetto">Oggetto *</label><input id="oggetto" class="field print-border font-bold" required placeholder="Oggetto della lavorazione o dell'intervento"></div>
-                <div><label class="label" for="descrizione">Situazione riscontrata / premessa</label><textarea id="descrizione" rows="5" class="field" placeholder="Descrivere il contesto e quanto rilevato..."></textarea></div>
-                <div><label class="label" for="interventoEseguito">Lavorazioni e verifiche eseguite</label><textarea id="interventoEseguito" rows="8" class="field" placeholder="Descrivere in modo dettagliato le attivit&agrave; svolte..."></textarea></div>
-                <div><label class="label" for="esito">Esito e dichiarazione conclusiva</label><textarea id="esito" rows="5" class="field" placeholder="Indicare esito, conformit&agrave; e condizioni di funzionamento..."></textarea></div>
-                <div><label class="label" for="note">Note, prescrizioni e raccomandazioni</label><textarea id="note" rows="4" class="field"></textarea></div>
-            </div>
+            <div class="print-page-intervento">
+                <h2 class="text-sm font-black text-[#172554] mb-3 border-b border-slate-200 pb-2">Intervento</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 print-keep-together">
+                    <div><label class="label" for="luogoIntervento">Luogo intervento</label><input id="luogoIntervento" class="field print-border"></div>
+                    <div><label class="label" for="tecnico">Tecnico incaricato</label><input id="tecnico" class="field print-border"></div>
+                </div>
+                <div class="space-y-4">
+                    <div><label class="label" for="oggetto">Oggetto *</label><input id="oggetto" class="field print-border font-bold" required placeholder="Oggetto della lavorazione o dell'intervento"></div>
+                    <div><label class="label" for="descrizione">Situazione riscontrata / premessa</label><textarea id="descrizione" rows="5" class="field" placeholder="Descrivere il contesto e quanto rilevato..."></textarea></div>
+                    <div><label class="label" for="interventoEseguito">Lavorazioni e verifiche eseguite</label><textarea id="interventoEseguito" rows="8" class="field" placeholder="Descrivere in modo dettagliato le attivit&agrave; svolte..."></textarea></div>
+                    <div><label class="label" for="esito">Esito e dichiarazione conclusiva</label><textarea id="esito" rows="5" class="field" placeholder="Indicare esito, conformit&agrave; e condizioni di funzionamento..."></textarea></div>
+                    <div><label class="label" for="note">Note, prescrizioni e raccomandazioni</label><textarea id="note" rows="4" class="field"></textarea></div>
+                </div>
 
-            <div class="mt-12 grid grid-cols-2 gap-12 text-center text-sm">
-                <div class="border-t border-slate-500 pt-2">Firma del tecnico</div>
-                <div class="border-t border-slate-500 pt-2">Firma del cliente</div>
+                <div class="mt-12 grid grid-cols-2 gap-12 text-center text-sm print-keep-together">
+                    <div class="border-t border-slate-500 pt-2">Firma del tecnico</div>
+                    <div class="border-t border-slate-500 pt-2">Firma del cliente</div>
+                </div>
             </div>
         </form>
     </section>
