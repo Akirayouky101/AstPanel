@@ -7,6 +7,11 @@ window.ClientModal = {
         try {
             const clients = await window.dataManager.getClienti();
             const clientData = clients.find(c => c.id === clientId);
+            const escapeHtml = value => {
+                const element = document.createElement('div');
+                element.textContent = value ?? '';
+                return element.innerHTML;
+            };
             
             if (!clientData) {
                 console.error('Client not found:', clientId);
@@ -134,6 +139,56 @@ window.ClientModal = {
                         }).join(''))
                     + '</div>';
             } catch(e) { console.error('❌ [ClientModal] Errore caricamento strutture collegate:', e); }
+        }
+
+        let relazioniSection = '';
+        try {
+            const { data: relazioni, error } = await window.supabaseClient
+                .from('relazioni_tecniche')
+                .select('id,numero,tipo_documento,data_intervento,oggetto,tecnico')
+                .eq('cliente_id', clientId)
+                .order('data_intervento', { ascending: false })
+                .order('numero', { ascending: false });
+            if (error) throw error;
+
+            const elencoRelazioni = relazioni || [];
+            relazioniSection = `
+                <section class="border-2 border-sky-200 rounded-lg p-3 bg-sky-50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-8 h-8 bg-sky-700 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-file-signature text-white text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-gray-900 text-sm">Relazioni tecniche</p>
+                            <p class="text-xs text-sky-700">${elencoRelazioni.length} ${elencoRelazioni.length === 1 ? 'documento collegato' : 'documenti collegati'}</p>
+                        </div>
+                    </div>
+                    ${elencoRelazioni.length === 0 ? `
+                        <p class="text-sm text-gray-500 bg-white border border-sky-100 rounded-lg p-3">Nessuna relazione collegata a questo cliente.</p>
+                    ` : elencoRelazioni.map(relazione => {
+                        const tipo = relazione.tipo_documento === 'dichiarazione_tecnica' ? 'Dichiarazione tecnica' : 'Relazione di lavorazione';
+                        const data = relazione.data_intervento
+                            ? new Date(relazione.data_intervento + 'T12:00:00').toLocaleDateString('it-IT')
+                            : 'Data non indicata';
+                        return `
+                            <a href="/relazioni-tecniche.html?relazione=${encodeURIComponent(relazione.id)}" class="block bg-white border border-sky-200 rounded-lg p-3 mb-2 last:mb-0 hover:border-sky-500 hover:shadow-sm transition-all">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-bold text-sky-700">N. ${escapeHtml(String(relazione.numero || '').padStart(4, '0'))} · ${escapeHtml(data)}</p>
+                                        <p class="font-bold text-gray-900 text-sm mt-1 break-words">${escapeHtml(relazione.oggetto || 'Nessun oggetto')}</p>
+                                        <p class="text-xs text-gray-500 mt-1">${escapeHtml(tipo)}${relazione.tecnico ? ` · ${escapeHtml(relazione.tecnico)}` : ''}</p>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-sky-500 mt-1"></i>
+                                </div>
+                            </a>`;
+                    }).join('')}
+                </section>`;
+        } catch (error) {
+            console.error('❌ [ClientModal] Errore caricamento relazioni tecniche:', error);
+            relazioniSection = `
+                <section class="border border-red-200 rounded-lg p-3 bg-red-50 text-sm text-red-700">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>Impossibile caricare le relazioni tecniche.
+                </section>`;
         }
 
         // Create modal HTML
@@ -286,6 +341,8 @@ window.ClientModal = {
                         ${condominiiSection}
 
                         ${scuoleSection}
+
+                        ${relazioniSection}
                     </div>
 
                     <!-- Footer -->
