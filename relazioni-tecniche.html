@@ -46,6 +46,7 @@
         .calendar-footer span { color: #64748b; font-size: .72rem; font-weight: 600; }
         .calendar-today { padding: 6px 12px; border-radius: 5px; background: #e0f2fe; color: #075985; font-size: .75rem; font-weight: 800; }
         .calendar-today:hover { background: #bae6fd; }
+        .cliente-picker-list { max-height: min(52vh, 430px); }
         @media print {
             @page { size: A4 portrait; margin: 14mm; }
             .no-print, #listaView { display: none !important; }
@@ -119,12 +120,9 @@
         <form id="relazioneForm" onsubmit="event.preventDefault(); salvaRelazione()" class="max-w-5xl mx-auto bg-white border border-slate-200 shadow-xl p-6 md:p-10" autocomplete="off">
             <input type="hidden" id="relazioneId">
             <div class="flex items-start justify-between gap-6 border-b-2 border-[#172554] pb-5 mb-7">
-                <div class="flex items-center gap-4">
-                    <img src="logo_zg.jpg" alt="ZG Impianti" class="w-16 h-16 object-contain">
-                    <div>
-                        <div class="font-black text-[#172554] text-lg">ZG IMPIANTI SRL</div>
-                        <div class="text-xs text-slate-500">Documento tecnico di intervento</div>
-                    </div>
+                <div class="flex flex-col items-start">
+                    <img src="logo_zg.jpg" alt="ZG Impianti" class="w-auto h-20 md:h-24 object-contain">
+                    <div class="mt-1 text-xs font-semibold uppercase text-slate-500">Documento tecnico di intervento</div>
                 </div>
                 <div class="text-right">
                     <div id="numeroDocumento" class="font-bold text-[#172554]">NUOVO DOCUMENTO</div>
@@ -150,15 +148,18 @@
             </div>
 
             <div class="no-print bg-sky-50 border border-sky-200 p-4 mb-6 rounded-md">
-                <div class="flex justify-between items-end gap-3 flex-wrap">
-                    <div class="flex-1 min-w-64">
-                        <label class="label" for="clienteSelect">Cliente collegato</label>
-                        <select id="clienteSelect" class="field" onchange="selezionaCliente(this.value)">
-                            <option value="">Inserimento manuale / nessun collegamento</option>
-                        </select>
-                    </div>
-                    <button type="button" onclick="apriNuovoCliente()" class="bg-white border border-sky-300 text-sky-800 px-3 py-2.5 rounded-md font-bold flex items-center gap-2">
-                        <i data-lucide="user-plus" class="w-4 h-4"></i> Cliente non presente
+                <label class="label" for="clientePickerButton">Cliente collegato</label>
+                <input type="hidden" id="clienteId">
+                <button type="button" id="clientePickerButton" onclick="apriClientePicker()" class="w-full flex items-center justify-between gap-3 bg-white border border-sky-300 hover:border-sky-500 hover:bg-sky-50 px-4 py-3 rounded-md text-left transition-colors">
+                    <span id="clientePickerLabel" class="flex items-center gap-2 text-slate-500">
+                        <i data-lucide="search" class="w-5 h-5 text-sky-700"></i>
+                        Cerca e seleziona un cliente...
+                    </span>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-sky-500 flex-shrink-0"></i>
+                </button>
+                <div id="clientePickerActions" class="hidden mt-2">
+                    <button type="button" onclick="rimuoviClienteCollegato()" class="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50">
+                        <i data-lucide="unlink" class="w-3.5 h-3.5"></i> Rimuovi collegamento
                     </button>
                 </div>
                 <p class="text-xs text-sky-700 mt-2">La selezione compila i dati sotto. Puoi modificarli solo per questo documento mantenendo il collegamento al cliente.</p>
@@ -208,7 +209,32 @@
         </form>
     </section>
 
-    <div id="clienteModal" class="hidden fixed inset-0 bg-slate-950/60 z-50 p-4 items-center justify-center no-print" onclick="if(event.target===this)chiudiNuovoCliente()">
+    <div id="clientePickerModal" class="hidden fixed inset-0 bg-slate-950/60 z-50 p-4 items-center justify-center no-print" onclick="if(event.target===this)chiudiClientePicker()">
+        <div class="bg-white w-full max-w-xl rounded-md shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="clientePickerTitle">
+            <div class="bg-[#172554] text-white px-5 py-4 flex justify-between items-center gap-4">
+                <div>
+                    <h2 id="clientePickerTitle" class="font-bold text-lg">Seleziona cliente</h2>
+                    <p class="text-xs text-sky-200">Cerca nell'anagrafica clienti</p>
+                </div>
+                <button type="button" onclick="chiudiClientePicker()" class="p-2 hover:bg-white/10 rounded" title="Chiudi"><i data-lucide="x"></i></button>
+            </div>
+            <div class="p-4 border-b border-slate-200">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                    <input id="clientePickerSearch" type="search" class="field pl-10 pr-4" placeholder="Cerca per nome, citt&agrave;, email o telefono..." oninput="filtraClientiPicker()">
+                </div>
+            </div>
+            <div id="clientePickerList" class="cliente-picker-list overflow-y-auto divide-y divide-slate-100"></div>
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center gap-3 flex-wrap">
+                <span id="clientePickerCount" class="text-xs text-slate-500"></span>
+                <button type="button" onclick="apriNuovoClienteDalPicker()" class="bg-sky-700 hover:bg-sky-600 text-white px-3 py-2 rounded-md font-bold flex items-center gap-2 text-sm">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Nuovo cliente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clienteModal" class="hidden fixed inset-0 bg-slate-950/60 z-[60] p-4 items-center justify-center no-print" onclick="if(event.target===this)chiudiNuovoCliente()">
         <form onsubmit="event.preventDefault(); creaCliente()" class="bg-white w-full max-w-2xl rounded-md shadow-2xl overflow-hidden">
             <div class="bg-[#172554] text-white px-5 py-4 flex justify-between items-center">
                 <div><h2 class="font-bold text-lg">Nuovo cliente</h2><p class="text-xs text-sky-200">Verr&agrave; salvato in anagrafica e collegato alla relazione.</p></div>
@@ -294,14 +320,69 @@
             .order('ragione_sociale');
         if (error) { toast('Impossibile caricare i clienti: ' + error.message, true); return; }
         clienti = data || [];
-        aggiornaSelectClienti();
     }
 
-    function aggiornaSelectClienti(selectedId = '') {
-        const select = document.getElementById('clienteSelect');
-        select.innerHTML = '<option value="">Inserimento manuale / nessun collegamento</option>' + clienti.map(cliente =>
-            `<option value="${cliente.id}" ${cliente.id === selectedId ? 'selected' : ''}>${escapeHtml(nomeCliente(cliente))}</option>`
-        ).join('');
+    function apriClientePicker() {
+        const modal = document.getElementById('clientePickerModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('clientePickerSearch').value = '';
+        renderClientiPicker(clienti);
+        lucide.createIcons();
+        setTimeout(() => document.getElementById('clientePickerSearch').focus(), 50);
+    }
+
+    function chiudiClientePicker() {
+        const modal = document.getElementById('clientePickerModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function renderClientiPicker(elenco) {
+        const lista = document.getElementById('clientePickerList');
+        document.getElementById('clientePickerCount').textContent = `${elenco.length} ${elenco.length === 1 ? 'cliente' : 'clienti'}`;
+        if (!elenco.length) {
+            lista.innerHTML = '<div class="p-10 text-center text-slate-400"><i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2"></i><p class="font-semibold">Nessun cliente trovato</p></div>';
+            lucide.createIcons();
+            return;
+        }
+        lista.innerHTML = elenco.map(cliente => {
+            const nome = nomeCliente(cliente);
+            const dettagli = [cliente.citta, cliente.email, cliente.telefono].filter(Boolean).join(' · ');
+            return `<button type="button" onclick="selezionaCliente('${cliente.id}')" class="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-sky-50 text-left transition-colors">
+                <span class="w-10 h-10 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-black flex-shrink-0">${escapeHtml(nome.charAt(0).toUpperCase())}</span>
+                <span class="flex-1 min-w-0"><span class="block font-bold text-slate-800 truncate">${escapeHtml(nome)}</span><span class="block text-xs text-slate-500 truncate">${escapeHtml(dettagli || 'Nessun recapito disponibile')}</span></span>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 flex-shrink-0"></i>
+            </button>`;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    function filtraClientiPicker() {
+        const ricerca = document.getElementById('clientePickerSearch').value.trim().toLowerCase();
+        const filtrati = clienti.filter(cliente => [nomeCliente(cliente), cliente.citta, cliente.email, cliente.telefono]
+            .filter(Boolean).join(' ').toLowerCase().includes(ricerca));
+        renderClientiPicker(filtrati);
+    }
+
+    function aggiornaClienteCollegato(id) {
+        const cliente = clienti.find(item => item.id === id);
+        document.getElementById('clienteId').value = cliente?.id || '';
+        const label = document.getElementById('clientePickerLabel');
+        const actions = document.getElementById('clientePickerActions');
+        if (cliente) {
+            label.innerHTML = `<i data-lucide="building-2" class="w-5 h-5 text-sky-700"></i><span class="font-bold text-slate-800">${escapeHtml(nomeCliente(cliente))}</span>`;
+            actions.classList.remove('hidden');
+        } else {
+            label.innerHTML = '<i data-lucide="search" class="w-5 h-5 text-sky-700"></i>Cerca e seleziona un cliente...';
+            actions.classList.add('hidden');
+        }
+        lucide.createIcons();
+    }
+
+    function rimuoviClienteCollegato() {
+        aggiornaClienteCollegato('');
+        toast('Collegamento cliente rimosso');
     }
 
     async function caricaRelazioni() {
@@ -350,6 +431,7 @@
     function nuovaRelazione() {
         document.getElementById('relazioneForm').reset();
         document.getElementById('relazioneId').value = '';
+        aggiornaClienteCollegato('');
         impostaDataIntervento(new Date());
         document.getElementById('numeroDocumento').textContent = 'NUOVO DOCUMENTO';
         document.getElementById('statoSalvataggio').textContent = '';
@@ -362,7 +444,7 @@
         document.getElementById('relazioneId').value = r.id;
         document.getElementById('tipoDocumento').value = r.tipo_documento;
         impostaDataIntervento(r.data_intervento);
-        document.getElementById('clienteSelect').value = r.cliente_id || '';
+        aggiornaClienteCollegato(r.cliente_id || '');
         ['luogoIntervento','oggetto','descrizione','interventoEseguito','esito','note','tecnico'].forEach(idCampo => {
             const colonna = idCampo.replace(/[A-Z]/g, lettera => '_' + lettera.toLowerCase());
             document.getElementById(idCampo).value = r[colonna] || '';
@@ -377,15 +459,16 @@
     }
 
     function selezionaCliente(id) {
-        if (!id) return;
         const cliente = clienti.find(item => item.id === id);
         if (!cliente) return;
+        aggiornaClienteCollegato(id);
         Object.entries(campiCliente).forEach(([idCampo, colonna]) => {
             document.getElementById(idCampo).value = cliente[colonna] || '';
         });
         if (!document.getElementById('luogoIntervento').value) {
             document.getElementById('luogoIntervento').value = [cliente.indirizzo, cliente.citta].filter(Boolean).join(', ');
         }
+        chiudiClientePicker();
     }
 
     async function salvaRelazione() {
@@ -393,7 +476,7 @@
         if (!form.reportValidity()) return;
         const id = document.getElementById('relazioneId').value;
         const payload = {
-            cliente_id: document.getElementById('clienteSelect').value || null,
+            cliente_id: document.getElementById('clienteId').value || null,
             tipo_documento: valore('tipoDocumento'), data_intervento: valore('dataIntervento'),
             luogo_intervento: valore('luogoIntervento'), oggetto: valore('oggetto'),
             descrizione: valore('descrizione'), intervento_eseguito: valore('interventoEseguito'),
@@ -438,6 +521,11 @@
     function tornaAllaLista() { mostraVista('listaView'); }
     function aggiornaTitolo() {}
 
+    function apriNuovoClienteDalPicker() {
+        chiudiClientePicker();
+        apriNuovoCliente();
+    }
+
     function apriNuovoCliente() {
         document.getElementById('clienteModal').classList.remove('hidden');
         document.getElementById('clienteModal').classList.add('flex');
@@ -464,7 +552,6 @@
         if (error) { toast('Errore cliente: ' + error.message, true); return; }
         clienti.push(data);
         clienti.sort((a, b) => nomeCliente(a).localeCompare(nomeCliente(b), 'it'));
-        aggiornaSelectClienti(data.id);
         selezionaCliente(data.id);
         chiudiNuovoCliente();
         document.querySelector('#clienteModal form').reset();
