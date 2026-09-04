@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relazioni Tecniche - AST Panel</title>
     <link rel="icon" href="logo_zg.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="Admin/auth-helper.js"></script>
@@ -19,6 +22,30 @@
         .field:focus { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
         .label { display: block; margin-bottom: .35rem; color: #475569; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
         .doc-grid { background-image: linear-gradient(rgba(3,105,161,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(3,105,161,.035) 1px, transparent 1px); background-size: 24px 24px; }
+        .flatpickr-calendar { width: 326px; padding: 10px; border: 1px solid #dbeafe; border-radius: 8px; box-shadow: 0 18px 45px rgba(15, 23, 42, .22); font-family: "Avenir Next", "Segoe UI", sans-serif; }
+        .flatpickr-months { margin: -10px -10px 8px; padding: 8px 6px; background: #172554; border-radius: 8px 8px 0 0; }
+        .flatpickr-months .flatpickr-month { height: 38px; color: white; fill: white; }
+        .flatpickr-current-month { padding-top: 7px; font-size: 1rem; }
+        .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .flatpickr-current-month input.cur-year { color: white; font-weight: 700; }
+        .flatpickr-current-month .flatpickr-monthDropdown-months:hover,
+        .flatpickr-current-month input.cur-year:hover { background: rgba(255, 255, 255, .12); }
+        .flatpickr-current-month .numInputWrapper span.arrowUp::after { border-bottom-color: white; }
+        .flatpickr-current-month .numInputWrapper span.arrowDown::after { border-top-color: white; }
+        .flatpickr-prev-month, .flatpickr-next-month { top: 8px !important; color: white !important; fill: white !important; }
+        .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #7dd3fc !important; }
+        .flatpickr-weekdays { margin-bottom: 4px; }
+        span.flatpickr-weekday { color: #64748b; font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+        .flatpickr-days, .dayContainer { width: 304px; min-width: 304px; max-width: 304px; }
+        .flatpickr-day { max-width: 40px; height: 40px; line-height: 40px; border-radius: 6px; color: #334155; font-weight: 600; }
+        .flatpickr-day:hover { background: #e0f2fe; border-color: #e0f2fe; }
+        .flatpickr-day.today { border-color: #0284c7; color: #0369a1; }
+        .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #0369a1; border-color: #0369a1; color: white; box-shadow: 0 3px 8px rgba(3, 105, 161, .3); }
+        .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: #cbd5e1; }
+        .calendar-footer { display: flex; align-items: center; justify-content: space-between; margin: 8px -10px -10px; padding: 10px 12px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 8px 8px; }
+        .calendar-footer span { color: #64748b; font-size: .72rem; font-weight: 600; }
+        .calendar-today { padding: 6px 12px; border-radius: 5px; background: #e0f2fe; color: #075985; font-size: .75rem; font-weight: 800; }
+        .calendar-today:hover { background: #bae6fd; }
         @media print {
             @page { size: A4 portrait; margin: 14mm; }
             .no-print, #listaView { display: none !important; }
@@ -115,7 +142,10 @@
                 </div>
                 <div>
                     <label class="label" for="dataIntervento">Data intervento *</label>
-                    <input type="date" id="dataIntervento" class="field" required>
+                    <div class="relative">
+                        <input type="text" id="dataIntervento" class="field pr-10" required placeholder="gg/mm/aaaa">
+                        <i data-lucide="calendar-days" class="no-print pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-sky-700"></i>
+                    </div>
                 </div>
             </div>
 
@@ -207,6 +237,7 @@
     const db = window.supabaseClient;
     let relazioni = [];
     let clienti = [];
+    let calendarioIntervento = null;
 
     const campiCliente = {
         clienteNome: 'ragione_sociale', clienteIndirizzo: 'indirizzo', clienteCitta: 'citta',
@@ -216,9 +247,39 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         lucide.createIcons();
+        inizializzaCalendario();
         document.getElementById('dataEmissione').textContent = new Date().toLocaleDateString('it-IT');
         await Promise.all([caricaClienti(), caricaRelazioni()]);
     });
+
+    function inizializzaCalendario() {
+        calendarioIntervento = flatpickr('#dataIntervento', {
+            locale: 'it',
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd/m/Y',
+            allowInput: true,
+            disableMobile: true,
+            monthSelectorType: 'dropdown',
+            onReady(_, __, instance) {
+                instance.altInput.className = instance.element.className;
+                instance.altInput.placeholder = 'gg/mm/aaaa';
+                const footer = document.createElement('div');
+                footer.className = 'calendar-footer';
+                footer.innerHTML = '<span>Data dell\'intervento</span><button type="button" class="calendar-today">Oggi</button>';
+                footer.querySelector('button').addEventListener('click', () => {
+                    instance.setDate(new Date(), true);
+                    instance.close();
+                });
+                instance.calendarContainer.appendChild(footer);
+            }
+        });
+    }
+
+    function impostaDataIntervento(data) {
+        if (calendarioIntervento) calendarioIntervento.setDate(data || null, false);
+        else document.getElementById('dataIntervento').value = data || '';
+    }
 
     function mostraVista(id) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -289,7 +350,7 @@
     function nuovaRelazione() {
         document.getElementById('relazioneForm').reset();
         document.getElementById('relazioneId').value = '';
-        document.getElementById('dataIntervento').value = new Date().toISOString().slice(0, 10);
+        impostaDataIntervento(new Date());
         document.getElementById('numeroDocumento').textContent = 'NUOVO DOCUMENTO';
         document.getElementById('statoSalvataggio').textContent = '';
         mostraVista('editorView');
@@ -300,7 +361,7 @@
         if (!r) return;
         document.getElementById('relazioneId').value = r.id;
         document.getElementById('tipoDocumento').value = r.tipo_documento;
-        document.getElementById('dataIntervento').value = r.data_intervento || '';
+        impostaDataIntervento(r.data_intervento);
         document.getElementById('clienteSelect').value = r.cliente_id || '';
         ['luogoIntervento','oggetto','descrizione','interventoEseguito','esito','note','tecnico'].forEach(idCampo => {
             const colonna = idCampo.replace(/[A-Z]/g, lettera => '_' + lettera.toLowerCase());
