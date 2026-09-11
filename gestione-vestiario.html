@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vestiario - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .flatpickr-calendar { border: 2px solid #c7d2fe; border-radius: 12px; box-shadow: 0 16px 40px rgba(67, 56, 202, .15); }
+        .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #4338ca; border-color: #4338ca; }
+        @media print {
+            body > *:not(#stampaVestiario) { display: none !important; }
+            #stampaVestiario { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <header class="bg-indigo-700 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 min-w-0">
+                <button onclick="location.href='/admin-functional.html'" class="w-10 h-10 hover:bg-indigo-800 rounded-lg" title="Torna al menu" aria-label="Torna al menu"><i class="fas fa-arrow-left"></i></button>
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-bold">Vestiario</h1>
+                    <p class="text-indigo-100 text-sm">Capi assegnati ai dipendenti e fornitori di provenienza</p>
+                </div>
+            </div>
+            <p id="userName" class="text-sm text-indigo-100 whitespace-nowrap"></p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-label="Riepilogo vestiario">
+            <div class="bg-white border border-gray-200 rounded-lg p-5"><p class="text-sm text-gray-500">Assegnazioni</p><p id="statAssegnazioni" class="text-2xl font-bold mt-1">0</p></div>
+            <div class="bg-white border border-indigo-200 rounded-lg p-5"><p class="text-sm text-gray-500">Capi consegnati</p><p id="statCapi" class="text-2xl font-bold text-indigo-700 mt-1">0</p></div>
+            <div class="bg-white border border-emerald-200 rounded-lg p-5"><p class="text-sm text-gray-500">Dipendenti vestiti</p><p id="statDipendenti" class="text-2xl font-bold text-emerald-700 mt-1">0</p></div>
+            <div class="bg-white border border-amber-200 rounded-lg p-5"><p class="text-sm text-gray-500">Fornitori usati</p><p id="statFornitori" class="text-2xl font-bold text-amber-700 mt-1">0</p></div>
+        </section>
+
+        <section class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div class="p-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="apriNuovaAssegnazione()" class="bg-indigo-700 hover:bg-indigo-800 text-white px-5 py-2.5 rounded-lg font-semibold"><i class="fas fa-shirt mr-2"></i>Nuova assegnazione</button>
+                    <div class="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-semibold">
+                        <button id="tabElenco" onclick="cambiaVista('elenco')" class="px-4 py-2 bg-indigo-700 text-white"><i class="fas fa-list mr-1"></i>Elenco</button>
+                        <button id="tabDipendenti" onclick="cambiaVista('dipendenti')" class="px-4 py-2 text-gray-600 hover:bg-gray-100"><i class="fas fa-users mr-1"></i>Per dipendente</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <select id="filtroDipendente" onchange="renderVista()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white" aria-label="Filtra per dipendente"><option value="">Tutti i dipendenti</option></select>
+                    <select id="filtroFornitore" onchange="renderVista()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white" aria-label="Filtra per fornitore"><option value="">Tutti i fornitori</option></select>
+                    <input id="ricerca" type="search" oninput="renderVista()" placeholder="Cerca numero, codice capo, dipendente..." class="border border-gray-300 rounded-lg px-3 py-2 w-72 max-w-full">
+                </div>
+            </div>
+            <div id="vistaElenco" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100 text-gray-600 uppercase text-xs"><tr><th class="px-4 py-3 text-left">Numero</th><th class="px-4 py-3 text-left">Data</th><th class="px-4 py-3 text-left">Dipendente</th><th class="px-4 py-3 text-left">Fornitore</th><th class="px-4 py-3 text-left">Capi</th><th class="px-4 py-3 text-left">Stato</th><th class="px-4 py-3 text-right">Azioni</th></tr></thead>
+                    <tbody id="assegnazioniTable" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+            <div id="vistaDipendenti" class="hidden p-4 grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        </section>
+    </main>
+
+    <div id="assegnazioneModal" class="hidden fixed inset-0 z-50 bg-gray-950/65 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="assegnazioneModalTitle">
+        <div class="bg-white w-full max-w-4xl max-h-[94vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="bg-indigo-700 text-white px-5 sm:px-7 py-5 flex items-center justify-between gap-4 flex-shrink-0">
+                <div><h2 id="assegnazioneModalTitle" class="text-xl sm:text-2xl font-bold">Nuova assegnazione vestiario</h2><p id="assegnazioneModalSub" class="text-sm text-indigo-100">Il numero viene generato al salvataggio</p></div>
+                <button type="button" onclick="chiudiAssegnazioneModal()" class="w-10 h-10 hover:bg-white/15 rounded-full" title="Chiudi" aria-label="Chiudi"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="assegnazioneForm" onsubmit="salvaAssegnazione(event)" class="flex flex-col min-h-0">
+                <div class="p-4 sm:p-6 bg-gray-50 space-y-5 overflow-y-auto">
+                    <section class="bg-white border border-indigo-200 rounded-xl p-4 sm:p-5">
+                        <h3 class="font-bold mb-4"><i class="fas fa-user-tag text-indigo-700 mr-2"></i>Dipendente e fornitore</h3>
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <label class="block"><span class="block text-sm font-semibold mb-2">Dipendente *</span><select id="dipendenteId" required class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3 bg-white"><option value="">Seleziona dipendente</option></select></label>
+                            <label class="block"><span class="block text-sm font-semibold mb-2">Fornitore (ditta) *</span><select id="fornitoreId" required onchange="renderRighe()" class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3 bg-white"><option value="">Seleziona fornitore</option></select></label>
+                            <label class="block"><span class="block text-sm font-semibold mb-2">Data consegna *</span><input id="dataAssegnazione" type="date" required class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+                            <label class="block"><span class="block text-sm font-semibold mb-2">Stato</span><select id="stato" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-white"><option value="assegnato">Assegnato</option><option value="restituito">Restituito</option></select></label>
+                            <label class="block md:col-span-2"><span class="block text-sm font-semibold mb-2">Note</span><input id="note" type="text" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3" placeholder="Es. dotazione invernale, sostituzione capo usurato"></label>
+                        </div>
+                    </section>
+                    <section class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <h3 class="font-bold"><i class="fas fa-shirt text-indigo-700 mr-2"></i>Capi consegnati</h3>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="apriProdottiModal()" class="px-4 py-2 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-semibold"><i class="fas fa-warehouse mr-1"></i>Dal magazzino</button>
+                                <button type="button" onclick="aggiungiRiga()" class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-semibold"><i class="fas fa-plus mr-1"></i>Riga manuale</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-100 text-gray-600 uppercase text-xs"><tr><th class="px-2 py-2 text-left w-36">Codice</th><th class="px-2 py-2 text-left">Descrizione *</th><th class="px-2 py-2 text-left w-24">Taglia</th><th class="px-2 py-2 text-left w-20">Q.tà</th><th class="px-2 py-2 text-left w-40">Note</th><th class="px-2 py-2 w-10"></th></tr></thead>
+                                <tbody id="righeTable"></tbody>
+                            </table>
+                        </div>
+                        <p id="righeVuote" class="text-sm text-gray-400 py-3 text-center">Nessun capo inserito</p>
+                    </section>
+                    <p id="formErrore" class="hidden p-3 rounded-lg bg-red-100 text-red-800 text-sm font-semibold"></p>
+                </div>
+                <div class="px-4 sm:px-7 py-4 bg-white border-t flex justify-end gap-3"><button type="button" onclick="chiudiAssegnazioneModal()" class="px-6 py-3 border-2 border-gray-200 rounded-xl font-semibold">Annulla</button><button id="salvaButton" type="submit" class="px-6 py-3 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold"><i class="fas fa-save mr-2"></i>Salva assegnazione</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="prodottiModal" class="hidden fixed inset-0 z-[60] bg-gray-950/70 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="prodottiTitle">
+        <div class="bg-white w-full max-w-3xl max-h-[92vh] rounded-2xl overflow-hidden flex flex-col">
+            <div class="bg-gray-900 text-white px-5 py-4 flex justify-between items-center"><div><h2 id="prodottiTitle" class="text-xl font-bold">Capi dal magazzino</h2><p id="prodottiSub" class="text-sm text-gray-300"></p></div><button onclick="chiudiProdottiModal()" class="w-10 h-10 hover:bg-white/15 rounded-full" title="Chiudi" aria-label="Chiudi"><i class="fas fa-times"></i></button></div>
+            <div class="p-4 border-b bg-gray-50 flex flex-col sm:flex-row gap-3">
+                <input id="ricercaProdotto" type="search" oninput="renderProdotti()" autocomplete="off" class="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3" placeholder="Cerca codice o descrizione">
+                <label class="flex items-center gap-2 text-sm font-semibold text-gray-700"><input id="soloFornitore" type="checkbox" checked onchange="renderProdotti()" class="w-4 h-4 accent-indigo-700">Solo prodotti del fornitore</label>
+            </div>
+            <div id="prodottiList" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="stampaVestiario" class="hidden p-6 text-sm text-gray-900"></div>
+
+    <script>
+        let currentUser = null;
+        let assegnazioni = [], dipendenti = [], fornitori = [], prodotti = [];
+        let righe = [], editingId = null, vista = 'elenco', dataPicker = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await AuthHelper.requireLogin()) return;
+            currentUser = AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = currentUser ? `${currentUser.nome || ''} ${currentUser.cognome || ''}`.trim() : '';
+            dataPicker = flatpickr('#dataAssegnazione', { locale:'it', dateFormat:'Y-m-d', altInput:true, altFormat:'d/m/Y', disableMobile:true });
+            await Promise.all([caricaAnagrafiche(), caricaAssegnazioni()]);
+        });
+
+        const oggi = () => new Date().toISOString().split('T')[0];
+        const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+        const formatData = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('it-IT') : '-';
+        const nomeDipendente = item => `${item?.nome || ''} ${item?.cognome || ''}`.trim();
+        const totaleCapi = assegnazione => (assegnazione.items || []).reduce((totale, riga) => totale + Number(riga.quantita || 0), 0);
+
+        async function caricaAnagrafiche() {
+            const [usersResult, fornitoriResult, prodottiResult, associazioniResult] = await Promise.all([
+                supabase.from('users').select('id,nome,cognome,ruolo,stato').order('cognome'),
+                supabase.from('fornitori').select('id,ragione_sociale,categoria').eq('attivo', true).order('ragione_sociale'),
+                supabase.from('components').select('id,codice,nome,descrizione,categoria,fornitore_id').eq('stato', 'attivo').order('codice'),
+                supabase.from('component_fornitori').select('component_id,fornitore_id,codice_fornitore').eq('attivo', true)
+            ]);
+            for (const result of [usersResult, fornitoriResult, prodottiResult, associazioniResult]) if (result.error) return mostraErrore('Impossibile caricare le anagrafiche', result.error);
+            dipendenti = (usersResult.data || []).filter(item => item.stato !== 'inattivo');
+            fornitori = fornitoriResult.data || [];
+            prodotti = (prodottiResult.data || []).map(prodotto => ({
+                ...prodotto,
+                fornitori_ids: (associazioniResult.data || []).filter(item => item.component_id === prodotto.id).map(item => item.fornitore_id).concat(prodotto.fornitore_id ? [prodotto.fornitore_id] : []),
+                codici_fornitore: Object.fromEntries((associazioniResult.data || []).filter(item => item.component_id === prodotto.id && item.codice_fornitore).map(item => [item.fornitore_id, item.codice_fornitore]))
+            }));
+
+            const opzioniDipendenti = dipendenti.map(item => `<option value="${item.id}">${escapeHtml(nomeDipendente(item))}${item.ruolo ? ` · ${escapeHtml(item.ruolo)}` : ''}</option>`).join('');
+            const opzioniFornitori = fornitori.map(item => `<option value="${item.id}">${escapeHtml(item.ragione_sociale)}</option>`).join('');
+            document.getElementById('dipendenteId').innerHTML = '<option value="">Seleziona dipendente</option>' + opzioniDipendenti;
+            document.getElementById('filtroDipendente').innerHTML = '<option value="">Tutti i dipendenti</option>' + opzioniDipendenti;
+            document.getElementById('fornitoreId').innerHTML = '<option value="">Seleziona fornitore</option>' + opzioniFornitori;
+            document.getElementById('filtroFornitore').innerHTML = '<option value="">Tutti i fornitori</option>' + opzioniFornitori;
+        }
+
+        async function caricaAssegnazioni() {
+            const { data, error } = await supabase.from('vestiario_assegnazioni')
+                .select('*,dipendente:users!dipendente_id(nome,cognome),fornitore:fornitori(ragione_sociale),items:vestiario_items(*)')
+                .order('data_assegnazione', { ascending:false }).order('created_at', { ascending:false });
+            if (error) return mostraErrore('Impossibile caricare il vestiario. Verifica di aver eseguito create-vestiario.sql', error);
+            assegnazioni = (data || []).map(item => ({ ...item, items: (item.items || []).sort((a, b) => a.posizione - b.posizione) }));
+            aggiornaStatistiche(); renderVista();
+        }
+
+        function aggiornaStatistiche() {
+            const attive = assegnazioni.filter(item => item.stato === 'assegnato');
+            document.getElementById('statAssegnazioni').textContent = assegnazioni.length;
+            document.getElementById('statCapi').textContent = attive.reduce((totale, item) => totale + totaleCapi(item), 0);
+            document.getElementById('statDipendenti').textContent = new Set(attive.map(item => item.dipendente_id)).size;
+            document.getElementById('statFornitori').textContent = new Set(assegnazioni.map(item => item.fornitore_id).filter(Boolean)).size;
+        }
+
+        function cambiaVista(nuova) {
+            vista = nuova;
+            document.getElementById('tabElenco').className = `px-4 py-2 ${vista === 'elenco' ? 'bg-indigo-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`;
+            document.getElementById('tabDipendenti').className = `px-4 py-2 ${vista === 'dipendenti' ? 'bg-indigo-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`;
+            document.getElementById('vistaElenco').classList.toggle('hidden', vista !== 'elenco');
+            document.getElementById('vistaDipendenti').classList.toggle('hidden', vista !== 'dipendenti');
+            renderVista();
+        }
+
+        function assegnazioniFiltrate() {
+            const testo = document.getElementById('ricerca').value.trim().toLowerCase();
+            const dipendenteId = document.getElementById('filtroDipendente').value;
+            const fornitoreId = document.getElementById('filtroFornitore').value;
+            return assegnazioni.filter(item => {
+                if (dipendenteId && item.dipendente_id !== dipendenteId) return false;
+                if (fornitoreId && item.fornitore_id !== fornitoreId) return false;
+                if (!testo) return true;
+                const campi = [item.numero, item.fornitore?.ragione_sociale, item.fornitore_nome, nomeDipendente(item.dipendente), item.dipendente_nome, item.note, ...(item.items || []).flatMap(riga => [riga.codice, riga.descrizione, riga.taglia])];
+                return campi.some(valore => String(valore || '').toLowerCase().includes(testo));
+            });
+        }
+
+        function renderVista() { vista === 'elenco' ? renderElenco() : renderPerDipendente(); }
+
+        function badgeStato(stato) {
+            return stato === 'restituito'
+                ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">Restituito</span>'
+                : '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Assegnato</span>';
+        }
+
+        function riepilogoCapi(item) {
+            return (item.items || []).map(riga => `<span class="inline-block mr-1 mb-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 text-xs">${riga.codice ? `<strong>${escapeHtml(riga.codice)}</strong> ` : ''}${escapeHtml(riga.descrizione)}${riga.taglia ? ` · ${escapeHtml(riga.taglia)}` : ''} ×${riga.quantita}</span>`).join('') || '<span class="text-gray-400">-</span>';
+        }
+
+        function renderElenco() {
+            const lista = assegnazioniFiltrate();
+            document.getElementById('assegnazioniTable').innerHTML = lista.length ? lista.map(item => `
+                <tr class="hover:bg-indigo-50/40">
+                    <td class="px-4 py-3 font-semibold text-indigo-800">${escapeHtml(item.numero)}</td>
+                    <td class="px-4 py-3">${formatData(item.data_assegnazione)}</td>
+                    <td class="px-4 py-3 font-semibold">${escapeHtml(nomeDipendente(item.dipendente) || item.dipendente_nome || '-')}</td>
+                    <td class="px-4 py-3">${escapeHtml(item.fornitore?.ragione_sociale || item.fornitore_nome || '-')}</td>
+                    <td class="px-4 py-3 max-w-md">${riepilogoCapi(item)}</td>
+                    <td class="px-4 py-3">${badgeStato(item.stato)}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button onclick="stampaAssegnazione('${item.id}')" class="text-gray-600 hover:text-gray-900 px-2" title="Stampa modulo consegna" aria-label="Stampa"><i class="fas fa-print"></i></button>
+                        <button onclick="apriModifica('${item.id}')" class="text-indigo-700 hover:text-indigo-900 px-2" title="Modifica" aria-label="Modifica"><i class="fas fa-pen"></i></button>
+                        <button onclick="eliminaAssegnazione('${item.id}')" class="text-red-600 hover:text-red-800 px-2" title="Elimina" aria-label="Elimina"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`).join('') : '<tr><td colspan="7" class="px-4 py-12 text-center text-gray-400"><i class="fas fa-shirt text-4xl block mb-3 opacity-40"></i>Nessuna assegnazione trovata</td></tr>';
+        }
+
+        function renderPerDipendente() {
+            const gruppi = new Map();
+            assegnazioniFiltrate().forEach(item => {
+                const chiave = item.dipendente_id;
+                if (!gruppi.has(chiave)) gruppi.set(chiave, { nome: nomeDipendente(item.dipendente) || item.dipendente_nome || 'Dipendente', assegnazioni: [] });
+                gruppi.get(chiave).assegnazioni.push(item);
+            });
+            const container = document.getElementById('vistaDipendenti');
+            container.innerHTML = gruppi.size ? [...gruppi.values()].sort((a, b) => a.nome.localeCompare(b.nome)).map(gruppo => {
+                const attive = gruppo.assegnazioni.filter(item => item.stato === 'assegnato');
+                return `<article class="border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="bg-indigo-50 px-4 py-3 flex items-center justify-between"><h3 class="font-bold text-indigo-900"><i class="fas fa-user mr-2"></i>${escapeHtml(gruppo.nome)}</h3><span class="text-xs font-semibold text-indigo-700">${attive.reduce((totale, item) => totale + totaleCapi(item), 0)} capi in dotazione</span></div>
+                    <div class="divide-y divide-gray-100">${gruppo.assegnazioni.map(item => `
+                        <div class="px-4 py-3 text-sm">
+                            <div class="flex items-center justify-between gap-2 mb-1"><button onclick="apriModifica('${item.id}')" class="font-semibold text-indigo-800 hover:underline">${escapeHtml(item.numero)}</button><span class="text-xs text-gray-500">${formatData(item.data_assegnazione)} · ${escapeHtml(item.fornitore?.ragione_sociale || item.fornitore_nome || '-')}</span></div>
+                            <div class="flex flex-wrap items-center gap-1">${badgeStato(item.stato)}${riepilogoCapi(item)}</div>
+                        </div>`).join('')}</div>
+                </article>`;
+            }).join('') : '<p class="col-span-full py-12 text-center text-gray-400"><i class="fas fa-users text-4xl block mb-3 opacity-40"></i>Nessuna assegnazione trovata</p>';
+        }
+
+        function apriNuovaAssegnazione() {
+            editingId = null; righe = [];
+            document.getElementById('assegnazioneForm').reset();
+            document.getElementById('assegnazioneModalTitle').textContent = 'Nuova assegnazione vestiario';
+            document.getElementById('assegnazioneModalSub').textContent = 'Il numero viene generato al salvataggio';
+            dataPicker.setDate(oggi(), true);
+            document.getElementById('formErrore').classList.add('hidden');
+            renderRighe();
+            document.getElementById('assegnazioneModal').classList.remove('hidden');
+        }
+
+        function apriModifica(id) {
+            const item = assegnazioni.find(a => a.id === id);
+            if (!item) return;
+            editingId = id;
+            document.getElementById('assegnazioneForm').reset();
+            document.getElementById('assegnazioneModalTitle').textContent = `Modifica ${item.numero}`;
+            document.getElementById('assegnazioneModalSub').textContent = `Registrata il ${formatData(item.data_assegnazione)}`;
+            document.getElementById('dipendenteId').value = item.dipendente_id || '';
+            document.getElementById('fornitoreId').value = item.fornitore_id || '';
+            document.getElementById('stato').value = item.stato || 'assegnato';
+            document.getElementById('note').value = item.note || '';
+            dataPicker.setDate(item.data_assegnazione || oggi(), true);
+            righe = (item.items || []).map(riga => ({ prodotto_id: riga.prodotto_id, codice: riga.codice || '', descrizione: riga.descrizione || '', taglia: riga.taglia || '', quantita: riga.quantita || 1, note: riga.note || '' }));
+            document.getElementById('formErrore').classList.add('hidden');
+            renderRighe();
+            document.getElementById('assegnazioneModal').classList.remove('hidden');
+        }
+
+        function chiudiAssegnazioneModal() { document.getElementById('assegnazioneModal').classList.add('hidden'); }
+
+        function aggiungiRiga(riga = {}) {
+            righe.push({ prodotto_id: riga.prodotto_id || null, codice: riga.codice || '', descrizione: riga.descrizione || '', taglia: riga.taglia || '', quantita: riga.quantita || 1, note: riga.note || '' });
+            renderRighe();
+            if (!riga.descrizione) document.querySelector(`#righeTable tr:last-child input[data-campo="codice"]`)?.focus();
+        }
+
+        function rimuoviRiga(index) { righe.splice(index, 1); renderRighe(); }
+
+        function aggiornaRiga(index, campo, valore) {
+            righe[index][campo] = campo === 'quantita' ? Math.max(1, parseInt(valore, 10) || 1) : valore;
+        }
+
+        function renderRighe() {
+            const classi = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm';
+            document.getElementById('righeTable').innerHTML = righe.map((riga, index) => `
+                <tr>
+                    <td class="px-1 py-1"><input data-campo="codice" value="${escapeHtml(riga.codice)}" onchange="aggiornaRiga(${index},'codice',this.value)" class="${classi} font-mono" placeholder="Codice" aria-label="Codice capo"></td>
+                    <td class="px-1 py-1"><input value="${escapeHtml(riga.descrizione)}" onchange="aggiornaRiga(${index},'descrizione',this.value)" class="${classi}" placeholder="Es. Giubbotto alta visibilità" aria-label="Descrizione capo"></td>
+                    <td class="px-1 py-1"><input value="${escapeHtml(riga.taglia)}" onchange="aggiornaRiga(${index},'taglia',this.value)" class="${classi} uppercase" placeholder="XL / 44" aria-label="Taglia"></td>
+                    <td class="px-1 py-1"><input type="number" min="1" step="1" value="${riga.quantita}" onchange="aggiornaRiga(${index},'quantita',this.value)" class="${classi}" aria-label="Quantità"></td>
+                    <td class="px-1 py-1"><input value="${escapeHtml(riga.note)}" onchange="aggiornaRiga(${index},'note',this.value)" class="${classi}" placeholder="Note" aria-label="Note riga"></td>
+                    <td class="px-1 py-1 text-center"><button type="button" onclick="rimuoviRiga(${index})" class="text-red-600 hover:text-red-800" title="Rimuovi riga" aria-label="Rimuovi riga"><i class="fas fa-trash"></i></button></td>
+                </tr>`).join('');
+            document.getElementById('righeVuote').classList.toggle('hidden', righe.length > 0);
+        }
+
+        function apriProdottiModal() {
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            const fornitore = fornitori.find(item => item.id === fornitoreId);
+            document.getElementById('prodottiSub').textContent = fornitore ? `Prodotti associati a ${fornitore.ragione_sociale}` : 'Seleziona un fornitore per filtrare i suoi prodotti';
+            document.getElementById('soloFornitore').checked = Boolean(fornitore);
+            document.getElementById('ricercaProdotto').value = '';
+            renderProdotti();
+            document.getElementById('prodottiModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('ricercaProdotto').focus(), 50);
+        }
+
+        function chiudiProdottiModal() { document.getElementById('prodottiModal').classList.add('hidden'); }
+
+        function renderProdotti() {
+            const testo = document.getElementById('ricercaProdotto').value.trim().toLowerCase();
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            const soloFornitore = document.getElementById('soloFornitore').checked && fornitoreId;
+            const lista = prodotti.filter(prodotto => {
+                if (soloFornitore && !prodotto.fornitori_ids.includes(fornitoreId)) return false;
+                const codice = prodotto.codici_fornitore[fornitoreId] || prodotto.codice || '';
+                return !testo || [codice, prodotto.nome, prodotto.descrizione, prodotto.categoria].some(valore => String(valore || '').toLowerCase().includes(testo));
+            }).slice(0, 80);
+            document.getElementById('prodottiList').innerHTML = lista.length ? lista.map(prodotto => `
+                <button type="button" onclick="selezionaProdotto('${prodotto.id}')" class="w-full text-left border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0"><p class="font-semibold truncate">${escapeHtml(prodotto.nome || prodotto.descrizione)}</p><p class="text-xs text-gray-500 font-mono">${escapeHtml(prodotto.codici_fornitore[fornitoreId] || prodotto.codice || '')}${prodotto.categoria ? ` · ${escapeHtml(prodotto.categoria)}` : ''}</p></div>
+                    <i class="fas fa-plus text-indigo-700"></i>
+                </button>`).join('') : `<p class="text-center text-gray-400 py-10">${soloFornitore ? 'Nessun prodotto associato a questo fornitore: disattiva il filtro o usa una riga manuale' : 'Nessun prodotto trovato'}</p>`;
+        }
+
+        function selezionaProdotto(id) {
+            const prodotto = prodotti.find(item => item.id === id);
+            if (!prodotto) return;
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            aggiungiRiga({ prodotto_id: prodotto.id, codice: prodotto.codici_fornitore[fornitoreId] || prodotto.codice || '', descrizione: prodotto.nome || prodotto.descrizione || '' });
+            chiudiProdottiModal();
+            document.querySelector('#righeTable tr:last-child input[aria-label="Taglia"]')?.focus();
+        }
+
+        async function salvaAssegnazione(event) {
+            event.preventDefault();
+            const errore = document.getElementById('formErrore');
+            errore.classList.add('hidden');
+            const dipendenteId = document.getElementById('dipendenteId').value;
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            const righeValide = righe.filter(riga => riga.descrizione.trim());
+            if (!dipendenteId || !fornitoreId) return mostraErroreForm('Seleziona dipendente e fornitore');
+            if (!righeValide.length) return mostraErroreForm('Inserisci almeno un capo con descrizione');
+
+            const bottone = document.getElementById('salvaButton');
+            bottone.disabled = true;
+            try {
+                const testata = {
+                    fornitore_id: fornitoreId,
+                    fornitore_nome: fornitori.find(item => item.id === fornitoreId)?.ragione_sociale || null,
+                    dipendente_id: dipendenteId,
+                    dipendente_nome: nomeDipendente(dipendenti.find(item => item.id === dipendenteId)) || null,
+                    data_assegnazione: document.getElementById('dataAssegnazione').value || oggi(),
+                    stato: document.getElementById('stato').value,
+                    note: document.getElementById('note').value.trim() || null
+                };
+                let assegnazioneId = editingId;
+                if (editingId) {
+                    const { error } = await supabase.from('vestiario_assegnazioni').update(testata).eq('id', editingId);
+                    if (error) throw error;
+                    const { error: deleteError } = await supabase.from('vestiario_items').delete().eq('assegnazione_id', editingId);
+                    if (deleteError) throw deleteError;
+                } else {
+                    const { data: numero, error: numeroError } = await supabase.rpc('generate_vestiario_numero');
+                    if (numeroError) throw numeroError;
+                    const { data, error } = await supabase.from('vestiario_assegnazioni').insert({ ...testata, numero, created_by: currentUser?.id || null }).select('id').single();
+                    if (error) throw error;
+                    assegnazioneId = data.id;
+                }
+                const { error: itemsError } = await supabase.from('vestiario_items').insert(righeValide.map((riga, posizione) => ({
+                    assegnazione_id: assegnazioneId,
+                    prodotto_id: riga.prodotto_id || null,
+                    codice: riga.codice.trim() || null,
+                    descrizione: riga.descrizione.trim(),
+                    taglia: riga.taglia.trim().toUpperCase() || null,
+                    quantita: riga.quantita,
+                    note: riga.note.trim() || null,
+                    posizione
+                })));
+                if (itemsError) throw itemsError;
+                chiudiAssegnazioneModal();
+                await caricaAssegnazioni();
+            } catch (error) {
+                mostraErroreForm(error.message || 'Salvataggio non riuscito');
+            } finally {
+                bottone.disabled = false;
+            }
+        }
+
+        async function eliminaAssegnazione(id) {
+            const item = assegnazioni.find(a => a.id === id);
+            if (!item || !confirm(`Eliminare l'assegnazione ${item.numero}? I capi registrati verranno rimossi dal registro.`)) return;
+            const { error } = await supabase.from('vestiario_assegnazioni').delete().eq('id', id);
+            if (error) return mostraErrore('Eliminazione non riuscita', error);
+            await caricaAssegnazioni();
+        }
+
+        function stampaAssegnazione(id) {
+            const item = assegnazioni.find(a => a.id === id);
+            if (!item) return;
+            document.getElementById('stampaVestiario').innerHTML = `
+                <h1 class="text-xl font-bold mb-1">Modulo consegna vestiario ${escapeHtml(item.numero)}</h1>
+                <p class="mb-4">Data: ${formatData(item.data_assegnazione)} · Dipendente: <strong>${escapeHtml(nomeDipendente(item.dipendente) || item.dipendente_nome || '')}</strong> · Fornitore: ${escapeHtml(item.fornitore?.ragione_sociale || item.fornitore_nome || '-')}</p>
+                <table class="w-full border-collapse mb-6"><thead><tr><th class="border px-2 py-1 text-left">Codice</th><th class="border px-2 py-1 text-left">Descrizione</th><th class="border px-2 py-1 text-left">Taglia</th><th class="border px-2 py-1 text-right">Q.tà</th><th class="border px-2 py-1 text-left">Note</th></tr></thead>
+                <tbody>${(item.items || []).map(riga => `<tr><td class="border px-2 py-1 font-mono">${escapeHtml(riga.codice || '')}</td><td class="border px-2 py-1">${escapeHtml(riga.descrizione)}</td><td class="border px-2 py-1">${escapeHtml(riga.taglia || '')}</td><td class="border px-2 py-1 text-right">${riga.quantita}</td><td class="border px-2 py-1">${escapeHtml(riga.note || '')}</td></tr>`).join('')}</tbody></table>
+                ${item.note ? `<p class="mb-6">Note: ${escapeHtml(item.note)}</p>` : ''}
+                <div class="grid grid-cols-2 gap-8 mt-10"><p>Firma consegna<br><br>______________________</p><p>Firma dipendente<br><br>______________________</p></div>`;
+            window.print();
+        }
+
+        function mostraErroreForm(messaggio) {
+            const errore = document.getElementById('formErrore');
+            errore.textContent = messaggio;
+            errore.classList.remove('hidden');
+        }
+
+        function mostraErrore(titolo, error) {
+            console.error(titolo, error);
+            alert(`${titolo}\n${error?.message || ''}`);
+        }
+    </script>
+</body>
+</html>
