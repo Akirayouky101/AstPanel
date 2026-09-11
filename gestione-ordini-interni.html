@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
     <!-- QR Code generator -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
       /* ── Flatpickr tema arancione ── */
       .flatpickr-calendar {
@@ -1028,10 +1029,27 @@
                 prodotti.forEach(prodotto => {
                     prodotto.barcodes_secondari = barcodePerProdotto[prodotto.id] || [];
                 });
+
+                const { data: associazioni, error: associazioniError } = await db
+                    .from('component_fornitori')
+                    .select('component_id, fornitore_id, prezzo_acquisto, codice_fornitore, principale')
+                    .eq('attivo', true);
+                if (associazioniError) throw associazioniError;
+                prodotti.forEach(prodotto => {
+                    prodotto.component_fornitori = (associazioni || []).filter(item => item.component_id === prodotto.id);
+                });
             } catch (err) {
                 console.warn('Prodotti non caricati:', err.message);
                 prodotti = [];
             }
+        }
+
+        function offertaProdottoFornitore(prodotto, fornitoreId) {
+            return prodotto.component_fornitori?.find(item => item.fornitore_id === fornitoreId)
+                || (prodotto.fornitore_id === fornitoreId ? {
+                    prezzo_acquisto: prodotto.prezzo_acquisto,
+                    codice_fornitore: prodotto.codice
+                } : null);
         }
 
         // ── Carica ordini ──
@@ -1153,6 +1171,7 @@
                 <tr class="hover:bg-orange-50 transition-colors" style="cursor:pointer" onclick="apriPreviewOrdine('${o.id}')">
                     <td class="px-5 py-4">
                         <span class="font-bold text-orange-600">${o.numero}</span>
+                        ${o.codice_ordine ? `<div style="font-size:10px;font-weight:700;color:#2563eb">${o.codice_ordine} · seriale ${o.seriale_ordine}</div>` : ''}
                         ${o.numero_ordine_fornitore ? `<div style="font-size:10px;color:#9ca3af">Rif. forn: ${o.numero_ordine_fornitore}</div>` : ''}
                     </td>
                     <td class="px-5 py-4">
@@ -1243,6 +1262,9 @@
             if (q) {
                 filtered = filtered.filter(o =>
                     o.numero.toLowerCase().includes(q) ||
+                    (o.codice_ordine && o.codice_ordine.toLowerCase().includes(q)) ||
+                    (o.barcode_ordine && o.barcode_ordine.toLowerCase().includes(q)) ||
+                    String(o.seriale_ordine || '').includes(q) ||
                     (o.fornitore_nome && o.fornitore_nome.toLowerCase().includes(q)) ||
                     (o.oggetto && o.oggetto.toLowerCase().includes(q)) ||
                     (o.items || []).some(item =>
@@ -1465,6 +1487,7 @@
 
                 const body = document.getElementById('previewBody');
                 body.innerHTML = `
+                ${o.codice_ordine ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border:1.5px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px 14px;margin-bottom:14px;overflow:hidden"><div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#2563eb">Identificativo ordine interno</div><div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-top:2px">${o.codice_ordine}</div><div style="font-size:11px;color:#2563eb">Seriale ${o.seriale_ordine}</div></div><div style="background:white;border-radius:8px;padding:4px 8px;max-width:62%;overflow:hidden"><svg id="previewOrdineBarcode"></svg></div></div>` : ''}
                 <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;margin-bottom:16px">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                         <div style="border:1.5px solid #fed7aa;border-radius:10px;overflow:hidden">
@@ -1538,6 +1561,9 @@
                     new QRCode(qrDiv, { text: 'https://ast-panel.vercel.app/gestione-ordini-interni.html?ordine=' + encodeURIComponent(id), width: 94, height: 94, colorDark: '#1a1a1a', colorLight: '#ffffff' });
                 } else {
                     qrDiv.innerHTML = '<i class="fas fa-qrcode" style="font-size:40px;color:#e5e7eb"></i>';
+                }
+                if (o.barcode_ordine && typeof JsBarcode !== 'undefined') {
+                    try { JsBarcode('#previewOrdineBarcode', o.barcode_ordine, { format:'CODE128', displayValue:true, height:38, margin:3, fontSize:11 }); } catch (error) { console.warn('Barcode ordine interno non renderizzabile:', error); }
                 }
 
                 document.getElementById('previewOrdineModal').classList.remove('hidden');
@@ -1993,13 +2019,20 @@
                                     (prodotti || []).forEach(prodotto => { nomeProdottoMap[prodotto.id] = prodotto.nome; });
                                 }
 
+                                const { data: { session } } = await db.auth.getSession();
+                                const accessToken = session?.access_token;
+                                if (!accessToken) {
+                                    throw new Error('Sessione scaduta. Accedi nuovamente per inviare la richiesta di approvazione.');
+                                }
+
                                 await Promise.all(selezionati.map(async a => {
                                     const approvalUrl = `https://ast-panel.vercel.app/Admin/approva-ordine.html?s=${a.token}`;
                                     const response = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-responder`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                                            'Authorization': `Bearer ${accessToken}`,
+                                            'apikey': SUPABASE_ANON_KEY
                                         },
                                         body: JSON.stringify({
                                             tipo: 'approvazione',
@@ -2618,10 +2651,10 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
             let filtered;
             if (magazzinoPickerMode === 'fornitore' && fornId) {
                 // Solo prodotti del fornitore selezionato
-                filtered = prodotti.filter(p =>
-                    p.fornitore_id === fornId &&
-                    matchesSearch(p)
-                );
+                filtered = prodotti.filter(p => {
+                    const offerta = offertaProdottoFornitore(p, fornId);
+                    return offerta && (matchesSearch(p) || offerta.codice_fornitore?.toLowerCase().includes(q));
+                });
             } else {
                 // Tutti i prodotti (senza filtro fornitore)
                 filtered = prodotti.filter(matchesSearch);
@@ -2636,6 +2669,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                 return;
             }
             container.innerHTML = filtered.map(p => {
+                const offerta = offertaProdottoFornitore(p, fornId);
                 const giac = parseFloat(p.giacenza || 0);
                 const dispBadge = giac > 0
                     ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"><i class="fas fa-check-circle"></i> Disp. (${giac.toFixed(0)} ${p.um || 'pz'})</span>`
@@ -2643,7 +2677,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
 
                 // In modalità 'tutti': mostra badge avviso codice diverso (no codice fornitore)
                 const codiceBadge = magazzinoPickerMode === 'fornitore'
-                    ? `<span style="background:#fff7ed;color:#c2410c;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:800;border:1px solid #fed7aa">${p.codice || 'N/A'}</span>`
+                    ? `<span style="background:#fff7ed;color:#c2410c;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:800;border:1px solid #fed7aa">${offerta?.codice_fornitore || p.codice || 'N/A'}</span>`
                     : `<span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;border:1px solid #fde68a"><i class="fas fa-exclamation-triangle" style="margin-right:3px"></i>codice diverso</span>`;
 
                 return `
@@ -2658,7 +2692,7 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
                             <div style="font-weight:600;color:#1f2937;font-size:13px">${p.descrizione || 'Senza descrizione'}</div>
                         </div>
                         <div style="text-align:right;margin-left:16px">
-                            <div style="font-size:18px;font-weight:800;color:#374151">€ ${parseFloat(p.prezzo_acquisto || 0).toFixed(2)}</div>
+                            <div style="font-size:18px;font-weight:800;color:#374151">€ ${parseFloat(offerta?.prezzo_acquisto ?? p.prezzo_acquisto ?? 0).toFixed(2)}</div>
                             <div style="font-size:10px;color:#9ca3af">${p.um || 'pz'}</div>
                         </div>
                     </div>
@@ -2669,16 +2703,18 @@ ${o.stato === 'approvato' && o.approvato_da_nome ? `
         function selezionaDalMagazzino(prodottoId) {
             const p = prodotti.find(x => x.id === prodottoId);
             if (!p) return;
+            const offerta = offertaProdottoFornitore(p, document.getElementById('fornitoreId').value);
+            const prezzo = parseFloat(offerta?.prezzo_acquisto ?? p.prezzo_acquisto ?? 0);
             const cNome = _maggClienteTarget ? (currentClients.find(c => c.id === _maggClienteTarget)?.nome || '') : '';
             currentItems.push({
                 prodotto_id: p.id,
-                codice: p.codice || '',  // sempre il codice, in qualsiasi modalità
+                codice: offerta?.codice_fornitore || p.codice || '',
                 descrizione: p.descrizione || '',
                 um: p.um || 'pz',
                 quantita: 1,
-                prezzo_unitario: parseFloat(p.prezzo_acquisto || 0),
+                prezzo_unitario: prezzo,
                 sconto_percentuale: 0,
-                importo: parseFloat(p.prezzo_acquisto || 0),
+                importo: prezzo,
                 note: '',
                 cliente_id: _maggClienteTarget || null,
                 cliente_nome_cache: cNome

@@ -787,14 +787,33 @@
             modal.classList.remove('hidden');
             
             try {
-                const { data: prodotti, error } = await window.supabase
-                    .from('components')
-                    .select('id, nome, codice, barcode, descrizione, quantita_disponibile, unita_misura, prezzo_acquisto, categoria')
+                const { data: associazioni, error: associazioniError } = await window.supabase
+                    .from('component_fornitori')
+                    .select('component_id, prezzo_acquisto, codice_fornitore, principale')
                     .eq('fornitore_id', fornitoreId)
-                    .eq('stato', 'attivo')
-                    .order('nome');
-                
-                if (error) throw error;
+                    .eq('attivo', true);
+                if (associazioniError) throw associazioniError;
+
+                const componentIds = (associazioni || []).map(item => item.component_id);
+                let prodotti = [];
+                if (componentIds.length) {
+                    const { data, error } = await window.supabase
+                        .from('components')
+                        .select('id, nome, codice, barcode, descrizione, quantita_disponibile, unita_misura, categoria')
+                        .in('id', componentIds)
+                        .eq('stato', 'attivo')
+                        .order('nome');
+                    if (error) throw error;
+                    prodotti = (data || []).map(prodotto => {
+                        const associazione = associazioni.find(item => item.component_id === prodotto.id);
+                        return {
+                            ...prodotto,
+                            codice: associazione?.codice_fornitore || prodotto.codice,
+                            prezzo_acquisto: associazione?.prezzo_acquisto || 0,
+                            fornitore_principale: associazione?.principale || false
+                        };
+                    });
+                }
                 
                 if (!prodotti || prodotti.length === 0) {
                     container.innerHTML = `
@@ -818,6 +837,7 @@
                                         <p class="font-bold text-gray-900">${p.descrizione || p.nome}</p>
                                         <div class="text-sm text-gray-600 mt-1 space-y-1">
                                             ${p.codice ? `<div><i class="fas fa-tag mr-1 text-blue-500"></i>Codice: ${p.codice}</div>` : ''}
+                                            <div class="text-xs ${p.fornitore_principale ? 'text-indigo-600' : 'text-gray-500'}">${p.fornitore_principale ? 'Fornitore principale' : 'Fornitore secondario'}</div>
                                             ${p.barcode ? `<div><i class="fas fa-barcode mr-1 text-green-500"></i>Barcode: ${p.barcode}</div>` : ''}
                                             ${p.categoria ? `<div><i class="fas fa-folder mr-1 text-orange-500"></i>${p.categoria}</div>` : ''}
                                         </div>

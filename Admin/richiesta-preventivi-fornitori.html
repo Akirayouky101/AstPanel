@@ -958,8 +958,6 @@
 
         // ========== PUSH NOTIFICATIONS ==========
         const PUSH_VAPID = 'BCsyrTqzG2BhGSXfxefMSTttkYgrwlObrgP0UlXWijqhg59qdUIR4hmZOOzHB8PrsAYYKvejEliCvR4fvKgFz0E';
-        const SUPABASE_URL_PUSH = 'https://hrqhckksrunniqnzqogk.supabase.co';
-        const SUPABASE_ANON_KEY_PUSH = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhrY2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3OTkwNjcsImV4cCI6MjA2MjM3NTA2N30.T1gL9a5LKl1yvF2J2XnBHT9pBTbcDQKg2VVZiJeERPQ';
 
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -1095,9 +1093,26 @@
 
                 if (error) throw error;
                 prodotti = data || [];
+
+                const { data: associazioni, error: associazioniError } = await window.supabase
+                    .from('component_fornitori')
+                    .select('component_id, fornitore_id, prezzo_acquisto, codice_fornitore, principale')
+                    .eq('attivo', true);
+                if (associazioniError) throw associazioniError;
+                prodotti.forEach(prodotto => {
+                    prodotto.component_fornitori = (associazioni || []).filter(item => item.component_id === prodotto.id);
+                });
             } catch (error) {
                 console.error('Errore caricamento prodotti:', error);
             }
+        }
+
+        function offertaProdottoFornitore(prodotto, fornitoreId) {
+            return prodotto.component_fornitori?.find(item => item.fornitore_id === fornitoreId)
+                || (prodotto.fornitore_id === fornitoreId ? {
+                    prezzo_acquisto: prodotto.prezzo_acquisto,
+                    codice_fornitore: prodotto.codice
+                } : null);
         }
 
         async function loadRichieste() {
@@ -1514,8 +1529,8 @@
             let filtered;
             if (prodottiModalMode === 'fornitore' && selectedFornitoreId) {
                 filtered = prodotti.filter(p =>
-                    p.fornitore_id === selectedFornitoreId &&
-                    (p.codice?.toLowerCase().includes(search) || p.descrizione?.toLowerCase().includes(search))
+                    offertaProdottoFornitore(p, selectedFornitoreId) &&
+                    ((offertaProdottoFornitore(p, selectedFornitoreId)?.codice_fornitore || p.codice || '').toLowerCase().includes(search) || p.descrizione?.toLowerCase().includes(search))
                 );
             } else {
                 filtered = prodotti.filter(p =>
@@ -1537,9 +1552,10 @@
             }
 
             container.innerHTML = filtered.map(p => {
+                const offerta = offertaProdottoFornitore(p, selectedFornitoreId);
                 const codiceBadge = prodottiModalMode === 'tutti'
                     ? `<span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>codice diverso</span>`
-                    : `<span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">${p.codice || 'N/A'}</span>`;
+                    : `<span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">${offerta?.codice_fornitore || p.codice || 'N/A'}</span>`;
                 return `
                 <div onclick="selezionaProdotto('${p.id}')" 
                     class="border-b border-gray-100 p-4 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 cursor-pointer transition-all group">
@@ -1572,6 +1588,7 @@
         function selezionaProdotto(prodottoId) {
             const prodotto = prodotti.find(p => p.id === prodottoId);
             if (!prodotto) return;
+            const offerta = offertaProdottoFornitore(prodotto, document.getElementById('fornitoreId').value);
 
             // Verifica se già presente nello stesso set
             const alreadyInSet = currentItems.some(item =>
@@ -1589,7 +1606,7 @@
             const item = {
                 id: '',
                 prodotto_id: prodotto.id,
-                codice: prodottiModalMode === 'tutti' ? '' : (prodotto.codice || ''),
+                codice: prodottiModalMode === 'tutti' ? '' : (offerta?.codice_fornitore || prodotto.codice || ''),
                 descrizione: prodotto.descrizione,
                 um: prodotto.um || 'pz',
                 quantita: 1,

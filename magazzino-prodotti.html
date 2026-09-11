@@ -344,8 +344,8 @@
                     </div>
                     <div class="col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            Fornitore
-                            <span class="text-xs text-gray-500 font-normal ml-2">Per ordini automatici</span>
+                            Fornitore principale
+                            <span class="text-xs text-gray-500 font-normal ml-2">Usato come scelta predefinita</span>
                         </label>
                         <div class="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-2 focus-within:border-blue-300 transition">
                             <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-500 shrink-0">
@@ -376,6 +376,13 @@
                             </button>
                         </div>
                         <input type="hidden" id="nuovoFornitoreId">
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-sm font-bold text-gray-700">Altri fornitori</span>
+                            <button type="button" onclick="apriRicercaFornitore('nuovoSecondario')" class="px-3 py-1.5 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-900">
+                                <i class="fas fa-plus mr-1"></i>Aggiungi fornitore
+                            </button>
+                        </div>
+                        <div id="nuovoFornitoriSecondari" class="mt-2 space-y-2"></div>
                     </div>
                 </div>
                 <div class="flex space-x-3 mt-6">
@@ -503,8 +510,8 @@
                     </div>
                     <div class="col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            Fornitore
-                            <span class="text-xs text-gray-500 font-normal ml-2">Per ordini automatici</span>
+                            Fornitore principale
+                            <span class="text-xs text-gray-500 font-normal ml-2">Usato come scelta predefinita</span>
                         </label>
                         <div class="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-2 focus-within:border-blue-300 transition">
                             <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-500 shrink-0">
@@ -535,6 +542,13 @@
                             </button>
                         </div>
                         <input type="hidden" id="modificaFornitoreId">
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-sm font-bold text-gray-700">Altri fornitori</span>
+                            <button type="button" onclick="apriRicercaFornitore('modificaSecondario')" class="px-3 py-1.5 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-900">
+                                <i class="fas fa-plus mr-1"></i>Aggiungi fornitore
+                            </button>
+                        </div>
+                        <div id="modificaFornitoriSecondari" class="mt-2 space-y-2"></div>
                     </div>
                 </div>
                 <div class="flex space-x-3 mt-6">
@@ -1161,6 +1175,8 @@
         let tipoMovimentoSelezionato = 'carico';
         let scannerMode = 'search'; // 'search' o 'fillInput'
         let fornitori = []; // Lista fornitori per select
+        let nuovoFornitoriSecondari = [];
+        let modificaFornitoriSecondari = [];
 
         // Inizializzazione
         async function init() {
@@ -1301,15 +1317,73 @@
 
         function selezionaFornitore(fornitoreId, nomeAzienda = null, codiceFornitore = null) {
             const prefix = fornitoreModalMode;
+            if (prefix.endsWith('Secondario')) {
+                aggiungiFornitoreSecondario(prefix.replace('Secondario', ''), fornitoreId);
+                closeRicercaFornitore();
+                return;
+            }
             if (fornitoreId) {
                 document.getElementById(`${prefix}FornitoreId`).value = fornitoreId;
                 const displayName = nomeAzienda + (codiceFornitore ? ` (${codiceFornitore})` : '');
                 document.getElementById(`${prefix}FornitoreNome`).value = displayName;
+                if (prefix === 'nuovo' || prefix === 'modifica') {
+                    const righe = getFornitoriSecondari(prefix);
+                    const index = righe.findIndex(riga => riga.fornitore_id === fornitoreId);
+                    if (index >= 0) {
+                        const [promosso] = righe.splice(index, 1);
+                        document.getElementById(`${prefix}PrezzoAcquisto`).value = promosso.prezzo_acquisto || '';
+                    }
+                    renderFornitoriSecondari(prefix);
+                }
             } else {
                 document.getElementById(`${prefix}FornitoreId`).value = '';
                 document.getElementById(`${prefix}FornitoreNome`).value = '';
             }
             closeRicercaFornitore();
+        }
+
+        function getFornitoriSecondari(mode) {
+            return mode === 'nuovo' ? nuovoFornitoriSecondari : modificaFornitoriSecondari;
+        }
+
+        function aggiungiFornitoreSecondario(mode, fornitoreId) {
+            const principaleId = document.getElementById(`${mode}FornitoreId`).value;
+            const righe = getFornitoriSecondari(mode);
+            if (!principaleId) {
+                showErrorModal('Fornitore principale mancante', 'Seleziona prima il fornitore principale');
+                return;
+            }
+            if (!fornitoreId || fornitoreId === principaleId || righe.some(riga => riga.fornitore_id === fornitoreId)) {
+                showErrorModal('Fornitore già presente', 'Questo fornitore è già associato al prodotto');
+                return;
+            }
+            righe.push({ fornitore_id: fornitoreId, prezzo_acquisto: 0, codice_fornitore: '' });
+            renderFornitoriSecondari(mode);
+        }
+
+        function rimuoviFornitoreSecondario(mode, index) {
+            getFornitoriSecondari(mode).splice(index, 1);
+            renderFornitoriSecondari(mode);
+        }
+
+        function aggiornaFornitoreSecondario(mode, index, campo, valore) {
+            getFornitoriSecondari(mode)[index][campo] = campo === 'prezzo_acquisto'
+                ? Math.max(0, parseFloat(valore) || 0)
+                : valore.trim();
+        }
+
+        function renderFornitoriSecondari(mode) {
+            const container = document.getElementById(`${mode}FornitoriSecondari`);
+            const righe = getFornitoriSecondari(mode);
+            container.innerHTML = righe.length ? righe.map((riga, index) => {
+                const fornitore = fornitori.find(item => item.id === riga.fornitore_id);
+                return `<div class="grid grid-cols-[1fr_110px_120px_34px] gap-2 items-center bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <span class="text-sm font-semibold text-gray-700 truncate" title="${fornitore?.ragione_sociale || ''}">${fornitore?.ragione_sociale || 'Fornitore'}</span>
+                    <input type="number" min="0" step="0.01" value="${riga.prezzo_acquisto || ''}" onchange="aggiornaFornitoreSecondario('${mode}',${index},'prezzo_acquisto',this.value)" class="px-2 py-1.5 border rounded text-sm" placeholder="Prezzo €">
+                    <input type="text" value="${riga.codice_fornitore || ''}" onchange="aggiornaFornitoreSecondario('${mode}',${index},'codice_fornitore',this.value)" class="px-2 py-1.5 border rounded text-sm" placeholder="Codice">
+                    <button type="button" onclick="rimuoviFornitoreSecondario('${mode}',${index})" class="w-8 h-8 text-red-600 hover:bg-red-100 rounded" title="Rimuovi"><i class="fas fa-trash"></i></button>
+                </div>`;
+            }).join('') : '<p class="text-xs text-gray-400 py-2">Nessun fornitore secondario associato</p>';
         }
 
         function toggleNuovoFornitoreForm(show) {
@@ -1395,6 +1469,10 @@
         }
 
         function rimuoviFornitoreSelezionato(mode) {
+            if (getFornitoriSecondari(mode).length) {
+                showErrorModal('Fornitori secondari presenti', 'Rimuovi prima gli altri fornitori oppure scegline uno come principale');
+                return;
+            }
             document.getElementById(`${mode}FornitoreId`).value = '';
             document.getElementById(`${mode}FornitoreNome`).value = '';
         }
@@ -1425,6 +1503,20 @@
 
                 (componentsData || []).forEach(component => {
                     component.barcodes_secondari = barcodePerProdotto[component.id] || [];
+                });
+
+                const { data: fornitoriData, error: fornitoriError } = await supabase
+                    .from('component_fornitori')
+                    .select('id, component_id, fornitore_id, prezzo_acquisto, codice_fornitore, principale, fornitore:fornitori(id, ragione_sociale, codice_fornitore, logo_url)')
+                    .eq('attivo', true)
+                    .order('principale', { ascending: false });
+
+                if (fornitoriError) {
+                    throw new Error(`Multi-fornitore non configurato: ${fornitoriError.message}. Esegui add-multi-fornitori-prodotti.sql`);
+                }
+
+                (componentsData || []).forEach(component => {
+                    component.component_fornitori = (fornitoriData || []).filter(item => item.component_id === component.id);
                 });
 
                 // Poi carica giacenze complete con impegni
@@ -1731,11 +1823,25 @@
             // Raggruppa per fornitore
             const gruppi = {};
             filtrati.forEach(p => {
-                const fId = p.fornitore_id || p.fornitori?.id || '__nessuno__';
-                const fNome = p.fornitori?.ragione_sociale || 'Senza Fornitore';
-                const fLogo = p.fornitori?.logo_url || '';
-                if (!gruppi[fId]) gruppi[fId] = { nome: fNome, logo: fLogo, prodotti: [] };
-                gruppi[fId].prodotti.push(p);
+                const associazioni = p.component_fornitori?.length
+                    ? p.component_fornitori
+                    : [{
+                        fornitore_id: p.fornitore_id || p.fornitori?.id || '__nessuno__',
+                        fornitore: p.fornitori,
+                        prezzo_acquisto: p.prezzo_acquisto,
+                        principale: true
+                    }];
+                associazioni.forEach(associazione => {
+                    const fId = associazione.fornitore_id || '__nessuno__';
+                    const fNome = associazione.fornitore?.ragione_sociale || 'Senza Fornitore';
+                    const fLogo = associazione.fornitore?.logo_url || '';
+                    if (!gruppi[fId]) gruppi[fId] = { nome: fNome, logo: fLogo, prodotti: [] };
+                    gruppi[fId].prodotti.push({
+                        ...p,
+                        prezzo_acquisto: associazione.prezzo_acquisto,
+                        codice: associazione.codice_fornitore || p.codice
+                    });
+                });
             });
 
             // Fornitore noto primo, poi senza fornitore
@@ -1898,7 +2004,14 @@
             const giacenzaFisica   = p.giacenza_fisica   || 0;
             const giacenzaImpegnata= p.giacenza_impegnata || 0;
             const um = p.um || 'pz';
-            const fornitoreNome = p.fornitori?.ragione_sociale || '';
+            const fornitoriProdotto = p.component_fornitori || [];
+            const offertaMinima = [...fornitoriProdotto]
+                .filter(item => Number(item.prezzo_acquisto) > 0)
+                .sort((a, b) => Number(a.prezzo_acquisto) - Number(b.prezzo_acquisto))[0];
+            const fornitoriHtml = fornitoriProdotto.map(item => `<div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-gray-600"><i class="fas fa-building w-4 text-gray-400 mr-2"></i>${item.fornitore?.ragione_sociale || 'Fornitore'}${item.principale ? ' <strong class="text-indigo-600">(principale)</strong>' : ''}</span>
+                <span class="text-sm font-bold ${item.id === offertaMinima?.id ? 'text-green-700' : 'text-gray-800'}">€ ${Number(item.prezzo_acquisto || 0).toFixed(2)}${item.id === offertaMinima?.id ? ' · più basso' : ''}</span>
+            </div>`).join('');
 
             // Foto
             const fotoHtml = p.foto_url
@@ -1962,8 +2075,7 @@
                         <!-- Info prodotto -->
                         <div class="bg-gray-50 rounded-xl divide-y divide-gray-100 mb-4">
                             ${p.barcode ? `<div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500 flex items-center gap-2"><i class="fas fa-barcode w-4 text-gray-400"></i>Barcode</span><span class="text-sm font-mono font-semibold text-gray-800">${p.barcode}</span></div>` : ''}
-                            ${fornitoreNome ? `<div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500 flex items-center gap-2"><i class="fas fa-building w-4 text-gray-400"></i>Fornitore</span><span class="text-sm font-semibold text-gray-800">${fornitoreNome}</span></div>` : ''}
-                            ${p.prezzo_acquisto ? `<div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500 flex items-center gap-2"><i class="fas fa-euro-sign w-4 text-gray-400"></i>Prezzo acquisto</span><span class="text-sm font-bold text-gray-800">€ ${parseFloat(p.prezzo_acquisto).toFixed(2)}</span></div>` : ''}
+                            ${fornitoriHtml || '<div class="px-4 py-3 text-sm text-gray-400">Nessun fornitore associato</div>'}
                             ${p.giacenza_minima ? `<div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500 flex items-center gap-2"><i class="fas fa-exclamation-triangle w-4 text-amber-400"></i>Scorta minima</span><span class="text-sm font-semibold text-gray-800">${p.giacenza_minima} ${um}</span></div>` : ''}
                         </div>
 
@@ -2246,6 +2358,8 @@
             document.getElementById('nuovoUM').value = 'pz';
             document.getElementById('nuovoCategoria').value = 'Componentistica';
             document.getElementById('nuovoFornitoreId').value = '';
+            nuovoFornitoriSecondari = [];
+            renderFornitoriSecondari('nuovo');
             const _nfNome = document.getElementById('nuovoFornitoreNome');
             if (_nfNome) _nfNome.value = '';
             // Reset foto
@@ -2290,6 +2404,14 @@
                 const nomeFornitore = p.fornitori?.ragione_sociale || '';
                 document.getElementById('nuovoFornitoreNome').value = nomeFornitore;
             }
+            nuovoFornitoriSecondari = (p.component_fornitori || [])
+                .filter(item => !item.principale && item.fornitore_id !== p.fornitore_id)
+                .map(item => ({
+                    fornitore_id: item.fornitore_id,
+                    prezzo_acquisto: Number(item.prezzo_acquisto || 0),
+                    codice_fornitore: item.codice_fornitore || ''
+                }));
+            renderFornitoriSecondari('nuovo');
 
             // Foto (se presente viene copiata l'URL)
             if (p.foto_url) {
@@ -2376,6 +2498,20 @@
                 if (barcodeError) {
                     await supabase.from('components').delete().eq('id', prodottoCreato.id);
                     throw barcodeError;
+                }
+
+                const fornitoriProdotto = fornitoreId ? [{
+                    fornitore_id: fornitoreId,
+                    prezzo_acquisto: prezzoAcquisto,
+                    principale: true
+                }, ...nuovoFornitoriSecondari] : nuovoFornitoriSecondari;
+                const { error: fornitoriError } = await supabase.rpc('set_component_fornitori', {
+                    p_component_id: prodottoCreato.id,
+                    p_fornitori: fornitoriProdotto
+                });
+                if (fornitoriError) {
+                    await supabase.from('components').delete().eq('id', prodottoCreato.id);
+                    throw fornitoriError;
                 }
 
                 // Mostra modal successo
@@ -2480,6 +2616,14 @@
             } else {
                 document.getElementById('modificaFornitoreNome').value = '';
             }
+            modificaFornitoriSecondari = (prodotto.component_fornitori || [])
+                .filter(item => !item.principale && item.fornitore_id !== prodotto.fornitore_id)
+                .map(item => ({
+                    fornitore_id: item.fornitore_id,
+                    prezzo_acquisto: Number(item.prezzo_acquisto || 0),
+                    codice_fornitore: item.codice_fornitore || ''
+                }));
+            renderFornitoriSecondari('modifica');
 
             // Precompila foto
             const fotoUrl = prodotto.foto_url || '';
@@ -2559,6 +2703,17 @@
                 });
                 if (barcodeError) throw barcodeError;
 
+                const fornitoriProdotto = fornitoreId ? [{
+                    fornitore_id: fornitoreId,
+                    prezzo_acquisto: prezzoAcquisto,
+                    principale: true
+                }, ...modificaFornitoriSecondari] : modificaFornitoriSecondari;
+                const { error: fornitoriError } = await supabase.rpc('set_component_fornitori', {
+                    p_component_id: prodottoId,
+                    p_fornitori: fornitoriProdotto
+                });
+                if (fornitoriError) throw fornitoriError;
+
                 showSuccessModal('Prodotto aggiornato!', `${descrizione} è stato modificato con successo`);
                 closeModificaProdottoModal();
                 
@@ -2620,6 +2775,8 @@
                                     <option value="">Tutti</option>
                                     <option value="carico">Carico</option>
                                     <option value="scarico">Scarico</option>
+                                    <option value="reso">Reso</option>
+                                    <option value="annullamento_reso">Annullamento reso</option>
                                     <option value="reintegro">Reintegro</option>
                                     <option value="rettifica">Rettifica</option>
                                 </select>
@@ -2695,6 +2852,7 @@
                                         minute: '2-digit'
                                     });
                                     const tipo = m.tipo_movimento || 'movimento';
+                                    let tipoLabel = tipo;
                                     let tipoColor = 'text-gray-700 bg-gray-100';
                                     let tipoIcon = 'fa-exchange-alt';
                                     
@@ -2704,6 +2862,26 @@
                                     } else if (tipo === 'scarico') {
                                         tipoColor = 'text-red-700 bg-red-100 border-red-300';
                                         tipoIcon = 'fa-arrow-down';
+                                    } else if (tipo === 'reso') {
+                                        tipoLabel = 'Reso';
+                                        tipoColor = 'text-rose-700 bg-rose-100 border-rose-300';
+                                        tipoIcon = 'fa-rotate-left';
+                                    } else if (tipo === 'annullamento_reso') {
+                                        tipoLabel = 'Annullamento reso';
+                                        tipoColor = 'text-blue-700 bg-blue-100 border-blue-300';
+                                        tipoIcon = 'fa-rotate-right';
+                                    } else if (tipo === 'rettifica_reso') {
+                                        tipoLabel = 'Rettifica reso';
+                                        tipoColor = 'text-amber-700 bg-amber-100 border-amber-300';
+                                        tipoIcon = 'fa-arrows-up-down';
+                                    } else if (tipo === 'danno_lavorazione') {
+                                        tipoLabel = 'Danno lavorazione';
+                                        tipoColor = 'text-red-700 bg-red-100 border-red-300';
+                                        tipoIcon = 'fa-triangle-exclamation';
+                                    } else if (tipo === 'annullamento_danno') {
+                                        tipoLabel = 'Annullamento danno';
+                                        tipoColor = 'text-blue-700 bg-blue-100 border-blue-300';
+                                        tipoIcon = 'fa-rotate-left';
                                     } else if (tipo === 'reintegro') {
                                         tipoColor = 'text-blue-700 bg-blue-100 border-blue-300';
                                         tipoIcon = 'fa-undo';
@@ -2726,7 +2904,7 @@
                                             <td class="px-4 py-3">
                                                 <span class="${tipoColor} px-3 py-1 rounded-full text-xs font-bold uppercase inline-flex items-center border">
                                                     <i class="fas ${tipoIcon} mr-1"></i>
-                                                    ${tipo}
+                                                    ${tipoLabel}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 text-sm font-bold ${quantita >= 0 ? 'text-green-600' : 'text-red-600'}">
@@ -2773,7 +2951,7 @@
                     if (m.tipo_movimento === 'carico') {
                         totalCarichi += qty;
                         countCarichi++;
-                    } else if (m.tipo_movimento === 'scarico') {
+                    } else if (m.tipo_movimento === 'scarico' || m.tipo_movimento === 'reso') {
                         totalScarichi += Math.abs(qty); // Converti in positivo
                         countScarichi++;
                     }

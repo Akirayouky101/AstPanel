@@ -13,6 +13,7 @@
     <script src="../supabase-client.js"></script>
     <script src="auth-helper.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         @keyframes bounce-in {
             0% { transform: scale(0.8); opacity: 0; }
@@ -939,9 +940,26 @@
 
                 if (error) throw error;
                 prodotti = data || [];
+
+                const { data: associazioni, error: associazioniError } = await window.supabase
+                    .from('component_fornitori')
+                    .select('component_id, fornitore_id, prezzo_acquisto, codice_fornitore, principale')
+                    .eq('attivo', true);
+                if (associazioniError) throw associazioniError;
+                prodotti.forEach(prodotto => {
+                    prodotto.component_fornitori = (associazioni || []).filter(item => item.component_id === prodotto.id);
+                });
             } catch (error) {
                 console.error('Errore caricamento prodotti:', error);
             }
+        }
+
+        function offertaProdottoFornitore(prodotto, fornitoreId) {
+            return prodotto.component_fornitori?.find(item => item.fornitore_id === fornitoreId)
+                || (prodotto.fornitore_id === fornitoreId ? {
+                    prezzo_acquisto: prodotto.prezzo_acquisto,
+                    codice_fornitore: prodotto.codice
+                } : null);
         }
 
         async function loadOrdini() {
@@ -976,6 +994,9 @@
                 const matchTab = statiTab.includes(o.stato);
                 const matchSearch = !search ||
                     o.numero?.toLowerCase().includes(search) ||
+                    o.codice_ordine?.toLowerCase().includes(search) ||
+                    o.barcode_ordine?.toLowerCase().includes(search) ||
+                    String(o.seriale_ordine || '').includes(search) ||
                     o.oggetto?.toLowerCase().includes(search) ||
                     (o.fornitore?.ragione_sociale || o.fornitore_nome || '').toLowerCase().includes(search);
                 return matchTab && matchSearch;
@@ -997,6 +1018,7 @@
                 <tr id="row-${o.id}" class="hover:bg-orange-50 cursor-pointer transition-colors" onclick="apriRiepilogo('${o.id}')" style="transition:background .4s">
                     <td class="px-6 py-4">
                         <div class="font-medium text-gray-900">${o.numero}</div>
+                        ${o.codice_ordine ? `<div class="text-xs font-semibold text-blue-700">${o.codice_ordine} · seriale ${o.seriale_ordine}</div>` : ''}
                         ${o.preventivo_id ? '<div class="text-xs text-blue-600"><i class="fas fa-link mr-1"></i>Da preventivo</div>' : ''}
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-700">
@@ -1107,16 +1129,22 @@
         }
 
         function aggiungiProdotto() {
+            if (!document.getElementById('fornitoreId').value) {
+                showErrorModal('Fornitore obbligatorio', 'Seleziona prima il fornitore dell\'ordine');
+                return;
+            }
             renderProdottiMagazzino();
             document.getElementById('prodottoModal').classList.remove('hidden');
         }
 
         function renderProdottiMagazzino() {
             const search = document.getElementById('searchProdotto').value.toLowerCase();
-            const filtered = prodotti.filter(p => 
-                p.codice?.toLowerCase().includes(search) || 
-                p.descrizione?.toLowerCase().includes(search)
-            );
+            const fornitoreId = document.getElementById('fornitoreId').value;
+            const filtered = prodotti.filter(p => {
+                const offerta = offertaProdottoFornitore(p, fornitoreId);
+                const codice = offerta?.codice_fornitore || p.codice || '';
+                return offerta && (codice.toLowerCase().includes(search) || p.descrizione?.toLowerCase().includes(search));
+            });
 
             const container = document.getElementById('prodottiMagazzino');
             
@@ -1130,14 +1158,16 @@
                 return;
             }
 
-            container.innerHTML = filtered.map(p => `
+            container.innerHTML = filtered.map(p => {
+                const offerta = offertaProdottoFornitore(p, fornitoreId);
+                return `
                 <div onclick="selezionaProdotto('${p.id}')" 
                     class="border-b border-gray-100 p-4 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 cursor-pointer transition-all group">
                     <div class="flex justify-between items-center">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3 mb-2">
                                 <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
-                                    ${p.codice || 'N/A'}
+                                    ${offerta?.codice_fornitore || p.codice || 'N/A'}
                                 </span>
                                 <span class="text-xs ${p.giacenza > 0 ? 'text-green-600' : 'text-red-600'}">
                                     <i class="fas fa-boxes mr-1"></i>
@@ -1147,7 +1177,7 @@
                             <p class="font-medium text-gray-800">${p.descrizione || 'Senza descrizione'}</p>
                         </div>
                         <div class="text-right ml-6">
-                            <p class="text-lg font-bold text-purple-600">€ ${parseFloat(p.prezzo_acquisto || p.prezzo_vendita || 0).toFixed(2)}</p>
+                            <p class="text-lg font-bold text-purple-600">€ ${parseFloat(offerta?.prezzo_acquisto || 0).toFixed(2)}</p>
                             <p class="text-xs text-gray-500">${p.um || 'pz'}</p>
                             <button class="mt-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                 <i class="fas fa-plus mr-1"></i>Aggiungi
@@ -1155,7 +1185,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function searchProdotti() {
@@ -1165,6 +1196,8 @@
         function selezionaProdotto(prodottoId) {
             const prodotto = prodotti.find(p => p.id === prodottoId);
             if (!prodotto) return;
+            const offerta = offertaProdottoFornitore(prodotto, document.getElementById('fornitoreId').value);
+            if (!offerta) return;
 
             // Verifica se già presente
             if (currentItems.some(item => item.prodotto_id === prodottoId)) {
@@ -1175,12 +1208,12 @@
             const item = {
                 id: Date.now().toString(),
                 prodotto_id: prodotto.id,
-                codice: prodotto.codice,
+                codice: offerta.codice_fornitore || prodotto.codice,
                 descrizione: prodotto.descrizione,
                 um: prodotto.um || 'pz',
                 quantita_ordinata: 1,
-                prezzo_acquisto: parseFloat(prodotto.prezzo_acquisto || prodotto.prezzo_vendita || 0),
-                importo: parseFloat(prodotto.prezzo_acquisto || prodotto.prezzo_vendita || 0)
+                prezzo_acquisto: parseFloat(offerta.prezzo_acquisto || 0),
+                importo: parseFloat(offerta.prezzo_acquisto || 0)
             };
 
             currentItems.push(item);
@@ -2211,6 +2244,7 @@
 
             // Info card
             document.getElementById('riepilogoInfo').innerHTML = `
+                ${ordine.codice_ordine ? `<div class="bg-blue-50 rounded-xl p-4 border border-blue-200 col-span-2 md:col-span-4 flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden"><div class="self-stretch sm:self-center"><p class="text-xs text-blue-600 uppercase font-semibold mb-1">Identificativo ordine fornitore</p><p class="font-bold text-blue-950">${ordine.codice_ordine}</p><p class="text-xs text-blue-700">Seriale ${ordine.seriale_ordine}</p></div><div class="bg-white border border-blue-100 rounded-lg px-3 py-2 max-w-full overflow-hidden"><svg id="riepilogoOrdineBarcode"></svg></div></div>` : ''}
                 <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
                     <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Fornitore</p>
                     <p class="font-medium text-gray-800">${ordine.fornitore?.ragione_sociale || ordine.fornitore_nome || '-'}</p>
@@ -2232,6 +2266,9 @@
                     <p class="text-gray-800">${ordine.oggetto}</p>
                 </div>` : ''}
             `;
+            if (ordine.barcode_ordine && typeof JsBarcode !== 'undefined') {
+                try { JsBarcode('#riepilogoOrdineBarcode', ordine.barcode_ordine, { format:'CODE128', displayValue:true, height:42, margin:3, fontSize:12 }); } catch (error) { console.warn('Barcode ordine fornitore non renderizzabile:', error); }
+            }
 
             // Note
             if (ordine.note_interne) {
@@ -2419,31 +2456,36 @@
         function renderSostituisciList() {
             const q = document.getElementById('sostituisciSearch').value.toLowerCase();
             const container = document.getElementById('sostituisciList');
-            const filtered = (prodotti || []).filter(p =>
-                !q ||
-                p.codice?.toLowerCase().includes(q) ||
-                p.descrizione?.toLowerCase().includes(q) ||
-                p.nome?.toLowerCase().includes(q)
-            ).slice(0, 50);
+            const fornitoreId = ordini.find(ordine => ordine.id === _riepilogoOrdineId)?.fornitore_id;
+            const filtered = (prodotti || []).filter(p => {
+                const offerta = offertaProdottoFornitore(p, fornitoreId);
+                return offerta && (!q ||
+                    (offerta.codice_fornitore || p.codice || '').toLowerCase().includes(q) ||
+                    p.descrizione?.toLowerCase().includes(q) ||
+                    p.nome?.toLowerCase().includes(q));
+            }).slice(0, 50);
             if (!filtered.length) {
                 container.innerHTML = '<p class="text-center text-gray-400 py-8 text-sm">Nessun prodotto trovato</p>';
                 return;
             }
-            container.innerHTML = filtered.map(p => `
+            container.innerHTML = filtered.map(p => {
+                const offerta = offertaProdottoFornitore(p, fornitoreId);
+                return `
                 <div onclick="eseguiSostituzione('${p.id}')" 
                     class="flex items-center gap-3 px-4 py-3 hover:bg-orange-50 cursor-pointer transition-colors group">
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-gray-800 text-sm truncate">${p.descrizione || p.nome || '—'}</p>
-                        <p class="text-xs text-gray-400 font-mono">${p.codice || ''}</p>
+                        <p class="text-xs text-gray-400 font-mono">${offerta?.codice_fornitore || p.codice || ''}</p>
                     </div>
                     <div class="text-right flex-shrink-0">
-                        <p class="text-sm font-bold text-orange-600">€ ${parseFloat(p.prezzo_acquisto || 0).toFixed(2)}</p>
+                        <p class="text-sm font-bold text-orange-600">€ ${parseFloat(offerta?.prezzo_acquisto || 0).toFixed(2)}</p>
                         <p class="text-xs text-gray-400">${p.um || 'pz'}</p>
                     </div>
                     <div class="opacity-0 group-hover:opacity-100 transition-opacity">
                         <i class="fas fa-check-circle text-orange-500 text-lg"></i>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
 
         async function eseguiSostituzione(newProdottoId) {
@@ -2451,6 +2493,9 @@
             if (!newProd) return;
             const ordineId = _riepilogoOrdineId;
             if (!ordineId) return;
+            const fornitoreId = ordini.find(ordine => ordine.id === ordineId)?.fornitore_id;
+            const offerta = offertaProdottoFornitore(newProd, fornitoreId);
+            if (!offerta) return;
 
             try {
                 // Trova tutti gli item dell'ordine con il vecchio prodotto
@@ -2476,10 +2521,10 @@
                     .from('ordini_fornitore_items')
                     .update({
                         prodotto_id: newProd.id,
-                        codice:      newProd.codice || _sostituisciOldCodice,
+                        codice:      offerta.codice_fornitore || newProd.codice || _sostituisciOldCodice,
                         descrizione: newProd.descrizione || newProd.nome,
                         um:          newProd.um || 'pz',
-                        prezzo_acquisto: parseFloat(newProd.prezzo_acquisto || 0)
+                        prezzo_acquisto: parseFloat(offerta.prezzo_acquisto || 0)
                     })
                     .in('id', ids);
 
