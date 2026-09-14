@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contabilità - AST Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="Admin/auth-helper.js"></script>
+    <style>
+        .riga-scaduta td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+        .riga-pagata { color: #6b7280; }
+        .riga-pagata .importo { text-decoration: line-through; text-decoration-color: #9ca3af; }
+        @media print {
+            header, #toolbar, .no-print, [role="dialog"] { display: none !important; }
+            main { padding: 0 !important; }
+            .foglio { break-inside: avoid; border: 1px solid #d1d5db !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <header class="bg-indigo-700 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 min-w-0">
+                <button onclick="location.href='/admin-functional.html'" class="w-10 h-10 hover:bg-indigo-800 rounded-lg" title="Torna al menu" aria-label="Torna al menu"><i class="fas fa-arrow-left"></i></button>
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-bold">Contabilità</h1>
+                    <p class="text-indigo-100 text-sm">Scadenzario mensile uscite ed entrate per azienda</p>
+                </div>
+            </div>
+            <p id="userName" class="text-sm text-indigo-100 whitespace-nowrap"></p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6 max-w-[1600px]">
+        <section id="toolbar" class="bg-white border border-gray-200 rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <div id="aziendeTabs" class="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-semibold" role="tablist"></div>
+                <div class="flex items-center rounded-lg border border-gray-300 overflow-hidden">
+                    <button onclick="cambiaMese(-1)" class="px-3 py-2 hover:bg-gray-100" title="Mese precedente" aria-label="Mese precedente"><i class="fas fa-chevron-left"></i></button>
+                    <input id="meseInput" type="month" onchange="impostaMese(this.value)" class="px-3 py-2 border-x border-gray-300 font-semibold uppercase text-sm w-44" aria-label="Mese">
+                    <button onclick="cambiaMese(1)" class="px-3 py-2 hover:bg-gray-100" title="Mese successivo" aria-label="Mese successivo"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <button onclick="impostaMese(oggi().slice(0,7))" class="px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 rounded-lg">Oggi</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="filtroStato" onchange="renderTutto()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm" aria-label="Filtra per stato">
+                    <option value="">Tutti gli stati</option>
+                    <option value="previsto">Da pagare / incassare</option>
+                    <option value="scaduto">Scaduti / in ritardo (&gt;30 gg)</option>
+                    <option value="pagato">Pagati / incassati</option>
+                </select>
+                <input id="ricerca" type="search" oninput="renderTutto()" placeholder="Cerca creditore, debitore, riferimento..." class="border border-gray-300 rounded-lg px-3 py-2 w-64 max-w-full text-sm">
+                <button onclick="apriRicorrenti()" class="px-4 py-2 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-semibold"><i class="fas fa-rotate mr-1"></i>Ricorrenti</button>
+                <button onclick="esportaCsv()" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold" title="Esporta CSV"><i class="fas fa-file-csv mr-1"></i>CSV</button>
+                <button onclick="window.print()" class="px-4 py-2 border border-gray-300 hover:bg-gray-100 rounded-lg text-sm font-semibold" title="Stampa"><i class="fas fa-print"></i></button>
+                <button onclick="apriMovimento('uscita')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold"><i class="fas fa-arrow-up mr-1"></i>Uscita</button>
+                <button onclick="apriMovimento('entrata')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold"><i class="fas fa-arrow-down mr-1"></i>Entrata</button>
+            </div>
+        </section>
+
+        <div id="fogli" class="grid gap-6"></div>
+        <p id="nessunaAzienda" class="hidden text-center text-gray-500 py-12">Nessuna azienda attiva. Crea le aziende in <a href="/gestione-aziende.html" class="text-indigo-700 underline">Gestione aziende</a>.</p>
+    </main>
+
+    <!-- Modale movimento -->
+    <div id="movimentoModal" class="hidden fixed inset-0 z-50 bg-gray-950/65 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="movimentoTitle">
+        <div class="bg-white w-full max-w-3xl max-h-[94vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div id="movimentoHeader" class="bg-indigo-700 text-white px-5 sm:px-7 py-5 flex items-center justify-between gap-4 flex-shrink-0">
+                <div><h2 id="movimentoTitle" class="text-xl sm:text-2xl font-bold">Nuova uscita</h2><p id="movimentoSub" class="text-sm text-indigo-100"></p></div>
+                <button type="button" onclick="chiudiMovimento()" class="w-10 h-10 hover:bg-white/15 rounded-full" title="Chiudi" aria-label="Chiudi"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="movimentoForm" onsubmit="salvaMovimento(event)" class="flex flex-col min-h-0">
+                <div class="p-4 sm:p-6 bg-gray-50 space-y-5 overflow-y-auto">
+                    <section class="bg-white border border-indigo-200 rounded-xl p-4 sm:p-5 grid md:grid-cols-2 gap-4">
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Azienda *</span><select id="mAzienda" required class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3 bg-white"></select></label>
+                        <div class="block"><span class="block text-sm font-semibold mb-2">Tipo *</span>
+                            <div class="flex rounded-xl border-2 border-indigo-100 overflow-hidden">
+                                <label class="flex-1"><input type="radio" name="mTipo" value="uscita" class="peer sr-only" onchange="aggiornaTipo()"><span class="block text-center px-4 py-3 font-semibold cursor-pointer peer-checked:bg-red-600 peer-checked:text-white">Uscita (creditore)</span></label>
+                                <label class="flex-1"><input type="radio" name="mTipo" value="entrata" class="peer sr-only" onchange="aggiornaTipo()"><span class="block text-center px-4 py-3 font-semibold cursor-pointer peer-checked:bg-emerald-600 peer-checked:text-white">Entrata (debitore)</span></label>
+                            </div>
+                        </div>
+                        <label class="block"><span id="mCollegaLabel" class="block text-sm font-semibold mb-2">Collega a fornitore</span><select id="mCollega" onchange="collegaAnagrafica()" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-white"><option value="">Nessuno (testo libero)</option></select></label>
+                        <label class="block"><span id="mControparteLabel" class="block text-sm font-semibold mb-2">Creditore *</span><input id="mControparte" required list="controparteList" autocomplete="off" class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3" placeholder="Es. F24 IVA, STIPENDI DIPENDENTI"><datalist id="controparteList"></datalist></label>
+                        <label class="block md:col-span-2"><span class="block text-sm font-semibold mb-2">Descrizione</span><input id="mDescrizione" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3" placeholder="Dettaglio facoltativo"></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Importo € *</span><input id="mImporto" type="number" step="0.01" min="0" required class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3 text-right font-semibold"></label>
+                        <label class="block"><span id="mDataLabel" class="block text-sm font-semibold mb-2">Data scadenza *</span><input id="mData" type="date" required onchange="sincronizzaMese()" class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3"></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Mese del foglio *</span><input id="mMese" type="month" required class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Categoria</span><select id="mCategoria" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-white"></select></label>
+                    </section>
+                    <section class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 grid md:grid-cols-2 gap-4">
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Stato</span><select id="mStato" onchange="aggiornaStatoForm()" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-white"><option value="previsto">Previsto</option><option value="pagato">Pagato / incassato</option><option value="annullato">Annullato</option></select></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Metodo</span><select id="mMetodo" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-white"><option value="">-</option><option value="bonifico">Bonifico</option><option value="riba">Ri.Ba.</option><option value="sdd">SDD / RID</option><option value="f24">F24</option><option value="carta">Carta</option><option value="contanti">Contanti</option><option value="assegno">Assegno</option></select></label>
+                        <label class="block pagato-only"><span class="block text-sm font-semibold mb-2">Data pagamento / incasso</span><input id="mDataPagamento" type="date" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+                        <label class="block pagato-only"><span class="block text-sm font-semibold mb-2">Importo effettivo € (se diverso)</span><input id="mImportoPagato" type="number" step="0.01" min="0" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-right"></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Riferimento (n. fattura / documento)</span><input id="mRiferimento" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+                        <label class="block"><span class="block text-sm font-semibold mb-2">Note</span><input id="mNote" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+                        <label id="mRicorrenteWrap" class="flex items-center gap-3 md:col-span-2 text-sm font-semibold text-gray-700"><input id="mRicorrente" type="checkbox" class="w-4 h-4 accent-indigo-700">Crea anche una voce ricorrente mensile (stesso giorno e importo)</label>
+                    </section>
+                    <p id="movimentoErrore" class="hidden p-3 rounded-lg bg-red-100 text-red-800 text-sm font-semibold"></p>
+                </div>
+                <div class="px-4 sm:px-7 py-4 bg-white border-t flex justify-end gap-3"><button type="button" onclick="chiudiMovimento()" class="px-6 py-3 border-2 border-gray-200 rounded-xl font-semibold">Annulla</button><button id="movimentoSalva" type="submit" class="px-6 py-3 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold"><i class="fas fa-save mr-2"></i>Salva</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modale ricorrenti -->
+    <div id="ricorrentiModal" class="hidden fixed inset-0 z-50 bg-gray-950/65 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="ricorrentiTitle">
+        <div class="bg-white w-full max-w-5xl max-h-[94vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="bg-gray-900 text-white px-5 sm:px-7 py-5 flex items-center justify-between gap-4 flex-shrink-0">
+                <div><h2 id="ricorrentiTitle" class="text-xl sm:text-2xl font-bold">Voci ricorrenti</h2><p class="text-sm text-gray-300">Stipendi, F24, rate e canoni generati ogni mese nel foglio</p></div>
+                <button type="button" onclick="chiudiRicorrenti()" class="w-10 h-10 hover:bg-white/15 rounded-full" title="Chiudi" aria-label="Chiudi"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-4 sm:p-6 bg-gray-50 space-y-5 overflow-y-auto">
+                <form id="ricorrenteForm" onsubmit="salvaRicorrente(event)" class="bg-white border border-gray-200 rounded-xl p-4 grid md:grid-cols-4 gap-3">
+                    <input type="hidden" id="rId">
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Azienda *</span><select id="rAzienda" required class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-white text-sm"></select></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Tipo *</span><select id="rTipo" required onchange="popolaCollegaRicorrente()" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-white text-sm"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label>
+                    <label class="block md:col-span-2"><span class="block text-xs font-semibold mb-1">Creditore / debitore *</span><input id="rControparte" required list="controparteList" autocomplete="off" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm"></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Collega anagrafica</span><select id="rCollega" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-white text-sm"><option value="">Nessuna</option></select></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Importo € *</span><input id="rImporto" type="number" step="0.01" min="0" required class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm text-right"></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Giorno del mese * (31 = ultimo)</span><input id="rGiorno" type="number" min="1" max="31" value="31" required class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm"></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Categoria</span><select id="rCategoria" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-white text-sm"></select></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">Da mese</span><input id="rInizio" type="month" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm"></label>
+                    <label class="block"><span class="block text-xs font-semibold mb-1">A mese (vuoto = illimitato)</span><input id="rFine" type="month" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm"></label>
+                    <label class="block md:col-span-2"><span class="block text-xs font-semibold mb-1">Descrizione / note</span><input id="rDescrizione" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm"></label>
+                    <p id="ricorrenteErrore" class="hidden md:col-span-4 p-2 rounded-lg bg-red-100 text-red-800 text-sm font-semibold"></p>
+                    <div class="md:col-span-4 flex justify-end gap-2">
+                        <button type="button" onclick="resetRicorrenteForm()" class="px-4 py-2 border-2 border-gray-200 rounded-lg text-sm font-semibold">Pulisci</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-bold"><i class="fas fa-save mr-1"></i><span id="rSalvaLabel">Aggiungi voce</span></button>
+                    </div>
+                </form>
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="p-3 border-b flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="font-bold text-sm"><i class="fas fa-list text-indigo-700 mr-2"></i>Voci configurate</h3>
+                        <button onclick="generaRicorrentiMese()" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold"><i class="fas fa-wand-magic-sparkles mr-1"></i>Genera nel foglio di <span id="generaMeseLabel"></span></button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100 text-gray-600 uppercase text-xs"><tr><th class="px-3 py-2 text-left">Azienda</th><th class="px-3 py-2 text-left">Tipo</th><th class="px-3 py-2 text-left">Controparte</th><th class="px-3 py-2 text-right">Importo</th><th class="px-3 py-2 text-center">Giorno</th><th class="px-3 py-2 text-left">Periodo</th><th class="px-3 py-2 text-center">Attiva</th><th class="px-3 py-2 text-right">Azioni</th></tr></thead>
+                            <tbody id="ricorrentiTable" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                    <p id="ricorrentiVuote" class="hidden text-sm text-gray-400 py-4 text-center">Nessuna voce ricorrente</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale saldo banca -->
+    <div id="saldoModal" class="hidden fixed inset-0 z-50 bg-gray-950/65 backdrop-blur-sm p-3 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="saldoTitle">
+        <form onsubmit="salvaSaldo(event)" class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div class="bg-indigo-700 text-white px-5 py-4"><h2 id="saldoTitle" class="text-lg font-bold">Saldo banca</h2><p id="saldoSub" class="text-sm text-indigo-100"></p></div>
+            <div class="p-5 space-y-3">
+                <input type="hidden" id="sAzienda">
+                <label class="block"><span class="block text-sm font-semibold mb-2">Saldo attuale €</span><input id="sSaldo" type="number" step="0.01" class="w-full border-2 border-indigo-100 rounded-xl px-4 py-3 text-right font-semibold text-lg"></label>
+                <label class="block"><span class="block text-sm font-semibold mb-2">Note</span><input id="sNote" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3"></label>
+            </div>
+            <div class="px-5 py-4 bg-gray-50 border-t flex justify-end gap-2"><button type="button" onclick="document.getElementById('saldoModal').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl font-semibold">Annulla</button><button type="submit" class="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold">Salva</button></div>
+        </form>
+    </div>
+
+    <script>
+        const CATEGORIE = { stipendi:'Stipendi', tasse:'Tasse / F24', contributi:'Contributi', finanziamento:'Finanziamento / rate', fornitore:'Fornitore', utenze:'Utenze', carburante:'Carburante', multe:'Multe / sanzioni', fattura_cliente:'Fattura cliente', altro:'Altro' };
+        let currentUser = null;
+        let aziende = [], fornitori = [], clienti = [], movimenti = [], saldi = [], ricorrenti = [];
+        let aziendaCorrente = 'tutte', mese = oggi().slice(0, 7), editingId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!await AuthHelper.requireLogin()) return;
+            currentUser = AuthHelper.getCurrentUser();
+            document.getElementById('userName').textContent = currentUser ? `${currentUser.nome || ''} ${currentUser.cognome || ''}`.trim() : '';
+            const params = new URLSearchParams(location.search);
+            if (/^\d{4}-\d{2}$/.test(params.get('mese') || '')) mese = params.get('mese');
+            document.getElementById('meseInput').value = mese;
+            for (const id of ['mCategoria', 'rCategoria']) document.getElementById(id).innerHTML = Object.entries(CATEGORIE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+            await caricaAnagrafiche();
+            if (params.get('azienda') && aziende.some(a => a.id === params.get('azienda'))) aziendaCorrente = params.get('azienda');
+            renderTabs();
+            await caricaMese();
+        });
+
+        function oggi() { return new Date().toISOString().split('T')[0]; }
+        const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+        const formatData = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('it-IT') : '-';
+        const formatEuro = value => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(value) || 0);
+        const meseLabel = m => new Date(`${m}-01T12:00:00`).toLocaleDateString('it-IT', { month:'long', year:'numeric' });
+        const meseIso = m => `${m}-01`;
+        const nomeCliente = c => (c?.ragione_sociale || `${c?.nome || ''} ${c?.cognome || ''}`).trim();
+        const nomeAzienda = id => aziende.find(a => a.id === id)?.nome || '?';
+        const importoEffettivo = m => m.stato === 'pagato' ? Number(m.importo_pagato ?? m.importo) : Number(m.importo);
+        const giorniDa = data => Math.floor((new Date(`${oggi()}T12:00:00`) - new Date(`${data}T12:00:00`)) / 86400000);
+        // Uscite: scadute oltre la data; entrate: da incassare da più di 30 giorni dall'emissione
+        const isScaduto = m => m.stato === 'previsto' && (m.tipo === 'uscita' ? m.data_riferimento < oggi() : giorniDa(m.data_riferimento) > 30);
+
+        async function caricaAnagrafiche() {
+            const [aziendeRes, fornitoriRes, clientiRes] = await Promise.all([
+                supabase.from('aziende').select('id,nome,ragione_sociale,attiva').order('nome'),
+                supabase.from('fornitori').select('id,ragione_sociale').eq('attivo', true).order('ragione_sociale'),
+                supabase.from('clients').select('id,ragione_sociale,nome,cognome').order('ragione_sociale')
+            ]);
+            if (aziendeRes.error) return mostraErrore('Errore caricamento aziende', aziendeRes.error);
+            aziende = (aziendeRes.data || []).filter(a => a.attiva !== false);
+            if (!aziende.length) aziende = aziendeRes.data || [];
+            fornitori = fornitoriRes.data || [];
+            clienti = clientiRes.data || [];
+            const opzioniAziende = aziende.map(a => `<option value="${a.id}">${escapeHtml(a.nome)}</option>`).join('');
+            document.getElementById('mAzienda').innerHTML = opzioniAziende;
+            document.getElementById('rAzienda').innerHTML = opzioniAziende;
+        }
+
+        function renderTabs() {
+            const tabs = [{ id:'tutte', nome:'Tutte' }, ...aziende];
+            document.getElementById('aziendeTabs').innerHTML = tabs.map(t => `<button role="tab" onclick="selezionaAzienda('${t.id}')" class="px-4 py-2 ${aziendaCorrente === t.id ? 'bg-indigo-700 text-white' : 'text-gray-600 hover:bg-gray-100'}">${escapeHtml(t.nome)}</button>`).join('');
+        }
+
+        function selezionaAzienda(id) { aziendaCorrente = id; renderTabs(); aggiornaUrl(); renderTutto(); }
+        function cambiaMese(delta) { const d = new Date(`${mese}-15T12:00:00`); d.setMonth(d.getMonth() + delta); impostaMese(d.toISOString().slice(0, 7)); }
+        async function impostaMese(valore) { if (!/^\d{4}-\d{2}$/.test(valore)) return; mese = valore; document.getElementById('meseInput').value = mese; aggiornaUrl(); await caricaMese(); }
+        function aggiornaUrl() { history.replaceState(null, '', `?mese=${mese}${aziendaCorrente !== 'tutte' ? `&azienda=${aziendaCorrente}` : ''}`); }
+
+        // Il foglio del mese include le voci di competenza del mese e gli arretrati ancora aperti dei mesi precedenti.
+        async function caricaMese() {
+            const inizio = meseIso(mese);
+            const [movRes, saldiRes] = await Promise.all([
+                supabase.from('contabilita_movimenti').select('*')
+                    .or(`mese_competenza.eq.${inizio},and(mese_competenza.lt.${inizio},stato.eq.previsto)`)
+                    .order('data_riferimento').order('created_at'),
+                supabase.from('contabilita_saldi').select('*').eq('mese', inizio)
+            ]);
+            if (movRes.error) return mostraErrore('Errore caricamento movimenti', movRes.error);
+            movimenti = movRes.data || [];
+            saldi = saldiRes.data || [];
+            renderTutto();
+        }
+
+        function filtra(lista) {
+            const stato = document.getElementById('filtroStato').value;
+            const testo = document.getElementById('ricerca').value.trim().toLowerCase();
+            return lista.filter(m => {
+                if (stato === 'scaduto' && !isScaduto(m)) return false;
+                if ((stato === 'previsto' || stato === 'pagato') && m.stato !== stato) return false;
+                if (!stato && m.stato === 'annullato') return false;
+                if (testo && !`${m.controparte} ${m.descrizione || ''} ${m.riferimento || ''} ${m.note || ''}`.toLowerCase().includes(testo)) return false;
+                return true;
+            });
+        }
+
+        function renderTutto() {
+            const visibili = aziendaCorrente === 'tutte' ? aziende : aziende.filter(a => a.id === aziendaCorrente);
+            document.getElementById('nessunaAzienda').classList.toggle('hidden', aziende.length > 0);
+            const fogli = document.getElementById('fogli');
+            fogli.className = `grid gap-6 ${visibili.length > 1 ? 'xl:grid-cols-2' : ''}`;
+            fogli.innerHTML = visibili.map(renderFoglio).join('');
+        }
+
+        function renderFoglio(azienda) {
+            const tutti = movimenti.filter(m => m.azienda_id === azienda.id && m.stato !== 'annullato');
+            const uscite = tutti.filter(m => m.tipo === 'uscita');
+            const entrate = tutti.filter(m => m.tipo === 'entrata');
+            const somma = (lista, fn = m => Number(m.importo)) => lista.reduce((t, m) => t + fn(m), 0);
+            const totUscite = somma(uscite), evase = somma(uscite.filter(m => m.stato === 'pagato'), importoEffettivo);
+            const scadute = somma(uscite.filter(isScaduto));
+            const previsione = somma(entrate), entrati = somma(entrate.filter(m => m.stato === 'pagato'), importoEffettivo);
+            const saldo = saldi.find(s => s.azienda_id === azienda.id);
+            const prevUtile = previsione - totUscite;
+            const kpi = (label, valore, classe = '', extra = '') => `<div class="bg-white border border-gray-200 rounded-lg p-3"><p class="text-xs text-gray-500 uppercase">${label}</p><p class="text-lg font-bold mt-0.5 ${classe}">${valore}</p>${extra}</div>`;
+            return `
+            <section class="foglio bg-gray-100 border border-gray-200 rounded-xl p-4 space-y-4" aria-label="Foglio ${escapeHtml(azienda.nome)}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-xl font-bold text-indigo-900"><i class="fas fa-building mr-2 text-indigo-600"></i>${escapeHtml(azienda.nome)} <span class="text-gray-500 font-semibold text-base">· ${escapeHtml(meseLabel(mese))}</span></h2>
+                    <div class="no-print flex gap-2">
+                        <button onclick="apriMovimento('uscita','${azienda.id}')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold"><i class="fas fa-plus mr-1"></i>Uscita</button>
+                        <button onclick="apriMovimento('entrata','${azienda.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold"><i class="fas fa-plus mr-1"></i>Entrata</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    ${kpi('Totale uscite', formatEuro(totUscite), 'text-red-700')}
+                    ${kpi('Uscite evase', formatEuro(evase), 'text-gray-700', `<p class="text-xs text-gray-500">da pagare ${formatEuro(totUscite - evase)}${scadute ? ` · <span class="text-red-600 font-semibold">scadute ${formatEuro(scadute)}</span>` : ''}</p>`)}
+                    ${kpi('Previsione entrate', formatEuro(previsione), 'text-emerald-700')}
+                    ${kpi('Effettivi entrati', formatEuro(entrati), 'text-gray-700', `<p class="text-xs text-gray-500">da incassare ${formatEuro(previsione - entrati)}</p>`)}
+                    ${kpi('Prev. utile', formatEuro(prevUtile), prevUtile < 0 ? 'text-red-700' : 'text-indigo-700')}
+                    ${kpi('Utile effettivo', formatEuro(entrati - evase), entrati - evase < 0 ? 'text-red-700' : 'text-indigo-700', '<p class="text-xs text-gray-500">incassato − pagato</p>')}
+                    <button onclick="apriSaldo('${azienda.id}')" class="text-left bg-white border border-indigo-200 rounded-lg p-3 hover:border-indigo-400 md:col-span-2"><p class="text-xs text-gray-500 uppercase">Saldo banca attuale <i class="fas fa-pen text-indigo-400 ml-1 no-print"></i></p><p class="text-lg font-bold mt-0.5 ${Number(saldo?.saldo_banca) < 0 ? 'text-red-700' : ''}">${saldo?.saldo_banca != null ? formatEuro(saldo.saldo_banca) : '<span class="text-gray-400 text-sm">clicca per inserire</span>'}</p>${saldo?.note ? `<p class="text-xs text-gray-500">${escapeHtml(saldo.note)}</p>` : ''}</button>
+                </div>
+                ${renderTabella('uscita', filtra(uscite), totUscite, evase)}
+                ${renderTabella('entrata', filtra(entrate), previsione, entrati)}
+            </section>`;
+        }
+
+        function renderTabella(tipo, lista, totale, effettivo) {
+            const uscita = tipo === 'uscita';
+            const righe = lista.map(m => {
+                const riportato = m.mese_competenza < meseIso(mese);
+                const scaduto = isScaduto(m);
+                const anagrafica = uscita ? fornitori.find(f => f.id === m.fornitore_id)?.ragione_sociale : nomeCliente(clienti.find(c => c.id === m.cliente_id));
+                const badge = m.stato === 'pagato'
+                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold"><i class="fas fa-check"></i>${uscita ? 'Pagato' : 'Incassato'} ${formatData(m.data_pagamento)}</span>`
+                    : scaduto ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold"><i class="fas fa-triangle-exclamation"></i>${uscita ? 'Scaduto' : `Da incassare · ${giorniDa(m.data_riferimento)} gg`}</span>`
+                    : `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">${uscita ? 'Da pagare' : `Da incassare${giorniDa(m.data_riferimento) > 0 ? ` · ${giorniDa(m.data_riferimento)} gg` : ''}`}</span>`;
+                return `<tr class="${m.stato === 'pagato' ? 'riga-pagata' : ''} ${scaduto ? 'riga-scaduta bg-red-50/40' : ''} hover:bg-indigo-50/40">
+                    <td class="px-3 py-2"><div class="font-semibold">${escapeHtml(m.controparte)}${m.ricorrente_id ? ' <i class="fas fa-rotate text-gray-400 text-xs" title="Voce ricorrente"></i>' : ''}</div>
+                        <div class="text-xs text-gray-500">${[anagrafica && anagrafica !== m.controparte ? anagrafica : '', m.descrizione, m.riferimento ? `Rif. ${m.riferimento}` : '', CATEGORIE[m.categoria] && m.categoria !== 'altro' ? CATEGORIE[m.categoria] : ''].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+                        ${riportato ? `<div class="text-xs text-indigo-600 font-semibold"><i class="fas fa-share"></i> riportato da ${escapeHtml(meseLabel(m.mese_competenza.slice(0, 7)))}</div>` : ''}</td>
+                    <td class="px-3 py-2 text-right font-semibold whitespace-nowrap"><span class="importo">${formatEuro(m.importo)}</span>${m.stato === 'pagato' && m.importo_pagato != null && Number(m.importo_pagato) !== Number(m.importo) ? `<div class="text-xs text-emerald-700">eff. ${formatEuro(m.importo_pagato)}</div>` : ''}</td>
+                    <td class="px-3 py-2 whitespace-nowrap ${scaduto ? 'text-red-700 font-semibold' : ''}">${formatData(m.data_riferimento)}</td>
+                    <td class="px-3 py-2">${badge}</td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap no-print">
+                        ${m.stato === 'pagato'
+                            ? `<button onclick="cambiaStato('${m.id}','previsto')" class="w-8 h-8 rounded-lg hover:bg-amber-100 text-amber-700" title="Riporta a da ${uscita ? 'pagare' : 'incassare'}"><i class="fas fa-rotate-left"></i></button>`
+                            : `<button onclick="cambiaStato('${m.id}','pagato')" class="w-8 h-8 rounded-lg hover:bg-emerald-100 text-emerald-700" title="Segna ${uscita ? 'pagato' : 'incassato'} oggi"><i class="fas fa-check"></i></button>`}
+                        <button onclick="modificaMovimento('${m.id}')" class="w-8 h-8 rounded-lg hover:bg-indigo-100 text-indigo-700" title="Modifica"><i class="fas fa-pen"></i></button>
+                        <button onclick="duplicaMovimento('${m.id}')" class="w-8 h-8 rounded-lg hover:bg-gray-200 text-gray-600" title="Duplica nel mese successivo"><i class="fas fa-copy"></i></button>
+                        <button onclick="eliminaMovimento('${m.id}')" class="w-8 h-8 rounded-lg hover:bg-red-100 text-red-600" title="Elimina"><i class="fas fa-trash"></i></button>
+                    </td></tr>`;
+            }).join('');
+            return `<div class="bg-white border ${uscita ? 'border-red-200' : 'border-emerald-200'} rounded-lg overflow-hidden">
+                <div class="px-3 py-2 ${uscita ? 'bg-red-600' : 'bg-emerald-600'} text-white font-bold text-sm flex justify-between"><span><i class="fas ${uscita ? 'fa-arrow-up' : 'fa-arrow-down'} mr-2"></i>${uscita ? 'USCITE — Creditori' : 'ENTRATE — Debitori'}</span><span>${lista.length} voci</span></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm">
+                    <thead class="bg-gray-100 text-gray-600 uppercase text-xs"><tr><th class="px-3 py-2 text-left">${uscita ? 'Creditore' : 'Debitore'}</th><th class="px-3 py-2 text-right">Importo</th><th class="px-3 py-2 text-left">${uscita ? 'Scadenza' : 'Emissione'}</th><th class="px-3 py-2 text-left">Stato</th><th class="px-3 py-2 no-print"></th></tr></thead>
+                    <tbody class="divide-y divide-gray-100">${righe || `<tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">Nessuna voce</td></tr>`}</tbody>
+                    <tfoot class="bg-gray-50 font-bold text-sm"><tr><td class="px-3 py-2 text-right">${uscita ? 'Totale uscite' : 'Previsione'}</td><td class="px-3 py-2 text-right">${formatEuro(totale)}</td><td colspan="3" class="px-3 py-2 text-gray-600">${uscita ? 'Uscite evase' : 'Effettivi entrati'}: <span class="text-gray-900">${formatEuro(effettivo)}</span></td></tr></tfoot>
+                </table></div></div>`;
+        }
+
+        // ---------- Movimenti ----------
+        function tipoForm() { return document.querySelector('input[name="mTipo"]:checked')?.value || 'uscita'; }
+
+        function aggiornaTipo() {
+            const uscita = tipoForm() === 'uscita';
+            document.getElementById('movimentoHeader').className = `${uscita ? 'bg-red-600' : 'bg-emerald-600'} text-white px-5 sm:px-7 py-5 flex items-center justify-between gap-4 flex-shrink-0`;
+            document.getElementById('movimentoTitle').textContent = `${editingId ? 'Modifica' : 'Nuova'} ${uscita ? 'uscita' : 'entrata'}`;
+            document.getElementById('mControparteLabel').textContent = uscita ? 'Creditore *' : 'Debitore *';
+            document.getElementById('mDataLabel').textContent = uscita ? 'Data scadenza *' : 'Data emissione *';
+            document.getElementById('mCollegaLabel').textContent = uscita ? 'Collega a fornitore' : 'Collega a cliente';
+            popolaCollega('mCollega', uscita);
+            document.getElementById('controparteList').innerHTML = [...new Set(movimenti.filter(m => m.tipo === tipoForm()).map(m => m.controparte))].map(n => `<option value="${escapeHtml(n)}">`).join('');
+        }
+
+        function popolaCollega(selectId, uscita, selezionato = '') {
+            const lista = uscita ? fornitori.map(f => [f.id, f.ragione_sociale]) : clienti.map(c => [c.id, nomeCliente(c)]);
+            document.getElementById(selectId).innerHTML = `<option value="">Nessuno (testo libero)</option>` + lista.map(([id, nome]) => `<option value="${id}" ${id === selezionato ? 'selected' : ''}>${escapeHtml(nome)}</option>`).join('');
+        }
+
+        function collegaAnagrafica() {
+            const id = document.getElementById('mCollega').value;
+            if (!id) return;
+            const nome = tipoForm() === 'uscita' ? fornitori.find(f => f.id === id)?.ragione_sociale : nomeCliente(clienti.find(c => c.id === id));
+            if (nome) document.getElementById('mControparte').value = nome;
+        }
+
+        function sincronizzaMese() { const d = document.getElementById('mData').value; if (d) document.getElementById('mMese').value = d.slice(0, 7); }
+        function aggiornaStatoForm() { const pagato = document.getElementById('mStato').value === 'pagato'; document.querySelectorAll('.pagato-only').forEach(el => el.classList.toggle('hidden', !pagato)); if (pagato && !document.getElementById('mDataPagamento').value) document.getElementById('mDataPagamento').value = oggi(); }
+
+        function apriMovimento(tipo, aziendaId = null, dati = null) {
+            editingId = dati?.id || null;
+            document.getElementById('movimentoForm').reset();
+            document.getElementById('movimentoErrore').classList.add('hidden');
+            document.querySelector(`input[name="mTipo"][value="${dati?.tipo || tipo}"]`).checked = true;
+            document.getElementById('mAzienda').value = dati?.azienda_id || aziendaId || (aziendaCorrente !== 'tutte' ? aziendaCorrente : aziende[0]?.id || '');
+            document.getElementById('mControparte').value = dati?.controparte || '';
+            document.getElementById('mDescrizione').value = dati?.descrizione || '';
+            document.getElementById('mImporto').value = dati?.importo ?? '';
+            document.getElementById('mData').value = dati?.data_riferimento || `${mese}-${String(Math.min(new Date().getDate(), 28)).padStart(2, '0')}`;
+            document.getElementById('mMese').value = (dati?.mese_competenza || meseIso(mese)).slice(0, 7);
+            document.getElementById('mCategoria').value = dati?.categoria || (tipo === 'entrata' ? 'fattura_cliente' : 'altro');
+            document.getElementById('mStato').value = dati?.stato || 'previsto';
+            document.getElementById('mMetodo').value = dati?.metodo || '';
+            document.getElementById('mDataPagamento').value = dati?.data_pagamento || '';
+            document.getElementById('mImportoPagato').value = dati?.importo_pagato ?? '';
+            document.getElementById('mRiferimento').value = dati?.riferimento || '';
+            document.getElementById('mNote').value = dati?.note || '';
+            document.getElementById('mRicorrenteWrap').classList.toggle('hidden', !!editingId);
+            document.getElementById('movimentoSub').textContent = editingId ? `Modifica voce del foglio ${meseLabel(dati.mese_competenza.slice(0, 7))}` : `Foglio di ${meseLabel(mese)}`;
+            aggiornaTipo();
+            popolaCollega('mCollega', (dati?.tipo || tipo) === 'uscita', dati?.fornitore_id || dati?.cliente_id || '');
+            aggiornaStatoForm();
+            document.getElementById('movimentoModal').classList.remove('hidden');
+            document.getElementById('mControparte').focus();
+        }
+
+        function chiudiMovimento() { document.getElementById('movimentoModal').classList.add('hidden'); editingId = null; }
+        function modificaMovimento(id) { const m = movimenti.find(x => x.id === id); if (m) apriMovimento(m.tipo, m.azienda_id, m); }
+
+        function leggiFormMovimento() {
+            const tipo = tipoForm();
+            const collega = document.getElementById('mCollega').value || null;
+            const stato = document.getElementById('mStato').value;
+            const importoPagato = document.getElementById('mImportoPagato').value;
+            return {
+                azienda_id: document.getElementById('mAzienda').value,
+                tipo,
+                controparte: document.getElementById('mControparte').value.trim(),
+                fornitore_id: tipo === 'uscita' ? collega : null,
+                cliente_id: tipo === 'entrata' ? collega : null,
+                descrizione: document.getElementById('mDescrizione').value.trim() || null,
+                categoria: document.getElementById('mCategoria').value,
+                importo: Number(document.getElementById('mImporto').value),
+                data_riferimento: document.getElementById('mData').value,
+                mese_competenza: meseIso(document.getElementById('mMese').value),
+                stato,
+                data_pagamento: stato === 'pagato' ? (document.getElementById('mDataPagamento').value || oggi()) : null,
+                importo_pagato: stato === 'pagato' && importoPagato !== '' ? Number(importoPagato) : null,
+                metodo: document.getElementById('mMetodo').value || null,
+                riferimento: document.getElementById('mRiferimento').value.trim() || null,
+                note: document.getElementById('mNote').value.trim() || null
+            };
+        }
+
+        async function salvaMovimento(event) {
+            event.preventDefault();
+            const dati = leggiFormMovimento();
+            if (!dati.azienda_id || !dati.controparte || !(dati.importo >= 0) || !dati.data_riferimento) return mostraErroreForm('movimentoErrore', 'Compila azienda, controparte, importo e data');
+            const bottone = document.getElementById('movimentoSalva');
+            bottone.disabled = true;
+            try {
+                if (editingId) {
+                    const { error } = await supabase.from('contabilita_movimenti').update(dati).eq('id', editingId);
+                    if (error) throw error;
+                } else {
+                    let ricorrenteId = null;
+                    if (document.getElementById('mRicorrente').checked) {
+                        const { data, error } = await supabase.from('contabilita_ricorrenti').insert({
+                            azienda_id: dati.azienda_id, tipo: dati.tipo, controparte: dati.controparte, fornitore_id: dati.fornitore_id, cliente_id: dati.cliente_id,
+                            descrizione: dati.descrizione, categoria: dati.categoria, importo: dati.importo, metodo: dati.metodo,
+                            giorno: Number(dati.data_riferimento.slice(8, 10)), data_inizio: dati.mese_competenza, created_by: currentUser?.id || null
+                        }).select('id').single();
+                        if (error) throw error;
+                        ricorrenteId = data.id;
+                    }
+                    const { error } = await supabase.from('contabilita_movimenti').insert({ ...dati, ricorrente_id: ricorrenteId, created_by: currentUser?.id || null });
+                    if (error) throw error;
+                }
+                chiudiMovimento();
+                await caricaMese();
+            } catch (error) {
+                mostraErroreForm('movimentoErrore', error.message || 'Salvataggio non riuscito');
+            } finally {
+                bottone.disabled = false;
+            }
+        }
+
+        async function cambiaStato(id, stato) {
+            const patch = stato === 'pagato' ? { stato, data_pagamento: oggi() } : { stato, data_pagamento: null, importo_pagato: null };
+            const { error } = await supabase.from('contabilita_movimenti').update(patch).eq('id', id);
+            if (error) return mostraErrore('Aggiornamento stato non riuscito', error);
+            await caricaMese();
+        }
+
+        async function duplicaMovimento(id) {
+            const m = movimenti.find(x => x.id === id);
+            if (!m) return;
+            const prossimo = new Date(`${m.mese_competenza.slice(0, 7)}-15T12:00:00`); prossimo.setMonth(prossimo.getMonth() + 1);
+            const meseNuovo = prossimo.toISOString().slice(0, 7);
+            const giorno = Number(m.data_riferimento.slice(8, 10));
+            const ultimo = new Date(prossimo.getFullYear(), prossimo.getMonth() + 1, 0).getDate();
+            const { id: _id, created_at, updated_at, created_by, ricorrente_id, ...copia } = m;
+            const { error } = await supabase.from('contabilita_movimenti').insert({
+                ...copia, stato: 'previsto', data_pagamento: null, importo_pagato: null,
+                data_riferimento: `${meseNuovo}-${String(Math.min(giorno, ultimo)).padStart(2, '0')}`, mese_competenza: meseIso(meseNuovo), created_by: currentUser?.id || null
+            });
+            if (error) return mostraErrore('Duplicazione non riuscita', error);
+            if (confirm(`Voce copiata nel foglio di ${meseLabel(meseNuovo)}. Vuoi aprirlo?`)) await impostaMese(meseNuovo);
+        }
+
+        async function eliminaMovimento(id) {
+            const m = movimenti.find(x => x.id === id);
+            if (!m || !confirm(`Eliminare "${m.controparte}" (${formatEuro(m.importo)})?`)) return;
+            const { error } = await supabase.from('contabilita_movimenti').delete().eq('id', id);
+            if (error) return mostraErrore('Eliminazione non riuscita', error);
+            await caricaMese();
+        }
+
+        // ---------- Saldo banca ----------
+        function apriSaldo(aziendaId) {
+            const saldo = saldi.find(s => s.azienda_id === aziendaId);
+            document.getElementById('sAzienda').value = aziendaId;
+            document.getElementById('sSaldo').value = saldo?.saldo_banca ?? '';
+            document.getElementById('sNote').value = saldo?.note || '';
+            document.getElementById('saldoSub').textContent = `${nomeAzienda(aziendaId)} · ${meseLabel(mese)}`;
+            document.getElementById('saldoModal').classList.remove('hidden');
+            document.getElementById('sSaldo').focus();
+        }
+
+        async function salvaSaldo(event) {
+            event.preventDefault();
+            const valore = document.getElementById('sSaldo').value;
+            const { error } = await supabase.from('contabilita_saldi').upsert({
+                azienda_id: document.getElementById('sAzienda').value, mese: meseIso(mese),
+                saldo_banca: valore === '' ? null : Number(valore), note: document.getElementById('sNote').value.trim() || null, updated_by: currentUser?.id || null
+            }, { onConflict: 'azienda_id,mese' });
+            if (error) return mostraErrore('Salvataggio saldo non riuscito', error);
+            document.getElementById('saldoModal').classList.add('hidden');
+            await caricaMese();
+        }
+
+        // ---------- Ricorrenti ----------
+        async function apriRicorrenti() {
+            document.getElementById('generaMeseLabel').textContent = meseLabel(mese);
+            resetRicorrenteForm();
+            await caricaRicorrenti();
+            document.getElementById('ricorrentiModal').classList.remove('hidden');
+        }
+        function chiudiRicorrenti() { document.getElementById('ricorrentiModal').classList.add('hidden'); }
+
+        async function caricaRicorrenti() {
+            const { data, error } = await supabase.from('contabilita_ricorrenti').select('*').order('tipo').order('giorno').order('controparte');
+            if (error) return mostraErrore('Errore caricamento ricorrenti', error);
+            ricorrenti = data || [];
+            const righe = ricorrenti.map(r => `<tr class="${r.attivo ? '' : 'text-gray-400'}">
+                <td class="px-3 py-2 font-semibold">${escapeHtml(nomeAzienda(r.azienda_id))}</td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ${r.tipo === 'uscita' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">${r.tipo}</span></td>
+                <td class="px-3 py-2">${escapeHtml(r.controparte)}${r.descrizione ? `<div class="text-xs text-gray-500">${escapeHtml(r.descrizione)}</div>` : ''}</td>
+                <td class="px-3 py-2 text-right font-semibold">${formatEuro(r.importo)}</td>
+                <td class="px-3 py-2 text-center">${r.giorno === 31 ? 'ultimo' : r.giorno}</td>
+                <td class="px-3 py-2 text-xs">${escapeHtml(meseLabel(r.data_inizio.slice(0, 7)))} → ${r.data_fine ? escapeHtml(meseLabel(r.data_fine.slice(0, 7))) : '∞'}</td>
+                <td class="px-3 py-2 text-center"><input type="checkbox" ${r.attivo ? 'checked' : ''} onchange="toggleRicorrente('${r.id}', this.checked)" class="w-4 h-4 accent-indigo-700" aria-label="Attiva"></td>
+                <td class="px-3 py-2 text-right whitespace-nowrap"><button onclick="modificaRicorrente('${r.id}')" class="w-8 h-8 rounded-lg hover:bg-indigo-100 text-indigo-700" title="Modifica"><i class="fas fa-pen"></i></button><button onclick="eliminaRicorrente('${r.id}')" class="w-8 h-8 rounded-lg hover:bg-red-100 text-red-600" title="Elimina"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+            document.getElementById('ricorrentiTable').innerHTML = righe;
+            document.getElementById('ricorrentiVuote').classList.toggle('hidden', ricorrenti.length > 0);
+        }
+
+        function popolaCollegaRicorrente(selezionato = '') { popolaCollega('rCollega', document.getElementById('rTipo').value === 'uscita', selezionato); }
+
+        function resetRicorrenteForm() {
+            document.getElementById('ricorrenteForm').reset();
+            document.getElementById('rId').value = '';
+            document.getElementById('rGiorno').value = 31;
+            document.getElementById('rInizio').value = mese;
+            document.getElementById('rAzienda').value = aziendaCorrente !== 'tutte' ? aziendaCorrente : aziende[0]?.id || '';
+            document.getElementById('rSalvaLabel').textContent = 'Aggiungi voce';
+            document.getElementById('ricorrenteErrore').classList.add('hidden');
+            popolaCollegaRicorrente();
+        }
+
+        function modificaRicorrente(id) {
+            const r = ricorrenti.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('rId').value = r.id;
+            document.getElementById('rAzienda').value = r.azienda_id;
+            document.getElementById('rTipo').value = r.tipo;
+            document.getElementById('rControparte').value = r.controparte;
+            document.getElementById('rImporto').value = r.importo;
+            document.getElementById('rGiorno').value = r.giorno;
+            document.getElementById('rCategoria').value = r.categoria;
+            document.getElementById('rInizio').value = r.data_inizio.slice(0, 7);
+            document.getElementById('rFine').value = r.data_fine ? r.data_fine.slice(0, 7) : '';
+            document.getElementById('rDescrizione').value = r.descrizione || '';
+            document.getElementById('rSalvaLabel').textContent = 'Salva modifiche';
+            popolaCollegaRicorrente(r.fornitore_id || r.cliente_id || '');
+            document.getElementById('rControparte').focus();
+        }
+
+        async function salvaRicorrente(event) {
+            event.preventDefault();
+            const tipo = document.getElementById('rTipo').value;
+            const collega = document.getElementById('rCollega').value || null;
+            const fine = document.getElementById('rFine').value;
+            const dati = {
+                azienda_id: document.getElementById('rAzienda').value, tipo,
+                controparte: document.getElementById('rControparte').value.trim(),
+                fornitore_id: tipo === 'uscita' ? collega : null, cliente_id: tipo === 'entrata' ? collega : null,
+                descrizione: document.getElementById('rDescrizione').value.trim() || null,
+                categoria: document.getElementById('rCategoria').value,
+                importo: Number(document.getElementById('rImporto').value),
+                giorno: Number(document.getElementById('rGiorno').value),
+                data_inizio: meseIso(document.getElementById('rInizio').value || mese),
+                data_fine: fine ? meseIso(fine) : null
+            };
+            if (!dati.azienda_id || !dati.controparte || !(dati.importo >= 0)) return mostraErroreForm('ricorrenteErrore', 'Compila azienda, controparte e importo');
+            const id = document.getElementById('rId').value;
+            const { error } = id
+                ? await supabase.from('contabilita_ricorrenti').update(dati).eq('id', id)
+                : await supabase.from('contabilita_ricorrenti').insert({ ...dati, created_by: currentUser?.id || null });
+            if (error) return mostraErroreForm('ricorrenteErrore', error.message);
+            resetRicorrenteForm();
+            await caricaRicorrenti();
+        }
+
+        async function toggleRicorrente(id, attivo) {
+            const { error } = await supabase.from('contabilita_ricorrenti').update({ attivo }).eq('id', id);
+            if (error) mostraErrore('Aggiornamento non riuscito', error);
+            await caricaRicorrenti();
+        }
+
+        async function eliminaRicorrente(id) {
+            const r = ricorrenti.find(x => x.id === id);
+            if (!r || !confirm(`Eliminare la voce ricorrente "${r.controparte}"? I movimenti già generati restano nei fogli.`)) return;
+            const { error } = await supabase.from('contabilita_ricorrenti').delete().eq('id', id);
+            if (error) return mostraErrore('Eliminazione non riuscita', error);
+            await caricaRicorrenti();
+        }
+
+        async function generaRicorrentiMese() {
+            const target = aziendaCorrente !== 'tutte' ? aziende.filter(a => a.id === aziendaCorrente) : aziende;
+            let totale = 0;
+            for (const azienda of target) {
+                const { data, error } = await supabase.rpc('genera_movimenti_ricorrenti', { p_azienda_id: azienda.id, p_mese: meseIso(mese) });
+                if (error) return mostraErrore(`Generazione non riuscita per ${azienda.nome}`, error);
+                totale += Number(data) || 0;
+            }
+            alert(totale ? `${totale} voci aggiunte al foglio di ${meseLabel(mese)}.` : `Nessuna voce da aggiungere: il foglio di ${meseLabel(mese)} è già aggiornato.`);
+            chiudiRicorrenti();
+            await caricaMese();
+        }
+
+        // ---------- Export ----------
+        function esportaCsv() {
+            const visibili = aziendaCorrente === 'tutte' ? aziende : aziende.filter(a => a.id === aziendaCorrente);
+            const righe = [['Azienda', 'Tipo', 'Controparte', 'Descrizione', 'Categoria', 'Importo', 'Data', 'Mese foglio', 'Stato', 'Data pagamento', 'Importo effettivo', 'Metodo', 'Riferimento', 'Note']];
+            for (const a of visibili) for (const m of filtra(movimenti.filter(m => m.azienda_id === a.id))) {
+                righe.push([a.nome, m.tipo, m.controparte, m.descrizione, CATEGORIE[m.categoria] || m.categoria, Number(m.importo).toFixed(2).replace('.', ','), formatData(m.data_riferimento), meseLabel(m.mese_competenza.slice(0, 7)), m.stato, m.data_pagamento ? formatData(m.data_pagamento) : '', m.importo_pagato != null ? Number(m.importo_pagato).toFixed(2).replace('.', ',') : '', m.metodo, m.riferimento, m.note]);
+            }
+            const csv = righe.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+            const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })), download: `contabilita-${mese}${aziendaCorrente !== 'tutte' ? `-${nomeAzienda(aziendaCorrente)}` : ''}.csv` });
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function mostraErroreForm(id, messaggio) { const el = document.getElementById(id); el.textContent = messaggio; el.classList.remove('hidden'); }
+        function mostraErrore(titolo, error) { console.error(titolo, error); alert(`${titolo}\n${error?.message || ''}`); }
+    </script>
+</body>
+</html>
