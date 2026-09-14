@@ -75,7 +75,7 @@
                 <div style="padding:12px;border-bottom:1px solid #f3f4f6;flex-shrink:0">
                     <div style="position:relative">
                         <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;pointer-events:none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        <input id="linkedPickerSearch" type="text" placeholder="Cerca per titolo..."
+                        <input id="linkedPickerSearch" type="text" placeholder="Titolo, codice o seriale..."
                                oninput="window.LinkedTasks._filterPicker(this.value)"
                                style="width:100%;padding:10px 16px 10px 38px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;font-size:13px;outline:none;box-sizing:border-box"
                                onfocus="this.style.borderColor='#a78bfa';this.style.boxShadow='0 0 0 3px rgba(167,139,250,0.2)'"
@@ -121,7 +121,7 @@
             const tEsc = t.titolo.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
             const cEsc = cliente.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
             return `
-                <button onclick="window.LinkedTasks.selectTask('${t.id}','${tEsc}','${t.stato}',${prog},'${cEsc}')"
+                <button onclick="window.LinkedTasks.selectTask('${t.id}','${tEsc}','${t.stato}',${prog},'${cEsc}','${t.codice_lavorazione || ''}',${t.seriale_lavorazione || 'null'})"
                         style="width:100%;text-align:left;display:flex;align-items:center;gap:12px;padding:10px 12px;background:none;border:none;border-radius:12px;cursor:pointer;border-bottom:1px solid #f9fafb;transition:background .15s"
                         onmouseover="this.style.background='#f5f3ff'"
                         onmouseout="this.style.background='none'">
@@ -130,6 +130,7 @@
                     </div>
                     <div style="flex:1;min-width:0">
                         <p style="font-size:13px;font-weight:600;color:#111827;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.titolo}</p>
+                        ${t.codice_lavorazione ? `<p style="font-size:11px;font-weight:700;color:#6d28d9;margin:2px 0 0">${t.codice_lavorazione} · seriale ${t.seriale_lavorazione}</p>` : ''}
                         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
                             <span style="font-size:11px;${sc.cls.includes('blue')?'background:#dbeafe;color:#1d4ed8':sc.cls.includes('yellow')?'background:#fef3c7;color:#92400e':'background:#f3f4f6;color:#4b5563'};padding:2px 8px;border-radius:20px;font-weight:600">${sc.label}</span>
                             <div style="display:flex;align-items:center;gap:4px">
@@ -201,7 +202,7 @@
             try {
                 const { data: parent } = await supabaseClient
                     .from('tasks')
-                    .select('id, titolo, stato, progresso, clients:client_id(ragione_sociale)')
+                    .select('id, titolo, stato, progresso, codice_lavorazione, seriale_lavorazione, barcode_lavorazione, clients:client_id(ragione_sociale)')
                     .eq('id', task.parent_task_id)
                     .single();
 
@@ -211,12 +212,14 @@
                         titolo:   parent.titolo,
                         stato:    parent.stato,
                         progresso: parent.progresso || 0,
-                        cliente:  parent.clients?.ragione_sociale || ''
+                        cliente:  parent.clients?.ragione_sociale || '',
+                        codice_lavorazione: parent.codice_lavorazione,
+                        seriale_lavorazione: parent.seriale_lavorazione
                     };
 
                     const { data: siblings } = await supabaseClient
                         .from('tasks')
-                        .select('id, titolo, stato, progresso, scadenza')
+                        .select('id, titolo, stato, progresso, scadenza, codice_lavorazione, seriale_lavorazione, barcode_lavorazione')
                         .eq('parent_task_id', task.parent_task_id)
                         .neq('id', task.id)
                         .order('created_at', { ascending: true });
@@ -258,7 +261,7 @@
 
             let query = supabaseClient
                 .from('tasks')
-                .select('id, titolo, stato, progresso, scadenza, clients:client_id(ragione_sociale)')
+                .select('id, titolo, stato, progresso, scadenza, codice_lavorazione, seriale_lavorazione, barcode_lavorazione, clients:client_id(ragione_sociale)')
                 .not('stato', 'in', '("completato","annullato")')
                 .is('parent_task_id', null);  // Solo madri — mai figli
 
@@ -282,9 +285,9 @@
         },
 
         /** Seleziona una task come madre */
-        selectTask(id, titolo, stato, progresso, cliente) {
+        selectTask(id, titolo, stato, progresso, cliente, codiceLavorazione, serialeLavorazione) {
             _parentId   = id;
-            _parentData = { id, titolo, stato, progresso: parseInt(progresso) || 0, cliente };
+            _parentData = { id, titolo, stato, progresso: parseInt(progresso) || 0, cliente, codice_lavorazione: codiceLavorazione, seriale_lavorazione: serialeLavorazione };
             _siblings   = [];
             const inp = document.getElementById(_inputId());
             if (inp) inp.value = id;
@@ -354,6 +357,7 @@
                     </div>
                     <div style="flex:1;min-width:0">
                         <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.titolo}</p>
+                        ${t.codice_lavorazione ? `<p style="font-size:11px;font-weight:700;color:#6d28d9;margin:0 0 4px">${t.codice_lavorazione} · seriale ${t.seriale_lavorazione}</p>` : ''}
                         <div style="display:flex;align-items:center;gap:6px">
                             <span style="font-size:11px;background:${sc.cls.includes('blue')?'#dbeafe':sc.cls.includes('yellow')?'#fef3c7':'#f3f4f6'};color:${sc.color};padding:2px 7px;border-radius:20px;font-weight:600">${sc.label}</span>
                             <div style="display:flex;align-items:center;gap:3px">
@@ -398,7 +402,7 @@
                     // Figlio → mostra madre + tutti i fratelli
                     const { data } = await supabaseClient
                         .from('tasks')
-                        .select('id, titolo, stato, progresso, scadenza, data_inizio, created_at')
+                        .select('id, titolo, stato, progresso, scadenza, data_inizio, created_at, codice_lavorazione, seriale_lavorazione, barcode_lavorazione')
                         .or(`id.eq.${task.parent_task_id},parent_task_id.eq.${task.parent_task_id}`)
                         .neq('id', task.id)
                         .order('created_at', { ascending: true });
@@ -407,7 +411,7 @@
                     // Madre → mostra tutti i figli
                     const { data } = await supabaseClient
                         .from('tasks')
-                        .select('id, titolo, stato, progresso, scadenza, data_inizio, created_at')
+                        .select('id, titolo, stato, progresso, scadenza, data_inizio, created_at, codice_lavorazione, seriale_lavorazione, barcode_lavorazione')
                         .eq('parent_task_id', task.id)
                         .order('created_at', { ascending: true });
                     allLinked = data || [];
@@ -450,6 +454,7 @@
                                         <p style="font-size:13px;font-weight:600;color:#1f2937;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${task.titolo}</p>
                                         <span style="font-size:20px;font-weight:900;color:#7c3aed;flex-shrink:0">${task.progresso || 0}%</span>
                                     </div>
+                                    ${task.codice_lavorazione ? `<div style="font-size:11px;font-weight:700;color:#6d28d9;margin-top:5px">${task.codice_lavorazione} · seriale ${task.seriale_lavorazione}</div>` : ''}
                                     <div style="margin-top:6px;width:100%;height:6px;background:#ddd6fe;border-radius:3px">
                                         <div style="height:6px;border-radius:3px;background:linear-gradient(to right,#7c3aed,#a855f7);width:${task.progresso || 0}%;transition:width .3s"></div>
                                     </div>
@@ -480,6 +485,7 @@
                                             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
                                                 <div style="flex:1;min-width:0">
                                                     <p style="font-size:13px;font-weight:600;color:#1f2937;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.titolo}</p>
+                                                    ${t.codice_lavorazione ? `<span style="font-size:11px;font-weight:700;color:#6d28d9;display:block;margin-top:2px">${t.codice_lavorazione} · seriale ${t.seriale_lavorazione}</span>` : ''}
                                                     ${dateStr ? `<span style="font-size:11px;color:#9ca3af;display:block;margin-top:2px">${dateStr}</span>` : ''}
                                                 </div>
                                                 <div style="text-align:right;flex-shrink:0">

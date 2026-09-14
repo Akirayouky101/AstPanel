@@ -3,7 +3,9 @@ module.exports = {
   content: [
     "./**/*.html",
     "./**/*.js",
-    "!./node_modules/**"
+    "!./**/node_modules/**",
+    "!./.vercel/**",
+    "!./test-deploy/**"
   ],
   theme: {
     extend: {},

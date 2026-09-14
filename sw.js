@@ -3,7 +3,7 @@
  * Gestisce: Offline caching, Push Notifications, Badge API
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v14';
 const STATIC_CACHE  = `zg-static-${CACHE_VERSION}`;
 const PAGES_CACHE   = `zg-pages-${CACHE_VERSION}`;
 
@@ -78,6 +78,22 @@ self.addEventListener('fetch', event => {
                     caches.match(event.request)
                         .then(cached => cached || caches.match('/giornaliero-dipendente.html'))
                 )
+        );
+        return;
+    }
+
+    // Script e stili devono aggiornarsi subito dopo un deploy, con fallback offline.
+    if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (response.ok) {
+                        const clone = response.clone();
+                        caches.open(STATIC_CACHE).then(c => c.put(event.request, clone));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request))
         );
         return;
     }

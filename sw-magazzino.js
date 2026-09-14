@@ -1,5 +1,5 @@
 // Service Worker per Magazzino PWA
-const CACHE_NAME = 'magazzino-v1';
+const CACHE_NAME = 'magazzino-v2';
 const urlsToCache = [
   '/magazzino-semplice.html',
   '/supabase-client.js',

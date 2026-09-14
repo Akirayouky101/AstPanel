@@ -129,35 +129,7 @@ window.AuthHelper = {
                 throw new Error('Utente non trovato o auth_id mancante');
             }
 
-            console.log('👤 User auth_id:', this.currentUser.auth_id);
-            
-            // Usa Service Role Key per aggiornare password (bypassa sessione)
-            const { data, error } = await window.supabaseAdmin.auth.admin.updateUserById(
-                this.currentUser.auth_id,
-                { password: newPassword }
-            );
-
-            if (error) {
-                console.error('❌ Errore updateUserById:', error);
-                throw error;
-            }
-
-            console.log('✅ Password Supabase Auth aggiornata via admin API');
-
-            // Aggiorna flag first_login (usa admin per bypassare RLS)
-            console.log('📝 Aggiornando flag first_login per user ID:', this.currentUser.id);
-            
-            const { error: updateError } = await window.supabaseAdmin
-                .from('users')
-                .update({ first_login: false })
-                .eq('id', this.currentUser.id);
-
-            if (updateError) {
-                console.error('❌ Errore update first_login:', updateError);
-                throw updateError;
-            }
-
-            console.log('✅ Flag first_login aggiornato');
+            await window.AdminUsersAPI.changeOwnPassword(newPassword);
             
             this.currentUser.first_login = false;
             sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));

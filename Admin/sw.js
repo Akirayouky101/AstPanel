@@ -1,9 +1,9 @@
 // ================================================
-// AST PANEL - Service Worker v2.1
+// AST PANEL - Service Worker v2.2
 // Features: Offline Cache + Push Notifications + Background Sync
 // ================================================
 
-const CACHE_VERSION = 'ast-panel-v2.1';
+const CACHE_VERSION = 'ast-panel-v2.2';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -37,7 +37,7 @@ const CDN_ASSETS = [
 
 // ========== INSTALL EVENT ==========
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v2.1...');
+  console.log('[SW] Installing Service Worker v2.2...');
   
   event.waitUntil(
     Promise.all([
@@ -54,7 +54,7 @@ self.addEventListener('install', (event) => {
 
 // ========== ACTIVATE EVENT ==========
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v2.1...');
+  console.log('[SW] Activating Service Worker v2.2...');
   
   event.waitUntil(
     Promise.all([

@@ -4,11 +4,8 @@
 
 // Configurazione Supabase
 const SUPABASE_URL = 'https://hrqhckksrunniqnzqogk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODczNjUsImV4cCI6MjA3Njg2MzM2NX0.EyJc6p88SDxDt07g4sytrrqqnoA6EOvpKmoZFNCaqvA';
-
-// ⚠️ SERVICE ROLE KEY - Solo per operazioni admin (auth.admin.createUser)
-// ⚠️ Bypassa RLS - Usare SOLO in gestione-utenti.html
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycWhja2tzcnVubmlxbnpxb2drIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTI4NzM2NSwiZXhwIjoyMDc2ODYzMzY1fQ.VRr21sG4eaJqVRDRAETmqFsEEUtcxisKLNNqEA-jGNE';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_5ELJc_IthD1LTrZ9P9v1NA_CpA5G-4j';
+const SUPABASE_ANON_KEY = SUPABASE_PUBLISHABLE_KEY;
 
 // Attendi che la libreria Supabase CDN sia caricata
 if (!window.supabase || !window.supabase.createClient) {
@@ -19,18 +16,15 @@ if (!window.supabase || !window.supabase.createClient) {
 // Salva riferimento alla libreria globale dal CDN
 const { createClient } = window.supabase;
 
-// Inizializza client Supabase standard (con anon key)
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inizializza client Supabase standard
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Inizializza client admin (con service_role key) - Solo per gestione-utenti.html
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-// Esporta clients come variabili globali
+// Esporta il solo client anon autenticato.
 window.supabaseClient = supabaseClient;
 window.supabase = supabaseClient; // Compatibilità con codice esistente
-window.supabaseAdmin = supabaseAdmin; // Per operazioni admin
+window.supabaseAdmin = null; // Compatibilità temporanea: le operazioni privilegiate passano dal server.
 
-console.log('✅ Supabase clients initialized successfully');
+console.log('✅ Supabase client initialized successfully');
 
 // ── Uppercase globale ──────────────────────────────────────────────────────
 (function() {
@@ -96,6 +90,48 @@ window.AuthService = {
     }
 };
 
+window.AdminUsersAPI = {
+    async request(action, payload = {}) {
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError || !session?.access_token) {
+            throw new Error('Sessione scaduta. Accedi nuovamente.');
+        }
+
+        const response = await fetch('/api/admin-users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ action, ...payload })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(result.error || 'Operazione amministrativa non riuscita');
+            error.code = result.code;
+            error.status = response.status;
+            throw error;
+        }
+        return result;
+    },
+
+    create(user) {
+        return this.request('create', { user });
+    },
+
+    update(id, user) {
+        return this.request('update', { id, user });
+    },
+
+    delete(id) {
+        return this.request('delete', { id });
+    },
+
+    changeOwnPassword(password) {
+        return this.request('change-own-password', { password });
+    }
+};
+
 // =====================================================
 // USERS API
 // =====================================================
@@ -150,42 +186,7 @@ window.UsersAPI = {
 
     // Delete user (elimina da public.users E da auth.users)
     async delete(id) {
-        try {
-            // 1. Prima recupera l'auth_id dell'utente
-            const { data: user, error: fetchError } = await supabase
-                .from('users')
-                .select('auth_id')
-                .eq('id', id)
-                .single();
-            
-            if (fetchError) throw fetchError;
-            
-            // 2. Elimina da public.users
-            const { error: deleteError } = await supabase
-                .from('users')
-                .delete()
-                .eq('id', id);
-            
-            if (deleteError) throw deleteError;
-            
-            // 3. Se ha un auth_id, elimina anche da auth.users
-            if (user?.auth_id && window.supabaseAdmin) {
-                console.log('🗑️ Eliminando utente da auth.users:', user.auth_id);
-                const { error: authDeleteError } = await window.supabaseAdmin.auth.admin.deleteUser(
-                    user.auth_id
-                );
-                
-                if (authDeleteError) {
-                    console.warn('⚠️ Errore eliminazione da auth.users (utente già eliminato?):', authDeleteError);
-                    // Non bloccare se fallisce (potrebbe essere già eliminato)
-                }
-            }
-            
-            console.log('✅ Utente eliminato completamente');
-        } catch (error) {
-            console.error('❌ Errore eliminazione utente:', error);
-            throw error;
-        }
+        return window.AdminUsersAPI.delete(id);
     },
 
     // Get by role
@@ -521,7 +522,8 @@ window.TasksAPI = {
                 client:clients(id, ragione_sociale, email, indirizzo, citta, cap),
                 assigned_user:users!tasks_assigned_user_id_fkey(id, nome, cognome, email),
                 assigned_team:teams(id, nome),
-                task_assignments(user_id, ore_assegnate, ruolo_assegnazione, users(id, nome, cognome, email, ruolo))
+                task_assignments(user_id, ore_assegnate, ruolo_assegnazione, users(id, nome, cognome, email, ruolo)),
+                task_components(*, component:components(*))
             `)
             .order('created_at', { ascending: false });
 
@@ -538,6 +540,12 @@ window.TasksAPI = {
             team_name: task.assigned_team?.nome || null,
             multi_user_names: (task.task_assignments || []).filter(a => a.users && a.users.ruolo !== 'esterno').map(a => `${a.users.nome} ${a.users.cognome}`).filter(Boolean),
             multi_esterni_names: (task.task_assignments || []).filter(a => a.users && a.users.ruolo === 'esterno').map(a => `${a.users.nome} ${a.users.cognome}`).filter(Boolean),
+            componenti: (task.task_components || []).map(taskComponent => ({
+                id: taskComponent.component_id,
+                quantita: taskComponent.quantita,
+                note: taskComponent.note,
+                ...taskComponent.component
+            })),
             preventivi_collegati: []
         }));
     },
@@ -608,18 +616,8 @@ window.TasksAPI = {
         return data;
     },
 
-    // Update task — scales warehouse components when transitioning to 'completato'
+    // Update task; warehouse deduction is handled atomically by database triggers.
     async update(id, updates) {
-        let previousStato = null;
-        if (updates.stato === 'completato') {
-            const { data: prev } = await supabase
-                .from('tasks')
-                .select('stato')
-                .eq('id', id)
-                .single();
-            previousStato = prev?.stato;
-        }
-
         const { data, error } = await supabase
             .from('tasks')
             .update(updates)
@@ -628,14 +626,6 @@ window.TasksAPI = {
             .single();
 
         if (error) throw error;
-
-        if (updates.stato === 'completato' && previousStato !== 'completato') {
-            try {
-                await this.deductComponentsOnCompletion(id);
-            } catch (e) {
-                console.error('Errore scalatura componenti dal magazzino:', e);
-            }
-        }
 
         return data;
     },

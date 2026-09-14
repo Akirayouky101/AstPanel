@@ -124,9 +124,11 @@ class TaskWizard {
             cliente_id: null,
             descrizione: '',
             priorita: 'media',
+            data_inizio: '',
             scadenza: '',
             ora_inizio: '',
             ora_fine: '',
+            giornate: [],
             categoria: '',
             tags: [],
             
@@ -858,6 +860,7 @@ class TaskWizard {
         document.getElementById('wizard-categoria').value = this.wizardData.categoria || '';
         document.getElementById('wizard-ora-inizio').value = this.wizardData.ora_inizio || '';
         document.getElementById('wizard-ora-fine').value = this.wizardData.ora_fine || '';
+        if (typeof window._renderWizardDaySchedules === 'function') window._renderWizardDaySchedules();
     }
 
     populateStep2Form() {
@@ -899,7 +902,13 @@ class TaskWizard {
     }
 
     populateStep3Form() {
+        this.updateEstimatedHoursFromSchedules();
         document.getElementById('wizard-ore-stimate').value = this.wizardData.ore_stimate || '';
+
+        if (typeof window.refreshWizardComponentsEditor === 'function') {
+            window.refreshWizardComponentsEditor();
+            return;
+        }
 
         // Ripristina lista componenti selezionati (potrebbero essere già in wizardData da selezione o da edit)
         const container = document.getElementById('wizard-componenti-selezionati');
@@ -938,8 +947,13 @@ class TaskWizard {
         this.wizardData.priorita = document.getElementById('wizard-priorita').value;
         this.wizardData.scadenza = document.getElementById('wizard-scadenza').value;
         this.wizardData.data_inizio = document.getElementById('wizard-data-inizio')?.value || '';
-        this.wizardData.ora_inizio = document.getElementById('wizard-ora-inizio').value;
-        this.wizardData.ora_fine = document.getElementById('wizard-ora-fine').value;
+        if (typeof window._collectWizardDaySchedules === 'function') {
+            this.wizardData.giornate = window._collectWizardDaySchedules();
+        }
+        const firstDay = this.wizardData.giornate?.[0];
+        this.wizardData.ora_inizio = firstDay?.ora_inizio || document.getElementById('wizard-ora-inizio')?.value || '';
+        this.wizardData.ora_fine = firstDay?.ora_fine || document.getElementById('wizard-ora-fine')?.value || '';
+        this.updateEstimatedHoursFromSchedules();
         this.wizardData.categoria = document.getElementById('wizard-categoria').value;
         // Interventi collegati (gestito da LinkedTasks, ma leggiamo anche l'hidden input)
         const parentInp = document.getElementById('wizard-parent-task-id');
@@ -961,7 +975,21 @@ class TaskWizard {
     }
 
     saveStep3Data() {
-        this.wizardData.ore_stimate = parseFloat(document.getElementById('wizard-ore-stimate').value) || 0;
+        this.updateEstimatedHoursFromSchedules();
+        document.getElementById('wizard-ore-stimate').value = this.wizardData.ore_stimate || '';
+    }
+
+    updateEstimatedHoursFromSchedules() {
+        if (!Array.isArray(this.wizardData.giornate) || this.wizardData.giornate.length === 0) return;
+        this.wizardData.ore_stimate = this.wizardData.giornate.reduce((total, giorno) => {
+            const [startHour, startMinute] = String(giorno.ora_inizio || '').split(':').map(Number);
+            const [endHour, endMinute] = String(giorno.ora_fine || '').split(':').map(Number);
+            if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return total;
+            const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+            const pauseMinutes = giorno.giornata_intera ? 60 : 0;
+            return total + Math.max(0, minutes - pauseMinutes) / 60;
+        }, 0);
+        this.wizardData.ore_stimate = Math.round(this.wizardData.ore_stimate * 100) / 100;
     }
 
     saveCurrentStepData() {
@@ -1015,6 +1043,7 @@ class TaskWizard {
                 scadenza: this.wizardData.scadenza,
                 ora_inizio: this.wizardData.ora_inizio || null,
                 ora_fine: this.wizardData.ora_fine || null,
+                giornate_json: this.wizardData.giornate?.length ? JSON.stringify(this.wizardData.giornate) : null,
                 categoria: this.wizardData.categoria,
                 ore_stimate: this.wizardData.ore_stimate,
                 costo_stimato: this.wizardData.costo_stimato,
@@ -1349,6 +1378,7 @@ class TaskWizard {
             scadenza: '',
             ora_inizio: '',
             ora_fine: '',
+            giornate: [],
             categoria: '',
             tags: [],
             assigned_user_id: null,

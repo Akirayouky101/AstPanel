@@ -351,13 +351,13 @@
                 
                 <!-- Orari - CELESTE -->
                 <div id="modalHoursCard" class="hidden bg-gradient-to-br from-sky-50 to-cyan-100 border-2 border-sky-200 rounded-xl p-4">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-start gap-3">
                         <div class="w-12 h-12 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i data-lucide="clock" class="w-6 h-6 text-white"></i>
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-xs text-sky-700 font-medium mb-1">Orari</p>
-                            <p class="text-sm font-bold text-gray-900" id="modalHours"></p>
+                            <div class="space-y-2" id="modalHours"></div>
                         </div>
                     </div>
                 </div>
@@ -478,19 +478,18 @@
                     </div>
                     <div class="bg-sky-50 border-2 border-sky-200 rounded-xl p-3">
                         <label class="block text-xs font-bold text-sky-700 mb-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 inline mr-1"></i>Ore stimate</label>
-                        <input type="number" id="calEditOre" min="0" step="0.5" class="w-full px-2 py-2 border-2 border-sky-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="0">
+                        <input type="number" id="calEditOre" min="0" step="0.5" readonly class="w-full px-2 py-2 border-2 border-sky-300 rounded-lg bg-sky-100 text-sm font-bold text-sky-800" placeholder="0">
                     </div>
                 </div>
-                <!-- Ora inizio / fine -->
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-3">
-                        <label class="block text-xs font-bold text-teal-700 mb-1.5"><i data-lucide="play" class="w-3.5 h-3.5 inline mr-1"></i>Ora inizio</label>
-                        <input type="time" id="calEditOraInizio" class="w-full px-2 py-2 border-2 border-teal-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                <!-- Orari per giornata -->
+                <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-3">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <label class="block text-xs font-bold text-teal-700"><i data-lucide="calendar-clock" class="w-3.5 h-3.5 inline mr-1"></i>Orari per giornata</label>
+                        <span id="calEditDaysTotal" class="text-xs font-bold text-teal-800"></span>
                     </div>
-                    <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-3">
-                        <label class="block text-xs font-bold text-teal-700 mb-1.5"><i data-lucide="square" class="w-3.5 h-3.5 inline mr-1"></i>Ora fine</label>
-                        <input type="time" id="calEditOraFine" class="w-full px-2 py-2 border-2 border-teal-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none">
-                    </div>
+                    <div id="calEditDays" class="space-y-2"></div>
+                    <input type="hidden" id="calEditOraInizio">
+                    <input type="hidden" id="calEditOraFine">
                 </div>
                 <!-- Progresso -->
                 <div class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-3">
@@ -1387,7 +1386,42 @@
                 // Orari
                 const hoursCard = document.getElementById('modalHoursCard');
                 const hoursEl = document.getElementById('modalHours');
-                if (task.ora_inizio) {
+                let dailySchedules = task.giornate_json || [];
+                if (typeof dailySchedules === 'string') {
+                    try {
+                        dailySchedules = JSON.parse(dailySchedules);
+                    } catch (error) {
+                        console.warn(`Orari giornalieri non validi per task ${task.id}:`, error);
+                        dailySchedules = [];
+                    }
+                }
+
+                if (Array.isArray(dailySchedules) && dailySchedules.length > 0) {
+                    const formatter = new Intl.DateTimeFormat('it-IT', {
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                    const sortedSchedules = dailySchedules
+                        .filter(day => day && day.data)
+                        .sort((a, b) => a.data.localeCompare(b.data));
+                    hoursEl.innerHTML = sortedSchedules.map(day => {
+                        const [startHour, startMinute] = String(day.ora_inizio || '').split(':').map(Number);
+                        const [endHour, endMinute] = String(day.ora_fine || '').split(':').map(Number);
+                        const validTimes = [startHour, startMinute, endHour, endMinute].every(Number.isFinite);
+                        const pauseMinutes = day.giornata_intera ? 60 : 0;
+                        const hours = validTimes
+                            ? Math.max(0, ((endHour * 60 + endMinute) - (startHour * 60 + startMinute) - pauseMinutes) / 60)
+                            : 0;
+                        return `
+                            <div class="rounded-lg border border-sky-200 bg-white px-3 py-2">
+                                <div class="font-bold text-gray-900 capitalize">${formatter.format(new Date(day.data + 'T12:00:00'))}</div>
+                                <div class="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <span class="font-semibold text-sky-700">${day.ora_inizio?.slice(0,5) || '--:--'} → ${day.ora_fine?.slice(0,5) || '--:--'}</span>
+                                    <span class="font-bold text-sky-900">${hours} h${day.giornata_intera ? ' · pausa 12:00–13:00' : ''}</span>
+                                </div>
+                            </div>`;
+                    }).join('');
+                    hoursCard.classList.toggle('hidden', sortedSchedules.length === 0);
+                } else if (task.ora_inizio) {
                     let hoursText = task.ora_inizio.slice(0,5);
                     if (task.ora_fine) hoursText += ' → ' + task.ora_fine.slice(0,5);
                     if (task.data_inizio && task.scadenza && task.data_inizio !== task.scadenza) {
@@ -1432,6 +1466,127 @@
         }
 
         // ─── INLINE EDIT MODAL ────────────────────────────────────────────
+        let _calEditGiornate = [];
+        let _calEditRangeStart = '';
+        let _calEditRangeEnd = '';
+
+        function calEditDayHours(day) {
+            const [startHour, startMinute] = String(day.ora_inizio || '').split(':').map(Number);
+            const [endHour, endMinute] = String(day.ora_fine || '').split(':').map(Number);
+            if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0;
+            return Math.max(0, ((endHour * 60 + endMinute) - (startHour * 60 + startMinute) - (day.giornata_intera ? 60 : 0)) / 60);
+        }
+
+        function updateCalEditDay(index) {
+            const day = _calEditGiornate[index];
+            if (!day) return;
+            const fullDay = document.getElementById(`calEditFullDay-${index}`)?.checked || false;
+            const start = document.getElementById(`calEditDayStart-${index}`);
+            const end = document.getElementById(`calEditDayEnd-${index}`);
+            if (fullDay) {
+                start.value = '08:00';
+                end.value = '17:00';
+            }
+            start.readOnly = fullDay;
+            end.readOnly = fullDay;
+            day.ora_inizio = start.value;
+            day.ora_fine = end.value;
+            day.giornata_intera = fullDay;
+            day.pausa_minuti = fullDay ? 60 : 0;
+            updateCalEditTotals();
+        }
+
+        function updateCalEditTotals() {
+            const total = Math.round(_calEditGiornate.reduce((sum, day) => sum + calEditDayHours(day), 0) * 100) / 100;
+            document.getElementById('calEditOre').value = total || '';
+            document.getElementById('calEditDaysTotal').textContent = `${total} ore totali`;
+            document.getElementById('calEditOraInizio').value = _calEditGiornate[0]?.ora_inizio || '';
+            document.getElementById('calEditOraFine').value = _calEditGiornate[0]?.ora_fine || '';
+            _calEditGiornate.forEach((day, index) => {
+                const hours = document.getElementById(`calEditDayHours-${index}`);
+                if (hours) hours.textContent = `${calEditDayHours(day)} h`;
+            });
+        }
+
+        function removeCalEditDay(index) {
+            if (_calEditGiornate.length <= 1) {
+                showCalToast('La lavorazione deve avere almeno una giornata', 'warning');
+                return;
+            }
+            _calEditGiornate.splice(index, 1);
+            renderCalEditDays();
+        }
+
+        function getCalEditExcludedDates() {
+            if (!_calEditRangeStart || !_calEditRangeEnd) return [];
+            const activeDates = new Set(_calEditGiornate.map(day => day.data));
+            const dates = [];
+            const current = new Date(_calEditRangeStart + 'T12:00:00');
+            const last = new Date(_calEditRangeEnd + 'T12:00:00');
+            while (current <= last) {
+                const date = current.toISOString().split('T')[0];
+                if (!activeDates.has(date)) dates.push(date);
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function addCalEditDay() {
+            const date = document.getElementById('calEditAddDay')?.value;
+            if (!date) return;
+            const template = _calEditGiornate[0] || {};
+            _calEditGiornate.push({
+                data: date,
+                ora_inizio: template.ora_inizio || '08:00',
+                ora_fine: template.ora_fine || '17:00',
+                giornata_intera: template.giornata_intera ?? true,
+                pausa_minuti: template.giornata_intera === false ? 0 : 60
+            });
+            _calEditGiornate.sort((first, second) => first.data.localeCompare(second.data));
+            renderCalEditDays();
+        }
+
+        function renderCalEditDays() {
+            const container = document.getElementById('calEditDays');
+            const formatter = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const excludedDates = getCalEditExcludedDates();
+            const addDayControl = excludedDates.length ? `
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <div class="mb-2 text-xs font-bold text-amber-900">Aggiungi una giornata esclusa, compresi sabato e domenica</div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="calEditAddDay" class="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm">
+                            ${excludedDates.map(date => `<option value="${date}">${formatter.format(new Date(date + 'T12:00:00'))}</option>`).join('')}
+                        </select>
+                        <button type="button" onclick="addCalEditDay()" class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700">Aggiungi</button>
+                    </div>
+                </div>` : '';
+            container.innerHTML = addDayControl + _calEditGiornate.map((day, index) => `
+                <div class="rounded-lg border border-teal-200 bg-white p-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <strong class="text-xs text-teal-900 capitalize">${formatter.format(new Date(day.data + 'T12:00:00'))}</strong>
+                        <div class="flex items-center gap-3">
+                            <span id="calEditDayHours-${index}" class="text-xs font-bold text-teal-800"></span>
+                            <label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 cursor-pointer">
+                                <input type="checkbox" id="calEditFullDay-${index}" ${day.giornata_intera ? 'checked' : ''} onchange="updateCalEditDay(${index})" class="accent-teal-600">
+                                Giornata intera
+                            </label>
+                            <button type="button" onclick="removeCalEditDay(${index})" class="w-8 h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 hover:bg-red-200" title="Rimuovi giornata">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="text-[11px] font-semibold text-gray-600">Ora inizio
+                            <input type="time" id="calEditDayStart-${index}" value="${day.ora_inizio || ''}" ${day.giornata_intera ? 'readonly' : ''} oninput="updateCalEditDay(${index})" class="mt-1 w-full px-2 py-2 border border-teal-200 rounded-lg bg-white text-sm">
+                        </label>
+                        <label class="text-[11px] font-semibold text-gray-600">Ora fine
+                            <input type="time" id="calEditDayEnd-${index}" value="${day.ora_fine || ''}" ${day.giornata_intera ? 'readonly' : ''} oninput="updateCalEditDay(${index})" class="mt-1 w-full px-2 py-2 border border-teal-200 rounded-lg bg-white text-sm">
+                        </label>
+                    </div>
+                </div>`).join('');
+            updateCalEditTotals();
+        }
+
         async function openInlineEditModal() {
             if (!currentTaskId) return;
             const taskId = currentTaskId;
@@ -1447,6 +1602,8 @@
             document.getElementById('calEditPriorita').value  = (['bassa','media','alta'].includes(t.priorita) ? t.priorita : null) || 'media';
             // Scadenza — popola hidden input e label
             document.getElementById('calEditScadenza').value = t.scadenza || '';
+            _calEditRangeStart = t.data_inizio || t.scadenza || '';
+            _calEditRangeEnd = t.scadenza || _calEditRangeStart;
             const scadLbl = document.getElementById('calEditScadenzaLabel');
             if (t.scadenza) {
                 const d = new Date(t.scadenza + 'T12:00:00');
@@ -1456,9 +1613,34 @@
                 scadLbl.innerHTML = 'Scegli data...';
                 scadLbl.className = 'text-gray-400 flex-1 text-left';
             }
-            document.getElementById('calEditOre').value       = t.ore_stimate || '';
-            document.getElementById('calEditOraInizio').value = t.ora_inizio || '';
-            document.getElementById('calEditOraFine').value   = t.ora_fine || '';
+            let storedDays = t.giornate_json || [];
+            if (typeof storedDays === 'string') {
+                try { storedDays = JSON.parse(storedDays); }
+                catch (error) { console.warn('Orari giornalieri non validi:', error); storedDays = []; }
+            }
+            if (!Array.isArray(storedDays) || storedDays.length === 0) {
+                storedDays = [];
+                const startDate = t.data_inizio || t.scadenza;
+                const endDate = t.scadenza || startDate;
+                if (startDate) {
+                    const current = new Date(startDate + 'T12:00:00');
+                    const last = new Date(endDate + 'T12:00:00');
+                    while (current <= last) {
+                        if (current.getDay() !== 0 && current.getDay() !== 6) {
+                            storedDays.push({
+                                data: current.toISOString().split('T')[0],
+                                ora_inizio: t.ora_inizio || '',
+                                ora_fine: t.ora_fine || '',
+                                giornata_intera: false,
+                                pausa_minuti: 0
+                            });
+                        }
+                        current.setDate(current.getDate() + 1);
+                    }
+                }
+            }
+            _calEditGiornate = storedDays.sort((a, b) => a.data.localeCompare(b.data));
+            renderCalEditDays();
             document.getElementById('calEditDesc').value      = t.descrizione || '';
             const prog = t.progresso || 0;
             document.getElementById('calEditProgresso').value  = prog;
@@ -1516,9 +1698,11 @@
                     stato:           document.getElementById('calEditStato').value,
                     priorita:        document.getElementById('calEditPriorita').value,
                     scadenza:        document.getElementById('calEditScadenza').value || null,
+                    data_inizio:     _calEditGiornate[0]?.data || null,
                     ore_stimate:     parseFloat(document.getElementById('calEditOre').value) || null,
                     ora_inizio:      document.getElementById('calEditOraInizio').value || null,
                     ora_fine:        document.getElementById('calEditOraFine').value || null,
+                    giornate_json:   _calEditGiornate.length ? JSON.stringify(_calEditGiornate) : null,
                     progresso:       parseInt(document.getElementById('calEditProgresso').value) || 0,
                     descrizione:     document.getElementById('calEditDesc').value || null,
                     client_id:       document.getElementById('calEditClientId').value || null,

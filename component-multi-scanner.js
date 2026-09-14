@@ -20,28 +20,53 @@ class ComponentMultiScanner {
         this.componentiTrovati = new Map(); // Map<componentId, {component, quantita}>
         this.componentiNonTrovati = new Map(); // Map<barcode, barcode>
         this.allComponents = [];
+        this.componentsLoaded = false;
+        this.componentsLoadPromise = null;
         this.scanBuffer = '';
         this.scanTimeout = null;
     }
 
     // Inizializza
     async initialize() {
-        await this.loadComponents();
+        return Promise.resolve();
     }
 
     // Carica componenti dal database
     async loadComponents() {
-        try {
-            this.allComponents = await window.dataManager.getComponenti();
-            console.log(`✅ Caricati ${this.allComponents.length} componenti`);
-        } catch (error) {
-            console.error('❌ Errore caricamento componenti:', error);
-            this.allComponents = [];
-        }
+        if (this.componentsLoaded) return this.allComponents;
+        if (this.componentsLoadPromise) return this.componentsLoadPromise;
+
+        this.componentsLoadPromise = (async () => {
+            try {
+                this.allComponents = await window.dataManager.getComponenti();
+                this.componentsLoaded = true;
+                console.log(`✅ Caricati ${this.allComponents.length} componenti`);
+            } catch (error) {
+                console.error('❌ Errore caricamento componenti:', error);
+                this.allComponents = [];
+            } finally {
+                this.componentsLoadPromise = null;
+            }
+            return this.allComponents;
+        })();
+
+        return this.componentsLoadPromise;
     }
 
     // Apri modal
     async open(preselectedComponents = []) {
+        const modal = document.getElementById(this.modalId);
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        this.updateScannerStatus('Caricamento componenti...', 'bg-blue-500');
+        const inventory = document.getElementById('componentInventoryList');
+        if (inventory) inventory.innerHTML = '<p class="text-center text-gray-500 py-10">Caricamento componenti...</p>';
+
+        await this.loadComponents();
+        if (modal?.classList.contains('hidden')) return;
+
         // Reset
         this.componentiTrovati.clear();
         this.componentiNonTrovati.clear();
@@ -60,11 +85,7 @@ class ComponentMultiScanner {
         }
 
         // Mostra modal
-        const modal = document.getElementById(this.modalId);
         if (modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-
             // Focus su input nascosto per catturare scansioni
             setTimeout(() => {
                 const focusInput = document.getElementById('componentScannerFocusInput');
@@ -88,6 +109,7 @@ class ComponentMultiScanner {
             this.updateStats();
             this.renderInventory();
             this.startScanner();
+            this.updateScannerStatus('Scanner attivo - Pronto...', 'bg-green-500');
         }
     }
 

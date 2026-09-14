@@ -122,25 +122,7 @@ window.dataManager = {
     // ==================== TASKS ====================
     async getLavorazioni() {
         try {
-            const tasks = await window.TasksAPI.getAll();
-            
-            // Fetch components for each task
-            for (const task of tasks) {
-                try {
-                    const components = await window.TasksAPI.getComponents(task.id);
-                    task.componenti = components.map(tc => ({
-                        id: tc.component_id,
-                        quantita: tc.quantita,
-                        note: tc.note,
-                        ...tc.component
-                    }));
-                } catch (err) {
-                    console.warn(`Could not load components for task ${task.id}:`, err);
-                    task.componenti = [];
-                }
-            }
-            
-            return tasks;
+            return await window.TasksAPI.getAll();
         } catch (error) {
             console.error('Errore caricamento lavorazioni:', error);
             return [];
@@ -188,6 +170,7 @@ window.dataManager = {
                 'scadenza', 'progresso', 'note_progresso', 'client_id', 'assigned_user_id',
                 'assigned_team_id', 'created_by', 'created_at', 'updated_at',
                 'ora_inizio', 'ora_fine', 'ore_stimate', 'costo_stimato',
+                'giornate_json',
                 'data_inizio', 'data_completamento', 'preventivo_id', 'parent_task_id',
                 'indirizzo_lavoro', 'note_interne', 'visibile', 'wizard_completed'
             ];
@@ -443,6 +426,37 @@ window.dataManager = {
                 const startDate = task.data_inizio || task.scadenza;
                 const endDate   = task.scadenza    || startDate;
                 if (!startDate) return [];
+
+                let dailySchedules = task.giornate_json || [];
+                if (typeof dailySchedules === 'string') {
+                    try {
+                        dailySchedules = JSON.parse(dailySchedules);
+                    } catch (error) {
+                        console.warn(`Orari giornalieri non validi per task ${task.id}:`, error);
+                        dailySchedules = [];
+                    }
+                }
+                if (Array.isArray(dailySchedules) && dailySchedules.length > 0) {
+                    return dailySchedules
+                        .filter(day => day && day.data)
+                        .sort((a, b) => a.data.localeCompare(b.data))
+                        .map(day => {
+                            if (day.ora_inizio) {
+                                return {
+                                    start: `${day.data}T${day.ora_inizio}`,
+                                    end: day.ora_fine ? `${day.data}T${day.ora_fine}` : null,
+                                    allDay: false
+                                };
+                            }
+                            const exclusiveEnd = new Date(day.data + 'T00:00:00');
+                            exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+                            return {
+                                start: day.data,
+                                end: exclusiveEnd.toISOString().split('T')[0],
+                                allDay: true
+                            };
+                        });
+                }
 
                 if (task.ora_inizio) {
                     // Timed task: one event per weekday in the range (skip weekends)

@@ -8,8 +8,8 @@
  *   supabase functions deploy send-push
  *
  * VARIABILI DA IMPOSTARE in Supabase Dashboard → Project Settings → Edge Functions:
- *   VAPID_PUBLIC_KEY  = BCsyrTqzG2BhGSXfxefMSTttkYgrwlObrgP0UlXWijqhg59qdUIR4hmZOOzHB8PrsAYYKvejEliCvR4fvKgFz0E
- *   VAPID_PRIVATE_KEY = vqUt-BNYJ3hJVqJ3Nu5dnMX6jiTxFs3px34LTxkYTVc
+ *   VAPID_PUBLIC_KEY
+ *   VAPID_PRIVATE_KEY
  *   VAPID_SUBJECT     = mailto:admin@zgimpianti.it
  *
  * DATABASE WEBHOOK (da creare in Supabase Dashboard → Database → Webhooks):
@@ -24,17 +24,20 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Web Push via esm.sh (no npm needed in Deno)
-import webpush from 'https://esm.sh/web-push@3.6.7';
+import * as webpush from 'https://esm.sh/web-push@3.6.7';
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_SECRET_KEYS = Deno.env.get('SUPABASE_SECRET_KEYS');
+const SUPABASE_ADMIN_KEY = SUPABASE_SECRET_KEYS
+    ? (JSON.parse(SUPABASE_SECRET_KEYS) as Record<string, string>).default
+    : Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
 const VAPID_SUBJECT     = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@zgimpianti.it';
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ADMIN_KEY);
 
 serve(async (req: Request) => {
     try {

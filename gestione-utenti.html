@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Utenti - Admin Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/output.css?v=13">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
     <script src="qz-print.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js"></script>
+    <script src="supabase-client.js?v=3"></script>
     <script src="Admin/auth-helper.js"></script>
     <script src="data-migration.js"></script>
     <script src="modal-system.js"></script>
@@ -753,43 +753,17 @@
 
                 // UPDATE UTENTE ESISTENTE
                 if (currentEditingUserId) {
-                    const { error: updateError } = await window.supabaseAdmin
-                        .from('users')
-                        .update({
-                            nome: nome,
-                            cognome: cognome,
-                            email: email,
-                            ruolo: ruoloNormalizzato,
-                            stato: stato,
-                            telefono: telefono
-                        })
-                        .eq('id', currentEditingUserId);
-                    
-                    if (updateError) throw updateError;
-
-                    // Se è stata inserita una nuova password, aggiornala via Admin API
                     const nuovaPassword = document.getElementById('newPassword').value.trim();
-                    if (nuovaPassword) {
-                        // Recupera auth_id dell'utente
-                        const { data: userData } = await window.supabaseAdmin
-                            .from('users')
-                            .select('auth_id')
-                            .eq('id', currentEditingUserId)
-                            .single();
-                        
-                        if (userData?.auth_id) {
-                            const { error: pwdError } = await window.supabaseAdmin.auth.admin.updateUserById(
-                                userData.auth_id,
-                                { password: nuovaPassword }
-                            );
-                            if (pwdError) throw new Error('Password non aggiornata: ' + pwdError.message);
-                            showNotification('Utente e password aggiornati!', 'success');
-                        } else {
-                            showNotification('Utente aggiornato (auth non trovato, password invariata)', 'warning');
-                        }
-                    } else {
-                        showNotification('Utente aggiornato con successo!', 'success');
-                    }
+                    await window.AdminUsersAPI.update(currentEditingUserId, {
+                        nome,
+                        cognome,
+                        email,
+                        ruolo: ruoloNormalizzato,
+                        stato,
+                        telefono,
+                        password: nuovaPassword || undefined
+                    });
+                    showNotification(nuovaPassword ? 'Utente e password aggiornati!' : 'Utente aggiornato con successo!', 'success');
                     
                     closeUserModal();
                     await loadUsers();
@@ -802,21 +776,7 @@
 
                 // CASO ESTERNO: nessun accesso, email auto-generata
                 if (ruoloNormalizzato === 'esterno') {
-                    const fakeEmail = `esterno_${Date.now()}_${Math.random().toString(36).substr(2,6)}@nologin.local`;
-                    const { data: newEsterno, error: esternoErr } = await window.supabaseAdmin
-                        .from('users')
-                        .insert({
-                            nome: nome,
-                            cognome: cognome,
-                            email: fakeEmail,
-                            ruolo: 'esterno',
-                            telefono: telefono,
-                            stato: stato || 'attivo',
-                            first_login: false
-                        })
-                        .select('*')
-                        .single();
-                    if (esternoErr) throw esternoErr;
+                    await window.AdminUsersAPI.create({ nome, cognome, email, ruolo: 'esterno', telefono, stato });
                     closeUserModal();
                     await loadUsers();
                     await updateStats();
@@ -825,55 +785,14 @@
                     return;
                 }
 
-                const tempPassword = generateTemporaryPassword();
-                
-                // 1. INSERT nel DB
-                const { data: newUser, error: insertError } = await window.supabaseAdmin
-                    .from('users')
-                    .insert({
-                        nome: nome,
-                        cognome: cognome,
-                        email: email,
-                        ruolo: ruoloNormalizzato,
-                        telefono: telefono,
-                        stato: stato || 'attivo',
-                        first_login: true
-                    })
-                    .select('*')
-                    .single();
-                
-                if (insertError) {
-                    console.error('Errore insert:', insertError);
-                    throw insertError;
-                }
-                
-                // 2. CREATE auth con password temporanea
-                const { data: authUser, error: authError } = await window.supabaseAdmin.auth.admin.createUser({
-                    email: email,
-                    password: tempPassword,
-                    email_confirm: true,
-                    user_metadata: {
-                        nome: nome,
-                        cognome: cognome,
-                        ruolo: ruolo
-                    }
+                const result = await window.AdminUsersAPI.create({
+                    nome,
+                    cognome,
+                    email,
+                    ruolo: ruoloNormalizzato,
+                    telefono,
+                    stato
                 });
-                
-                if (authError) {
-                    // Rollback: elimina utente dal DB
-                    await window.supabaseAdmin.from('users').delete().eq('id', newUser.id);
-                    throw new Error(`Errore creazione credenziali: ${authError.message}`);
-                }
-                
-                // 3. UPDATE auth_id nel DB
-                const { error: updateError } = await window.supabaseAdmin
-                    .from('users')
-                    .update({ auth_id: authUser.user.id })
-                    .eq('id', newUser.id);
-                
-                if (updateError) throw updateError;
-                
-                console.log('✅ User created:', newUser.id, 'Auth ID:', authUser.user.id);
                 
                 // 4. CHIUDI form PRIMA di mostrare password
                 closeUserModal();
@@ -882,7 +801,7 @@
                 lucide.createIcons();
                 
                 // 5. MOSTRA password modal
-                showTemporaryPasswordModal(email, tempPassword);
+                showTemporaryPasswordModal(email, result.temporaryPassword);
                 
             } catch (error) {
                 console.error('Errore salvataggio utente:', error);

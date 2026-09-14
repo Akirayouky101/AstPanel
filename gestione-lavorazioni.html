@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Lavorazioni - Admin Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/output.css?v=12">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js"></script>
+    <script src="supabase-client.js?v=2"></script>
     <script src="Admin/auth-helper.js"></script>
     <script src="data-migration.js"></script>
     <script src="modal-system.js"></script>
@@ -18,8 +19,6 @@
     <script src="multi-user-assignment.js"></script>
     <script src="linked-tasks.js"></script>
     <script src="product-scanner.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -200,7 +199,7 @@
                 <!-- Search -->
                 <div class="flex-1 min-w-56 relative">
                     <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                    <input type="text" id="searchTasks" placeholder="Cerca lavorazioni..."
+                    <input type="text" id="searchTasks" placeholder="Titolo, codice, seriale o barcode..."
                            class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition">
                 </div>
 
@@ -851,11 +850,12 @@
         }
         let currentView = 'kanban';
         let taskComponents = [];
+        let _tasksCache = null;
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
             lucide.createIcons();
-            await loadTasks();
+            await loadTasks(true);
             await updateStats();
             setupFilters();
             await loadTeamsDropdown();
@@ -929,7 +929,7 @@
                 document.getElementById('listView').classList.remove('hidden');
                 document.getElementById('kanbanViewBtn').className = 'px-4 py-2 bg-gray-100 text-gray-700 rounded-l-lg hover:bg-gray-200 transition-colors';
                 document.getElementById('listViewBtn').className = 'px-4 py-2 bg-blue-600 text-white rounded-r-lg transition-colors';
-                await loadTasksList();
+                await loadTasksList(false);
             }
         }
 
@@ -963,34 +963,46 @@
                     btn.style.color = '#6b7280';
                 }
             });
-            loadKanbanTasks();
+            loadKanbanTasks(false);
         }
         function applyDaFareFilter(tasks) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             return tasks.filter(t => {
                 if (t.stato !== 'da_fare') return true; // non-da_fare tasks: non filtrate
-                const scad = t.scadenza ? new Date(t.scadenza) : null;
-                if (!scad) return dafareFilter === 'tutte'; // senza data: solo in "Tutte"
-                scad.setHours(0, 0, 0, 0);
-                if (dafareFilter === 'oggi') return scad >= today && scad < tomorrow;
-                if (dafareFilter === 'scadute') return scad < today;
+
+                let schedules = t.giornate_json || [];
+                if (typeof schedules === 'string') {
+                    try { schedules = JSON.parse(schedules); } catch (_) { schedules = []; }
+                }
+                const scheduledDates = Array.isArray(schedules)
+                    ? schedules.map(day => day?.data).filter(Boolean).sort()
+                    : [];
+                const startDate = scheduledDates[0] || t.data_inizio || t.scadenza || null;
+                const endDate = scheduledDates[scheduledDates.length - 1] || t.scadenza || startDate;
+                if (!startDate || !endDate) return dafareFilter === 'tutte';
+
+                if (dafareFilter === 'oggi') {
+                    return scheduledDates.length > 0
+                        ? scheduledDates.includes(today)
+                        : startDate <= today && today <= endDate;
+                }
+                if (dafareFilter === 'scadute') return endDate < today;
                 return true; // tutte
             });
         }
 
-        async function loadTasks() {
+        async function loadTasks(refresh = true) {
             if (currentView === 'kanban') {
-                await loadKanbanTasks();
+                await loadKanbanTasks(refresh);
             } else {
-                await loadTasksList();
+                await loadTasksList(refresh);
             }
         }
 
-        async function loadKanbanTasks() {
+        async function loadKanbanTasks(refresh = true) {
             try {
-                const filteredTasks = applyDaFareFilter(await getFilteredTasks());
+                const filteredTasks = applyDaFareFilter(await getFilteredTasks(refresh));
                 
                 // Clear all columns
                 ['todoColumn', 'inProgressColumn', 'completedColumn'].forEach(columnId => {
@@ -1014,11 +1026,11 @@
             }
         }
 
-        async function loadTasksList() {
+        async function loadTasksList(refresh = true) {
             const tbody = document.getElementById('tasksTableBody');
             tbody.innerHTML = '';
 
-            const filteredTasks = await getFilteredTasks();
+            const filteredTasks = await getFilteredTasks(refresh);
 
             filteredTasks.forEach(task => {
                 const row = createTaskRow(task);
@@ -1225,6 +1237,7 @@
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div>
                         <div class="text-sm font-medium text-gray-900">${task.titolo}</div>
+                        ${task.codice_lavorazione ? `<div class="text-xs font-semibold text-blue-700">${task.codice_lavorazione} · seriale ${task.seriale_lavorazione}</div>` : ''}
                         <div class="text-sm text-gray-500">${(task.descrizione || '').substring(0, 50)}...</div>
                     </div>
                 </td>
@@ -1246,17 +1259,20 @@
             return tr;
         }
 
-        async function getFilteredTasks() {
+        async function getFilteredTasks(refresh = true) {
             try {
-                const tasks = await window.dataManager.getLavorazioni();
+                if (refresh || !_tasksCache) {
+                    _tasksCache = await window.dataManager.getLavorazioni();
+                }
+                const tasks = _tasksCache;
                 const searchTerm = document.getElementById('searchTasks').value.toLowerCase();
                 const statusFilter = document.getElementById('statusFilter').value;
                 const priorityFilter = document.getElementById('priorityFilter').value;
                 const assigneeFilter = document.getElementById('assigneeFilter').value;
 
                 return tasks.filter(task => {
-                    const matchesSearch = task.titolo.toLowerCase().includes(searchTerm) || 
-                                        (task.descrizione || '').toLowerCase().includes(searchTerm);
+                    const matchesSearch = [task.titolo, task.descrizione, task.codice_lavorazione, task.barcode_lavorazione, task.seriale_lavorazione]
+                        .some(value => String(value || '').toLowerCase().includes(searchTerm));
                     const matchesStatus = !statusFilter || task.stato === statusFilter;
                     const matchesPriority = !priorityFilter || task.priorita === priorityFilter;
                     const matchesAssignee = !assigneeFilter || 
@@ -1319,7 +1335,7 @@
             });
             const s = document.getElementById('searchTasks'); if (s) s.value = '';
             applyFilterStyles();
-            loadTasks();
+            loadTasks(false);
         }
 
         function setupFilters() {
@@ -1329,8 +1345,8 @@
             const assigneeFilter = document.getElementById('assigneeFilter');
 
             [searchInput, statusFilter, priorityFilter, assigneeFilter].forEach(element => {
-                element.addEventListener('input', loadTasks);
-                element.addEventListener('change', loadTasks);
+                element.addEventListener('input', () => loadTasks(false));
+                element.addEventListener('change', () => loadTasks(false));
             });
             searchInput?.addEventListener('input', applyFilterStyles);
             applyFilterStyles();
@@ -2167,6 +2183,9 @@
         window._wizardGiornateReset = function() {
             _wizardGiornate = [];
             window._wizardGiornate = [];
+            _wizardExcludedScheduleDates = new Set();
+            _wizardScheduleRangeKey = '';
+            if (window.taskWizard) window.taskWizard.wizardData.giornate = [];
             // Pulisci campi data wizard
             const diEl = document.getElementById('wizard-data-inizio');
             const scEl = document.getElementById('wizard-scadenza');
@@ -2312,6 +2331,7 @@
             const end = _wpEndDate || _wpStartDate;
             document.getElementById('wizard-data-inizio').value = _wpStartDate;
             document.getElementById('wizard-scadenza').value = end;
+            _resetWizardScheduleSelection();
             _updateWizardDateDisplay();
             closeRangePicker();
         }
@@ -2333,10 +2353,15 @@
             if (start && end && start !== end) {
                 if (singleBtn) singleBtn.classList.add('hidden');
                 const s = new Date(start + 'T12:00:00'), e = new Date(end + 'T12:00:00');
-                const days = Math.round((e - s) / 86400000) + 1;
+                let days = 0;
+                const countDate = new Date(s);
+                while (countDate <= e) {
+                    if (countDate.getDay() !== 0 && countDate.getDay() !== 6) days++;
+                    countDate.setDate(countDate.getDate() + 1);
+                }
                 const fStr = s.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
                 const lStr = e.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
-                if (displayEl) displayEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:linear-gradient(to right,#f97316,#f59e0b);color:white;border-radius:12px;margin-bottom:8px;font-weight:600;font-size:14px"><i data-lucide="calendar-range" style="width:16px;height:16px;flex-shrink:0"></i><span style="flex:1">${fStr} → ${lStr}</span><span style="font-size:11px;background:rgba(255,255,255,0.25);padding:2px 7px;border-radius:999px;font-weight:700">${days}gg</span><button type="button" onclick="_clearWizardRange()" style="background:none;border:none;color:rgba(255,255,255,0.75);cursor:pointer;font-size:18px;line-height:1;padding:0;margin-left:2px" title="Rimuovi intervallo">&times;</button></div>`;
+                if (displayEl) displayEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:linear-gradient(to right,#f97316,#f59e0b);color:white;border-radius:12px;margin-bottom:8px;font-weight:600;font-size:14px"><i data-lucide="calendar-range" style="width:16px;height:16px;flex-shrink:0"></i><span style="flex:1">${fStr} → ${lStr}</span><span id="wizard-range-days-count" style="font-size:11px;background:rgba(255,255,255,0.25);padding:2px 7px;border-radius:999px;font-weight:700">${days} giorni pianificati</span><button type="button" onclick="_clearWizardRange()" style="background:none;border:none;color:rgba(255,255,255,0.75);cursor:pointer;font-size:18px;line-height:1;padding:0;margin-left:2px" title="Rimuovi intervallo">&times;</button></div>`;
                 if (rangeBtn) rangeBtn.innerHTML = '<i data-lucide="calendar-range" class="w-4 h-4 inline mr-1"></i>Modifica intervallo';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             } else {
@@ -2345,7 +2370,240 @@
                 if (rangeBtn) rangeBtn.innerHTML = '<i data-lucide="calendar-range" class="w-4 h-4 inline mr-1"></i>Scegli intervallo Date';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
+            if (typeof window._renderWizardDaySchedules === 'function') window._renderWizardDaySchedules();
         }
+
+        let _wizardExcludedScheduleDates = new Set();
+        let _wizardScheduleRangeKey = '';
+
+        function _wizardAllDatesInRange() {
+            const start = document.getElementById('wizard-data-inizio')?.value || '';
+            const end = document.getElementById('wizard-scadenza')?.value || '';
+            if (!start || !end) return [];
+            const dates = [];
+            const current = new Date(start + 'T12:00:00');
+            const last = new Date(end + 'T12:00:00');
+            while (current <= last) {
+                dates.push(current.toISOString().split('T')[0]);
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function _resetWizardScheduleSelection() {
+            const dates = _wizardAllDatesInRange();
+            _wizardScheduleRangeKey = `${dates[0] || ''}|${dates[dates.length - 1] || ''}`;
+            _wizardExcludedScheduleDates = new Set(dates.filter(date => {
+                const weekday = new Date(date + 'T12:00:00').getDay();
+                return weekday === 0 || weekday === 6;
+            }));
+            if (window.taskWizard) window.taskWizard.wizardData.giornate = [];
+        }
+
+        function _wizardDatesInRange() {
+            const dates = _wizardAllDatesInRange();
+            const rangeKey = `${dates[0] || ''}|${dates[dates.length - 1] || ''}`;
+            if (rangeKey !== _wizardScheduleRangeKey) {
+                const savedDates = new Set((window.taskWizard?.wizardData.giornate || []).map(day => day.data));
+                _wizardExcludedScheduleDates = savedDates.size > 0
+                    ? new Set(dates.filter(date => !savedDates.has(date)))
+                    : new Set(dates.filter(date => {
+                        const weekday = new Date(date + 'T12:00:00').getDay();
+                        return weekday === 0 || weekday === 6;
+                    }));
+                _wizardScheduleRangeKey = rangeKey;
+            }
+            return dates.filter(date => !_wizardExcludedScheduleDates.has(date));
+        }
+
+        function _removeWizardScheduleDate(date) {
+            if (_wizardDatesInRange().length <= 1) {
+                showWizardAlert('La lavorazione deve avere almeno una giornata', 'warning');
+                return;
+            }
+            if (window.taskWizard) {
+                window.taskWizard.wizardData.giornate = _collectWizardDaySchedules().filter(day => day.data !== date);
+            }
+            _wizardExcludedScheduleDates.add(date);
+            _renderWizardDaySchedules();
+        }
+
+        function _addWizardScheduleDate() {
+            const select = document.getElementById('wizard-add-schedule-date');
+            if (!select?.value) return;
+            _wizardExcludedScheduleDates.delete(select.value);
+            _renderWizardDaySchedules();
+        }
+
+        function _collectWizardDaySchedules() {
+            return _wizardDatesInRange().map(date => {
+                const fullDay = document.getElementById(`wizard-full-day-${date}`)?.checked || false;
+                return {
+                    data: date,
+                    ora_inizio: document.getElementById(`wizard-start-${date}`)?.value || '',
+                    ora_fine: document.getElementById(`wizard-end-${date}`)?.value || '',
+                    giornata_intera: fullDay,
+                    pausa_minuti: fullDay ? 60 : 0
+                };
+            });
+        }
+
+        function _wizardScheduleChanged(date) {
+            const fullDay = document.getElementById(`wizard-full-day-${date}`)?.checked || false;
+            const start = document.getElementById(`wizard-start-${date}`);
+            const end = document.getElementById(`wizard-end-${date}`);
+            if (fullDay) {
+                start.value = '08:00';
+                end.value = '17:00';
+            }
+            start.readOnly = fullDay;
+            end.readOnly = fullDay;
+            start.classList.toggle('opacity-60', fullDay);
+            end.classList.toggle('opacity-60', fullDay);
+            if (window.taskWizard) {
+                window.taskWizard.wizardData.giornate = _collectWizardDaySchedules();
+                window.taskWizard.updateEstimatedHoursFromSchedules();
+            }
+            const total = document.getElementById('wizard-schedule-total');
+            if (total) total.textContent = `${window.taskWizard?.wizardData.ore_stimate || 0} ore totali`;
+            _renderWizardDayScheduleSummary();
+        }
+
+        function _wizardDayHours(day) {
+            const [startHour, startMinute] = String(day.ora_inizio || '').split(':').map(Number);
+            const [endHour, endMinute] = String(day.ora_fine || '').split(':').map(Number);
+            if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0;
+            const pauseMinutes = day.giornata_intera ? 60 : 0;
+            return Math.max(0, ((endHour * 60 + endMinute) - (startHour * 60 + startMinute) - pauseMinutes) / 60);
+        }
+
+        function _renderWizardDayScheduleSummary() {
+            const summary = document.getElementById('wizard-day-schedule-summary');
+            if (!summary) return;
+            const days = window.taskWizard?.wizardData.giornate || [];
+            if (days.length === 0) {
+                summary.innerHTML = '<p class="text-sm text-blue-500">Seleziona prima una data o un intervallo.</p>';
+                return;
+            }
+            const formatter = new Intl.DateTimeFormat('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+            summary.innerHTML = days.map(day => `
+                <div class="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm">
+                    <span class="font-semibold text-blue-950 capitalize">${formatter.format(new Date(day.data + 'T12:00:00'))}</span>
+                    <span class="text-blue-700">${day.ora_inizio || '--:--'} - ${day.ora_fine || '--:--'}</span>
+                    <span class="min-w-[38px] text-right font-bold text-blue-900">${_wizardDayHours(day)}h</span>
+                </div>`).join('');
+        }
+
+        function _renderWizardDaySchedules() {
+            const container = document.getElementById('wizard-day-schedules');
+            if (!container) return;
+            const dates = _wizardDatesInRange();
+            const excludedDates = _wizardAllDatesInRange().filter(date => _wizardExcludedScheduleDates.has(date));
+            const saved = new Map((window.taskWizard?.wizardData.giornate || []).map(day => [day.data, day]));
+            if (dates.length === 0) {
+                if (window.taskWizard) {
+                    window.taskWizard.wizardData.giornate = [];
+                    window.taskWizard.updateEstimatedHoursFromSchedules();
+                }
+                const plannedDays = document.getElementById('wizard-range-days-count');
+                if (plannedDays) plannedDays.textContent = '0 giorni pianificati';
+                const total = document.getElementById('wizard-schedule-total');
+                if (total) total.textContent = '0 ore totali';
+                container.innerHTML = `
+                    <p class="text-sm text-blue-500">Nessuna giornata attiva nell'intervallo.</p>
+                    ${excludedDates.length ? `<div class="mt-3 flex gap-2">
+                        <select id="wizard-add-schedule-date" class="flex-1 px-3 py-2 border-2 border-blue-200 rounded-lg bg-white">
+                            ${excludedDates.map(date => `<option value="${date}">${new Date(date + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</option>`).join('')}
+                        </select>
+                        <button type="button" onclick="_addWizardScheduleDate()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">Aggiungi</button>
+                    </div>` : ''}`;
+                _renderWizardDayScheduleSummary();
+                return;
+            }
+            const formatter = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const addDayControl = excludedDates.length ? `
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <span class="text-xs font-semibold text-amber-900">Aggiungi una giornata esclusa, compresi sabato e domenica:</span>
+                    <select id="wizard-add-schedule-date" class="flex-1 px-3 py-2 border-2 border-amber-200 rounded-lg bg-white text-sm">
+                        ${excludedDates.map(date => `<option value="${date}">${formatter.format(new Date(date + 'T12:00:00'))}</option>`).join('')}
+                    </select>
+                    <button type="button" onclick="_addWizardScheduleDate()" class="px-4 py-2 bg-amber-600 text-white rounded-lg font-bold">Aggiungi</button>
+                </div>` : '';
+            container.innerHTML = addDayControl + dates.map(date => {
+                const legacyStart = window.taskWizard?.wizardData.ora_inizio || '';
+                const legacyEnd = window.taskWizard?.wizardData.ora_fine || '';
+                const day = saved.get(date) || (legacyStart || legacyEnd
+                    ? { ora_inizio: legacyStart, ora_fine: legacyEnd, giornata_intera: false }
+                    : { ora_inizio: '08:00', ora_fine: '17:00', giornata_intera: true });
+                const fullDay = day.giornata_intera === true;
+                return `<div class="bg-white border-2 border-blue-200 rounded-xl p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <strong class="text-sm text-blue-950 capitalize">${formatter.format(new Date(date + 'T12:00:00'))}</strong>
+                        <div class="flex items-center gap-3">
+                            <label class="inline-flex items-center gap-2 text-xs font-semibold text-blue-800 cursor-pointer">
+                                <input type="checkbox" id="wizard-full-day-${date}" ${fullDay ? 'checked' : ''} onchange="_wizardScheduleChanged('${date}')" class="w-4 h-4 accent-blue-600">
+                                Giornata intera (pausa 12:00-13:00)
+                            </label>
+                            <button type="button" onclick="_removeWizardScheduleDate('${date}')" class="w-9 h-9 flex items-center justify-center rounded-lg bg-red-100 text-red-600 hover:bg-red-200" title="Rimuovi giornata">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="text-xs font-semibold text-blue-800">Ora inizio
+                            <input type="time" id="wizard-start-${date}" value="${day.ora_inizio || ''}" oninput="_wizardScheduleChanged('${date}')" ${fullDay ? 'readonly' : ''} class="mt-1 w-full px-3 py-2 border-2 border-blue-200 rounded-lg bg-white ${fullDay ? 'opacity-60' : ''}">
+                        </label>
+                        <label class="text-xs font-semibold text-blue-800">Ora fine
+                            <input type="time" id="wizard-end-${date}" value="${day.ora_fine || ''}" oninput="_wizardScheduleChanged('${date}')" ${fullDay ? 'readonly' : ''} class="mt-1 w-full px-3 py-2 border-2 border-blue-200 rounded-lg bg-white ${fullDay ? 'opacity-60' : ''}">
+                        </label>
+                    </div>
+                </div>`;
+            }).join('');
+            if (window.taskWizard) {
+                window.taskWizard.wizardData.giornate = _collectWizardDaySchedules();
+                window.taskWizard.updateEstimatedHoursFromSchedules();
+            }
+            const plannedDays = document.getElementById('wizard-range-days-count');
+            if (plannedDays) plannedDays.textContent = `${dates.length} ${dates.length === 1 ? 'giorno pianificato' : 'giorni pianificati'}`;
+            const total = document.getElementById('wizard-schedule-total');
+            if (total) total.textContent = `${window.taskWizard?.wizardData.ore_stimate || 0} ore totali`;
+            _renderWizardDayScheduleSummary();
+        }
+
+        function openWizardScheduleModal() {
+            if (_wizardDatesInRange().length === 0) {
+                showWizardAlert('Seleziona prima una data o un intervallo', 'warning');
+                return;
+            }
+            _renderWizardDaySchedules();
+            document.getElementById('wizard-schedule-modal')?.classList.remove('hidden');
+        }
+
+        function openWizardWeekendSelector() {
+            const weekendDates = _wizardAllDatesInRange().filter(date => {
+                const weekday = new Date(date + 'T12:00:00').getDay();
+                return (weekday === 0 || weekday === 6) && _wizardExcludedScheduleDates.has(date);
+            });
+            if (weekendDates.length === 0) {
+                showWizardAlert('Nell’intervallo selezionato non ci sono sabati o domeniche da aggiungere', 'warning');
+                return;
+            }
+            openWizardScheduleModal();
+            requestAnimationFrame(() => document.getElementById('wizard-add-schedule-date')?.focus());
+        }
+
+        function closeWizardScheduleModal() {
+            document.getElementById('wizard-schedule-modal')?.classList.add('hidden');
+            _renderWizardDayScheduleSummary();
+        }
+
+        window._collectWizardDaySchedules = _collectWizardDaySchedules;
+        window._renderWizardDaySchedules = _renderWizardDaySchedules;
+        window._removeWizardScheduleDate = _removeWizardScheduleDate;
+        window._addWizardScheduleDate = _addWizardScheduleDate;
+        window.openWizardScheduleModal = openWizardScheduleModal;
+        window.openWizardWeekendSelector = openWizardWeekendSelector;
+        window.closeWizardScheduleModal = closeWizardScheduleModal;
 
         // ===== CUSTOM DROPDOWN HELPERS (edit modal) =====
         function _buildPrioritaDropdown(currentVal) {
@@ -2550,6 +2808,7 @@
             if (_dpTargetInput === 'wizard-scadenza') {
                 const diEl = document.getElementById('wizard-data-inizio');
                 if (diEl) diEl.value = iso; // data singola: inizio = fine
+                _resetWizardScheduleSelection();
                 if (typeof _updateWizardDateDisplay === 'function') _updateWizardDateDisplay();
             }
             lucide.createIcons();
@@ -3531,6 +3790,19 @@
                         
                         <!-- Body -->
                         <div class="p-6 space-y-6">
+                            ${task.codice_lavorazione ? `
+                                <div class="border border-blue-200 bg-blue-50 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="min-w-0 self-stretch sm:self-center">
+                                        <div class="text-xs font-semibold uppercase text-blue-600">Identificativo lavorazione</div>
+                                        <div class="text-lg font-bold text-blue-950 mt-1">${task.codice_lavorazione}</div>
+                                        <div class="text-sm text-blue-700">Seriale ${task.seriale_lavorazione}</div>
+                                    </div>
+                                    <div class="bg-white border border-blue-100 rounded-lg px-3 py-2 max-w-full overflow-hidden">
+                                        <svg id="task-barcode-${taskId}"></svg>
+                                    </div>
+                                </div>
+                            ` : ''}
+
                             <!-- Descrizione -->
                             ${task.descrizione || task.description ? `
                                 <div class="bg-gray-50 rounded-xl p-4">
@@ -3649,6 +3921,13 @@
                 
                 document.body.appendChild(modal);
                 lucide.createIcons();
+                if (task.barcode_lavorazione && typeof JsBarcode !== 'undefined') {
+                    try {
+                        JsBarcode(`#task-barcode-${taskId}`, task.barcode_lavorazione, { format:'CODE128', displayValue:true, height:48, margin:4, fontSize:13 });
+                    } catch (error) {
+                        console.warn('Barcode lavorazione non renderizzabile:', error);
+                    }
+                }
 
                 // Carica timeline interventi collegati (async, non blocca il render)
                 if (window.LinkedTasks) {
@@ -3806,6 +4085,10 @@
                     scadenza: task.scadenza || task.deadline || '',
                     ora_inizio: task.ora_inizio || '',
                     ora_fine: task.ora_fine || '',
+                    giornate: (() => {
+                        try { return JSON.parse(task.giornate_json || '[]'); }
+                        catch (error) { console.warn('Giornate non valide:', error); return []; }
+                    })(),
                     categoria: task.categoria || '',
                     ore_stimate: task.ore_stimate || 0,
                     stato: task.stato || 'da_fare',
@@ -4273,7 +4556,8 @@
 
         async function updateStats() {
             try {
-                const tasks = await window.dataManager.getLavorazioni();
+                const tasks = _tasksCache || await window.dataManager.getLavorazioni();
+                _tasksCache = tasks;
                 document.getElementById('totalTasks').textContent = tasks.length;
                 document.getElementById('inProgressTasks').textContent = tasks.filter(t => t.stato === 'in_corso').length;
                 document.getElementById('completedTasks').textContent = tasks.filter(t => t.stato === 'completato').length;
@@ -4290,7 +4574,8 @@
 
         async function updateColumnCounts() {
             try {
-                const tasks = await window.dataManager.getLavorazioni();
+                const tasks = _tasksCache || await window.dataManager.getLavorazioni();
+                _tasksCache = tasks;
                 document.getElementById('todoCount').textContent = tasks.filter(t => t.stato === 'da_fare').length;
                 document.getElementById('inProgressCount').textContent = tasks.filter(t => t.stato === 'in_corso').length;
                 document.getElementById('completedCount').textContent = tasks.filter(t => t.stato === 'completato').length;
@@ -5193,24 +5478,30 @@
                         </div>
                     </div>
 
-                    <!-- Orari - BLU -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-blue-900 mb-2">
+                    <!-- Orari per giornata - BLU -->
+                    <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <label class="block text-sm font-bold text-blue-900">
                                 <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
-                                Ora Inizio
+                                Orari per giornata
                             </label>
-                            <input type="time" id="wizard-ora-inizio"
-                                   class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
+                            <span id="wizard-schedule-total" class="text-sm font-bold text-blue-700">0 ore totali</span>
                         </div>
-                        <div class="bg-gradient-to-br from-blue-50 to-sky-100 border-2 border-blue-200 rounded-xl p-4">
-                            <label class="block text-sm font-bold text-blue-900 mb-2">
-                                <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
-                                Ora Fine
-                            </label>
-                            <input type="time" id="wizard-ora-fine"
-                                   class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white text-sm">
+                        <div id="wizard-day-schedule-summary" class="space-y-2 mb-3">
+                            <p class="text-sm text-blue-500">Seleziona prima una data o un intervallo.</p>
                         </div>
+                        <button type="button" onclick="openWizardScheduleModal()"
+                                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors">
+                            <i data-lucide="calendar-clock" class="w-4 h-4"></i>
+                            Gestisci orari delle giornate
+                        </button>
+                        <button type="button" onclick="openWizardWeekendSelector()"
+                                class="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-sm font-bold transition-colors">
+                            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                            Aggiungi sabato o domenica
+                        </button>
+                        <input type="hidden" id="wizard-ora-inizio">
+                        <input type="hidden" id="wizard-ora-fine">
                     </div>
 
                     <!-- Categoria - VIOLA -->
@@ -5328,8 +5619,9 @@
                     <div class="max-w-xs">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ore Stimate Totali</label>
                         <input type="number" id="wizard-ore-stimate" min="0" step="0.5"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                               placeholder="Es: 8">
+                               readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 font-bold text-blue-700"
+                               placeholder="Calcolate dagli orari">
+                           <p class="text-xs text-gray-500 mt-1">Calcolate automaticamente dagli orari inseriti nello step precedente.</p>
                     </div>
 
                     <div>
@@ -5358,6 +5650,13 @@
                                 class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
                             <i class="fas fa-box-open"></i>
                             Aggiungi da Kit
+                        </button>
+
+                        <button type="button"
+                                onclick="openWizardOrderPicker()"
+                                class="w-full mb-4 px-4 py-3 bg-gradient-to-r from-sky-600 to-blue-700 text-white rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2">
+                            <i class="fas fa-file-import"></i>
+                            Aggiungi da Ordine
                         </button>
 
                         <!-- Feedback kit precaricato -->
@@ -5429,6 +5728,53 @@
         </div>
     </div>
 
+    <!-- MODALE SELEZIONE ORDINE -->
+    <div id="wizard-order-picker-modal" class="hidden fixed inset-0 z-[10000] bg-black bg-opacity-60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between gap-4 px-6 py-4 border-b bg-gradient-to-r from-sky-600 to-blue-700 text-white">
+                <div>
+                    <h3 class="text-lg font-bold">Aggiungi componenti da ordine</h3>
+                    <p class="text-xs text-blue-100">Seleziona un ordine fornitore o un ordine interno</p>
+                </div>
+                <button type="button" onclick="closeWizardOrderPicker()" class="p-2 hover:bg-blue-800 rounded-lg" title="Chiudi">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b bg-gray-50 grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-3">
+                <input type="search" id="wizardOrderSearch" oninput="renderWizardOrderList()" placeholder="Cerca numero, oggetto o fornitore..."
+                       class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none">
+                <select id="wizardOrderType" onchange="renderWizardOrderList()" class="px-3 py-2.5 border-2 border-gray-200 rounded-xl bg-white">
+                    <option value="">Tutti gli ordini</option>
+                    <option value="fornitore">Ordini fornitore</option>
+                    <option value="interno">Ordini interni</option>
+                </select>
+            </div>
+            <div id="wizardOrderList" class="p-4 space-y-2 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- MODALE ORARI MULTI-GIORNATA -->
+    <div id="wizard-schedule-modal" class="hidden fixed inset-0 z-[10000] bg-black bg-opacity-60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between gap-4 px-6 py-4 border-b bg-blue-600 text-white">
+                <div>
+                    <h3 class="text-lg font-bold">Orari delle giornate</h3>
+                    <p class="text-xs text-blue-100">Sabato e domenica sono esclusi automaticamente, ma puoi aggiungerli quando servono</p>
+                </div>
+                <button type="button" onclick="closeWizardScheduleModal()" class="p-2 hover:bg-blue-700 rounded-lg" title="Chiudi">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="wizard-day-schedules" class="p-5 space-y-3 overflow-y-auto"></div>
+            <div class="flex items-center justify-between gap-4 px-6 py-4 border-t bg-gray-50">
+                <span class="text-sm text-gray-600">Gli orari vengono salvati separatamente per ogni giornata.</span>
+                <button type="button" onclick="closeWizardScheduleModal()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                    Conferma orari
+                </button>
+            </div>
+        </div>
+    </div>
+
     <style>
         #step-indicator-1.active, #step-indicator-2.active, 
         #step-indicator-3.active, #step-indicator-4.active {
@@ -5476,7 +5822,8 @@
                         prodotto_id: item.id,
                         quantita: item.quantita,
                         nome: item.component.nome,
-                        codice: item.component.codice
+                        codice: item.component.codice,
+                        unita_misura: item.component.unita_misura || 'pz'
                     }));
                     
                     // Ricarica la visualizzazione
@@ -5504,19 +5851,34 @@
             }
 
             container.innerHTML = `
+                <div class="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p class="text-sm font-semibold text-blue-900">Modifica le quantità, elimina i prodotti non utilizzati o aggiungine altri.</p>
+                    <button type="button" onclick="openWizardComponentSelector(false)"
+                            class="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                        <i class="fas fa-plus mr-1"></i> Aggiungi componente
+                    </button>
+                </div>
                 <div class="space-y-2">
                     ${components.map(item => `
-                        <div class="flex items-center justify-between p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                            <div class="flex-1">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                            <div class="flex-1 min-w-0">
                                 <p class="font-semibold text-gray-900">${item.component.nome}</p>
                                 <p class="text-sm text-gray-600">${item.component.codice || 'N/A'}</p>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <span class="px-3 py-1 bg-purple-600 text-white rounded-lg font-bold">
-                                    ${item.quantita} ${item.component.unita_misura || 'pz'}
-                                </span>
-                                <button onclick="removeWizardComponent('${item.id}')"
-                                        class="text-red-600 hover:text-red-800 transition">
+                            <div class="flex items-center justify-between sm:justify-end gap-2">
+                                <span class="text-xs font-semibold text-purple-800">Quantità</span>
+                                <button type="button" onclick="adjustWizardComponentQuantity('${item.id}', -1)"
+                                        class="w-9 h-9 border-2 border-purple-300 bg-white rounded-lg text-purple-700 font-bold text-lg" title="Diminuisci quantità">−</button>
+                                <label class="flex items-center gap-2 text-xs font-semibold text-purple-800">
+                                    <input type="number" min="0.01" step="0.01" value="${item.quantita}"
+                                           oninput="setWizardComponentQuantity('${item.id}', this.value)"
+                                           class="w-20 px-2 py-1.5 border-2 border-purple-300 rounded-lg bg-white text-center font-bold">
+                                    <span>${item.component.unita_misura || 'pz'}</span>
+                                </label>
+                                <button type="button" onclick="adjustWizardComponentQuantity('${item.id}', 1)"
+                                        class="w-9 h-9 border-2 border-purple-300 bg-white rounded-lg text-purple-700 font-bold text-lg" title="Aumenta quantità">+</button>
+                                <button type="button" onclick="removeWizardComponent('${item.id}')"
+                                        class="w-9 h-9 flex items-center justify-center bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Rimuovi componente">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -5526,6 +5888,136 @@
             `;
             
             lucide.createIcons();
+        }
+
+        function setWizardComponentQuantity(componentId, value) {
+            const quantity = parseFloat(value);
+            if (!window.taskWizard || !Number.isFinite(quantity) || quantity <= 0) return;
+            const component = window.taskWizard.wizardData.componenti.find(c => (c.prodotto_id || c.id) === componentId);
+            if (component) component.quantita = quantity;
+        }
+
+        function adjustWizardComponentQuantity(componentId, delta) {
+            if (!window.taskWizard) return;
+            const component = window.taskWizard.wizardData.componenti.find(c => (c.prodotto_id || c.id) === componentId);
+            if (!component) return;
+            component.quantita = Math.max(0.01, (parseFloat(component.quantita) || 0) + delta);
+            refreshWizardComponentsEditor();
+        }
+
+        function refreshWizardComponentsEditor() {
+            const components = window.taskWizard?.wizardData?.componenti || [];
+            updateWizardComponentsList(components.map(component => ({
+                id: component.prodotto_id || component.id,
+                quantita: component.quantita || 1,
+                component: {
+                    nome: component.nome || component.codice || 'Componente',
+                    codice: component.codice || '',
+                    unita_misura: component.unita_misura || 'pz'
+                }
+            })));
+        }
+        window.refreshWizardComponentsEditor = refreshWizardComponentsEditor;
+
+        let _wizardOrders = [];
+
+        async function openWizardOrderPicker() {
+            const modal = document.getElementById('wizard-order-picker-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('wizardOrderSearch').value = '';
+            document.getElementById('wizardOrderList').innerHTML = '<p class="text-center text-gray-400 py-8">Caricamento ordini...</p>';
+            const [supplierResult, internalResult] = await Promise.all([
+                window.supabaseClient.from('ordini_fornitore').select('id, numero, oggetto, stato, fornitore_nome, data_ordine').neq('stato', 'annullato').order('created_at', { ascending: false }),
+                window.supabaseClient.from('ordini_interni').select('id, numero, oggetto, stato, fornitore_nome, data_ordine').neq('stato', 'annullato').order('created_at', { ascending: false })
+            ]);
+            if (supplierResult.error) console.warn('Errore ordini fornitore:', supplierResult.error);
+            if (internalResult.error) console.warn('Errore ordini interni:', internalResult.error);
+            _wizardOrders = [
+                ...(supplierResult.data || []).map(order => ({ ...order, tipo: 'fornitore' })),
+                ...(internalResult.data || []).map(order => ({ ...order, tipo: 'interno' }))
+            ].sort((a, b) => String(b.data_ordine || '').localeCompare(String(a.data_ordine || '')));
+            renderWizardOrderList();
+        }
+
+        function closeWizardOrderPicker() {
+            document.getElementById('wizard-order-picker-modal').classList.add('hidden');
+        }
+
+        function renderWizardOrderList() {
+            const search = document.getElementById('wizardOrderSearch').value.trim().toLowerCase();
+            const type = document.getElementById('wizardOrderType').value;
+            const orders = _wizardOrders.filter(order => {
+                const matchesType = !type || order.tipo === type;
+                const text = `${order.numero || ''} ${order.oggetto || ''} ${order.fornitore_nome || ''}`.toLowerCase();
+                return matchesType && (!search || text.includes(search));
+            });
+            const container = document.getElementById('wizardOrderList');
+            if (orders.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 py-8">Nessun ordine trovato</p>';
+                return;
+            }
+            container.innerHTML = orders.map(order => `
+                <button type="button" onclick="importWizardOrder('${order.tipo}', '${order.id}')"
+                        class="w-full flex items-center justify-between gap-3 p-3 text-left border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <span class="min-w-0">
+                        <span class="block font-bold text-gray-900">${order.numero || 'Senza numero'} · ${order.oggetto || 'Ordine'}</span>
+                        <span class="block text-xs text-gray-500 mt-1">${order.fornitore_nome || 'Fornitore non indicato'} · ${order.stato || ''}</span>
+                    </span>
+                    <span class="flex-shrink-0 px-2 py-1 rounded-full text-xs font-bold ${order.tipo === 'fornitore' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}">
+                        ${order.tipo === 'fornitore' ? 'Fornitore' : 'Interno'}
+                    </span>
+                </button>`).join('');
+        }
+
+        async function importWizardOrder(type, orderId) {
+            const isSupplier = type === 'fornitore';
+            const table = isSupplier ? 'ordini_fornitore_items' : 'ordini_interni_items';
+            const fields = isSupplier
+                ? 'prodotto_id, quantita_ordinata, codice, descrizione, um'
+                : 'prodotto_id, quantita, codice, descrizione, um';
+            const { data: items, error } = await window.supabaseClient
+                .from(table)
+                .select(fields)
+                .eq('ordine_id', orderId)
+                .not('prodotto_id', 'is', null);
+            if (error) {
+                _lavorToast('Errore nel caricamento delle righe ordine: ' + error.message, 'error');
+                return;
+            }
+            if (!items?.length) {
+                _lavorToast('Questo ordine non contiene componenti collegati al magazzino', 'warning');
+                return;
+            }
+            const allComponents = await window.dataManager.getComponenti();
+            const current = new Map((window.taskWizard?.wizardData.componenti || []).map(component => [component.prodotto_id || component.id, component]));
+            items.forEach(item => {
+                const quantity = parseFloat(isSupplier ? item.quantita_ordinata : item.quantita) || 1;
+                const existing = current.get(item.prodotto_id);
+                if (existing) {
+                    existing.quantita = (parseFloat(existing.quantita) || 0) + quantity;
+                } else {
+                    const component = allComponents.find(entry => entry.id === item.prodotto_id);
+                    current.set(item.prodotto_id, {
+                        prodotto_id: item.prodotto_id,
+                        quantita: quantity,
+                        nome: component?.nome || item.descrizione || 'Componente',
+                        codice: component?.codice || item.codice || '',
+                        unita_misura: component?.unita_misura || item.um || 'pz'
+                    });
+                }
+            });
+            window.taskWizard.wizardData.componenti = [...current.values()];
+            updateWizardComponentsList(window.taskWizard.wizardData.componenti.map(component => ({
+                id: component.prodotto_id || component.id,
+                quantita: component.quantita,
+                component: {
+                    nome: component.nome,
+                    codice: component.codice,
+                    unita_misura: component.unita_misura || 'pz'
+                }
+            })));
+            closeWizardOrderPicker();
+            _lavorToast(`${items.length} righe importate dall'ordine ${isSupplier ? 'fornitore' : 'interno'}`, 'success');
         }
 
         function removeWizardComponent(componentId) {
@@ -6257,7 +6749,7 @@
     </div>
 
     <!-- Includi i nuovi script -->
-    <script src="component-multi-scanner.js"></script>
+    <script src="component-multi-scanner.js?v=2"></script>
     <script src="component-multi-selector.js"></script>
 
     <!-- ===== MODALE PICKER CLIENTI ===== -->
