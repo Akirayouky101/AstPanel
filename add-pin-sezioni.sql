@@ -8,6 +8,7 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- Su Supabase pgcrypto sta nello schema "extensions": le funzioni che usano crypt/gen_salt lo includono nel search_path.
 
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin_sezioni_attivo BOOLEAN NOT NULL DEFAULT FALSE;
 COMMENT ON COLUMN public.users.pin_sezioni_attivo IS 'Se true l''utente può accedere alle sezioni protette da PIN (Contabilità)';
@@ -95,7 +96,7 @@ CREATE OR REPLACE FUNCTION public.verifica_pin_sezioni(p_pin TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
     u public.users;
@@ -152,7 +153,7 @@ CREATE OR REPLACE FUNCTION public.set_pin_sezioni(p_user_id UUID, p_attivo BOOLE
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
     v_admin public.users;
