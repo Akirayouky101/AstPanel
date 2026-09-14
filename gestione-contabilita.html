@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="Admin/auth-helper.js"></script>
+    <script src="pin-sezioni.js"></script>
     <style>
         .riga-scaduta td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
         .riga-pagata { color: #6b7280; }
@@ -30,7 +31,10 @@
                     <p class="text-indigo-100 text-sm">Scadenzario mensile uscite ed entrate per azienda</p>
                 </div>
             </div>
-            <p id="userName" class="text-sm text-indigo-100 whitespace-nowrap"></p>
+            <div class="flex items-center gap-3">
+                <p id="userName" class="text-sm text-indigo-100 whitespace-nowrap"></p>
+                <button onclick="bloccaSezione()" class="w-10 h-10 hover:bg-indigo-800 rounded-lg" title="Blocca sezione (richiedi di nuovo il PIN)" aria-label="Blocca sezione"><i class="fas fa-lock"></i></button>
+            </div>
         </div>
     </header>
 
@@ -172,6 +176,7 @@
             if (!await AuthHelper.requireLogin()) return;
             currentUser = AuthHelper.getCurrentUser();
             document.getElementById('userName').textContent = currentUser ? `${currentUser.nome || ''} ${currentUser.cognome || ''}`.trim() : '';
+            if (!await PinSezioni.proteggi({ sezione: 'Contabilità', ritorno: '/admin-functional.html', nome: currentUser?.nome || '', onRiapertura: caricaMese })) return;
             const params = new URLSearchParams(location.search);
             if (/^\d{4}-\d{2}$/.test(params.get('mese') || '')) mese = params.get('mese');
             document.getElementById('meseInput').value = mese;
@@ -183,6 +188,7 @@
         });
 
         function oggi() { return new Date().toISOString().split('T')[0]; }
+        async function bloccaSezione() { await PinSezioni.chiudi(); location.href = '/admin-functional.html'; }
         const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
         const formatData = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('it-IT') : '-';
         const formatEuro = value => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(value) || 0);

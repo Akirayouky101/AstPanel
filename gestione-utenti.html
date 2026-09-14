@@ -318,6 +318,23 @@
                             🎲 Genera password casuale
                         </button>
                     </div>
+
+                    <!-- PIN sezioni protette - GIALLO -->
+                    <div id="pinSection" class="bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-300 rounded-xl p-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="userPinAttivo" onchange="togglePinField()" class="w-5 h-5 accent-amber-600">
+                            <span class="text-sm font-bold text-amber-900"><i data-lucide="lock-keyhole" class="w-4 h-4 inline mr-1"></i>PIN Attivo</span>
+                            <span class="text-xs text-amber-700">accesso alle sezioni protette (Contabilità)</span>
+                        </label>
+                        <div id="pinFieldWrap" class="hidden mt-3">
+                            <label for="userPin" class="block text-xs font-semibold text-amber-900 mb-1">PIN (4-8 cifre)</label>
+                            <div class="flex gap-2">
+                                <input type="password" id="userPin" inputmode="numeric" pattern="\d{4,8}" maxlength="8" autocomplete="off" placeholder="••••" class="flex-1 px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-white tracking-widest">
+                                <button type="button" onclick="generaPin()" class="px-3 py-2 text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg font-semibold">🎲 Genera</button>
+                            </div>
+                            <p id="pinHint" class="text-xs text-amber-700 mt-1">Il PIN viene salvato cifrato e non è più leggibile: comunicalo all'utente.</p>
+                        </div>
+                    </div>
                     
                     <!-- Action Buttons -->
                     <div class="flex space-x-3 pt-2">
@@ -401,6 +418,7 @@
                     </div>
                     <div class="flex flex-wrap gap-2 mb-4">
                         <span class="${roleClass} px-2.5 py-0.5 rounded-full text-xs font-semibold">${roleName}</span>
+                        ${user.pin_sezioni_attivo ? '<span class="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-xs font-semibold" title="Accesso alle sezioni protette da PIN">🔒 PIN Attivo</span>' : ''}
                         ${user.reparto ? `<span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full text-xs font-medium">${user.reparto}</span>` : ''}
                     </div>
                     <div class="space-y-1.5 text-xs text-gray-500 border-t border-gray-100 pt-3 mt-auto">
@@ -522,6 +540,7 @@
             document.getElementById('modalTitle').textContent = 'Aggiungi Utente';
             document.getElementById('userForm').reset();
             toggleEsternoEmailField('');
+            impostaPinForm(false, false);
             document.getElementById('userModal').classList.remove('hidden');
             lucide.createIcons();
         }
@@ -634,6 +653,7 @@
                 document.getElementById('userRole').value = user.ruolo;
                 document.getElementById('userStatus').value = user.stato;
                 document.getElementById('userPhone').value = user.telefono || '';
+                impostaPinForm(!!user.pin_sezioni_attivo, !!user.pin_sezioni_attivo);
                 
                 // Mostra sezione password in modifica, resetta il campo
                 document.getElementById('passwordSection').classList.remove('hidden');
@@ -754,6 +774,8 @@
                 // UPDATE UTENTE ESISTENTE
                 if (currentEditingUserId) {
                     const nuovaPassword = document.getElementById('newPassword').value.trim();
+                    const pin = leggiPinForm();
+                    if (pin.errore) { showAlert('PIN non valido', pin.errore, 'error'); return; }
                     await window.AdminUsersAPI.update(currentEditingUserId, {
                         nome,
                         cognome,
@@ -763,6 +785,7 @@
                         telefono,
                         password: nuovaPassword || undefined
                     });
+                    await salvaPinSezioni(currentEditingUserId, pin);
                     showNotification(nuovaPassword ? 'Utente e password aggiornati!' : 'Utente aggiornato con successo!', 'success');
                     
                     closeUserModal();
@@ -785,6 +808,8 @@
                     return;
                 }
 
+                const pinNuovo = leggiPinForm();
+                if (pinNuovo.errore) { showAlert('PIN non valido', pinNuovo.errore, 'error'); return; }
                 const result = await window.AdminUsersAPI.create({
                     nome,
                     cognome,
@@ -793,6 +818,7 @@
                     telefono,
                     stato
                 });
+                if (result?.user?.id) await salvaPinSezioni(result.user.id, pinNuovo);
                 
                 // 4. CHIUDI form PRIMA di mostrare password
                 closeUserModal();
@@ -820,6 +846,48 @@
                 showAlert('Errore', errorMessage, 'error');
             }
         });
+
+        // ---------- PIN sezioni protette ----------
+        function impostaPinForm(attivo, pinGiaImpostato) {
+            document.getElementById('userPinAttivo').checked = attivo;
+            document.getElementById('userPin').value = '';
+            document.getElementById('userPin').dataset.giaImpostato = pinGiaImpostato ? '1' : '';
+            togglePinField();
+        }
+
+        function togglePinField() {
+            const attivo = document.getElementById('userPinAttivo').checked;
+            const input = document.getElementById('userPin');
+            document.getElementById('pinFieldWrap').classList.toggle('hidden', !attivo);
+            const giaImpostato = input.dataset.giaImpostato === '1';
+            input.placeholder = giaImpostato ? 'Lascia vuoto per non cambiare' : '••••';
+            document.getElementById('pinHint').textContent = giaImpostato
+                ? 'PIN già impostato. Inserisci un nuovo PIN solo se vuoi cambiarlo.'
+                : 'Il PIN viene salvato cifrato e non è più leggibile: comunicalo all\'utente.';
+        }
+
+        function generaPin() {
+            const digits = new Uint32Array(6);
+            crypto.getRandomValues(digits);
+            const input = document.getElementById('userPin');
+            input.value = Array.from(digits, d => d % 10).join('');
+            input.type = 'text';
+        }
+
+        function leggiPinForm() {
+            const attivo = document.getElementById('userPinAttivo').checked;
+            const input = document.getElementById('userPin');
+            const pin = input.value.trim();
+            if (!attivo) return { attivo: false, pin: null };
+            if (pin && !/^\d{4,8}$/.test(pin)) return { errore: 'Il PIN deve contenere da 4 a 8 cifre.' };
+            if (!pin && input.dataset.giaImpostato !== '1') return { errore: 'Inserisci un PIN per attivare l\'accesso alle sezioni protette.' };
+            return { attivo: true, pin: pin || null };
+        }
+
+        async function salvaPinSezioni(userId, pin) {
+            const { error } = await supabase.rpc('set_pin_sezioni', { p_user_id: userId, p_attivo: pin.attivo, p_pin: pin.pin });
+            if (error) throw new Error('Utente salvato ma PIN non aggiornato: ' + error.message);
+        }
 
         // Genera password temporanea (12 caratteri)
         function generateTemporaryPassword() {
