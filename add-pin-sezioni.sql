@@ -8,7 +8,7 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
--- Su Supabase pgcrypto sta nello schema "extensions": le funzioni che usano crypt/gen_salt lo includono nel search_path.
+-- Hashing tramite pin_sezioni_hash/pin_sezioni_check: trovano lo schema di pgcrypto a runtime (su Supabase "extensions").
 
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS pin_sezioni_attivo BOOLEAN NOT NULL DEFAULT FALSE;
 COMMENT ON COLUMN public.users.pin_sezioni_attivo IS 'Se true l''utente può accedere alle sezioni protette da PIN (Contabilità)';
@@ -91,12 +91,62 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.pin_sezioni_stato() TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.pin_sezioni_hash(p_pin TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_schema TEXT;
+    v_hash TEXT;
+    v_salt TEXT;
+BEGIN
+    SELECT n.nspname INTO v_schema
+    FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+    WHERE e.extname = 'pgcrypto';
+    IF v_schema IS NOT NULL THEN
+        EXECUTE format('SELECT %I.crypt($1, %I.gen_salt(''bf'', 10))', v_schema, v_schema) INTO v_hash USING p_pin;
+        RETURN v_hash;
+    END IF;
+    v_salt := replace(gen_random_uuid()::TEXT, '-', '');
+    RETURN 'sha256$' || v_salt || '$' || encode(sha256(convert_to(v_salt || p_pin, 'UTF8')), 'hex');
+END;
+$$;
+REVOKE ALL ON FUNCTION public.pin_sezioni_hash(TEXT) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.pin_sezioni_check(p_pin TEXT, p_hash TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_schema TEXT;
+    v_calc TEXT;
+    v_parts TEXT[];
+BEGIN
+    IF p_pin IS NULL OR p_hash IS NULL THEN RETURN FALSE; END IF;
+    IF p_hash LIKE 'sha256$%' THEN
+        v_parts := string_to_array(p_hash, '$');
+        RETURN encode(sha256(convert_to(v_parts[2] || p_pin, 'UTF8')), 'hex') = v_parts[3];
+    END IF;
+    SELECT n.nspname INTO v_schema
+    FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+    WHERE e.extname = 'pgcrypto';
+    IF v_schema IS NULL THEN RETURN FALSE; END IF;
+    EXECUTE format('SELECT %I.crypt($1, $2)', v_schema) INTO v_calc USING p_pin, p_hash;
+    RETURN v_calc = p_hash;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.pin_sezioni_check(TEXT, TEXT) FROM PUBLIC;
+
 -- Verifica il PIN inserito: sblocca per 30 minuti, blocca 10 minuti dopo 5 errori
 CREATE OR REPLACE FUNCTION public.verifica_pin_sezioni(p_pin TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions
+SET search_path = public
 AS $$
 DECLARE
     u public.users;
@@ -114,7 +164,7 @@ BEGIN
     IF p.bloccato_fino IS NOT NULL AND p.bloccato_fino > NOW() THEN
         RETURN jsonb_build_object('ok', false, 'motivo', 'bloccato', 'bloccato_secondi', EXTRACT(EPOCH FROM (p.bloccato_fino - NOW()))::INTEGER);
     END IF;
-    IF p_pin IS NOT NULL AND p.pin_hash = crypt(p_pin, p.pin_hash) THEN
+    IF public.pin_sezioni_check(p_pin, p.pin_hash) THEN
         UPDATE public.users_pin_sezioni
            SET tentativi = 0, bloccato_fino = NULL, verificato_fino = NOW() + INTERVAL '30 minutes'
          WHERE user_id = u.id;
@@ -147,13 +197,12 @@ AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.chiudi_pin_sezioni() TO authenticated;
 
--- Imposta flag e PIN di un utente (solo amministratori: titolare, segreteria, tecnico)
--- p_pin NULL con p_attivo = true mantiene il PIN esistente.
+-- Imposta flag e PIN di un utente (solo amministratori). p_pin NULL con p_attivo = true mantiene il PIN esistente.
 CREATE OR REPLACE FUNCTION public.set_pin_sezioni(p_user_id UUID, p_attivo BOOLEAN, p_pin TEXT DEFAULT NULL)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions
+SET search_path = public
 AS $$
 DECLARE
     v_admin public.users;
@@ -178,7 +227,7 @@ BEGIN
             RAISE EXCEPTION 'Il PIN deve avere da 4 a 8 cifre';
         END IF;
         INSERT INTO public.users_pin_sezioni (user_id, pin_hash, tentativi, bloccato_fino, verificato_fino, updated_by, updated_at)
-        VALUES (p_user_id, crypt(p_pin, gen_salt('bf', 10)), 0, NULL, NULL, v_admin.id, NOW())
+        VALUES (p_user_id, public.pin_sezioni_hash(p_pin), 0, NULL, NULL, v_admin.id, NOW())
         ON CONFLICT (user_id) DO UPDATE
             SET pin_hash = EXCLUDED.pin_hash, tentativi = 0, bloccato_fino = NULL, verificato_fino = NULL,
                 updated_by = EXCLUDED.updated_by, updated_at = NOW();
