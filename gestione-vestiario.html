@@ -55,6 +55,13 @@
                 <div class="flex flex-wrap gap-3">
                     <select id="filtroDipendente" onchange="renderVista()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white" aria-label="Filtra per dipendente"><option value="">Tutti i dipendenti</option></select>
                     <select id="filtroFornitore" onchange="renderVista()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white" aria-label="Filtra per fornitore"><option value="">Tutti i fornitori</option></select>
+                    <select id="filtroStato" onchange="renderVista()" class="border border-gray-300 rounded-lg px-3 py-2 bg-white" aria-label="Filtra per stato">
+                        <option value="">Tutti gli stati</option>
+                        <option value="assegnato">Assegnato</option>
+                        <option value="restituito">Restituito</option>
+                        <option value="danneggiato">Danneggiato</option>
+                        <option value="eliminato">Eliminato</option>
+                    </select>
                     <input id="ricerca" type="search" oninput="renderVista()" placeholder="Cerca numero, codice capo, dipendente..." class="border border-gray-300 rounded-lg px-3 py-2 w-72 max-w-full">
                 </div>
             </div>
@@ -208,9 +215,11 @@
             const testo = document.getElementById('ricerca').value.trim().toLowerCase();
             const dipendenteId = document.getElementById('filtroDipendente').value;
             const fornitoreId = document.getElementById('filtroFornitore').value;
+            const stato = document.getElementById('filtroStato').value;
             return assegnazioni.filter(item => {
                 if (dipendenteId && item.dipendente_id !== dipendenteId) return false;
                 if (fornitoreId && item.fornitore_id !== fornitoreId) return false;
+                if (stato && (item.stato || 'assegnato') !== stato) return false;
                 if (!testo) return true;
                 const campi = [item.numero, item.fornitore?.ragione_sociale, item.fornitore_nome, nomeDipendente(item.dipendente), item.dipendente_nome, item.note, ...(item.items || []).flatMap(riga => [riga.codice, riga.descrizione, riga.taglia])];
                 return campi.some(valore => String(valore || '').toLowerCase().includes(testo));
