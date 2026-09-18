@@ -432,6 +432,54 @@
         </div>
     </div>
 
+    <!-- Modal Aggiungi Taglia (a un articolo Vestiario gi\u00e0 esistente) -->
+    <div id="aggiungiTagliaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[80] flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto" style="scrollbar-width:none;-ms-overflow-style:none">
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 p-5 rounded-t-2xl sticky top-0">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-tshirt mr-2"></i>Aggiungi taglia</h3>
+                <p id="aggiungiTagliaArticolo" class="text-orange-100 text-sm mt-1"></p>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Taglia</label>
+                    <div id="aggiungiTagliaChips" class="flex flex-wrap gap-2 mb-2"></div>
+                    <input type="text" id="aggiungiTagliaCustom" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm uppercase focus:ring-2 focus:ring-orange-400 outline-none" placeholder="Altra taglia (es. 44, 3XL)">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Pezzi iniziali</label>
+                    <input type="number" id="aggiungiTagliaQta" min="0" step="1" value="0" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Codice prodotto</label>
+                    <input type="text" id="aggiungiTagliaCodice" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Barcode/EAN</label>
+                    <input type="text" id="aggiungiTagliaBarcode" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl font-mono no-uppercase focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition outline-none">
+                    <p class="text-xs text-gray-500 mt-1">Precompilato con lo stesso barcode dell'articolo: lascialo uguale se sul capo c'\u00e8 lo stesso EAN per tutte le taglie, oppure cambialo.</p>
+                </div>
+            </div>
+            <div class="p-5 pt-0 flex space-x-3">
+                <button type="button" onclick="closeAggiungiTagliaModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">Annulla</button>
+                <button type="button" onclick="confermaAggiungiTaglia()" class="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-bold hover:shadow-lg"><i class="fas fa-check mr-2"></i>Crea taglia</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Scelta taglia da Barcode (scanner con pi\u00f9 risultati) -->
+    <div id="sceltaBarcodeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[85] flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto" style="scrollbar-width:none;-ms-overflow-style:none">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 rounded-t-2xl sticky top-0">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-barcode mr-2"></i>Pi\u00f9 risultati per questo codice</h3>
+                <p class="text-purple-100 text-sm mt-1">Barcode <span id="sceltaBarcodeValore" class="font-mono"></span> \u2014 scegli la taglia</p>
+            </div>
+            <div class="p-5 space-y-2" id="sceltaBarcodeLista"></div>
+            <div class="p-5 pt-0">
+                <button type="button" onclick="chiudiSceltaBarcode()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">Annulla</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Modifica Prodotto -->
     <div id="modificaProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="scrollbar-width:none;-ms-overflow-style:none">
@@ -2037,6 +2085,7 @@
                     <button onclick="event.stopPropagation();showStampaEtichette('${p.id}')" title="Stampa" class="py-1 bg-cyan-100 text-cyan-700 rounded text-xs hover:bg-cyan-200"><i class="fas fa-print"></i></button>
                     <button onclick="event.stopPropagation();confermaEliminazione('${p.id}', '${descEsc}', ${giacenzaFisica})" title="Elimina" class="py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"><i class="fas fa-trash"></i></button>
                 </div>
+                ${p.categoria === 'Vestiario' ? `<div class="px-2 pb-2 bg-gray-50"><button onclick="event.stopPropagation();apriAggiungiTaglia('${p.id}')" class="w-full py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200"><i class="fas fa-tshirt mr-1"></i>Aggiungi taglia</button></div>` : ''}
             </div>`;
         }
 
@@ -2290,16 +2339,37 @@
         // Cerca prodotto per barcode
         function cercaProdottoPerBarcode(barcode) {
             const codiceScansionato = barcode.trim().toLowerCase();
-            const prodotto = prodotti.find(p =>
+            const trovati = prodotti.filter(p =>
                 p.barcode?.trim().toLowerCase() === codiceScansionato ||
                 p.barcodes_secondari?.some(codice => codice.trim().toLowerCase() === codiceScansionato)
             );
-            
-            if (prodotto) {
-                apriMovimento(prodotto.id, 'carico');
+
+            if (trovati.length === 1) {
+                apriMovimento(trovati[0].id, 'carico');
+            } else if (trovati.length > 1) {
+                // Stesso barcode condiviso tra pi\u00f9 taglie: chiedi quale movimentare
+                mostraSceltaBarcode(trovati, barcode);
             } else {
                 mostraProdottoNonTrovato(barcode);
             }
+        }
+
+        function mostraSceltaBarcode(trovati, barcode) {
+            document.getElementById('sceltaBarcodeValore').textContent = barcode;
+            document.getElementById('sceltaBarcodeLista').innerHTML = trovati.map(p => {
+                const taglia = (p.nome || '').match(/-\s*Tg\.\s*(.+)$/i)?.[1]?.trim() || '';
+                const etichetta = taglia ? `Tg. ${escapeHtmlTaglia(taglia)}` : (p.nome || p.codice || 'Prodotto');
+                const giacenzaMostrata = Math.round(p.giacenza_libera ?? p.giacenza ?? 0);
+                return `<button type="button" onclick="chiudiSceltaBarcode();apriMovimento('${p.id}','carico')" class="w-full text-left px-4 py-3 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition flex items-center justify-between">
+                    <span><span class="font-bold text-gray-800">${etichetta}</span><span class="block text-xs text-gray-500 font-mono">${p.codice || ''}</span></span>
+                    <span class="text-sm font-semibold text-purple-600">${giacenzaMostrata} ${p.um || 'pz'}</span>
+                </button>`;
+            }).join('');
+            document.getElementById('sceltaBarcodeModal').classList.remove('hidden');
+        }
+
+        function chiudiSceltaBarcode() {
+            document.getElementById('sceltaBarcodeModal').classList.add('hidden');
         }
 
         // Apri movimento
@@ -2537,6 +2607,164 @@
             ).join('');
         }
 
+        // ========================================
+        // AGGIUNGI TAGLIA a un articolo Vestiario gi\u00e0 esistente (stesso barcode ammesso)
+        // ========================================
+        let aggiungiTagliaContext = null;
+        let aggiungiTagliaSelezionata = '';
+
+        function apriAggiungiTaglia(prodottoId) {
+            const p = prodotti.find(x => x.id === prodottoId);
+            if (!p) return;
+
+            const gruppoId = p.gruppo_taglia_id || null;
+            const famiglia = prodotti.filter(x => gruppoId ? x.gruppo_taglia_id === gruppoId : x.id === p.id);
+            const taglieEsistenti = famiglia
+                .map(x => (x.nome || '').match(/-\s*Tg\.\s*(.+)$/i)?.[1]?.trim().toUpperCase())
+                .filter(Boolean);
+            const baseNome = rimuoviSuffissoTaglia(p.nome || '');
+            const baseCodice = String(p.codice || '').replace(/-[^-]+$/, '');
+
+            aggiungiTagliaContext = {
+                prodottoId: p.id,
+                gruppoId,
+                baseNome,
+                baseCodice,
+                categoria: p.categoria,
+                um: p.um || p.unita_misura || 'pz',
+                prezzoAcquisto: p.prezzo_acquisto || p.prezzo_unitario || 0,
+                fornitoreId: p.fornitore_id || null,
+                fotoUrl: p.foto_url || null,
+                fornitoriSecondari: (p.component_fornitori || [])
+                    .filter(item => !item.principale && item.fornitore_id !== p.fornitore_id)
+                    .map(item => ({ fornitore_id: item.fornitore_id, prezzo_acquisto: Number(item.prezzo_acquisto || 0), codice_fornitore: item.codice_fornitore || '' })),
+                taglieEsistenti
+            };
+            aggiungiTagliaSelezionata = '';
+
+            document.getElementById('aggiungiTagliaArticolo').textContent =
+                `${baseNome} — taglie già presenti: ${taglieEsistenti.join(', ') || 'nessuna'}`;
+            document.getElementById('aggiungiTagliaCustom').value = '';
+            document.getElementById('aggiungiTagliaQta').value = '0';
+            document.getElementById('aggiungiTagliaCodice').value = '';
+            document.getElementById('aggiungiTagliaBarcode').value = p.barcode || '';
+            renderAggiungiTagliaChips();
+            document.getElementById('aggiungiTagliaModal').classList.remove('hidden');
+        }
+
+        function renderAggiungiTagliaChips() {
+            const usate = aggiungiTagliaContext.taglieEsistenti;
+            document.getElementById('aggiungiTagliaChips').innerHTML = TAGLIE_STANDARD.map(t => {
+                if (usate.includes(t)) {
+                    return `<span class="px-3 py-1.5 rounded-full text-sm font-bold border-2 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed" title="Taglia già presente">${t}</span>`;
+                }
+                const attiva = aggiungiTagliaSelezionata === t;
+                return `<button type="button" onclick="selezionaTagliaAggiunta('${t}')" class="px-3 py-1.5 rounded-full text-sm font-bold border-2 transition ${attiva ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'}">${t}</button>`;
+            }).join('');
+        }
+
+        function selezionaTagliaAggiunta(taglia) {
+            aggiungiTagliaSelezionata = taglia;
+            document.getElementById('aggiungiTagliaCustom').value = '';
+            document.getElementById('aggiungiTagliaCodice').value = aggiungiTagliaContext.baseCodice ? `${aggiungiTagliaContext.baseCodice}-${taglia}` : '';
+            renderAggiungiTagliaChips();
+        }
+
+        function closeAggiungiTagliaModal() {
+            document.getElementById('aggiungiTagliaModal').classList.add('hidden');
+            aggiungiTagliaContext = null;
+        }
+
+        async function confermaAggiungiTaglia() {
+            if (!aggiungiTagliaContext) return;
+            const custom = normalizzaTaglia(document.getElementById('aggiungiTagliaCustom').value);
+            const taglia = custom || aggiungiTagliaSelezionata;
+            if (!taglia) {
+                showErrorModal('Taglia mancante', 'Seleziona una taglia standard o inseriscine una personalizzata');
+                return;
+            }
+            if (aggiungiTagliaContext.taglieEsistenti.includes(taglia)) {
+                showErrorModal('Taglia già presente', `La taglia ${taglia} esiste già per questo articolo`);
+                return;
+            }
+
+            const qta = Math.max(0, parseInt(document.getElementById('aggiungiTagliaQta').value, 10) || 0);
+            const barcodeValore = document.getElementById('aggiungiTagliaBarcode').value.trim();
+            const codiceValore = document.getElementById('aggiungiTagliaCodice').value.trim() || null;
+            let gruppoId = aggiungiTagliaContext.gruppoId;
+
+            const usato = trovaBarcodeGiaUsato(barcodeValore, [], aggiungiTagliaContext.prodottoId, gruppoId);
+            if (usato) {
+                showErrorModal('Barcode già utilizzato', `Il codice ${usato} appartiene già a un altro articolo`);
+                return;
+            }
+
+            try {
+                // Se l'articolo sorgente non ha ancora un gruppo, lo creiamo e lo colleghiamo
+                if (!gruppoId) {
+                    gruppoId = crypto.randomUUID();
+                    const { error: erroreGruppo } = await supabase
+                        .from('components')
+                        .update({ gruppo_taglia_id: gruppoId })
+                        .eq('id', aggiungiTagliaContext.prodottoId);
+                    if (erroreGruppo) throw erroreGruppo;
+                }
+
+                const record = {
+                    nome: `${aggiungiTagliaContext.baseNome} - Tg. ${taglia}`,
+                    descrizione: aggiungiTagliaContext.baseNome,
+                    categoria: aggiungiTagliaContext.categoria,
+                    codice: codiceValore,
+                    barcode: barcodeValore || null,
+                    quantita_disponibile: qta,
+                    giacenza: qta,
+                    unita_misura: aggiungiTagliaContext.um,
+                    um: aggiungiTagliaContext.um,
+                    prezzo_unitario: aggiungiTagliaContext.prezzoAcquisto,
+                    prezzo_acquisto: aggiungiTagliaContext.prezzoAcquisto,
+                    giacenza_minima: 0,
+                    fornitore_id: aggiungiTagliaContext.fornitoreId,
+                    fornitore: null,
+                    note: null,
+                    stato: 'attivo',
+                    foto_url: aggiungiTagliaContext.fotoUrl,
+                    ha_seriale: false,
+                    gruppo_taglia_id: gruppoId
+                };
+
+                const { data: creato, error } = await supabase.from('components').insert(record).select('id').single();
+                if (error) throw error;
+
+                const fornitoriProdotto = aggiungiTagliaContext.fornitoreId ? [{
+                    fornitore_id: aggiungiTagliaContext.fornitoreId,
+                    prezzo_acquisto: aggiungiTagliaContext.prezzoAcquisto,
+                    principale: true
+                }, ...aggiungiTagliaContext.fornitoriSecondari] : aggiungiTagliaContext.fornitoriSecondari;
+                if (fornitoriProdotto.length) {
+                    const { error: fornitoriError } = await supabase.rpc('set_component_fornitori', {
+                        p_component_id: creato.id,
+                        p_fornitori: fornitoriProdotto
+                    });
+                    if (fornitoriError) {
+                        await supabase.from('components').delete().eq('id', creato.id);
+                        throw fornitoriError;
+                    }
+                }
+
+                showSuccessModal('Taglia aggiunta!', `${aggiungiTagliaContext.baseNome} - Tg. ${taglia} creata con successo`);
+                closeAggiungiTagliaModal();
+                await caricaProdotti();
+            } catch (error) {
+                console.error('Errore aggiunta taglia:', error);
+                if (error.code === '23505') {
+                    const valore = error.details?.match(/\(.*?\)=\((.*?)\)/)?.[1] || '';
+                    showErrorModal('⚠️ Barcode già in uso', `Il barcode${valore ? ` (${valore})` : ''} appartiene già a un altro articolo non collegato a questo gruppo taglie.`);
+                } else {
+                    showErrorModal('Errore nella creazione', error.message);
+                }
+            }
+        }
+
         // Duplica prodotto esistente
         function duplicaProdotto(prodottoId) {
             const p = prodotti.find(x => x.id === prodottoId);
@@ -2615,20 +2843,16 @@
                 return;
             }
 
+            // Le taglie dello stesso articolo (batch corrente) possono condividere il barcode tra loro:
+            // il gruppo appena generato le rende tutte compatibili anche al prossimo controllo duplicati
+            const gruppoTagliaId = isVestiario ? crypto.randomUUID() : null;
+
             if (isVestiario) {
-                // Ogni taglia è un prodotto: i barcode vanno controllati per taglia e tra loro
-                const visti = new Set();
                 for (const t of nuovoTaglie) {
                     if (!t.barcode) continue;
-                    const chiave = t.barcode.toLowerCase();
-                    if (visti.has(chiave)) {
-                        showErrorModal('Barcode duplicato', `Il codice ${t.barcode} è indicato su più taglie`);
-                        return;
-                    }
-                    visti.add(chiave);
-                    const usato = trovaBarcodeGiaUsato(t.barcode, []);
+                    const usato = trovaBarcodeGiaUsato(t.barcode, [], null, gruppoTagliaId);
                     if (usato) {
-                        showErrorModal('Barcode già utilizzato', `Il codice ${usato} (taglia ${t.taglia}) appartiene già a un altro prodotto`);
+                        showErrorModal('Barcode già utilizzato', `Il codice ${usato} (taglia ${t.taglia}) appartiene già a un altro articolo`);
                         return;
                     }
                 }
@@ -2675,7 +2899,8 @@
                     note: null,
                     stato: 'attivo',
                     foto_url: fotoUrl,
-                    ha_seriale: haSeriale
+                    ha_seriale: haSeriale,
+                    gruppo_taglia_id: gruppoTagliaId
                 });
 
                 const inserisciProdotto = async (record, secondari) => {
@@ -2776,7 +3001,7 @@
             return [...unici.values()];
         }
 
-        function trovaBarcodeGiaUsato(barcodePrincipale, barcodeSecondari, prodottoIdEscluso = null) {
+        function trovaBarcodeGiaUsato(barcodePrincipale, barcodeSecondari, prodottoIdEscluso = null, gruppoIdConsentito = null) {
             const codiciInseriti = new Set(
                 [barcodePrincipale, ...barcodeSecondari]
                     .map(value => value.trim().toLowerCase())
@@ -2785,6 +3010,8 @@
 
             for (const prodotto of prodotti) {
                 if (prodotto.id === prodottoIdEscluso) continue;
+                // Le taglie dello stesso articolo possono condividere il barcode
+                if (gruppoIdConsentito && prodotto.gruppo_taglia_id && prodotto.gruppo_taglia_id === gruppoIdConsentito) continue;
                 const codiciProdotto = [prodotto.barcode, ...(prodotto.barcodes_secondari || [])];
                 const duplicato = codiciProdotto.find(value => value && codiciInseriti.has(value.trim().toLowerCase()));
                 if (duplicato) return duplicato;
