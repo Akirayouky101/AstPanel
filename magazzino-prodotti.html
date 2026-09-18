@@ -493,7 +493,7 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
                         <div class="relative">
-                            <select id="modificaCategoria" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl appearance-none bg-white cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition outline-none">
+                            <select id="modificaCategoria" onchange="onModificaCategoriaChange()" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl appearance-none bg-white cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition outline-none">
                                 <option value="Componentistica">Componentistica</option>
                                 <option value="Materiali">Materiali</option>
                                 <option value="Accessori">Accessori</option>
@@ -514,6 +514,11 @@
                             </select>
                             <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400 text-xs"></i>
                         </div>
+                    </div>
+                    <div id="modificaTagliaBox" class="hidden">
+                        <label class="block text-sm font-bold text-gray-700 mb-2"><i class="fas fa-tshirt mr-1 text-indigo-500"></i>Taglia</label>
+                        <input type="text" id="modificaTaglia" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl uppercase focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition outline-none" placeholder="es. L, XL, 44">
+                        <p class="text-xs text-gray-500 mt-1">Questo prodotto rappresenta una singola taglia: viene aggiunta al nome (es. "Giacca - Tg. L").</p>
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Attuale</label>
@@ -2799,6 +2804,9 @@
             document.getElementById('modificaDescrizione').value = prodotto.descrizione || prodotto.nome || '';
             document.getElementById('modificaCodice').value = prodotto.codice || '';
             document.getElementById('modificaCategoria').value = prodotto.categoria || 'Componentistica';
+            const matchTaglia = (prodotto.nome || '').match(/-\s*Tg\.\s*(.+)$/i);
+            document.getElementById('modificaTaglia').value = matchTaglia ? matchTaglia[1].trim() : '';
+            onModificaCategoriaChange();
             document.getElementById('modificaGiacenza').value = Math.round(prodotto.giacenza || 0);
             document.getElementById('modificaUM').value = prodotto.um || prodotto.unita_misura || 'pz';
             document.getElementById('modificaPrezzoAcquisto').value = (prodotto.prezzo_acquisto || prodotto.prezzo_unitario || 0).toFixed(2);
@@ -2858,11 +2866,25 @@
             document.getElementById('modificaProdottoModal').classList.add('hidden');
         }
 
+        function onModificaCategoriaChange() {
+            const categoria = document.getElementById('modificaCategoria').value;
+            document.getElementById('modificaTagliaBox').classList.toggle('hidden', categoria !== 'Vestiario');
+        }
+
+        function rimuoviSuffissoTaglia(nomeValore) {
+            return nomeValore.replace(/\s*-\s*Tg\.\s*.+$/i, '').trim();
+        }
+
         async function salvaModificaProdotto() {
             const prodottoId = document.getElementById('modificaId').value;
             const barcode = document.getElementById('modificaBarcode').value.trim();
             const barcodeSecondari = leggiBarcodeSecondari('modificaBarcodeSecondari', barcode);
-            const nome = document.getElementById('modificaNome').value.trim();
+            const categoriaSelezionata = document.getElementById('modificaCategoria').value || 'Componentistica';
+            const tagliaValore = normalizzaTaglia(document.getElementById('modificaTaglia').value);
+            let nome = document.getElementById('modificaNome').value.trim();
+            if (categoriaSelezionata === 'Vestiario' && tagliaValore) {
+                nome = `${rimuoviSuffissoTaglia(nome)} - Tg. ${tagliaValore}`;
+            }
             const descrizione = document.getElementById('modificaDescrizione').value.trim();
 
             if (!nome) {
@@ -2885,7 +2907,7 @@
                 const datiAggiornati = {
                     nome: nome,
                     descrizione: descrizione || nome,
-                    categoria: document.getElementById('modificaCategoria').value || 'Componentistica',
+                    categoria: categoriaSelezionata,
                     
                     // Campi OPZIONALI schema originale
                     codice: codiceValore,
