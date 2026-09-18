@@ -268,6 +268,7 @@
                         <label class="block text-sm font-bold text-gray-700 mt-3 mb-2">Codici a barre secondari</label>
                         <textarea id="nuoviBarcodeSecondari" rows="2" class="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono no-uppercase" placeholder="Uno per riga o separati da virgola"></textarea>
                         <p class="text-xs text-gray-400 mt-1">Per confezioni diverse dello stesso prodotto</p>
+                        <p id="nuovoBarcodeNotaVestiario" class="hidden text-xs text-purple-700 mt-1 font-semibold"><i class="fas fa-info-circle mr-1"></i>Vestiario: i barcode qui sopra vengono ignorati, inseriscili per ogni taglia nella finestra Taglie.</p>
                         <!-- Seriale -->
                         <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
                             <input type="checkbox" id="nuovoHaSeriale" class="w-4 h-4 accent-purple-600 cursor-pointer">
@@ -293,7 +294,7 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
                         <div class="relative">
-                            <select id="nuovoCategoria" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl appearance-none bg-white cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition outline-none">
+                            <select id="nuovoCategoria" onchange="onNuovoCategoriaChange()" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl appearance-none bg-white cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition outline-none">
                                 <option value="Componentistica">Componentistica</option>
                                 <option value="Materiali">Materiali</option>
                                 <option value="Accessori">Accessori</option>
@@ -309,12 +310,23 @@
                                 <option value="Servizi">Servizi</option>
                                 <option value="SIM">SIM</option>
                                 <option value="UPS">UPS</option>
+                                <option value="Vestiario">Vestiario</option>
                                 <option value="Videosorveglianza">Videosorveglianza</option>
                             </select>
                             <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-400 text-xs"></i>
                         </div>
                     </div>
-                    <div>
+                    <div id="nuovoTaglieBox" class="hidden col-span-2 bg-purple-50 border-2 border-purple-200 rounded-xl p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-sm font-bold text-purple-800"><i class="fas fa-tshirt mr-1"></i>Taglie vestiario</span>
+                            <button type="button" onclick="apriTaglieModal()" class="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">
+                                <i class="fas fa-pen mr-1"></i>Modifica taglie
+                            </button>
+                        </div>
+                        <div id="nuovoTaglieRiepilogo" class="mt-2 flex flex-wrap gap-1.5 text-sm"></div>
+                        <p class="text-xs text-purple-700 mt-2">Verrà creato un prodotto separato per ogni taglia (es. "Giacca - Tg. L", "Giacca - Tg. XL").</p>
+                    </div>
+                    <div id="nuovoGiacenzaBox">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Giacenza Iniziale</label>
                         <input type="number" id="nuovoGiacenza" value="0" step="1" class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition outline-none">
                     </div>
@@ -397,6 +409,29 @@
         </div>
     </div>
 
+    <!-- Modal Taglie Vestiario -->
+    <div id="taglieModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[80] flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" style="scrollbar-width:none;-ms-overflow-style:none">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 rounded-t-2xl sticky top-0">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-tshirt mr-2"></i>Taglie vestiario</h3>
+                <p class="text-purple-100 text-sm mt-1">Seleziona le taglie e indica i pezzi per ciascuna: ogni taglia diventa un prodotto distinto.</p>
+            </div>
+            <div class="p-5">
+                <div class="flex flex-wrap gap-2 mb-3" id="taglieStandardChips"></div>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="tagliaCustomInput" class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm uppercase focus:ring-2 focus:ring-purple-400 outline-none" placeholder="Altra taglia (es. 44, 3XL, 42 scarpe)" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiTagliaCustom();}">
+                    <button type="button" onclick="aggiungiTagliaCustom()" class="px-3 py-2 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-900"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="taglieRighe" class="space-y-2"></div>
+                <p id="taglieVuoto" class="text-sm text-gray-400 text-center py-4">Nessuna taglia selezionata</p>
+                <div class="flex space-x-3 mt-5">
+                    <button type="button" onclick="chiudiTaglieModal(false)" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">Annulla</button>
+                    <button type="button" onclick="chiudiTaglieModal(true)" class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-bold hover:shadow-lg"><i class="fas fa-check mr-2"></i>Conferma</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Modifica Prodotto -->
     <div id="modificaProdottoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="scrollbar-width:none;-ms-overflow-style:none">
@@ -474,6 +509,7 @@
                                 <option value="Servizi">Servizi</option>
                                 <option value="SIM">SIM</option>
                                 <option value="UPS">UPS</option>
+                                <option value="Vestiario">Vestiario</option>
                                 <option value="Videosorveglianza">Videosorveglianza</option>
                             </select>
                             <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400 text-xs"></i>
@@ -1177,6 +1213,10 @@
         let fornitori = []; // Lista fornitori per select
         let nuovoFornitoriSecondari = [];
         let modificaFornitoriSecondari = [];
+        let nuovoTaglie = []; // [{ taglia, giacenza, barcode }] per categoria Vestiario
+        let taglieBozza = [];
+        let categoriaPrecedenteNuovo = 'Componentistica';
+        const TAGLIE_STANDARD = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
         // Inizializzazione
         async function init() {
@@ -2357,6 +2397,9 @@
             document.getElementById('nuovoPrezzoAcquisto').value = '';
             document.getElementById('nuovoUM').value = 'pz';
             document.getElementById('nuovoCategoria').value = 'Componentistica';
+            categoriaPrecedenteNuovo = 'Componentistica';
+            nuovoTaglie = [];
+            renderTaglieRiepilogo();
             document.getElementById('nuovoFornitoreId').value = '';
             nuovoFornitoriSecondari = [];
             renderFornitoriSecondari('nuovo');
@@ -2374,6 +2417,119 @@
             resetNuovoProdottoForm();
             document.querySelector('#nuovoProdottoModal h3').textContent = 'Nuovo Prodotto';
             document.getElementById('nuovoProdottoModal').classList.remove('hidden');
+        }
+
+        // ========================================
+        // TAGLIE VESTIARIO
+        // ========================================
+        function onNuovoCategoriaChange() {
+            const categoria = document.getElementById('nuovoCategoria').value;
+            if (categoria === 'Vestiario') {
+                apriTaglieModal();
+            } else {
+                categoriaPrecedenteNuovo = categoria;
+                nuovoTaglie = [];
+                renderTaglieRiepilogo();
+            }
+        }
+
+        function normalizzaTaglia(valore) {
+            return String(valore || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        }
+
+        function apriTaglieModal() {
+            taglieBozza = nuovoTaglie.map(t => ({ ...t }));
+            document.getElementById('tagliaCustomInput').value = '';
+            renderTaglieModal();
+            document.getElementById('taglieModal').classList.remove('hidden');
+        }
+
+        function chiudiTaglieModal(conferma) {
+            if (conferma) {
+                const valide = taglieBozza.filter(t => t.taglia);
+                if (!valide.length) {
+                    showErrorModal('Nessuna taglia', 'Seleziona almeno una taglia oppure annulla');
+                    return;
+                }
+                nuovoTaglie = valide.map(t => ({
+                    taglia: normalizzaTaglia(t.taglia),
+                    giacenza: Math.max(0, parseInt(t.giacenza, 10) || 0),
+                    barcode: String(t.barcode || '').trim()
+                }));
+                categoriaPrecedenteNuovo = 'Vestiario';
+            } else if (!nuovoTaglie.length) {
+                // Annullato senza taglie: torna alla categoria precedente
+                document.getElementById('nuovoCategoria').value = categoriaPrecedenteNuovo;
+            }
+            renderTaglieRiepilogo();
+            document.getElementById('taglieModal').classList.add('hidden');
+        }
+
+        function toggleTagliaStandard(taglia) {
+            const idx = taglieBozza.findIndex(t => t.taglia === taglia);
+            if (idx >= 0) taglieBozza.splice(idx, 1);
+            else taglieBozza.push({ taglia, giacenza: 0, barcode: '' });
+            renderTaglieModal();
+        }
+
+        function aggiungiTagliaCustom() {
+            const input = document.getElementById('tagliaCustomInput');
+            const taglia = normalizzaTaglia(input.value);
+            if (!taglia) return;
+            if (taglieBozza.some(t => t.taglia === taglia)) {
+                input.value = '';
+                return;
+            }
+            taglieBozza.push({ taglia, giacenza: 0, barcode: '' });
+            input.value = '';
+            renderTaglieModal();
+        }
+
+        function rimuoviTagliaBozza(index) {
+            taglieBozza.splice(index, 1);
+            renderTaglieModal();
+        }
+
+        function aggiornaTagliaBozza(index, campo, valore) {
+            if (!taglieBozza[index]) return;
+            taglieBozza[index][campo] = valore;
+        }
+
+        function renderTaglieModal() {
+            const ordine = t => {
+                const i = TAGLIE_STANDARD.indexOf(t.taglia);
+                return i >= 0 ? i : 100 + (parseFloat(t.taglia) || 0);
+            };
+            taglieBozza.sort((a, b) => ordine(a) - ordine(b) || a.taglia.localeCompare(b.taglia));
+
+            document.getElementById('taglieStandardChips').innerHTML = TAGLIE_STANDARD.map(taglia => {
+                const attiva = taglieBozza.some(t => t.taglia === taglia);
+                return `<button type="button" onclick="toggleTagliaStandard('${taglia}')" class="px-3 py-1.5 rounded-full text-sm font-bold border-2 transition ${attiva ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300'}">${taglia}</button>`;
+            }).join('');
+
+            const righe = document.getElementById('taglieRighe');
+            document.getElementById('taglieVuoto').classList.toggle('hidden', taglieBozza.length > 0);
+            righe.innerHTML = taglieBozza.map((t, i) => `
+                <div class="grid grid-cols-[3.5rem_5rem_1fr_2rem] gap-2 items-center bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <span class="font-bold text-purple-700 text-center">${escapeHtmlTaglia(t.taglia)}</span>
+                    <input type="number" min="0" step="1" value="${parseInt(t.giacenza, 10) || 0}" oninput="aggiornaTagliaBozza(${i},'giacenza',this.value)" class="px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm text-center focus:ring-2 focus:ring-purple-400 outline-none" title="Pezzi" placeholder="Pz">
+                    <input type="text" value="${escapeHtmlTaglia(t.barcode || '')}" oninput="aggiornaTagliaBozza(${i},'barcode',this.value)" class="px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-mono no-uppercase focus:ring-2 focus:ring-purple-400 outline-none" placeholder="Barcode/EAN taglia (opz.)">
+                    <button type="button" onclick="rimuoviTagliaBozza(${i})" class="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600" title="Rimuovi"><i class="fas fa-times"></i></button>
+                </div>`).join('');
+        }
+
+        function escapeHtmlTaglia(valore) {
+            return String(valore).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function renderTaglieRiepilogo() {
+            const attivo = document.getElementById('nuovoCategoria').value === 'Vestiario' && nuovoTaglie.length > 0;
+            document.getElementById('nuovoTaglieBox').classList.toggle('hidden', !attivo);
+            document.getElementById('nuovoGiacenzaBox').classList.toggle('hidden', attivo);
+            document.getElementById('nuovoBarcodeNotaVestiario').classList.toggle('hidden', !attivo);
+            document.getElementById('nuovoTaglieRiepilogo').innerHTML = nuovoTaglie.map(t =>
+                `<span class="px-2.5 py-1 rounded-full bg-white border border-purple-200 text-purple-800 font-semibold">${escapeHtmlTaglia(t.taglia)} <span class="text-purple-500 font-normal">×${t.giacenza}</span></span>`
+            ).join('');
         }
 
         // Duplica prodotto esistente
@@ -2394,6 +2550,7 @@
             document.getElementById('nuovoCodice').value = codiceNuovo;
             document.getElementById('nuovoUM').value = p.um || p.unita_misura || 'pz';
             document.getElementById('nuovoCategoria').value = p.categoria || 'Componentistica';
+            categoriaPrecedenteNuovo = document.getElementById('nuovoCategoria').value;
             document.getElementById('nuovoPrezzoAcquisto').value = p.prezzo_acquisto || p.prezzo_unitario || '';
             document.getElementById('nuovoGiacenzaMin').value = p.giacenza_minima || 0;
             document.getElementById('nuovoGiacenza').value = 0; // giacenza a 0 per il duplicato
@@ -2445,10 +2602,37 @@
                 return;
             }
 
-            const barcodeDuplicato = trovaBarcodeGiaUsato(barcode, barcodeSecondari);
-            if (barcodeDuplicato) {
-                showErrorModal('Barcode già utilizzato', `Il codice ${barcodeDuplicato} appartiene già a un altro prodotto`);
+            const categoriaValore = document.getElementById('nuovoCategoria').value || 'Componentistica';
+            const isVestiario = categoriaValore === 'Vestiario';
+
+            if (isVestiario && !nuovoTaglie.length) {
+                apriTaglieModal();
                 return;
+            }
+
+            if (isVestiario) {
+                // Ogni taglia è un prodotto: i barcode vanno controllati per taglia e tra loro
+                const visti = new Set();
+                for (const t of nuovoTaglie) {
+                    if (!t.barcode) continue;
+                    const chiave = t.barcode.toLowerCase();
+                    if (visti.has(chiave)) {
+                        showErrorModal('Barcode duplicato', `Il codice ${t.barcode} è indicato su più taglie`);
+                        return;
+                    }
+                    visti.add(chiave);
+                    const usato = trovaBarcodeGiaUsato(t.barcode, []);
+                    if (usato) {
+                        showErrorModal('Barcode già utilizzato', `Il codice ${usato} (taglia ${t.taglia}) appartiene già a un altro prodotto`);
+                        return;
+                    }
+                }
+            } else {
+                const barcodeDuplicato = trovaBarcodeGiaUsato(barcode, barcodeSecondari);
+                if (barcodeDuplicato) {
+                    showErrorModal('Barcode già utilizzato', `Il codice ${barcodeDuplicato} appartiene già a un altro prodotto`);
+                    return;
+                }
             }
 
             try {
@@ -2457,19 +2641,25 @@
                 const umValore = document.getElementById('nuovoUM').value || 'pz';
                 const prezzoAcquisto = parseFloat(document.getElementById('nuovoPrezzoAcquisto').value) || 0;
                 const codiceValore = document.getElementById('nuovoCodice').value.trim() || null;
-                const categoriaValore = document.getElementById('nuovoCategoria').value || 'Componentistica';
                 const fornitoreId = document.getElementById('nuovoFornitoreId').value || null;
                 const fotoUrl = document.getElementById('nuovoFotoUrl').value || null;
                 const giacenzaMin = parseFloat(document.getElementById('nuovoGiacenzaMin').value) || 0;
-                
-                const nuovoProdotto = {
-                    nome: nome,
-                    descrizione: descrizione || nome,
+                const haSeriale = document.getElementById('nuovoHaSeriale').checked;
+
+                const fornitoriProdotto = fornitoreId ? [{
+                    fornitore_id: fornitoreId,
+                    prezzo_acquisto: prezzoAcquisto,
+                    principale: true
+                }, ...nuovoFornitoriSecondari] : nuovoFornitoriSecondari;
+
+                const costruisciRecord = ({ nomeRecord, codiceRecord, barcodeRecord, giacenzaRecord }) => ({
+                    nome: nomeRecord,
+                    descrizione: descrizione || nomeRecord,
                     categoria: categoriaValore,
-                    codice: codiceValore,
-                    barcode: barcode || null,
-                    quantita_disponibile: giacenzaValore,
-                    giacenza: giacenzaValore,
+                    codice: codiceRecord,
+                    barcode: barcodeRecord || null,
+                    quantita_disponibile: giacenzaRecord,
+                    giacenza: giacenzaRecord,
                     unita_misura: umValore,
                     um: umValore,
                     prezzo_unitario: prezzoAcquisto,
@@ -2480,42 +2670,65 @@
                     note: null,
                     stato: 'attivo',
                     foto_url: fotoUrl,
-                    ha_seriale: document.getElementById('nuovoHaSeriale').checked
+                    ha_seriale: haSeriale
+                });
+
+                const inserisciProdotto = async (record, secondari) => {
+                    const { data: prodottoCreato, error } = await supabase
+                        .from('components')
+                        .insert(record)
+                        .select('id')
+                        .single();
+                    if (error) throw error;
+
+                    const { error: barcodeError } = await supabase.rpc('set_component_secondary_barcodes', {
+                        p_component_id: prodottoCreato.id,
+                        p_barcodes: secondari
+                    });
+                    if (barcodeError) {
+                        await supabase.from('components').delete().eq('id', prodottoCreato.id);
+                        throw barcodeError;
+                    }
+
+                    const { error: fornitoriError } = await supabase.rpc('set_component_fornitori', {
+                        p_component_id: prodottoCreato.id,
+                        p_fornitori: fornitoriProdotto
+                    });
+                    if (fornitoriError) {
+                        await supabase.from('components').delete().eq('id', prodottoCreato.id);
+                        throw fornitoriError;
+                    }
+                    return prodottoCreato.id;
                 };
 
-                const { data: prodottoCreato, error } = await supabase
-                    .from('components')
-                    .insert(nuovoProdotto)
-                    .select('id')
-                    .single();
-
-                if (error) throw error;
-
-                const { error: barcodeError } = await supabase.rpc('set_component_secondary_barcodes', {
-                    p_component_id: prodottoCreato.id,
-                    p_barcodes: barcodeSecondari
-                });
-                if (barcodeError) {
-                    await supabase.from('components').delete().eq('id', prodottoCreato.id);
-                    throw barcodeError;
+                if (isVestiario) {
+                    const creati = [];
+                    try {
+                        for (const t of nuovoTaglie) {
+                            const id = await inserisciProdotto(costruisciRecord({
+                                nomeRecord: `${nome} - Tg. ${t.taglia}`,
+                                codiceRecord: codiceValore ? `${codiceValore}-${t.taglia}` : null,
+                                barcodeRecord: t.barcode,
+                                giacenzaRecord: t.giacenza
+                            }), []);
+                            creati.push(id);
+                        }
+                    } catch (err) {
+                        // Rollback delle taglie già create per non lasciare set parziali
+                        if (creati.length) await supabase.from('components').delete().in('id', creati);
+                        throw err;
+                    }
+                    showSuccessModal('Prodotti creati con successo!', `${nome}: ${nuovoTaglie.length} taglie (${nuovoTaglie.map(t => t.taglia).join(', ')}) aggiunte al magazzino`);
+                } else {
+                    await inserisciProdotto(costruisciRecord({
+                        nomeRecord: nome,
+                        codiceRecord: codiceValore,
+                        barcodeRecord: barcode,
+                        giacenzaRecord: giacenzaValore
+                    }), barcodeSecondari);
+                    showSuccessModal('Prodotto creato con successo!', `${nome} è stato aggiunto al magazzino`);
                 }
 
-                const fornitoriProdotto = fornitoreId ? [{
-                    fornitore_id: fornitoreId,
-                    prezzo_acquisto: prezzoAcquisto,
-                    principale: true
-                }, ...nuovoFornitoriSecondari] : nuovoFornitoriSecondari;
-                const { error: fornitoriError } = await supabase.rpc('set_component_fornitori', {
-                    p_component_id: prodottoCreato.id,
-                    p_fornitori: fornitoriProdotto
-                });
-                if (fornitoriError) {
-                    await supabase.from('components').delete().eq('id', prodottoCreato.id);
-                    throw fornitoriError;
-                }
-
-                // Mostra modal successo
-                showSuccessModal('Prodotto creato con successo!', `${nome} è stato aggiunto al magazzino`);
                 closeNuovoProdottoModal();
                 resetNuovoProdottoForm();
                 
