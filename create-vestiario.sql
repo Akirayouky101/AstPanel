@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.vestiario_assegnazioni (
     dipendente_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
     dipendente_nome VARCHAR(200),
     data_assegnazione DATE NOT NULL DEFAULT CURRENT_DATE,
-    stato VARCHAR(20) NOT NULL DEFAULT 'assegnato' CHECK (stato IN ('assegnato', 'restituito')),
+    stato VARCHAR(20) NOT NULL DEFAULT 'assegnato' CHECK (stato IN ('assegnato', 'restituito', 'danneggiato', 'eliminato')),
     note TEXT,
     created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
